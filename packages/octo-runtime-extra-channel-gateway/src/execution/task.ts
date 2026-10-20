@@ -50,6 +50,7 @@ export class ImTask {
   #recoveryTimer?: () => void;
   #replaySafe = true;
   #started = false;
+  #draining = false;
   stopReason?: string;
   constructor(
     readonly kernel: ImModuleDependencies["kernel"],
@@ -69,6 +70,14 @@ export class ImTask {
   /** reset 只阻止后续尝试，不把 reset 变成取消当前 Provider 执行。 */
   stopRetries(): void {
     this.#retryStop.abort();
+  }
+  /** owner stop 只取消执行和后续尝试；当前订阅须继续消费真实终态。 */
+  async drain(reason = "IM shutdown"): Promise<void> {
+    this.#draining = true;
+    this.stopRetries();
+    if (!this.#active) return;
+    this.#cancelPending ??= this.host.cancel(this.#active, reason);
+    await this.#cancelPending;
   }
   async cancel(reason = "IM user stop"): Promise<boolean> {
     this.#abort.abort(reason);
@@ -169,7 +178,7 @@ export class ImTask {
     );
     let request = this.request;
     try {
-      while (!this.#signal.aborted) {
+      while (!this.#signal.aborted && !this.#draining) {
         const remaining = Math.ceil(deadline - this.time.now());
         if (remaining < 100) {
           this.#stop("IM_TASK_DEADLINE");

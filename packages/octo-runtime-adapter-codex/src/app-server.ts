@@ -54,7 +54,11 @@ import {
   type InteractionResponse,
   type NativeInteractionResponse
 } from "@mininglamp-oss/octo-runtime-protocol";
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import type { ChildProcessWithoutNullStreams } from "node:child_process";
+import {
+  spawnManaged,
+  managedCleanup
+} from "@mininglamp-oss/octo-runtime-adapter-sdk/managed-process";
 import { createHash } from "node:crypto";
 import { createInterface, type Interface as ReadLineInterface } from "node:readline";
 
@@ -2117,7 +2121,7 @@ function defaultSpawn(
   args: readonly string[],
   options: { cwd: string; env: NodeJS.ProcessEnv }
 ): ChildProcessWithoutNullStreams {
-  const child = spawn(command, [...args], {
+  const child = spawnManaged(command, [...args], {
     cwd: options.cwd,
     env: options.env,
     stdio: ["pipe", "pipe", "pipe"],
@@ -2131,6 +2135,11 @@ function defaultSpawn(
 const isolatedProcessGroups = new WeakSet<ChildProcessWithoutNullStreams>();
 
 function signalProcessTree(child: ChildProcessWithoutNullStreams, signal: NodeJS.Signals): void {
+  const cleanup = managedCleanup(child);
+  if (cleanup) {
+    void cleanup().catch(() => undefined);
+    return;
+  }
   if (isolatedProcessGroups.has(child) && child.pid !== undefined) {
     try {
       process.kill(-child.pid, signal);

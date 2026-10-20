@@ -53,11 +53,15 @@ export class InvocationManifest {
     return { manifest, reap };
   }
 
-  async setWorker(pid: number | undefined, entrypoint: string): Promise<void> {
+  async setWorker(
+    pid: number | undefined,
+    entrypoint: string,
+    creationIdentity?: string
+  ): Promise<void> {
     if (pid === undefined) {
       this.#worker = undefined;
     } else {
-      const started = await processStartIdentity(pid);
+      const started = creationIdentity ?? (await processStartIdentity(pid));
       if (!started) throw new Error(`cannot identify worker process ${pid}`);
       this.#worker = { pid, started, entrypoint };
     }

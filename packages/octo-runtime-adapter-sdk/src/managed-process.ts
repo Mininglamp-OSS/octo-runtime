@@ -1,4 +1,9 @@
-import { spawn, type ChildProcess, type SpawnOptions } from "node:child_process";
+import {
+  spawn,
+  type ChildProcess,
+  type ChildProcessWithoutNullStreams,
+  type SpawnOptions
+} from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -33,6 +38,18 @@ function ownerExecutable(): string {
 }
 
 /** 私有平台实现：数据通道直通目标；ChildProcess 始终代表实际 spawn 的 broker，不伪造 PID。 */
+export function spawnManaged(
+  command: string,
+  args: readonly string[],
+  options: SpawnOptions & { stdio: ["pipe", "pipe", "pipe"] | ["pipe", "pipe", "pipe", "ipc"] },
+  ownerGraceMs?: number
+): ChildProcessWithoutNullStreams;
+export function spawnManaged(
+  command: string,
+  args: readonly string[],
+  options?: SpawnOptions,
+  ownerGraceMs?: number
+): ChildProcess;
 export function spawnManaged(
   command: string,
   args: readonly string[],

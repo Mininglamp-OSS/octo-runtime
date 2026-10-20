@@ -9,7 +9,7 @@ status: planned
 
 # 开发顺序
 
-本轮规划完成后可按 M0 开始实施。下表均为待开发，不能将前一轮同 SHA 的 28 项通过记作新功能通过。
+已按用户授权开始实施。逐阶段的实际结果见[实施记录](implementation.md)，不能将旧版本结果记作新功能通过。
 两个缺陷分别保留回归和变更边界；共用此 worktree，不要求额外线程或并行 Agent。
 
 | 阶段 | 开发内容 | 必须交付的证据 | 退出条件 |
@@ -74,4 +74,8 @@ Windows 另运行 `verify-windows-release.mjs`，参数沿用脚本当时的实�
 - [x] 新 worktree 与基线固定。
 - [x] 现行规则、两条缺陷链路和原生 OS 机制核对。
 - [x] 设计、逐文件计划、故障矩阵、发行门禁及评分落文档。
-- [ ] M0–M5 产品实现与验收。
+- [x] M0 最小 broker 的 Node IPC/argv/leader退出/owner退出/被杀原生 Windows 机制通过。
+- [x] M1/M2 Gateway drain 与共享关闭预算已实现，受控与独立 runner 回归通过。
+- [x] M3 所有 owned launcher 接线完成，等待扩大后的 Windows 回归。
+- [ ] M4 最终实现的三平台 CI、打包与公开接口验证。
+- [ ] M5 真实 IM/Provider/桌面验收及知识回写。

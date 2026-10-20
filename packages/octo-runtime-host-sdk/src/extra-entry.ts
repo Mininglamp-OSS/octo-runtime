@@ -14,6 +14,8 @@ import { attachKernel, acquireEndpoint } from "@mininglamp-oss/octo-runtime-exec
 import { createDependencyProxy } from "./dependencies.js";
 import { processChannel } from "./process-channel.js";
 import { deadline } from "./launch.js";
+import { performance } from "node:perf_hooks";
+import { abortForShutdown, withShutdownDeadline } from "./shutdown.js";
 
 interface ExtraConfiguration {
   logging?: RuntimeLoggingOptions;
@@ -89,11 +91,14 @@ const stop = (requestId?: string): Promise<void> =>
       process.exit(process.exitCode ?? 1);
     }, 4500).unref();
     kernel?.invocations.stopAdmission();
-    owner.abort();
-    plugins?.stopAdmission();
+    const shutdownUntil = performance.now() + 4000;
+    withShutdownDeadline(shutdownUntil, () => {
+      abortForShutdown(owner);
+      plugins?.stopAdmission();
+    });
     proxy?.close();
     for (const socket of connections) socket.destroy();
-    const until = Date.now() + 4000;
+    const until = Date.now() + Math.max(0, Math.floor(shutdownUntil - performance.now()));
     const errors: unknown[] = [];
     const attempt = async (operation: () => void | Promise<void>) => {
       try {
@@ -110,22 +115,15 @@ const stop = (requestId?: string): Promise<void> =>
     await attempt(() => initialized);
     await Promise.all([
       attempt(async () => {
-        try {
-          if (kernel) {
-            const result = await kernel.invocations.drain({
-              deadline: until,
-              reason: "extra_shutdown"
-            });
-            if (!result.complete) throw new Error("EXTRA_RUN_CLEANUP_INCOMPLETE");
-          }
-        } finally {
-          try {
-            await plugins?.close();
-          } finally {
-            kernel?.close();
-          }
+        if (kernel) {
+          const result = await kernel.invocations.drain({
+            deadline: until,
+            reason: "extra_shutdown"
+          });
+          if (!result.complete) throw new Error("EXTRA_RUN_CLEANUP_INCOMPLETE");
         }
       }),
+      attempt(() => withShutdownDeadline(shutdownUntil, () => plugins?.close())),
       attempt(closeServer)
     ]);
     await attempt(() => kernel?.close());

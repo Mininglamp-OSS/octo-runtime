@@ -9,7 +9,10 @@ const output = fileURLToPath(
   new URL("../packages/octo-runtime-adapter-sdk/dist/native/", import.meta.url)
 );
 await mkdir(output, { recursive: true });
-const toolchain = execFileSync("go", ["version"], { encoding: "utf8" }).trim();
+const toolchain = "go1.25.14";
+const environment = { ...process.env, GOTOOLCHAIN: toolchain, GOTELEMETRY: "off" };
+const version = execFileSync("go", ["version"], { encoding: "utf8", env: environment }).trim();
+if (!version.startsWith(`go version ${toolchain} `)) throw new Error("Unexpected Go toolchain");
 const binaries = {};
 for (const architecture of ["amd64", "arm64"]) {
   const name = `windows-process-owner-${architecture}.exe`;
@@ -26,7 +29,7 @@ for (const architecture of ["amd64", "arm64"]) {
     ],
     {
       cwd: source,
-      env: { ...process.env, CGO_ENABLED: "0", GOOS: "windows", GOARCH: architecture }
+      env: { ...environment, CGO_ENABLED: "0", GOOS: "windows", GOARCH: architecture }
     }
   );
   binaries[name] = createHash("sha256")

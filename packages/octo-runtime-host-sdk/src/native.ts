@@ -1,4 +1,10 @@
-import { spawn } from "node:child_process";
+import type { ChildProcessByStdio } from "node:child_process";
+import type { Readable, Writable } from "node:stream";
+import {
+  spawnManaged,
+  managedIdentity,
+  managedCleanup
+} from "@mininglamp-oss/octo-runtime-adapter-sdk/managed-process";
 import { randomUUID } from "node:crypto";
 import { isAbsolute } from "node:path";
 import { once } from "node:events";
@@ -22,7 +28,7 @@ export async function startNativeComponent(options: NativeComponentOptions) {
     if (!isAbsolute(path)) throw new Error("COMPONENT_PATH_INVALID");
   if (options.argv.some((arg) => /^--(?:config|endpoint)(?:=|$)/.test(arg)))
     throw new Error("COMPONENT_RESERVED_ARGUMENT");
-  const child = spawn(
+  const child = spawnManaged(
     options.executable,
     [...options.argv, "--config", options.configPath, "--endpoint", options.endpoint],
     {
@@ -30,12 +36,14 @@ export async function startNativeComponent(options: NativeComponentOptions) {
       shell: false,
       stdio: ["pipe", "pipe", "ignore"],
       detached: process.platform !== "win32"
-    }
-  );
+    },
+    4500
+  ) as ChildProcessByStdio<Writable, Readable, null>;
   const cleanup = createProcessCleanup(child, {
     processGroup: process.platform !== "win32",
     processTree: true
   });
+  const exited = new Promise<void>((resolve) => child.once("exit", () => resolve()));
   let ack: { id: string; resolve(): void; reject(error: Error): void } | undefined;
   child.stdin.on("error", () => ack?.reject(new Error("COMPONENT_INPUT_CLOSED")));
   child.on("error", () => ack?.reject(new Error("COMPONENT_EXITED")));
@@ -76,8 +84,10 @@ export async function startNativeComponent(options: NativeComponentOptions) {
             );
             await deadline(pending, 5000, "COMPONENT_STOP_TIMEOUT");
           } else {
-            child.kill("SIGTERM");
-            await deadline(once(child, "exit"), 5000, "COMPONENT_STOP_TIMEOUT");
+            const owned = managedCleanup(child);
+            if (owned) await owned();
+            else child.kill("SIGTERM");
+            await deadline(exited, 5000, "COMPONENT_STOP_TIMEOUT");
           }
         } catch {
           errors.push({ component: options.executable, code: "COMPONENT_CLEANUP_INCOMPLETE" });
@@ -100,15 +110,17 @@ export async function startNativeComponent(options: NativeComponentOptions) {
         pendingResources: errors.length ? ["native"] : []
       };
     })());
+  let pid: number;
   try {
     await deadline(once(child, "spawn"), 5000, "COMPONENT_START_TIMEOUT");
+    pid = (await managedIdentity(child)).pid;
     if (options.readiness === "ipc") {
       const until = Date.now() + 30_000;
       while (true) {
         if (child.exitCode !== null || child.signalCode !== null)
           throw new Error("COMPONENT_EXITED");
         try {
-          await nativeStatus(options.endpoint, child.pid!);
+          await nativeStatus(options.endpoint, pid);
           break;
         } catch (error) {
           if (error instanceof Error && error.message === "COMPONENT_IDENTITY_MISMATCH")
@@ -121,7 +133,7 @@ export async function startNativeComponent(options: NativeComponentOptions) {
   } catch (error) {
     throw new ComponentStartError(error, await stop());
   }
-  return { ownership: "owned" as const, pid: child.pid!, stop };
+  return { ownership: "owned" as const, pid, stop };
 }
 async function nativeStatus(endpoint: string, pid: number): Promise<void> {
   await new Promise<void>((resolve, reject) => {

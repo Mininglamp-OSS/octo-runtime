@@ -4,10 +4,10 @@ import {
   managedIdentity
 } from "../../packages/octo-runtime-adapter-sdk/dist/managed-process.js";
 
-if (process.argv[2] === "owner") {
+if (["owner", "blocked-owner"].includes(process.argv[2])) {
   const child = spawnManaged(
     process.execPath,
-    [import.meta.filename, "target"],
+    [import.meta.filename, process.argv[2] === "blocked-owner" ? "blocked-target" : "target"],
     {
       stdio: ["ignore", "pipe", "pipe", "ipc"]
     },
@@ -28,11 +28,20 @@ if (process.argv[2] === "owner") {
     else process.send?.({ echo: message });
   });
   process.once("disconnect", () => process.exit(0));
-  process.send?.({
-    pid: process.pid,
-    descendant: child.pid,
-    args: process.argv.slice(3),
-    cwd: process.cwd(),
-    env: process.env.OCTO_TEST_OWNER
-  });
+  process.send?.(
+    {
+      pid: process.pid,
+      descendant: child.pid,
+      args: process.argv.slice(3),
+      cwd: process.cwd(),
+      env: process.env.OCTO_TEST_OWNER
+    },
+    () => {
+      if (process.argv[2] === "blocked-target") {
+        while (true) {
+          /* 模拟无法调度 disconnect/dispose 的同步阻塞插件。 */
+        }
+      }
+    }
+  );
 }

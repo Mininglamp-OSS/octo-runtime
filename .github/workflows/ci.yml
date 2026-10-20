@@ -55,7 +55,7 @@ jobs:
       - name: Install Go for native component fixture
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
-          go-version: "1.25.x"
+          go-version: "1.25.14"
           cache: false
       - name: Install naming-check prerequisite
         shell: bash
@@ -134,14 +134,14 @@ jobs:
       - name: Install Go for Windows process ownership
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
-          go-version: "1.25.x"
+          go-version: "1.25.14"
           cache: false
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Build release package
         run: pnpm build
-      - name: Verify Windows process ownership prototype
-        run: node --test test/windows-process-owner.test.js
+      - name: Verify Windows process ownership
+        run: node --test test/windows-process-owner.test.js test/process-group-cleanup.test.js test/codex-process-cleanup.test.js test/gateway-shutdown-drain.test.js test/gateway-runner-drain.test.js test/im-extra-disposal.test.js test/im-task-retry.test.js
       - name: Verify Core, Kernel and independent Extra lifecycle on Windows
         run: node --test test/executor-core.test.js test/executor-cleanup-budget.test.js test/native-cleanup.test.js test/zcode-cleanup.test.js test/kernel-clients.test.js test/kernel-invoke.test.js test/kernel-invoke-lifecycle.test.js test/kernel-invoke-consumers.test.js test/kernel-worker-supervision.test.js test/host-sdk-lifecycle.test.js test/extra-dependency-proxy.test.js test/kernel-ipc-contract.test.js test/cli-components.test.js test/component-startup.test.js test/extra-startup.test.js test/native-startup.test.js
       - name: Pack single distribution

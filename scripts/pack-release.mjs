@@ -3,11 +3,13 @@ import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
+import { verifyWindowsOwnerResources } from "./windows-owner-resources.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const readManifest = async (directory) =>
   JSON.parse(await readFile(join(directory, "package.json"), "utf8"));
 const manifest = await readManifest(root);
+await verifyWindowsOwnerResources(join(root, "packages/octo-runtime-adapter-sdk/dist/native"));
 const arguments_ = process.argv.slice(2);
 if (arguments_.length !== 0 && (arguments_.length !== 2 || arguments_[0] !== "--version")) {
   throw new Error("用法：node scripts/pack-release.mjs [--version X.Y.Z]");

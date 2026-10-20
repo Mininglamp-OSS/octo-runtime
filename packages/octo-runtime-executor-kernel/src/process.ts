@@ -1,5 +1,9 @@
 import { createProcessCleanup } from "@mininglamp-oss/octo-runtime-adapter-sdk/process-cleanup";
-import { spawn, type ChildProcess, type ChildProcessByStdio } from "node:child_process";
+import { type ChildProcess, type ChildProcessByStdio } from "node:child_process";
+import {
+  spawnManaged,
+  managedIdentity
+} from "@mininglamp-oss/octo-runtime-adapter-sdk/managed-process";
 import type { Readable, Writable } from "node:stream";
 import type { HostedAdapterMetadata } from "./index.js";
 import { WorkerRpcClient } from "./rpc.js";
@@ -46,7 +50,7 @@ export async function spawnWorker({
     throw new Error("adapter-host readyTimeoutMs must be positive");
   }
   // 跨进程只传程序入口及可选文件路径，不序列化 Adapter 实例或工厂函数。
-  const child = spawn(
+  const child = spawnManaged(
     process.execPath,
     [entrypoint, ...(manifest ? ["--manifest", manifest] : [])],
     {
@@ -75,6 +79,7 @@ export async function spawnWorker({
   child.on("error", (error) => client.close(error));
   let adapters: HostedAdapterMetadata[];
   try {
+    await managedIdentity(child);
     await onSpawn?.(child);
     adapters = await waitForReady(client.list(), readyTimeoutMs, signal);
   } catch (error) {

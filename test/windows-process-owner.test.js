@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { fork } from "node:child_process";
+import { fork, spawn } from "node:child_process";
+import { createInterface } from "node:readline";
 import { once } from "node:events";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -81,19 +82,21 @@ test("Windows Job returns raw target stdout and confirms repeated cleanup", wind
   assert.equal(alive(identity.pid), false);
 });
 
-for (const kill of ["owner", "broker"]) {
+for (const kill of ["owner", "broker", "blocked-owner"]) {
   test(
     `Windows Job reclaims the target and descendants after ${kill} exits`,
     windows,
     async (t) => {
-      const owner = fork(fixture, ["owner"], { stdio: ["ignore", "ignore", "pipe", "ipc"] });
+      const owner = fork(fixture, [kill === "blocked-owner" ? kill : "owner"], {
+        stdio: ["ignore", "ignore", "pipe", "ipc"]
+      });
       const exited = once(owner, "exit");
       t.after(() => {
         if (owner.exitCode === null && owner.signalCode === null) owner.kill("SIGKILL");
       });
       const [identity] = await once(owner, "message");
       assert.equal(alive(identity.descendant), true);
-      if (kill === "owner") {
+      if (kill !== "broker") {
         owner.send("exit");
         await exited;
       } else process.kill(identity.broker, "SIGKILL");
@@ -112,3 +115,68 @@ test("Windows Job fails closed for a missing executable", windows, async () => {
     /PROCESS_TREE_CLEANUP_INCOMPLETE|WINDOWS_PROCESS_START_FAILED/
   );
 });
+
+test("Windows target cannot run before the parent resumes its assigned Job", windows, async () => {
+  const child = spawn(
+    resolve(
+      `packages/octo-runtime-adapter-sdk/dist/native/windows-process-owner-${process.arch === "arm64" ? "arm64" : "amd64"}.exe`
+    ),
+    [],
+    {
+      stdio: ["ignore", "pipe", "pipe", "ipc", "overlapped"]
+    }
+  );
+  const closed = once(child, "close");
+  const control = child.stdio[4];
+  const lines = createInterface({ input: control });
+  const events = lines[Symbol.asyncIterator]();
+  const send = (value) => control.write(`${JSON.stringify(value)}\n`);
+  send({
+    type: "launch",
+    command: process.execPath,
+    args: ["-e", "console.log('must-not-run')"],
+    owner: process.pid,
+    grace_ms: 0
+  });
+  const challenge = JSON.parse((await events.next()).value);
+  assert.equal(challenge.type, "challenge");
+  send({ type: "owner", nonce: challenge.nonce });
+  const identity = JSON.parse((await events.next()).value);
+  assert.equal(identity.type, "started");
+  let output = "";
+  child.stdout.on("data", (chunk) => (output += chunk));
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.equal(output, "");
+  assert.equal(alive(identity.pid), true);
+  send({ type: "reject-resume" });
+  assert.equal((await closed)[0], 125);
+  assert.equal(output, "");
+  assert.equal(alive(identity.pid), false);
+});
+
+test(
+  "Windows parallel ownership cleanup reclaims 100 targets and preserves a sibling",
+  { ...windows, timeout: 60000 },
+  async (t) => {
+    const sentinel = spawn(process.execPath, ["-e", "setInterval(()=>{},1000)"], {
+      stdio: "ignore"
+    });
+    t.after(() => sentinel.kill("SIGKILL"));
+    const identities = [];
+    for (let batch = 0; batch < 10; batch++) {
+      await Promise.all(
+        Array.from({ length: 10 }, async () => {
+          const child = spawnManaged(process.execPath, ["-e", "setInterval(()=>{},1000)"]);
+          const closed = once(child, "close");
+          const identity = await managedIdentity(child);
+          identities.push(identity);
+          await Promise.all([managedCleanup(child)(), managedCleanup(child)()]);
+          await closed;
+          assert.equal(alive(identity.pid), false);
+        })
+      );
+      assert.equal(alive(sentinel.pid), true);
+    }
+    assert.equal(identities.length, 100);
+  }
+);

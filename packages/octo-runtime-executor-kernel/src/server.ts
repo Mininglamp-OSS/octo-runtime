@@ -110,7 +110,8 @@ export async function startKernelServer(options: KernelServerOptions, signal?: A
   let manifest: InvocationManifest | undefined;
   const worker = new WorkerSupervisor(
     { entrypoint: options.workerEntrypoint, manifest: options.manifest, env: options.env },
-    (pid) => manifest?.setWorker(pid, options.workerEntrypoint) ?? Promise.resolve()
+    (pid, started) =>
+      manifest?.setWorker(pid, options.workerEntrypoint, started) ?? Promise.resolve()
   );
   const configure = (input: InvokeInput) => {
     const type = contextItem(input.contexts, "octo.execution", "adapter")?.payload.type;

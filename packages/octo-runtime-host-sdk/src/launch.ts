@@ -1,4 +1,8 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import type { ChildProcess } from "node:child_process";
+import {
+  spawnManaged,
+  managedIdentity
+} from "@mininglamp-oss/octo-runtime-adapter-sdk/managed-process";
 import { mkdtemp, chmod, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -54,12 +58,17 @@ export async function launchNode(
     await rm(directory, { recursive: true, force: true });
     throw error;
   }
-  const child = spawn(process.execPath, [entrypoint, "--config", file], {
-    stdio: ["ignore", "ignore", "ignore", "ipc"],
-    // Windows 的非 detached 子进程随父进程被强杀，无法执行 IPC 断连回滚。
-    detached: true,
-    windowsHide: true
-  });
+  const child = spawnManaged(
+    process.execPath,
+    [entrypoint, "--config", file],
+    {
+      stdio: ["ignore", "ignore", "ignore", "ipc"],
+      // Windows 的非 detached 子进程随父进程被强杀，无法执行 IPC 断连回滚。
+      detached: true,
+      windowsHide: true
+    },
+    4500
+  );
   const exited = new Promise<void>((resolve) => {
     child.once("exit", () => resolve());
     child.once("error", () => resolve());
@@ -164,6 +173,7 @@ export async function launchNode(
   });
   try {
     onChild?.(child);
+    await managedIdentity(child);
     await deadline(Promise.race([ready, aborted]), 30_000, "COMPONENT_START_TIMEOUT");
   } catch (error) {
     const cleanup = await stop();
