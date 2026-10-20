@@ -1,0 +1,62 @@
+task: gateway-drain-windows-cleanup
+date: 2026-10-20
+status: planned
+initial_baseline: 6f5f25f97ec4b2ca879ac78ca2990ee2019f9eeb
+baseline: fae6333632010602506774b0648b639b70d25e22
+branch: plan/gateway-drain-windows-cleanup
+worktree: /Users/lvsijia/github.com/Mininglamp-OSS/octo-runtime-gateway-drain-windows-cleanup
+related_issues: [30, 14, 47, 48, 50, 57, 65, 66]
+rules_read:
+  - {path: .octospec/rules/architecture.md, id: runtime-architecture}
+  - {path: .octospec/rules/protocol-design.md, id: runtime-protocol-design}
+  - {path: .octospec/rules/extras.md, id: runtime-extras}
+  - {path: .octospec/rules/runtime-lifecycle.md, id: runtime-lifecycle}
+  - {path: .octospec/rules/local-execution.md, id: runtime-local-execution}
+  - {path: .octospec/rules/output-protocol.md, id: runtime-output-protocol}
+  - {path: .octospec/rules/channel-integration.md, id: runtime-channel}
+  - {path: .octospec/rules/session-reset.md, id: runtime-session-reset}
+  - {path: .octospec/rules/engineering.md, id: runtime-engineering}
+  - {path: .octospec/rules/collaboration.md, id: commit}
+sources_read:
+  - AGENTS.md
+  - .octospec/index.md
+  - .octospec/rules/_index.yaml
+  - .octospec/tasks/_brief.template.md
+  - .octospec/tasks/executor-kernel-host-lifecycle/design.md
+  - .octospec/tasks/executor-kernel-host-lifecycle/implementation.md
+  - .octospec/tasks/executor-kernel-host-lifecycle/assessment.md
+  - packages/octo-runtime-extra-channel-gateway/src/application/im-channel.ts
+  - packages/octo-runtime-extra-channel-gateway/src/lifecycle/manager.ts
+  - packages/octo-runtime-extra-channel-gateway/src/execution/task.ts
+  - packages/octo-runtime-host-sdk/src/extra-port.ts
+  - packages/octo-runtime-host-sdk/src/extra-entry.ts
+  - packages/octo-runtime-host-sdk/src/extras.ts
+  - packages/octo-runtime-host-sdk/src/launch.ts
+  - packages/octo-runtime-adapter-sdk/src/process-cleanup.ts
+external_sources:
+  - https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects
+  - https://learn.microsoft.com/en-us/windows/win32/procthread/nested-jobs
+  - https://learn.microsoft.com/en-us/windows/win32/procthread/process-creation-flags
+  - https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessw
+  - https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-jobobject_basic_accounting_information
+  - https://github.com/nodejs/node/blob/v24.19.0/deps/uv/src/win/process.c
+  - https://github.com/nodejs/node/blob/v24.19.0/deps/uv/src/win/process-stdio.c
+decisions:
+  - 规划阶段用户授权新worktree与Octospec开发计划；后续授权英文提交、推送、创建PR和合并，交付范围仍仅规划。
+  - 用户已澄清与55无关；PR关联30/14，未完成的修复与更广的平台验收不能记为已交付。
+  - 最新origin/main已fetch并固定；原main工作区不修改。
+  - App创建worktree工具因聊天根目录不是Git仓库失败；改用git worktree add。App attachment不接受非managed checkout，Git worktree已实际建立且可用。
+  - 使用technical-writing-zh技能整理中文合同；OSS远端issue/PR/commit仍遵循用户英文约定。
+  - Gateway采用内部有界drain，保持ctx.signal和普通caller取消合同，不修改通用createInputInvoke以绕过finally。
+  - Windows选择私有Go Win32 Job broker，挂起创建后先关联再恢复；M0先证明Node IPC透明接线与父先退回收。
+  - 评分95为工程自评；保留5分具体风险，不代表实现或Windows真机通过。
+  - 会话存储工厂、公共Extra API重构、Go执行IPC client与Loop均不纳入；接触文件与65/66显式协调。
+  - 提交PR前按用户要求rebase最新main@fae6333；保留上游GROUP.md任务索引，重读Channel/session规则并将rulesContext代次保护纳入G03。
+validation:
+  baseline_okf: 246 units, 20 rules, 1548 local links; passed using uv with pyyaml
+  initial_plan_okf: 252 units, 20 rules, 1573 local links; passed using uv with pyyaml
+  final_okf: 255 units, 20 rules, 1595 local links; passed after rebase using uv with pyyaml
+  diff_check: passed
+  plan_matrix: verified 6 stages, 15 file mappings, 24 acceptance cases; self-assessment 95 of 100
+  product_tests_this_turn: not_run_planning_only
+  native_windows_this_turn: not_run
