@@ -49,6 +49,8 @@
 
 ## 当前任务
 
+- [Gateway关闭收尾与Windows后代回收](tasks/gateway-drain-windows-cleanup/brief.md)：分支`plan/gateway-drain-windows-cleanup`已rebase至main@fae6333；[M0–M5计划](tasks/gateway-drain-windows-cleanup/plan.md)、[关闭与Job设计](tasks/gateway-drain-windows-cleanup/design.md)、[24项验收](tasks/gateway-drain-windows-cleanup/acceptance.md)及[95分评估](tasks/gateway-drain-windows-cleanup/assessment.md)已形成。当前仅规划，Windows原生机制、产品修复和业务验收均待实施；[本轮记录](journal/shared/2026-10-20-gateway-drain-windows-cleanup-plan.md)。
+
 - [GROUP.md 更新事件与本地规则游标（Issue #54/#55）](tasks/group-md-refresh-cursor/brief.md)：基于 `main@6f5f25f`，分支 `fix/group-md-refresh-cursor`。通知分流后只使现有 binding 的单个 rulesContext 字段失效，普通请求按版本决定携带；成功后条件确认，/new 复用 /reset，同轮恢复使用已有备用输入。已实现，自动化通过；线上多 Bot/真实 Provider 待联验，见[验证记录](journal/shared/2026-10-20-group-md-refresh-cursor.md)。
 
 - [ExecutorKernel 与 HostApp 独立生命周期](tasks/executor-kernel-host-lifecycle/brief.md)：基于 main@6fb8ca5，分支 feat/executor-kernel-host-lifecycle；联合处理 #47/#48/#43/#49。M0–M5 已落地本地实现，旧 daemon 无兼容层；[实施记录](tasks/executor-kernel-host-lifecycle/implementation.md)区分自动化通过与待验项，[架构文档对齐](tasks/executor-kernel-host-lifecycle/architecture-alignment.md)记录内容修正和线上来源读取状态。[M0–M6计划](tasks/executor-kernel-host-lifecycle/plan.md)、[接口合同](tasks/executor-kernel-host-lifecycle/design.md)和[32项验收](tasks/executor-kernel-host-lifecycle/acceptance.md)继续作为目标；96 分仅是方案可执行性评分。

@@ -1,5 +1,9 @@
 # 工程知识变更记录
 
+## 2026-10-20
+
+- 从最新 `origin/main@6f5f25f` 新建独立 worktree 和 `plan/gateway-drain-windows-cleanup` 分支，形成[Gateway 收尾与 Windows 后代回收计划](tasks/gateway-drain-windows-cleanup/brief.md)：M0–M5、15 项逐文件安排、24 项验收，以及 95/100 工程自评。先验证 Gateway 尾流与 Windows Job/Node IPC 机制，再实施；公共 SDK 与独立 Kernel/Extra 架构不变。本轮仅规划，未修改产品代码或创建提交，见[记录](journal/shared/2026-10-20-gateway-drain-windows-cleanup-plan.md)。
+
 ## 2026-10-19
 
 - [历史 Gitleaks 告警处置（Issue #22）](tasks/gitleaks-history-triage/brief.md)：45 条误报已核验并添加精确历史例外，19 条新增 canary 被拦截；完整历史与 PR 模式验证通过，见[验证记录](journal/shared/2026-10-19-gitleaks-history-triage.md)。
