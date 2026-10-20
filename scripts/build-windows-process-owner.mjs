@@ -13,6 +13,8 @@ const toolchain = "go1.25.14";
 const environment = { ...process.env, GOTOOLCHAIN: toolchain, GOTELEMETRY: "off" };
 const version = execFileSync("go", ["version"], { encoding: "utf8", env: environment }).trim();
 if (!version.startsWith(`go version ${toolchain} `)) throw new Error("Unexpected Go toolchain");
+const goroot = execFileSync("go", ["env", "GOROOT"], { encoding: "utf8", env: environment }).trim();
+await writeFile(join(output, "LICENSE.go"), await readFile(join(goroot, "LICENSE")));
 const binaries = {};
 for (const architecture of ["amd64", "arm64"]) {
   const name = `windows-process-owner-${architecture}.exe`;

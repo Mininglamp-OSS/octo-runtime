@@ -44,6 +44,7 @@ export async function startNativeComponent(options: NativeComponentOptions) {
     processTree: true
   });
   const exited = new Promise<void>((resolve) => child.once("exit", () => resolve()));
+  const closed = new Promise<void>((resolve) => child.once("close", () => resolve()));
   let ack: { id: string; resolve(): void; reject(error: Error): void } | undefined;
   child.stdin.on("error", () => ack?.reject(new Error("COMPONENT_INPUT_CLOSED")));
   child.on("error", () => ack?.reject(new Error("COMPONENT_EXITED")));
@@ -97,6 +98,8 @@ export async function startNativeComponent(options: NativeComponentOptions) {
       }
       try {
         await cleanup();
+        // Job 清空确认可先于 broker 退出；等待 stdio 关闭后再报告进程清理事实。
+        await deadline(closed, 1000, "COMPONENT_CLOSE_TIMEOUT");
       } catch {
         errors.push({ component: options.executable, code: "PROCESS_CLEANUP_INCOMPLETE" });
       } finally {

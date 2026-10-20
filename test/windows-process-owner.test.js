@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { fork, spawn } from "node:child_process";
+import { execFile, fork, spawn } from "node:child_process";
 import { createInterface } from "node:readline";
 import { once } from "node:events";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -26,6 +26,21 @@ const alive = (pid) => {
     return false;
   }
 };
+const handleCount = () =>
+  new Promise((resolve, reject) => {
+    execFile(
+      "powershell.exe",
+      ["-NoProfile", "-NonInteractive", "-Command", `(Get-Process -Id ${process.pid}).HandleCount`],
+      { timeout: 10000 },
+      (error, stdout) => {
+        if (error) return reject(error);
+        const count = Number(stdout.trim());
+        if (!Number.isSafeInteger(count) || count < 1)
+          return reject(new Error("Invalid handle count"));
+        resolve(count);
+      }
+    );
+  });
 
 test(
   "Windows Job owns immediate descendants and preserves Node IPC, argv, env and cwd",
@@ -163,6 +178,7 @@ test(
     });
     t.after(() => sentinel.kill("SIGKILL"));
     const identities = [];
+    let warmedHandles;
     for (let batch = 0; batch < 10; batch++) {
       await Promise.all(
         Array.from({ length: 10 }, async () => {
@@ -176,7 +192,13 @@ test(
         })
       );
       assert.equal(alive(sentinel.pid), true);
+      if (batch === 0) warmedHandles = await handleCount();
     }
     assert.equal(identities.length, 100);
+    const remainingHandles = await handleCount();
+    t.diagnostic(
+      `Node handles after warmup=${warmedHandles}, after 100 launches=${remainingHandles}`
+    );
+    assert.ok(remainingHandles <= warmedHandles + 16, "owned launches retained Windows handles");
   }
 );

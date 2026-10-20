@@ -386,6 +386,7 @@ export class ImRuntime {
       );
     } catch {
       this.#diagnostic("IM_RULES_STATE_UNAVAILABLE");
+      if (this.#draining) this.#drainErrors.push(new Error("IM_RULES_STATE_UNAVAILABLE"));
     }
   }
   #receive(message: ImInboundMessage): void {
@@ -1108,7 +1109,7 @@ export class ImRuntime {
           .catch(() => undefined);
         this.#diagnostic("IM_EXECUTION_RESULT_UNKNOWN", request.runId);
         presentation?.update({ ...snapshot(), resultUnknown: true });
-      }
+      } else if (this.#draining) this.#drainErrors.push(new Error("IM_RUN_FINALIZATION_FAILED"));
     } finally {
       if (rulesEnabled)
         this.#finishRules(

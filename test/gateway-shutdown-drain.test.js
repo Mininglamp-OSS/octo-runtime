@@ -84,7 +84,7 @@ test("Gateway owner stop keeps accepted tail events and final delivery ahead of 
   assert.equal(saved.providerSession.sessionId, "last-provider-session");
 });
 
-for (const scenario of ["unknown", "delivery", "timeout"]) {
+for (const scenario of ["unknown", "delivery", "timeout", "rules", "binding", "presentation"]) {
   test(`Gateway drain reports ${scenario} failure and fences late work`, async (t) => {
     let callbacks,
       started = false,
@@ -97,9 +97,15 @@ for (const scenario of ["unknown", "delivery", "timeout"]) {
     });
     const store = new MemoryImSessionStore();
     t.mock.method(store, "save", function (key, binding) {
+      if (scenario === "binding" && binding.providerSession) throw new Error("test binding failed");
       saves++;
       return MemoryImSessionStore.prototype.save.call(this, key, binding);
     });
+    if (scenario === "rules")
+      t.mock.method(store, "patchRules", function (...args) {
+        if (started) throw new Error("test rules finalization failed");
+        return MemoryImSessionStore.prototype.patchRules.apply(this, args);
+      });
     t.mock.method(GatewayTransport.prototype, "start", async function () {
       callbacks = this.callbacks;
     });
@@ -134,13 +140,23 @@ for (const scenario of ["unknown", "delivery", "timeout"]) {
       messageId: "first",
       senderId: "sender",
       conversationId: "conversation",
-      conversationKind: "direct",
+      conversationKind: scenario === "rules" ? "group" : "direct",
       text: "run",
       buildContext: async () => ({ schema: "octo.context-envelope/v3", items: [] }),
       reply: async () => {
         replies++;
         if (scenario === "delivery") throw new Error("test delivery failed");
-      }
+      },
+      ...(scenario === "presentation"
+        ? {
+            beginPresentation: () => ({
+              update(value) {
+                if (value.terminal) throw new Error("test terminal presentation failed");
+              },
+              async finish() {}
+            })
+          }
+        : {})
     };
     callbacks.onMessage(message);
     callbacks.onMessage({ ...message, messageId: "queued" });
