@@ -54,6 +54,8 @@ let releaseEndpoint: (() => Promise<void>) | undefined;
 let endpointReleasing: Promise<void> | undefined;
 const connections = new Set<net.Socket>();
 let closing: Promise<void> | undefined;
+let forceExit: NodeJS.Timeout | undefined;
+let disconnecting = false;
 let initializationFinished!: () => void;
 const initialized = new Promise<void>((resolve) => {
   initializationFinished = resolve;
@@ -76,6 +78,18 @@ const releaseControlEndpoint = async () => {
 };
 const stop = (requestId?: string): Promise<void> =>
   (closing ??= (async () => {
+    // owner 退出后没有父进程兜底；为 4 秒清理和 IPC 排空留出最终退出宽限。
+    forceExit = setTimeout(() => {
+      if (process.platform !== "win32") {
+        try {
+          // SDK 创建独立进程组，同时回收不响应 dispose 的插件子进程。
+          process.kill(-process.pid, "SIGKILL");
+        } catch {
+          // 直接运行的 runner 可能不是组长，仍须退出自身。
+        }
+      }
+      process.exit(process.exitCode ?? 1);
+    }, 4500).unref();
     owner.abort();
     plugins?.stopAdmission();
     proxy?.close();
@@ -113,10 +127,15 @@ const stop = (requestId?: string): Promise<void> =>
     await attempt(() => logs?.close());
     if (!errors.length) await attempt(releaseControlEndpoint);
     const complete = !errors.length;
+    // 清理失败时即使只剩未引用的后代，也要保留最终进程组回收机会。
+    if (!complete) forceExit.ref();
     if (process.connected)
       channel.send({ type: "component.stopped", request_id: requestId, complete });
     process.exitCode = complete ? 0 : 1;
-    if (process.connected) process.disconnect();
+    if (process.connected) {
+      disconnecting = true;
+      process.disconnect();
+    }
   })());
 process.on("message", (message: unknown) => {
   const value = message as { type?: string; request_id?: string };
@@ -135,6 +154,8 @@ process.on("message", (message: unknown) => {
 process.once("disconnect", () => {
   proxy?.close();
   void stop();
+  // 真正失去 owner 后，即使插件后代已 unref，也不能在组回收前自然退出。
+  if (!disconnecting) forceExit?.ref();
 });
 process.once("SIGINT", () => void stop());
 process.once("SIGTERM", () => void stop());

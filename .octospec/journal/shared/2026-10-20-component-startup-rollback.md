@@ -26,3 +26,13 @@ Extra 的独立清理步骤各自尝试，Kernel client 或日志关闭失败不
 - Windows 诊断发现父进程退出时 Kernel 被直接终止，未执行 disconnect/exit handler。[Node/libuv 的非 detached 子进程 Job](https://github.com/nodejs/node/blob/v24.19.0/deps/uv/src/win/process.c#L65-L80) 会在父进程退出时强杀成员。SDK 的 Node 组件现在统一 detached，并隐藏 Windows 窗口，使 IPC owner 断连回滚有机会完成；Kernel 到 Windows worker 的 Job 关系保留。
 
 完整功能待验范围继续见[实施记录](../../tasks/executor-kernel-host-lifecycle/implementation.md)。
+
+# owner 退出后的最终期限
+
+后续远端 P1 指出：清理 Promise 的截止不等于进程退出期限。真实 SDK owner 退出后，永不完成的 initializer/disposer 持有 interval，runner 在 4 秒后仍会存活。单独 process.exit 也会留下 POSIX 普通子进程；正常 dispose 配合 unref 子进程还会使未引用的回收定时器来不及执行。
+
+runner 从 stop 开始设置 4.5 秒最终退出兜底。主动关闭自己的 IPC 与真正失去 owner 分开判断，实际 owner 断连时必须引用定时器；POSIX 仅回收以自身 PID 为组号的独立进程组。失败仍报告 incomplete 并保留租约。内部定时器要求事件循环可调度，不能覆盖同步死循环与 owner 同时消失；该组合需要独立 supervisor。
+
+Kernel 同类修复：manifest.close 或 endpoint 删除失败后继续尝试其他清理，但保留端点租约，不用 worker 已退出代替整体清理成功。
+
+新增 6 条回归覆盖三个真实 owner 退出场景（挂起初始化、挂起 dispose、unref 后代）、活 owner 下强制回收的失败所有权，以及 Kernel 两种删除失败。全量 Node 1281 项：1271 通过、10 跳过；WebUI 35/35，构建、类型、ESLint、命名、格式、知识链接和最终 tgz 离线验证通过。旧 `2ca7a95` 三平台 CI 通过不证明这些此前缺失的故障场景；当前提交远端结果另以 PR 检查为准。

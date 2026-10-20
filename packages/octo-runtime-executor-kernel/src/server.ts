@@ -394,7 +394,7 @@ export async function startKernelServer(options: KernelServerOptions, signal?: A
       await attempt(() => manifest?.close() ?? Promise.resolve());
       if (listening && process.platform !== "win32")
         await attempt(() => rm(options.endpoint, { force: true }));
-      await attempt(() => releaseEndpoint?.() ?? Promise.resolve());
+      if (!errors.length) await attempt(() => releaseEndpoint?.() ?? Promise.resolve());
     }
     if (errors.length) throw new AggregateError(errors, "KERNEL_CLEANUP_INCOMPLETE");
   };

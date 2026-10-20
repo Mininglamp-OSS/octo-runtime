@@ -85,4 +85,6 @@ Go stdlib fixture 验证了参数、含空格路径、工作目录和关闭确�
 
 [仓库外编译 fixture](test-support/public-extra/host.mts) 与 scripts/verify-release.mjs 检查公开类型及实际子进程。POSIX 使用受管进程组；Windows 使用有界 taskkill /T，具体平台与孤儿后代清理必须实际验收。真实 Provider/IM 和宿主产品验收另记，不由 fixture 推断。
 
+Extra runner 的异步清理共用 4 秒预算，并在 stop 开始后 4.5 秒执行最终退出兜底。owner 断连后仍保留该定时器，POSIX 回收本实例进程组，避免挂起初始化、dispose 或 unref 子进程留下孤儿；强制退出仍不证明业务资源清理完整。定时器依赖 Extra 事件循环正常调度；同步死循环与 owner 同时退出的组合故障需要独立 supervisor，当前 SDK 未提供该保证。
+
 完整变更和当前证据见 [实施记录](.octospec/tasks/executor-kernel-host-lifecycle/implementation.md)。旧 createDaemonRuntime/startAccount、daemon 命令和旧 bin 已删除，不提供兼容包装。

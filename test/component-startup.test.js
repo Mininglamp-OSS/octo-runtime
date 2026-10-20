@@ -12,7 +12,7 @@ import {
   componentEndpoint
 } from "@mininglamp-oss/octo-runtime-host-sdk";
 import { waitFor } from "./runtime-fixture.js";
-import { spawnWorker } from "@mininglamp-oss/octo-runtime-executor-kernel";
+import { acquireEndpoint, spawnWorker } from "@mininglamp-oss/octo-runtime-executor-kernel";
 import { launchNode } from "../packages/octo-runtime-host-sdk/dist/launch.js";
 
 function alive(pid) {
@@ -185,6 +185,119 @@ test(
     await assertReleased(fixture, identity);
   }
 );
+
+for (const mode of ["initialize", "dispose", "unref"]) {
+  test(
+    `owner exit bounds Extra shutdown with an uncooperative ${mode}, handle and child`,
+    { timeout: 15_000 },
+    async (t) => {
+      const home = await mkdtemp(join(tmpdir(), "oeo-"));
+      const pidFile = join(home, "pid");
+      const disposed = join(home, "disposed");
+      const controlEndpoint = componentEndpoint(home);
+      const owner = fork(
+        resolve("test/fixtures/extra-owner.mjs"),
+        [
+          JSON.stringify({
+            endpoint: componentEndpoint(home, "kernel"),
+            controlEndpoint,
+            declaration: {
+              name: "uncooperative",
+              module: resolve("test/fixtures/uncooperative-extra.mjs"),
+              config: { mode, pidFile, disposed }
+            }
+          })
+        ],
+        { stdio: ["ignore", "ignore", "ignore", "ipc"] }
+      );
+      let identity;
+      const ready = once(owner, "message");
+      const exited = once(owner, "exit");
+      t.after(async () => {
+        if (owner.exitCode === null && owner.signalCode === null) owner.kill("SIGKILL");
+        for (const pid of Object.values(identity ?? {})) {
+          if (alive(pid)) process.kill(pid, "SIGKILL");
+        }
+        await exited;
+        await rm(home, { recursive: true, force: true });
+      });
+      await waitFor(async () => {
+        identity = JSON.parse(await readFile(pidFile, "utf8").catch(() => "null"));
+        return identity?.extra && identity?.child;
+      }, 5000);
+      if (mode !== "initialize") assert.equal((await ready)[0].type, "ready");
+      assert.equal(alive(identity.extra), true);
+      assert.equal(alive(identity.child), true);
+      owner.send("exit");
+      await exited;
+      await waitFor(() => Object.values(identity).every((pid) => !alive(pid)), 6500);
+      assert.equal(alive(owner.pid), false);
+      if (mode === "initialize") {
+        await assert.rejects(access(disposed), { code: "ENOENT" });
+      } else {
+        assert.equal(await readFile(disposed, "utf8"), "disposing");
+        if (mode === "dispose" && process.platform !== "win32")
+          await access(`${controlEndpoint}.owner`);
+      }
+    }
+  );
+}
+
+for (const mode of ["endpoint", "manifest"]) {
+  test(
+    `Kernel ${mode} cleanup failure retains the endpoint lease after worker exit`,
+    { timeout: 10_000, skip: process.platform === "win32" },
+    async (t) => {
+      const home = await mkdtemp(join(tmpdir(), "okc-"));
+      const child = fork(resolve("test/fixtures/kernel-cleanup-failure.mjs"), [home, mode], {
+        stdio: ["ignore", "ignore", "pipe", "ipc"]
+      });
+      let stderr = "";
+      child.stderr.on("data", (chunk) => (stderr += chunk));
+      const exited = once(child, "exit");
+      let worker;
+      t.after(async () => {
+        if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+        if (worker && alive(worker)) process.kill(worker, "SIGKILL");
+        await exited;
+        await rm(home, { recursive: true, force: true });
+      });
+      const [result] = await once(child, "message");
+      worker = result.worker;
+      assert.equal(result.code, "KERNEL_CLEANUP_INCOMPLETE", stderr);
+      assert.equal(alive(worker), false);
+      const endpoint = join(home, "kernel.sock");
+      assert.equal(JSON.parse(await readFile(`${endpoint}.owner`, "utf8")).pid, child.pid);
+      await assert.rejects(acquireEndpoint(endpoint), /ENDPOINT_IN_USE/);
+      child.send("exit");
+      await exited;
+    }
+  );
+}
+
+test("Extra forced disposal reports process exit without releasing failed ownership", async (t) => {
+  const home = await mkdtemp(join(tmpdir(), "oef-"));
+  const options = {
+    endpoint: componentEndpoint(home),
+    declaration: {
+      name: "uncooperative",
+      module: resolve("test/fixtures/uncooperative-extra.mjs"),
+      config: { mode: "dispose", pidFile: join(home, "pid"), disposed: join(home, "disposed") }
+    }
+  };
+  const extra = await startExtra(options);
+  t.after(async () => {
+    await extra.stop();
+    await rm(home, { recursive: true, force: true });
+  });
+  const identity = JSON.parse(await readFile(options.declaration.config.pidFile, "utf8"));
+  const result = await extra.stop();
+  assert.equal(result.complete, false);
+  assert.equal(result.processExited, true);
+  assert.ok(result.errors.some((error) => error.code === "COMPONENT_CLEANUP_INCOMPLETE"));
+  await waitFor(() => Object.values(identity).every((pid) => !alive(pid)), 2000);
+  await assert.rejects(startExtra(options), /EXTRA_DISPOSE_FAILED/);
+});
 
 test("Extra initialization failure preserves rollback facts and blocks failed disposal replacement", async (t) => {
   const home = await mkdtemp(join(tmpdir(), "oes-"));

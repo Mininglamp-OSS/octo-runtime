@@ -86,3 +86,11 @@ Core、Provider、Run7/Context v3、HostRunService/流预算、交互、进程�
 - 全量复跑另捕获子进程自主启动回滚的 ACK 与父进程 stop 发送竞态：发送失败曾使已收到完整 ACK 的回滚误报 incomplete。现在等待进程 close 排空 IPC 后判定 ACK，同时保留真正的进程/配置清理错误；确定性发送失败 fixture 已回归。
 - `387c4ca` 的 Windows 主动取消与两个新增竞态回归通过，父退出场景仍报告 manifest 存在。回归现将进程退出与 manifest 删除放在同一有界等待中，并在失败时打印残留清单，后续远端结果仍待确认。
 - 诊断确认 Windows 父进程退出时 Kernel 未收到 disconnect、也未执行 exit handler；[Node 24.19.0 的 libuv 源码](https://github.com/nodejs/node/blob/v24.19.0/deps/uv/src/win/process.c#L65-L80) 对非 detached 子进程使用 kill-on-parent-exit Job。Node 组件现在统一 detached、Windows 隐藏窗口，父断连仍由 IPC 触发回滚；Windows worker 保留其 Kernel 的进程 Job，未改变已记录的外部后代回收缺口。
+
+## PR #61 owner 消失后的二次复核
+
+- `2ca7a95` 的三平台 CI 通过后，远端评审仍发现 P1：Extra initializer 不响应取消且持有 interval 时，4 秒清理截止仅设置 exitCode，父 owner 已退出，没有进程负责最终回收。新增真实 SDK owner 退出测试先复现初始化与 dispose 两条路径超过 6.5 秒仍存活。
+- runner 现在从 stop 开始设置 4.5 秒最终退出兜底，实际 owner 断连时保持定时器引用；POSIX 只强制回收本 runner 的独立进程组。初始化挂起、dispose 挂起、正常 dispose 后遗留 unref 子进程三种场景均验证 runner 和子进程退出。活 owner 下强制回收仍返回 complete=false、processExited=true，阻止同名重建。
+- 同类排查发现 P2：Kernel 的 manifest 或 endpoint 删除失败后仍释放租约。现仅在全部清理成功时释放；两条真实故障注入验证 worker 已退出、租约保留、owner 活着时同端点不能重新获取。
+- 本轮新增 6 项回归，累计新增启动/回滚回归 26 项。全量 Node 1281 项：1271 通过、10 条件跳过、0 失败；WebUI 35/35。构建、根严格类型、ESLint、命名、格式、知识检查、diff 检查以及最终 tgz 包外离线安装通过。远端三平台结果以本轮提交的 PR 检查为准。
+- Standards 原始发现 1 类 P1；Spec 包含该 P1 与新增 P2，最终只读复核均无剩余必须修复项。同步死循环与 owner 同时退出需要独立 supervisor；当前内部定时器要求事件循环可调度，未将该组合故障记为已验收。
