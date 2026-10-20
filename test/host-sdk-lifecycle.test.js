@@ -302,3 +302,68 @@ test("close cancels an initializer's owned Run even when it omitted the plugin s
   assert.ok(Date.now() - started < 2000);
   await assert.rejects(initializing, (error) => error.cleanup.complete);
 });
+
+test("initializer failure cancels its Run before awaiting disposal and saves the source terminal", async (t) => {
+  const { endpoint, client } = await kernelFixture(t);
+  const instance = (await client.status()).kernel_instance_id;
+  const unrelated = await client.submit(kernelInput("wait-for-cancel"));
+  const input = kernelInput("wait-for-cancel");
+  const key = {
+    run_id: input.runId,
+    invocation_id: input.invocationId,
+    agent_session_id: input.sessionId,
+    session_generation: input.sessionGeneration ?? 0,
+    protocol_mode: input.protocol_mode
+  };
+  const cause = new Error("INITIALIZER_FAILED_AFTER_ACCEPTANCE");
+  let task;
+  let saved;
+  const options = {
+    endpoint,
+    config: {},
+    dependencies: {
+      saveTerminal: (terminal) => {
+        saved = terminal;
+      }
+    },
+    module: {
+      name: "rollback-owned-run",
+      default(ctx) {
+        ctx.onDispose(async () => {
+          await task;
+        });
+        return async (dependencies) => {
+          task = (async () => {
+            for await (const event of ctx.kernel.invoke(input)) {
+              if (isTerminal(event)) await dependencies.saveTerminal(event);
+            }
+          })();
+          void task.catch(() => undefined);
+          await waitFor(() => client.get(key).catch(() => undefined));
+          throw cause;
+        };
+      }
+    }
+  };
+  const extra = createExtraService(options);
+  t.after(() => extra.close());
+  await assert.rejects(extra.initialize(), (error) => {
+    assert.equal(error.cause, cause);
+    assert.equal(error.cleanup.complete, true, JSON.stringify(error.cleanup));
+    return true;
+  });
+  assert.equal(saved.type, "run.cancelled");
+  assert.equal((await client.get(key)).terminal.control.state, "cancelled");
+  const closing = extra.close();
+  assert.equal(extra.close(), closing);
+  assert.equal(await closing, await extra.closed);
+  assert.equal((await client.get(unrelated.ref)).terminal, undefined);
+  assert.equal((await client.status()).kernel_instance_id, instance);
+  const replacement = createExtraService({
+    ...options,
+    module: { name: options.module.name, default: () => () => {} }
+  });
+  await replacement.initialize();
+  assert.equal((await replacement.close()).complete, true);
+  await client.cancel(unrelated.ref, "test_cleanup");
+});

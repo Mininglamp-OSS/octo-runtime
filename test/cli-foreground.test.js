@@ -10,6 +10,75 @@ import { attachKernel } from "@mininglamp-oss/octo-runtime-executor-kernel";
 import { componentEndpoint, componentServiceId } from "@mininglamp-oss/octo-runtime-host-sdk";
 import { waitFor } from "./runtime-fixture.js";
 
+for (const mode of ["hang", "reject", "startup-failure"]) {
+  test(
+    `CLI exits after incomplete cleanup despite a referenced timer (${mode})`,
+    { timeout: 15_000, skip: process.platform === "win32" && mode !== "startup-failure" },
+    async (t) => {
+      const home = await mkdtemp(join(tmpdir(), "ocx-"));
+      t.after(() => rm(home, { recursive: true, force: true }));
+      assert.equal(
+        await runCli(["--home", home, "extraset", "channel-gateway"], {
+          input: Readable.from([
+            JSON.stringify({
+              module: resolve("test/fixtures/stuck-cli-extra.mjs"),
+              config: { mode }
+            })
+          ]),
+          output() {}
+        }),
+        0
+      );
+      const child = spawn(
+        process.execPath,
+        [resolve("apps/cli/dist/index.js"), "--home", home, "channel-gateway", "run"],
+        { stdio: ["ignore", "pipe", "pipe"] }
+      );
+      let output = "";
+      let errors = "";
+      child.stdout.on("data", (chunk) => {
+        output += chunk;
+      });
+      child.stderr.on("data", (chunk) => {
+        errors += chunk;
+      });
+      const exited = new Promise((resolve, reject) => {
+        child.once("exit", (code, signal) => resolve({ code, signal }));
+        child.once("error", reject);
+      });
+      t.after(async () => {
+        if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+        await exited;
+      });
+      await waitFor(() => {
+        if (child.exitCode !== null) throw new Error(output + errors);
+        return output.includes(
+          mode === "startup-failure" ? "SERVICE_INITIALIZATION_FAILED" : '"state":"ready"'
+        );
+      }, 5000);
+      const started = Date.now();
+      if (mode !== "startup-failure") child.kill("SIGTERM");
+      let timer;
+      try {
+        const result = await Promise.race([
+          exited,
+          new Promise((_, reject) => {
+            timer = setTimeout(
+              () => reject(new Error(`CLI did not exit: ${output}${errors}`)),
+              7000
+            );
+          })
+        ]);
+        assert.deepEqual(result, { code: 5, signal: null });
+        assert.ok(Date.now() - started < 7000);
+        if (mode === "startup-failure") assert.match(output, /SERVICE_INITIALIZATION_FAILED/);
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+  );
+}
+
 test(
   "foreground components stop independently and report Kernel availability without implicit startup",
   { timeout: 20_000 },

@@ -101,7 +101,9 @@ export function createExtraService<D extends object>(
   let initialized: Promise<void> | undefined;
   let closing: Promise<ServiceCleanupResult> | undefined;
   let cleanupDeadline: number | undefined;
+  let draining: Promise<void> | undefined;
   let server: net.Server | undefined;
+  let binding: Promise<void> | undefined;
   let release: (() => Promise<void>) | undefined;
   const sockets = new Set<net.Socket>();
   let finishClosed!: (result: ServiceCleanupResult) => void;
@@ -131,14 +133,22 @@ export function createExtraService<D extends object>(
     });
     if (!result.complete) throw new Error("EXTRA_RUN_CLEANUP_INCOMPLETE");
   };
+  const beginDrain = (signal?: AbortSignal): Promise<void> => {
+    shutdownUntil ??= shutdownDeadline(signal);
+    cleanupDeadline ??= Date.now() + Math.max(0, Math.floor(shutdownUntil - performance.now()));
+    client?.invocations.stopAdmission();
+    // 回滚通知先于加载器等待 disposer；立即取消源调用，避免消费者与清理互相等待。
+    if (!draining) {
+      draining = drainRuns();
+      void draining.catch(() => undefined);
+    }
+    return draining;
+  };
   const close = (): Promise<ServiceCleanupResult> => {
     if (closing) return closing;
     phase = "closing";
     shutdownUntil ??= shutdownDeadline();
-    cleanupDeadline ??= Date.now() + Math.max(0, Math.floor(shutdownUntil - performance.now()));
-    client?.invocations.stopAdmission();
-    const draining = drainRuns();
-    void draining.catch(() => undefined);
+    const draining = beginDrain();
     owner.abort();
     withShutdownDeadline(shutdownUntil, () => plugins?.stopAdmission());
     for (const socket of sockets) socket.destroy();
@@ -170,6 +180,8 @@ export function createExtraService<D extends object>(
         await Promise.allSettled([...pendingDependencies]);
       });
       await attempt("control-server", async () => {
+        // 到期只结束等待；绑定稍后完成时，此操作仍须继续关闭迟到的监听句柄。
+        await binding?.catch(() => undefined);
         if (server?.listening)
           await new Promise<void>((resolve, reject) => {
             server!.close((error) => (error ? reject(error) : resolve()));
@@ -219,7 +231,7 @@ export function createExtraService<D extends object>(
       });
       const abort = () => {
         shutdownUntil ??= shutdownDeadline();
-        client?.invocations.stopAdmission();
+        void beginDrain();
         owner.abort();
         withShutdownDeadline(shutdownUntil, () => plugins?.stopAdmission());
       };
@@ -241,10 +253,12 @@ export function createExtraService<D extends object>(
             {
               ...module,
               default(context, config) {
-                // 初始化失败由加载器先取消并回滚；记录同一个截止，外层 close 不重开预算。
+                // 初始化失败先停准入并排空；不 abort owner，以保留加载器抛出的原始 cause。
                 context.signal.addEventListener(
                   "abort",
-                  () => (shutdownUntil ??= shutdownDeadline(context.signal)),
+                  () => {
+                    void beginDrain(context.signal);
+                  },
                   { once: true }
                 );
                 return module.default(context, config);
@@ -291,10 +305,10 @@ export function createExtraService<D extends object>(
               }
             });
           });
-          await new Promise<void>((resolve, reject) => {
+          await (binding = new Promise<void>((resolve, reject) => {
             server!.once("error", reject);
             server!.listen(controlEndpoint, resolve);
-          });
+          }));
           if (process.platform !== "win32") await chmod(controlEndpoint, 0o600);
           owner.signal.throwIfAborted();
         }

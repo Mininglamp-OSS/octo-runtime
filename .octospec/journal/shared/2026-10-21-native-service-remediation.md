@@ -23,3 +23,11 @@ main@70f0247 为基准，在当前功能 worktree 完成三个评审项。工程
 # 证据
 
 类型、lint、命名和格式通过；全量 Node 1362 项，1352 通过、10 跳过、0 失败，UI 35 项通过。实际 tgz 离线安装、严格公共类型、原生 Kernel/三个 Extra、WebUI 静态资源、CLI Kernel 和卸载保留 Home 检查通过。OctoSpec lint 与 git diff --check 通过，详见[实施记录](../../tasks/unified-native-sdk-services/implementation.md#评审整改验证)。本轮为实施者自查，不声称完成新的独立评审、外部 Electron 或真实 IM/Provider 验证。
+
+# PR 第二轮整改
+
+`134b98b` 推送 PR #74 后，Jerry-Xin 提出的初始化失败取消过晚、CLI 残留句柄不退出，以及 yujiawei 提出的 Extra 迟到 bind 漏关均由新回归复现，现已修复。初始化回滚必须在 disposer 等待前启动同一预算的取消/排空；绑定中的资源必须被跟踪，超时后仍继续迟到回收；CLI 进程最终退出只属于可执行入口，不得进入 SDK。
+
+yujiawei 提出的 Kernel bind 取消漏关未复现：当前串行 await listen、检查取消并 catch 回滚的顺序已经覆盖该路径。确定性测试在改动前后都确认 socket 关闭、endpoint 释放且允许新实例，不改 Kernel 实现。此项与成立的 Extra 问题分别记录，不能用相似代码推定相同竞态。
+
+本轮 50 项定向回归、1359 项 Node 测试（10 跳过）、35 项 UI 测试及类型/lint/命名/格式、实际 tgz 验证通过。新增 gate 回归纳入 Windows CI；本地证据限 macOS。验收和原始对照见[第二轮实施记录](../../tasks/unified-native-sdk-services/implementation.md#pr-第二轮评审整改验证)。

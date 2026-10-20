@@ -8,7 +8,7 @@ status: locally-validated
 
 # 当前状态
 
-当前基线 origin/main@70f0247ac7dc00cc9729b366eba64ea8288b5b78，分支 refactor/71-unified-sdk-services。2026-10-21 拉取最新 main 并 rebase；旧分支全部未提交改动（含新增文件）保存在 stash，仅作参考。最新 main 是协议和行为基准，不能以旧分支覆盖。尚未 commit、push 或创建 PR。
+当前基线 origin/main@70f0247ac7dc00cc9729b366eba64ea8288b5b78，分支 refactor/71-unified-sdk-services。2026-10-21 拉取最新 main 并 rebase；旧分支全部未提交改动（含新增文件）保存在 stash，仅作参考。最新 main 是协议和行为基准，不能以旧分支覆盖。`134b98b` 已提交并推送至 [PR #74](https://github.com/Mininglamp-OSS/octo-runtime/pull/74)；当前新增整改和核验见文末第二轮记录。
 
 本次纳入 #72，保留 Gateway/Core/KernelClient 源码及其排空和失败语义，ExtraPlugins 已还原 main 实现，原生服务复用相同单调预算协调清理。删除旧 launcher 后，其专有启动 ACK 测试不再适用；新增 Gateway 排空测试和真实验证脚本迁移到 createKernelService/createExtraService。真实验证脚本只做 API 迁移，本轮不执行外部 IM/Provider 操作。
 
@@ -61,3 +61,18 @@ node scripts/pack-release.mjs 生成实际 dist/release/mininglamp-oss-octo-runt
 # 提交与合并授权
 
 用户随后授权 commit、创建 PR 并合并 main。提交前重新 fetch origin/main，远端仍为 70f0247，与当前功能分支基线一致。Windows 发行验证命令已移除删除的 extra-dependency-proxy 测试，改为 extra-service-shutdown 和 native-service-architecture；实际跨平台结果以本 PR 的 GitHub 检查为准。前述“尚未提交”均为当时本地验证状态，不限制本次已授权的交付。
+
+# PR 第二轮评审整改验证
+
+用户授权修复后一起 commit，并要求核对 yujiawei 的最新 review。本轮基于 `134b98b`，再次 fetch 后 origin/main 仍为 `70f0247`。依据 [Jerry-Xin review](https://github.com/Mininglamp-OSS/octo-runtime/pull/74#pullrequestreview-5588602357) 和 [yujiawei review](https://github.com/Mininglamp-OSS/octo-runtime/pull/74#pullrequestreview-5588799435) 核验四项，未盲目按严重等级修改。
+
+- R04 成立：旧实现等加载器的 disposer 超时后才开始取消，真实 Kernel 回归失败。现由插件回滚 abort 通知立即停止准入、缓存同一 drain Promise 和截止，保留原初始化 cause。新增回归验证省略可选 signal 的普通 invoke 得到原取消终态，通过注入保存函数完成收尾，disposer 成功、可替换，无关 Run 与 Kernel 实例不变。
+- R05 成立：实际 CLI 子进程在挂起/拒绝 disposer 和初始化失败后均因引用 timer 不退出，旧代码在 7 秒上界失败。现仅可执行入口设置退出码并提供 250ms 最终退出余量，unref 不延长正常退出；修复后挂起清理约 4.4 秒退出 5，其余失败路径约 0.4 秒退出 5。SDK/runCli 不退出宿主。
+- R06 成立：Extra 的异步控制 bind 超过截止后，旧实现漏关，gate 回归失败。现记录 binding Promise，清理操作即使已超时仍在 bind settle 后继续关闭；返回结果保持 incomplete，保留端点租约和冲突所有权。覆盖迟到成功及失败，均不发布 ready。
+- R07 的 Kernel 漏关结论不成立：startKernelServer 等待 listen Promise，再检查 signal 并在 catch 中 teardown；没有并发跳过 listen 的 teardown 路径。createKernelService.close 也等待 starting。新增相同 gate 测试在修复前后都通过：取消时不能提前报告成功，绑定后关闭并释放 endpoint，允许新 Kernel 初始化。Kernel 源码保持不变。
+
+架构第 9、11 条及生命周期规则记录回滚取消顺序、异步创建资源所有权与 CLI 最终退出边界。新增绑定回归加入 Windows CI；本机仅验证 macOS，不宣称已在 Windows/Linux 手工运行。
+
+本轮 pnpm typecheck、lint、lint:names、format:check 通过；定向 50/50，全量 Node 1369 项中 1359 通过、10 跳过、0 失败，UI 35 项通过。重新生成实际 tgz 并通过 scripts/verify-release.mjs：offlineInstall/publicTypes/builtinExtras/webuiAssets/nativeKernel/independentExtra/cliKernel/uninstallPreservedHome 均 true。实际日志为 /tmp/octo-71-review-{typecheck,lint,names,format,focused,tests,pack,release}.log；失败对照为 review-red.log 和 bind-red.log。
+
+本轮 OctoSpec lint 通过：273 个单元、20 条规则；git diff --check 通过。完整检查后将上述修复与回归一起提交；托管 CI 和 reviewer 重新确认独立于本地结果，不能用既有 `134b98b` 的绿色 CI 宣称新提交已通过。

@@ -119,3 +119,16 @@ C01-C12 通过、三个评审项均有整改证据后，重新判断正式 PR �
 | C12 | 本轮类型、lint、命名、格式、全量测试、实际 tgz 和 OctoSpec 检查结果见[实施记录](implementation.md#评审整改验证) |
 
 ExtraPlugins 已还原 main 实现，Core、KernelClient、调用登记、协议和三个内置 Extra 的执行源码未改动。未新增完成协议、手动登记要求或数据库所有权；函数 Promise 复用仍按每次调用独立计数，不能绕过 128 在途上限。
+
+# PR #74 第二轮评审整改
+
+基于 `134b98b`，纳入 Jerry-Xin 与 yujiawei 的 review。以下是本轮目标与验收，完成证据另记实施记录。
+
+| 编号 | 问题与目标 | 验收标准 |
+| --- | --- | --- |
+| R04 | 初始化失败时，加载器等待 disposer 前就停止 invoke 准入并启动所属 Run 的取消/排空 | 真实 Kernel 中，initializer 启动未传 signal 的普通 invoke 后抛错；disposer 等待消费者并通过注入函数保存原取消终态；保留原始 cause、cleanup.complete=true、允许干净替换；共享 Kernel 与其他 Run 不受影响 |
+| R05 | 原生 CLI 清理返回后，残留句柄不能让进程无限存活 | 仅可执行入口拥有最终退出策略：设定原返回码，允许输出刷新，250ms 后仍存活则退出；定时器 unref，正常退出不增加等待。实际 CLI 子进程覆盖挂起/拒绝的 disposer，SIGTERM 后有界退出 5；初始化失败也退出。SDK 与可导入 runCli 不终止宿主进程 |
+| R06 | Extra 控制 socket 的 bind 超过清理期限后仍必须被回收 | 明确记录 bind Promise；清理超时返回 incomplete、保留所有权，迟到绑定完成后自动关闭，不得发布 ready；确定性 gate 覆盖到期后 bind 成功和失败 |
+| R07 | 核实 Kernel 绑定阶段取消是否漏关 | gate 暂停实际 listen，取消初始化后确认尚未报告清理成功；释放 bind 后应回滚关闭、释放端点且允许新服务构造。现有 startKernelServer 串行等待 bind 后检查取消并回滚，若测试成立则保留实现，不为推测增加状态 |
+
+架构约束：初始化失败的取消不能等 disposer 完成；绑定中的资源也是所有权的一部分；超时结束等待不免除迟到回收责任，且不能把 incomplete 改写成成功。SDK 禁止退出宿主，CLI 可执行入口负责最终进程退出。所有阶段沿用原共享截止，不增加公共协议或业务手动 drain。

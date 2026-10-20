@@ -73,6 +73,14 @@ remediation:
   plan: remediation.md
   status: locally-validated
   acceptance: C01-C12-passed
+  pr_review_round_2:
+    reviewed_head: 134b98bf897f5e312e1f198a638b3931cadd1bb2
+    status: locally-validated
+    R04: fixed-rollback-starts-cached-invocation-drain-before-disposal
+    R05: fixed-cli-executable-owns-bounded-final-exit
+    R06: fixed-late-extra-bind-cleanup-retains-incomplete-ownership
+    R07: kernel-finding-not-reproduced-existing-serial-rollback-regression-passed
+    reviewers: [Jerry-Xin, yujiawei]
 external_sources:
   - https://www.electronjs.org/docs/latest/api/environment-variables
   - https://www.electronjs.org/docs/latest/tutorial/fuses
@@ -119,7 +127,7 @@ verification:
   lint: passed
   lint_names: passed
   format_check: passed
-  node_tests: { total: 1362, passed: 1352, skipped: 10, failed: 0 }
-  focused_tests: { passed: 46 }
+  node_tests: { total: 1369, passed: 1359, skipped: 10, failed: 0 }
+  focused_tests: { passed: 50 }
   ui_tests: { passed: 35 }
   offline_release: passed-after-remediation-including-webui-assets

@@ -53,6 +53,8 @@ close 关闭接纳并立即取消所属调用；初始化进入可清理状态�
 
 初始化观察 signal 和 close：先登记取消意图，取消 worker readiness，异步创建后检查停止状态，不得建立迟到端点或报告 ready。ServiceInitializationError 保留 cause 和 cleanup；回滚失败保留资源所有权。close-before-initialize 永久关闭该对象，重复 initialize 复用原 Promise。服务没有 restart，完整关闭后重新构造。服务 status.pid 必须等于调用进程 PID。
 
+加载器因初始化失败 abort 插件 signal 时，Extra 服务立即停止 invoke 准入并启动缓存的取消/排空操作，不能等加载器完成 disposer 后再开始；此通知不替换原始初始化 cause。bind Promise 也是服务资源：Kernel 串行等绑定完成后检查取消并回滚；Extra 控制 socket 清理显式等待 bind，清理超时后仍继续回收迟到的监听句柄，结果保持 incomplete，端点租约不提前释放。
+
 Kernel 所有关闭阶段共用从 close 起算的 5 秒截止时间；Extra 复用插件的 4 秒单调预算（若继承更早截止则从其约束），各阶段不重置。超时只结束等待，未完成的实际操作仍为 incomplete，不释放冲突名称或端点租约。Kernel 的 manifest 或端点删除失败也保留租约。SDK 不退出或强杀调用进程；宿主进程的最终退出和系统部署归 CLI/App。任意同进程同步死循环不能由 Promise 清理或超时机制终止。
 
 保留 #72 的有界业务排空合同：插件取消沿 signal 继承 4 秒单调时钟清理预算，不因稍后进入 dispose 重置；该预算包含在服务关闭期限内。原调用订阅保持到消费收尾完成或共享截止，取消 ACK 不代替终态/消费确认，失败 ref 不无条件删除。不新增 ExtraContext 字段，不改变普通调用方 abort 合同。旧独立 runner 的 4.5 秒强制退出仅属历史实现，不适用于调用进程内的服务对象。
@@ -66,6 +68,8 @@ Windows 使用 Node.js 和系统已有命令，公共层不引入原生 supervis
 两组固定命令为 executor-kernel 和 channel-gateway，分别提供 uninstall/install/start/restart/stop/run。首次 install 默认不自启，重复安装省略选项保留原值；--autostart=true/false 显式修改。start/restart 要求已安装，不隐式安装、启用或控制另一组件。stop 不修改自启；uninstall 保留 Home 和用户数据。
 
 status 汇总原生服务状态、Kernel 可用性和 Extra 状态。run 前台组件意外退出时 CLI 返回失败；SIGINT/SIGTERM 时等待清理，未完整清理返回 5。服务 ID 和端点按规范化 Home 与组件派生。
+
+CLI 可执行入口在命令返回后设置原退出码，允许 stdout/stderr 刷新；250ms 后若仍因残留句柄存活则显式退出。该定时器 unref，正常资源回收后无需额外等待。最终退出不改变 incomplete 事实；此策略仅属于可执行入口，不进入 SDK 或可导入的 runCli，也不作为同进程同步死循环的强停保证。
 
 旧 daemon 架构的 1.0.1 列为 deprecated；不支持旧版升级或迁移。已有安装须先停止并移除旧服务，执行 npm uninstall -g @mininglamp-oss/octo-runtime 后重新安装新架构版本并重新配置。npm 卸载不会自动移除系统服务或 Home；遗留数据存在不表示支持迁移。发行时须另行完成 npm registry deprecation，记录实际结果，不能用文档声明替代 registry 操作。
 
