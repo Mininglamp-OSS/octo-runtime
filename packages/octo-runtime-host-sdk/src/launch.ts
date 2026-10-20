@@ -12,6 +12,15 @@ export interface CleanupResult {
   pendingResources: string[];
   errors: { code: string; component: string }[];
 }
+export class ComponentStartError extends Error {
+  constructor(
+    cause: unknown,
+    readonly cleanup: CleanupResult
+  ) {
+    super(cause instanceof Error ? cause.message : "COMPONENT_START_FAILED", { cause });
+    this.name = "ComponentStartError";
+  }
+}
 export async function deadline<T>(
   operation: Promise<T>,
   timeoutMs: number,
@@ -58,6 +67,23 @@ export async function launchNode(
     processTree: true
   });
   const channel = processChannel(child);
+  let startupFailed = false;
+  let cleanupComplete: boolean | undefined;
+  let acknowledgement: { id: string; resolve(): void; reject(error: Error): void } | undefined;
+  const offCleanup = channel.on((message) => {
+    const value = message as { type?: string; request_id?: string; complete?: boolean };
+    if (
+      value.type !== "component.stopped" ||
+      !(
+        (acknowledgement && value.request_id === acknowledgement.id) ||
+        (startupFailed && value.request_id === undefined)
+      )
+    )
+      return;
+    cleanupComplete = value.complete === true;
+    if (cleanupComplete) acknowledgement?.resolve();
+    else acknowledgement?.reject(new Error("COMPONENT_CLEANUP_INCOMPLETE"));
+  });
   const ready = new Promise<void>((resolve, reject) => {
     child.on("error", () => reject(new Error("COMPONENT_START_FAILED")));
     child.once("exit", () => reject(new Error("COMPONENT_EXITED")));
@@ -68,6 +94,7 @@ export async function launchNode(
         resolve();
       }
       if (value.type === "component.failed") {
+        startupFailed = true;
         off();
         reject(new Error(value.error ?? "COMPONENT_START_FAILED"));
       }
@@ -79,19 +106,15 @@ export async function launchNode(
     (closed ??= (async () => {
       const errors: CleanupResult["errors"] = [];
       const exited = child.exitCode !== null || child.signalCode !== null;
-      if (exited) errors.push({ code: "COMPONENT_CLEANUP_UNCONFIRMED", component: entrypoint });
-      if (!exited) {
+      if (cleanupComplete === false)
+        errors.push({ code: "COMPONENT_CLEANUP_INCOMPLETE", component: entrypoint });
+      else if (exited && cleanupComplete !== true)
+        errors.push({ code: "COMPONENT_CLEANUP_UNCONFIRMED", component: entrypoint });
+      if (!exited && cleanupComplete === undefined) {
         const id = randomUUID();
         const acknowledged = new Promise<void>((resolve, reject) => {
-          const off = channel.on((message) => {
-            const value = message as { type?: string; request_id?: string; complete?: boolean };
-            if (value.type !== "component.stopped" || value.request_id !== id) return;
-            off();
-            if (value.complete) resolve();
-            else reject(new Error("COMPONENT_CLEANUP_INCOMPLETE"));
-          });
+          acknowledgement = { id, resolve, reject };
           child.once("exit", () => {
-            off();
             reject(new Error("COMPONENT_CLEANUP_UNCONFIRMED"));
           });
         });
@@ -108,7 +131,12 @@ export async function launchNode(
       } catch {
         errors.push({ code: "PROCESS_CLEANUP_INCOMPLETE", component: entrypoint });
       }
-      await rm(directory, { recursive: true, force: true });
+      offCleanup();
+      try {
+        await rm(directory, { recursive: true, force: true });
+      } catch {
+        errors.push({ code: "COMPONENT_CONFIG_CLEANUP_INCOMPLETE", component: entrypoint });
+      }
       const processExited = child.exitCode !== null || child.signalCode !== null;
       return {
         complete: !errors.length && processExited,
@@ -127,8 +155,8 @@ export async function launchNode(
     onChild?.(child);
     await deadline(Promise.race([ready, aborted]), 30_000, "COMPONENT_START_TIMEOUT");
   } catch (error) {
-    await stop();
-    throw error;
+    const cleanup = await stop();
+    throw new ComponentStartError(error, cleanup);
   } finally {
     signal?.removeEventListener("abort", onAbort);
   }

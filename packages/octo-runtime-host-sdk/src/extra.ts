@@ -10,7 +10,7 @@ import type { JsonObject } from "./extras.js";
 import { createContextLoader } from "./context-loader.js";
 import { DependencyPool } from "./dependencies.js";
 import { processChannel } from "./process-channel.js";
-import { deadline, launchNode, type CleanupResult } from "./launch.js";
+import { ComponentStartError, deadline, launchNode, type CleanupResult } from "./launch.js";
 
 export interface ExtraLaunchOptions {
   logging?: RuntimeLoggingOptions;
@@ -62,11 +62,17 @@ export async function startExtra(options: ExtraLaunchOptions): Promise<OwnedExtr
     );
   } catch (error) {
     unbind?.();
+    owner.failed = error instanceof ComponentStartError && !error.cleanup.complete;
     try {
       await deadline(pool.close(), 5000, "EXTRA_DISPOSE_FAILED");
-      owners.delete(name);
+      if (!owner.failed) owners.delete(name);
     } catch {
       owner.failed = true;
+      if (error instanceof ComponentStartError) {
+        error.cleanup.complete = false;
+        error.cleanup.errors.push({ code: "DEPENDENCY_CLEANUP_INCOMPLETE", component: name });
+        error.cleanup.pendingResources.push("loadContexts");
+      }
     }
     throw error;
   }

@@ -9,3 +9,4 @@ export * from "./home.js";
 export * from "./identity.js";
 export * from "./native.js";
 export type { CleanupResult } from "./launch.js";
+export { ComponentStartError } from "./launch.js";

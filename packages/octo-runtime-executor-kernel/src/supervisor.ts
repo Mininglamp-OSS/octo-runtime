@@ -33,8 +33,16 @@ export class WorkerSupervisor {
     if (this.#state !== "ready" || !this.#worker) throw new KernelError("KERNEL_UNAVAILABLE");
     return this.#worker.client;
   }
-  async start(): Promise<void> {
-    await this.#spawn();
+  async start(signal?: AbortSignal): Promise<void> {
+    signal?.throwIfAborted();
+    const abort = () => this.#abort.abort();
+    signal?.addEventListener("abort", abort, { once: true });
+    try {
+      await this.#spawn();
+      signal?.throwIfAborted();
+    } finally {
+      signal?.removeEventListener("abort", abort);
+    }
   }
   async #spawn(): Promise<void> {
     let worker: WorkerProcess;

@@ -5,7 +5,7 @@ import {
   type KernelStatus,
   type KernelServerOptions
 } from "@mininglamp-oss/octo-runtime-executor-kernel";
-import { launchNode, type CleanupResult } from "./launch.js";
+import { ComponentStartError, launchNode, type CleanupResult } from "./launch.js";
 
 export interface OwnedKernel {
   readonly topology: "kernel-ipc";
@@ -33,6 +33,7 @@ export async function startOwnedKernel(options: OwnedKernelOptions): Promise<Own
   };
   let process = await launchNode(entrypoint, configuration, undefined, options.signal);
   let client = attachKernel({ endpoint: options.endpoint });
+  let failedStartup: ComponentStartError | undefined;
   let operation: Promise<unknown> = Promise.resolve();
   const serial = <T>(action: () => Promise<T>): Promise<T> => {
     const next = operation.catch(() => undefined).then(action);
@@ -51,14 +52,23 @@ export async function startOwnedKernel(options: OwnedKernelOptions): Promise<Own
     stop: () =>
       serial(async () => {
         client.close();
+        if (failedStartup) return failedStartup.cleanup;
         return process.stop();
       }),
     restart: () =>
       serial(async () => {
         client.close();
+        if (failedStartup && !failedStartup.cleanup.complete)
+          throw new Error("COMPONENT_CLEANUP_INCOMPLETE");
         const cleanup = await process.stop();
         if (!cleanup.complete) throw new Error("COMPONENT_CLEANUP_INCOMPLETE");
-        process = await launchNode(entrypoint, configuration);
+        try {
+          process = await launchNode(entrypoint, configuration);
+          failedStartup = undefined;
+        } catch (error) {
+          if (error instanceof ComponentStartError) failedStartup = error;
+          throw error;
+        }
         client = attachKernel({ endpoint: options.endpoint });
         return client.status();
       })

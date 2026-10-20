@@ -9,6 +9,8 @@
 
 stop 返回 CleanupResult，complete、processExited、pendingResources 和稳定错误码分别表达清理事实。进程退出不等于插件 dispose 或宿主依赖已完成；失败实例保留所有权，禁止同名替换。
 
+spawn 后启动失败抛出 ComponentStartError，保留 cause 与 cleanup；依赖未结束也计入回滚 incomplete。初始化期间的 owner 断开和 stop 会取消启动并回收迟到资源，不在清理后发布 ready。Kernel restart 失败时仍保留新实例的清理结果，不回退使用旧实例的成功 stop 结果。Native IPC readiness 的 status.result.pid 必须匹配本次新建进程。
+
 函数式 Extra 合同保持 extra(ctx, config)(dependencies)。loadContexts 函数留在宿主；IPC 仅传 instance/epoch/call ID、剩余时限和受限 JSON。默认 8 个实际在途（最大 32），超时或取消只结束调用方等待，实际 Promise 结束前不释放额度。默认 5 秒，范围 1-30 秒，结果最多 32 项 / 64 KiB，发送队列最多 64 条 / 2 MiB。断线和重载不能绕过未完成的真实调用。
 
 宿主也可通过显式 dependencyModule 在 Extra 进程中加载依赖。模块入口必须绝对，不能与函数代理同时使用；它属于产品装配代码，不是 JS 沙箱。

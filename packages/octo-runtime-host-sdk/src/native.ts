@@ -5,7 +5,7 @@ import { once } from "node:events";
 import net from "node:net";
 import { createProcessCleanup } from "@mininglamp-oss/octo-runtime-adapter-sdk/process-cleanup";
 import { readBoundedLines } from "@mininglamp-oss/octo-runtime-adapter-sdk";
-import { deadline, type CleanupResult } from "./launch.js";
+import { ComponentStartError, deadline, type CleanupResult } from "./launch.js";
 
 export interface NativeComponentOptions {
   executable: string;
@@ -89,8 +89,9 @@ export async function startNativeComponent(options: NativeComponentOptions) {
         await cleanup();
       } catch {
         errors.push({ component: options.executable, code: "PROCESS_CLEANUP_INCOMPLETE" });
+      } finally {
+        stopInput();
       }
-      stopInput();
       const processExited = child.exitCode !== null || child.signalCode !== null;
       return {
         complete: !errors.length && processExited,
@@ -107,22 +108,22 @@ export async function startNativeComponent(options: NativeComponentOptions) {
         if (child.exitCode !== null || child.signalCode !== null)
           throw new Error("COMPONENT_EXITED");
         try {
-          await nativeStatus(options.endpoint);
+          await nativeStatus(options.endpoint, child.pid!);
           break;
-        } catch {
-          if (Date.now() >= until) throw new Error("COMPONENT_START_TIMEOUT");
+        } catch (error) {
+          if (error instanceof Error && error.message === "COMPONENT_IDENTITY_MISMATCH")
+            throw error;
+          if (Date.now() >= until) throw new Error("COMPONENT_START_TIMEOUT", { cause: error });
           await new Promise((resolve) => setTimeout(resolve, 100));
         }
       }
     }
   } catch (error) {
-    await cleanup();
-    stopInput();
-    throw error;
+    throw new ComponentStartError(error, await stop());
   }
   return { ownership: "owned" as const, pid: child.pid!, stop };
 }
-async function nativeStatus(endpoint: string): Promise<void> {
+async function nativeStatus(endpoint: string, pid: number): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const socket = net.createConnection(endpoint);
     const requestId = randomUUID();
@@ -151,6 +152,15 @@ async function nativeStatus(endpoint: string): Promise<void> {
             result?: unknown;
           };
           if (reply.jsonrpc !== "2.0" || reply.id !== requestId || !reply.result) throw new Error();
+          if (
+            typeof reply.result !== "object" ||
+            !("pid" in reply.result) ||
+            reply.result.pid !== pid
+          ) {
+            socket.destroy();
+            reject(new Error("COMPONENT_IDENTITY_MISMATCH"));
+            return;
+          }
           resolve();
         } catch {
           reject(new Error("COMPONENT_STATUS_INVALID"));

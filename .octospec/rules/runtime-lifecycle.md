@@ -47,6 +47,8 @@ Home 表示本地设备实例的状态边界，machine_id 是安装分组，不�
 
 stop 关闭接纳，取消自己的调用，执行 dispose，回收受管进程，并返回清理事实。单项失败仍尝试其他资源。重复调用等待同一清理操作。失败记录保留所有权；同名 Extra 或 owned Kernel 的替换必须检查旧实例完整关闭。
 
+初始化期间同样观察 owner 断连和停止：先登记取消意图，取消 worker readiness，异步创建返回后检查停止状态并回滚，不得在清理完成后建立迟到端点或报告 ready。spawn 后启动失败以 ComponentStartError 保留 cause 和 cleanup；Extra 初始化失败的 disposer、进程或函数池未完整清理时保留失败名称。Kernel restart 失败后的 stop 必须报告替换实例的清理事实，不得返回旧实例的成功结果。原生 IPC status.pid 必须对应本次新建进程。
+
 宿主动态函数留在宿主进程，真实 Promise 未结束前仍占容量；超时、取消、账号切换、断线或 scope 更新不能提前释放。宿主同步阻塞函数不能由 IPC 代理隔离。
 
 ## CLI

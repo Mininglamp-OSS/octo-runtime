@@ -77,6 +77,8 @@ preparedBots、业务存储和日志目录由宿主管理。Extra 在独立进�
 
 /host 的 startNativeComponent 接收 NativeComponentOptions：绝对 executable/argv/cwd/configPath/endpoint、readiness、stop。自动追加 --config 和 --endpoint，拒绝 argv 中重复定义；不使用 shell。原生程序可在 stdin 按行接收 component.stop/request_id，并在 stdout 确认 component.stopped/request_id/complete。选择 signal 合同时以实际退出和受管进程清理为准。
 
+选择 `readiness: "ipc"` 时，status 的 JSON-RPC result 必须包含新建子进程的 `pid`；其他进程的端点响应不算本次启动成功。spawn 后启动失败抛出 `/host` 导出的 `ComponentStartError`，`cause` 保留启动错误，`cleanup` 报告回滚结果。`cleanup.complete=false` 不因进程已退出而变为成功；Extra 保留失败名称，Kernel restart 保留替换实例的失败清理事实，禁止继续替换。
+
 Go stdlib fixture 验证了参数、含空格路径、工作目录和关闭确认，见 [native-component.test.js](test/native-component.test.js)。这不表示已实现外部 Go Loop 服务或生产 Go client。
 
 ## 5. 验证和边界

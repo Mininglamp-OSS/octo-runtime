@@ -1,6 +1,7 @@
 export {
   startOwnedKernel,
   startExtra,
+  ComponentStartError,
   componentEndpoint,
   componentServiceId,
   homeHash,

@@ -228,9 +228,11 @@ Extra.stop 时序固定：同步关准入 -> abort dependency/排队任务 -> �
 configPath:绝对路径, endpoint, stop:{kind:"stdin-json"|"signal"}, readiness:{kind:"ipc"|"process"}}`。
 shell=false，不替换 argv 占位符；配置路径和 endpoint 通过固定 `--config PATH --endpoint ADDRESS`
 参数追加，禁止重复保留参数。凭据只在受保护配置内。
-stdin-json 的停止消息为 `{type:"shutdown", request_id:string}`，默认等待5秒退出再强制回收；
+stdin-json 的停止消息为 `{type:"component.stop", request_id:string}`，默认等待5秒退出再强制回收；
 signal 按平台能力显式选择。process readiness 只报告进程存活，executionReady 为 unknown。
-ipc readiness 必须能连接公共 Kernel/组件约定端口并验证响应，不能靠日志关键词判断。
+ipc readiness 必须能连接公共 Kernel/组件约定端口并验证响应，status result.pid 必须等于本次新建子进程 PID，不能靠日志关键词或其他进程的端点响应判断。
+
+spawn 后启动失败抛出 ComponentStartError，cause 为启动错误，cleanup 为包含进程、插件及依赖清理事实的 CleanupResult。Kernel/Extra 初始化期间预先观察 owner 退出和 stop，取消或归并异步启动后再清理，不允许晚到资源越过关闭边界。失败 Extra 名称和 Kernel 替换实例的回滚 incomplete 必须保留，processExited 不替代完整清理。
 
 KernelStatus 至少包含 `{ipc_version:1, kernel_instance_id, pid, worker:{pid,generation,state,restart_attempt},
 execution_ready:boolean}`；worker.state 为 starting/ready/restarting/failed/stopping/stopped。

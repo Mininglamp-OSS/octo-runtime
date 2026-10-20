@@ -74,3 +74,11 @@ Core、Provider、Run7/Context v3、HostRunService/流预算、交互、进程�
 
 - PR #61 首轮 Linux 构建/测试/包验证及 Windows 包与生命周期验证通过。
 - macOS 首轮仅 native-component Go fixture 因 runner 缺少 go 失败；CI 已补充显式安装 Go 1.25.x，不跳过该测试。修复后的远端结果以 PR 检查为准。
+
+## PR #61 启动失败复核
+
+- 已确认评审指出的 Kernel 启动期间父断连残留 worker，以及 Extra 启动回滚丢失失败所有权。启动阶段提前注册 owner 生命周期并传递取消；`ComponentStartError` 通过公开 `/host` 保留 cause 和 CleanupResult。
+- 同类修复包括 Extra 异步初始化与 stop 的资源竞态、清理失败仍执行独立 finalizer、所有清理成功后才释放租约、Kernel 重启失败后保留替换实例清理事实，以及 native readiness 校验新进程 PID 并执行可观察的启动回滚。
+- 新增 18 项回归；Windows CI 也运行三个启动测试文件，POSIX 租约测试按平台条件跳过。D6 原生停止消息已与实现统一为 `component.stop`。
+- 最终本地全量：Node 1273 项，1263 通过、10 跳过、0 失败；WebUI 35/35。构建、严格类型、ESLint、命名、格式、知识链接检查通过。包外离线安装结果另见[复核记录](../../journal/shared/2026-10-20-component-startup-rollback.md)。
+- Standards 原始发现 5 类、最高 P1；Spec 原始及复核发现合计 4 项、最高 P1，存在交叉，不相加作为独立缺陷数。最终只读复核均无剩余必须修复项。上述“尚未验收”仍适用，不能把本次启动回归等同完整 A22/A23 矩阵。

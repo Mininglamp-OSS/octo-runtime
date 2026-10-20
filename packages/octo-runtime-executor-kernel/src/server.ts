@@ -105,7 +105,7 @@ function validateParams(method: string, params: Record<string, unknown>): void {
     throw new KernelError("INVALID_PARAMS");
 }
 
-export async function startKernelServer(options: KernelServerOptions) {
+export async function startKernelServer(options: KernelServerOptions, signal?: AbortSignal) {
   const instance = randomUUID();
   let manifest: InvocationManifest | undefined;
   const worker = new WorkerSupervisor(
@@ -399,15 +399,19 @@ export async function startKernelServer(options: KernelServerOptions) {
     if (errors.length) throw new AggregateError(errors, "KERNEL_CLEANUP_INCOMPLETE");
   };
   try {
+    signal?.throwIfAborted();
     if (process.platform !== "win32")
       await mkdir(dirname(options.endpoint), { recursive: true, mode: 0o700 });
+    signal?.throwIfAborted();
     releaseEndpoint = await acquireEndpoint(options.endpoint);
+    signal?.throwIfAborted();
     const statePath = options.stateDirectory
       ? join(options.stateDirectory, "kernel-invocations.json")
       : process.platform !== "win32"
         ? `${options.endpoint}.runs`
         : undefined;
     if (statePath) manifest = (await InvocationManifest.open(statePath)).manifest;
+    signal?.throwIfAborted();
     await new Promise<void>((resolve, reject) => {
       server.once("error", reject);
       server.listen(options.endpoint, () => {
@@ -415,8 +419,11 @@ export async function startKernelServer(options: KernelServerOptions) {
         resolve();
       });
     });
+    signal?.throwIfAborted();
     if (process.platform !== "win32") await chmod(options.endpoint, 0o600);
-    await worker.start();
+    signal?.throwIfAborted();
+    await worker.start(signal);
+    signal?.throwIfAborted();
   } catch (error) {
     try {
       await teardown();
