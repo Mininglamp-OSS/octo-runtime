@@ -222,7 +222,9 @@ for (const mode of ["initialize", "dispose", "unref"]) {
         await rm(home, { recursive: true, force: true });
       });
       await waitFor(async () => {
-        identity = JSON.parse(await readFile(pidFile, "utf8").catch(() => "null"));
+        identity = await readFile(pidFile, "utf8")
+          .then(JSON.parse)
+          .catch(() => undefined);
         return identity?.extra && identity?.child;
       }, 5000);
       if (mode !== "initialize") assert.equal((await ready)[0].type, "ready");
