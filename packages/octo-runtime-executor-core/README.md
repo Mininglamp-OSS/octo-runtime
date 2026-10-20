@@ -112,6 +112,12 @@ arbitrary JavaScript or unowned descendants stopped. Adapter-owned process
 cleanup stays with the adapter. A successful provider candidate is confirmed
 only after stream and cleanup validation; cleanup failure cannot report success.
 
+Provider terminal draining and iterator closure share one `cancelGraceMs` budget,
+starting at the first accepted terminal, abort or cleanup request. The deadline
+uses a monotonic clock. Catch/finally and resumed consumers use the remaining
+budget; they do not grant another grace period. The explicit `shutdown` timeout
+only bounds that caller's wait for owned cleanup, without resetting this deadline.
+
 Direct calls share the host's process and event loop. Exceptions can fail an
 invocation, but `process.exit`, OOM and synchronous blocking cannot be contained
 by this Core. The default production worker and stdio NDJSON path remain in the

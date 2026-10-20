@@ -106,6 +106,31 @@ Jerry-Xin 的评审意见成立：async generator 的 finally 抛错后已永久
 所有权；incomplete 不等于证实泄漏。失败记录受 1024 上限约束且可耗尽接纳容量，由宿主
 或隔离 worker 处理故障域，不通过重复执行 Run、全机扫描或清空记录隐藏问题。
 
+## yujiawei 评审与同类路径整改
+
+评审针对 ae0186f。P1 所述 pendingNext 作为 Promise.race 输入已有 rejection observer，
+race 的其他分支先完成不会撤销该 observer；双模式取消/超时后迟到 next 拒绝均无 unhandled。
+新增回归保留这一保证，不增加没有必要的空 catch 来伪装修复。
+
+P2 成立：终态后 next、return、catch 分别启动完整 cancelGraceMs；暂停消费者恢复时也会
+重新等待。现用 performance.now 的唯一截止时间，候选终态、首次 abort 或清理开始即计时，
+所有阶段共享剩余预算。100ms 内 next80+return80 不再完成，next40+return40 正常完成。
+deadline 只限制 Core 的等待，不证明底层操作已经停止，pending/failed 所有权合同继续保留。
+
+同类检查发现 NativeInteractionBridge 的自动回复/过期后台 close 拒绝无人观察，以及传输
+关闭失败跳过源 iterator.return；现缓存并观察同一次 close，所有独立清理均启动，Promise.all
+在已有失败时及时返回且观察其他步骤的拒绝，避免等待阻塞兄弟项才能报错。respond 保留原写入
+失败与清理失败。真实 TCP listener 回归确认源资源得到释放，阻塞 return 也不会隐藏关闭失败。
+
+ZCode 的 client.close 拒绝原本跳过 spec.cleanup；现两项均尝试，单项错误原样返回，多项错误
+聚合。纯模拟 child 故障注入不发送 OS 信号，并确认原初始化失败事实仍在事件中。
+
+本轮新增 22 项回归（Core预算/迟到拒绝14、Native6、ZCode2），Windows专项一并运行。
+修复前已有隔离复现证据；本轮针对性22项已通过。最终全量 Node 1317 项中 1307 通过、
+10 跳过、0 失败，UI 35 通过；typecheck/build、lint、lint:names、format:check 和 diff 空白
+检查通过。重新 pack-release 与仓库外 verify-release 通过，含公开 Core、离线安装与卸载
+保留 Home；构建来源为 ae0186f dirty=true，未执行真实 Provider/IM。最新提交 CI 待推送验证。
+
 ## 初次交付检查（cb2e2dc）
 
 | 命令 | 本次结果 |

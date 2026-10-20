@@ -30,7 +30,10 @@ worker 路径。直接嵌入 Core 是允许显式选择的 SDK 简易方案，�
 关闭却无 return 时保留未确认清理所有权，shutdown 持续报告 incomplete。尚在等待的清理
 可以稍后完成，由下一次 shutdown 观察。取消已确认清理的调用可按 TTL 淘汰；旧 iterator
 迟到结束不得修改复用同一 invocationId 的新调用。具体限制见 [Core](../../packages/octo-runtime-executor-core/README.md)。
-shutdown 同步关闭新接纳，返回不可变的清理快照；incomplete 保留所有权并允许再次清理。
+shutdown 同步关闭新接纳，返回不可变的清理快照；incomplete 保留所有权，后续仅继续观察未决清理。
+候选终态、取消或首次清理三者最早时刻建立单调时钟截止时间；终态 drain、return、catch/finally
+共用一次 cancelGraceMs，暂停后恢复消费不能重开预算。后台清理 Promise 必须观察拒绝；
+单项关闭失败不能跳过其他独立资源释放，也不能为等待永不结束的兄弟项无限推迟已知失败。
 具体合同见 [Core API](../../packages/octo-runtime-executor-core/README.md)。
 
 下方 daemon/stdio 形状描述当前仍保留的隔离链路，不限制 direct 使用。新 ExecutorKernel

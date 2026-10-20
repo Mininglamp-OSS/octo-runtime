@@ -656,6 +656,10 @@ export class AgentExecutor {
     let nextFailed = false;
     let iteratorDone = false;
     let cleanupWait: Promise<void> | undefined;
+    let cleanupDeadline: number | undefined;
+    const beginCleanup = (): number =>
+      (cleanupDeadline ??= performance.now() + watchdog.limits.cancelGraceMs);
+    const remainingCleanup = (): number => Math.max(0, beginCleanup() - performance.now());
     owner.close = async () => {
       if (!iterator) return;
       if (iterator.return) {
@@ -675,12 +679,15 @@ export class AgentExecutor {
         throw error;
       }
     };
-    const closeIterator = (): Promise<unknown> => this.#cleanupOwner(request.invocationId, owner);
+    const closeIterator = (): Promise<unknown> => {
+      beginCleanup();
+      return this.#cleanupOwner(request.invocationId, owner);
+    };
     const waitCleanup = (): Promise<void> =>
-      (cleanupWait ??= boundedCleanup(closeIterator(), watchdog.limits.cancelGraceMs));
+      (cleanupWait ??= boundedCleanup(closeIterator(), remainingCleanup()));
     // The timer can fire while a consumer is paused at yield.
     const onAbort = () => {
-      void closeIterator().catch(() => undefined);
+      void waitCleanup().catch(() => undefined);
     };
     controller.signal.addEventListener("abort", onAbort, { once: true });
     const messages = new Map<string, MessageState>();
@@ -804,7 +811,12 @@ export class AgentExecutor {
         const pendingNext = readNext(iterator);
         const next =
           terminal || nativeTerminal
-            ? await withCleanupDeadline(pendingNext, watchdog.limits.cancelGraceMs, controller)
+            ? await withCleanupDeadline(
+                pendingNext,
+                beginCleanup(),
+                watchdog.limits.cancelGraceMs,
+                controller
+              )
             : await waitForNext(pendingNext, controller.signal);
         if (controller.signal.aborted) throw controller.signal.reason;
         if (next.done) break;
@@ -823,6 +835,7 @@ export class AgentExecutor {
             adapterEvent.control.state !== "running"
           ) {
             nativeTerminal = adapterEvent.control;
+            beginCleanup();
             watchdog.terminal();
             this.#acceptedTerminals.add(request.invocationId);
           } else yield adapterEvent;
@@ -846,6 +859,7 @@ export class AgentExecutor {
         if (terminal) throw new Error(`${adapterType} emitted after terminal event`);
         if (isTerminal(event)) {
           terminal = event;
+          beginCleanup();
           // A later user cancellation cannot replace an accepted provider terminal.
           this.#acceptedTerminals.add(request.invocationId);
         } else {
@@ -880,7 +894,12 @@ export class AgentExecutor {
           yield prepared.event;
         }
       }
-      await withCleanupDeadline(closeIterator(), watchdog.limits.cancelGraceMs, controller);
+      await withCleanupDeadline(
+        closeIterator(),
+        beginCleanup(),
+        watchdog.limits.cancelGraceMs,
+        controller
+      );
       if (protocolMode === "native") {
         if (!nativeTerminal) throw protocolError("HOST_ENDED_WITHOUT_TERMINAL");
         outcome = nativeTerminal.state;
@@ -1181,6 +1200,7 @@ async function boundedCleanup(cleanup: Promise<unknown>, graceMs: number): Promi
 
 async function withCleanupDeadline<T>(
   pending: Promise<T>,
+  deadline: number,
   graceMs: number,
   controller: AbortController
 ): Promise<T> {
@@ -1189,11 +1209,14 @@ async function withCleanupDeadline<T>(
     return await Promise.race([
       pending,
       new Promise<never>((_resolve, reject) => {
-        timer = setTimeout(() => {
-          const error = new AdapterWatchdogTimeoutError("cleanup", graceMs, "cleanup_timeout");
-          reject(error);
-          controller.abort(error);
-        }, graceMs);
+        timer = setTimeout(
+          () => {
+            const error = new AdapterWatchdogTimeoutError("cleanup", graceMs, "cleanup_timeout");
+            reject(error);
+            controller.abort(error);
+          },
+          Math.max(0, deadline - performance.now())
+        );
       })
     ]);
   } finally {
