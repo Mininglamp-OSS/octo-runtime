@@ -4,7 +4,7 @@ title: Gateway 关闭收尾与 Windows 受管后代回收
 description: 在最新 Kernel 与独立 Extra 架构上修复两项 P1 生命周期缺口。
 tags: [planning, lifecycle, channel, windows, ipc, testing]
 timestamp: 2026-10-20T00:00:00Z
-status: planned
+status: in_progress
 ---
 
 # 目标与当前状态
@@ -12,8 +12,8 @@ status: planned
 用户要求从最新 main 新建独立 worktree，为两项 P1 建立可完成性至少 95 分的 Octospec 开发计划。
 初始规划基线为 `origin/main@6f5f25f97ec4b2ca879ac78ca2990ee2019f9eeb`；提交PR前已rebase至
 `origin/main@fae6333632010602506774b0648b639b70d25e22`。分支为
-`plan/gateway-drain-windows-cleanup`。本任务交付规划，不实施产品代码；用户随后授权英文提交、创建 PR 和合并规划。
-两个 P1 的修复及验收仍待实施，规划 PR 只关联相关问题，不以规划完成代替缺陷修复。
+`feat/gateway-drain-windows-cleanup`。用户已要求关闭规划PR #68、重命名分支，并明确授权按M0–M5直接实施。
+当前进入M0；实现与验收按实际结果逐项记录，不以规划完成代替缺陷修复。详见[实施记录](implementation.md)。
 
 1. Gateway 停止时，先停止接纳和准备，再取消所属执行，在预算内消费真实尾事件、更新当前代次 binding 并尝试最终回复，最后释放业务连接。
 2. Windows 清理按启动时建立的 OS 资源归属回收进程树；Provider leader 先退出或 owner 消失后，也能回收本次受管后代，不依赖退出后的 PID 树重建。

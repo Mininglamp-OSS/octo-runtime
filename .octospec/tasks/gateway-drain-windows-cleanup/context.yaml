@@ -1,9 +1,9 @@
 task: gateway-drain-windows-cleanup
 date: 2026-10-20
-status: planned
+status: in_progress
 initial_baseline: 6f5f25f97ec4b2ca879ac78ca2990ee2019f9eeb
 baseline: fae6333632010602506774b0648b639b70d25e22
-branch: plan/gateway-drain-windows-cleanup
+branch: feat/gateway-drain-windows-cleanup
 worktree: /Users/lvsijia/github.com/Mininglamp-OSS/octo-runtime-gateway-drain-windows-cleanup
 related_issues: [30, 14, 47, 48, 50, 57, 65, 66]
 rules_read:
@@ -52,6 +52,8 @@ decisions:
   - 评分95为工程自评；保留5分具体风险，不代表实现或Windows真机通过。
   - 会话存储工厂、公共Extra API重构、Go执行IPC client与Loop均不纳入；接触文件与65/66显式协调。
   - 提交PR前按用户要求rebase最新main@fae6333；保留上游GROUP.md任务索引，重读Channel/session规则并将rulesContext代次保护纳入G03。
+  - 用户随后关闭规划PR68、要求分支使用feat，并明确授权按计划直接实施；当前M0阶段，不重新创建规划PR。
+  - Gateway真实联验使用用户指定im-test环境和本机octo-im-account.md；凭据只在测试进程读取，不进入知识文件或日志。
 validation:
   baseline_okf: 246 units, 20 rules, 1548 local links; passed using uv with pyyaml
   initial_plan_okf: 252 units, 20 rules, 1573 local links; passed using uv with pyyaml

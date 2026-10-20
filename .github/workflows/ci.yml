@@ -131,10 +131,17 @@ jobs:
         with:
           node-version-file: .nvmrc
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - name: Install Go for Windows process ownership
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: "1.25.x"
+          cache: false
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Build release package
         run: pnpm build
+      - name: Verify Windows process ownership prototype
+        run: node --test test/windows-process-owner.test.js
       - name: Verify Core, Kernel and independent Extra lifecycle on Windows
         run: node --test test/executor-core.test.js test/executor-cleanup-budget.test.js test/native-cleanup.test.js test/zcode-cleanup.test.js test/kernel-clients.test.js test/kernel-invoke.test.js test/kernel-invoke-lifecycle.test.js test/kernel-invoke-consumers.test.js test/kernel-worker-supervision.test.js test/host-sdk-lifecycle.test.js test/extra-dependency-proxy.test.js test/kernel-ipc-contract.test.js test/cli-components.test.js test/component-startup.test.js test/extra-startup.test.js test/native-startup.test.js
       - name: Pack single distribution
