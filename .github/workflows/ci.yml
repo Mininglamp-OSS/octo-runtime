@@ -130,8 +130,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build release package
         run: pnpm build
-      - name: Verify Core lifecycle and isolated worker on Windows
-        run: node --test test/executor-core.test.js test/executor-cleanup-budget.test.js test/native-cleanup.test.js test/zcode-cleanup.test.js
+      - name: Verify Core, Kernel and independent Extra lifecycle on Windows
+        run: node --test test/executor-core.test.js test/executor-cleanup-budget.test.js test/native-cleanup.test.js test/zcode-cleanup.test.js test/kernel-clients.test.js test/kernel-worker-supervision.test.js test/host-sdk-lifecycle.test.js test/extra-dependency-proxy.test.js test/kernel-ipc-contract.test.js test/cli-components.test.js
       - name: Pack single distribution
         id: pack
         shell: bash
@@ -147,7 +147,7 @@ jobs:
             VERSION=$(node -p "JSON.parse(require('node:fs').readFileSync('package.json', 'utf8')).version")
           fi
           echo "archive=dist/release/mininglamp-oss-octo-runtime-$VERSION.tgz" >> "$GITHUB_OUTPUT"
-      - name: Verify Windows installation and daemon process cleanup
+      - name: Verify Windows installation and independent component cleanup
         shell: bash
         env:
           ARCHIVE: ${{ steps.pack.outputs.archive }}
