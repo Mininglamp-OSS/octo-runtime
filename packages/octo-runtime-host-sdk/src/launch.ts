@@ -62,6 +62,7 @@ export async function launchNode(
     child.once("exit", () => resolve());
     child.once("error", () => resolve());
   });
+  const processClosed = new Promise<void>((resolve) => child.once("close", () => resolve()));
   const cleanup = createProcessCleanup(child, {
     processGroup: process.platform !== "win32",
     processTree: true
@@ -106,10 +107,10 @@ export async function launchNode(
     (closed ??= (async () => {
       const errors: CleanupResult["errors"] = [];
       const exited = child.exitCode !== null || child.signalCode !== null;
-      if (cleanupComplete === false)
-        errors.push({ code: "COMPONENT_CLEANUP_INCOMPLETE", component: entrypoint });
-      else if (exited && cleanupComplete !== true)
-        errors.push({ code: "COMPONENT_CLEANUP_UNCONFIRMED", component: entrypoint });
+      let acknowledgementError =
+        cleanupComplete === false
+          ? "COMPONENT_CLEANUP_INCOMPLETE"
+          : "COMPONENT_CLEANUP_UNCONFIRMED";
       if (!exited && cleanupComplete === undefined) {
         const id = randomUUID();
         const acknowledged = new Promise<void>((resolve, reject) => {
@@ -123,7 +124,7 @@ export async function launchNode(
           channel.send({ type: "component.stop", request_id: id });
           await deadline(acknowledged, 5000, "COMPONENT_STOP_TIMEOUT");
         } catch {
-          errors.push({ code: "COMPONENT_CLEANUP_INCOMPLETE", component: entrypoint });
+          acknowledgementError = "COMPONENT_CLEANUP_INCOMPLETE";
         }
       }
       try {
@@ -131,6 +132,14 @@ export async function launchNode(
       } catch {
         errors.push({ code: "PROCESS_CLEANUP_INCOMPLETE", component: entrypoint });
       }
+      try {
+        // 等 IPC 排空后再判断 ACK；发送 stop 与子进程自主回滚可能同时关闭通道。
+        await deadline(processClosed, 1000, "COMPONENT_CLOSE_TIMEOUT");
+      } catch {
+        errors.push({ code: "COMPONENT_CLOSE_INCOMPLETE", component: entrypoint });
+      }
+      if (cleanupComplete !== true)
+        errors.push({ code: acknowledgementError, component: entrypoint });
       offCleanup();
       try {
         await rm(directory, { recursive: true, force: true });

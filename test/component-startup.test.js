@@ -12,6 +12,8 @@ import {
   componentEndpoint
 } from "@mininglamp-oss/octo-runtime-host-sdk";
 import { waitFor } from "./runtime-fixture.js";
+import { spawnWorker } from "@mininglamp-oss/octo-runtime-executor-kernel";
+import { launchNode } from "../packages/octo-runtime-host-sdk/dist/launch.js";
 
 function alive(pid) {
   try {
@@ -35,21 +37,34 @@ async function startupFixture(t) {
     }
   };
 }
-async function identities(t, fixture) {
+async function identities(t, fixture, startupFailure = () => undefined) {
   let identity;
-  await waitFor(async () => {
-    try {
-      const worker = Number(await readFile(fixture.pidFile, "utf8"));
-      const manifest = JSON.parse(
-        await readFile(join(fixture.home, "kernel-invocations.json"), "utf8")
-      );
-      if (manifest.worker?.pid !== worker) return false;
-      identity = { worker, kernel: manifest.kernelPid };
-      return true;
-    } catch {
-      return false;
-    }
-  }, 15_000);
+  try {
+    await waitFor(async () => {
+      if (startupFailure()) throw startupFailure();
+      try {
+        const worker = Number(await readFile(fixture.pidFile, "utf8"));
+        const manifest = JSON.parse(
+          await readFile(join(fixture.home, "kernel-invocations.json"), "utf8")
+        );
+        if (manifest.worker?.pid !== worker) return false;
+        identity = { worker, kernel: manifest.kernelPid };
+        return true;
+      } catch {
+        return false;
+      }
+    }, 15_000);
+  } catch (error) {
+    const files = await Promise.allSettled(
+      [fixture.pidFile, join(fixture.home, "kernel-invocations.json")].map((file) =>
+        readFile(file, "utf8")
+      )
+    );
+    throw new Error(
+      `startup identity unavailable: ${JSON.stringify({ files, cleanup: startupFailure()?.cleanup })}`,
+      { cause: error }
+    );
+  }
   t.after(() => {
     for (const pid of Object.values(identity)) {
       if (alive(pid)) process.kill(pid, "SIGKILL");
@@ -70,6 +85,35 @@ async function assertReleased(fixture, identity) {
   });
   assert.equal((await replacement.stop()).complete, true);
 }
+
+test("worker cancellation during onSpawn observes the pending readiness request", async () => {
+  const controller = new AbortController();
+  await assert.rejects(
+    spawnWorker({
+      entrypoint: resolve("test/fixtures/direct-adapter-host.js"),
+      signal: controller.signal,
+      onSpawn: async () => controller.abort()
+    }),
+    /spawn cancelled/
+  );
+});
+
+test("startup rollback ACK remains authoritative when the stop send races IPC close", async () => {
+  await assert.rejects(
+    launchNode(resolve("test/fixtures/startup-ack-race.mjs"), {}, (child) => {
+      const send = child.send.bind(child);
+      child.send = (message, ...args) => {
+        if (message.type === "component.stop") throw new Error("fixture closed IPC send");
+        return send(message, ...args);
+      };
+    }),
+    (error) => {
+      assert.ok(error instanceof ComponentStartError);
+      assert.equal(error.cleanup.complete, true, JSON.stringify(error.cleanup));
+      return true;
+    }
+  );
+});
 
 test(
   "owner exit during Kernel readiness rolls back worker, endpoint and lease",
@@ -101,8 +145,16 @@ test(
     const fixture = await startupFixture(t);
     const controller = new AbortController();
     const starting = startOwnedKernel({ ...fixture.options, signal: controller.signal });
-    void starting.catch(() => undefined);
-    const identity = await identities(t, fixture);
+    let startupFailure;
+    void starting.catch((error) => {
+      startupFailure = error;
+    });
+    t.after(async () => {
+      controller.abort();
+      const kernel = await starting.catch(() => undefined);
+      await kernel?.stop();
+    });
+    const identity = await identities(t, fixture, () => startupFailure);
     controller.abort();
     await assert.rejects(starting, (error) => {
       assert.ok(error instanceof ComponentStartError);
@@ -128,7 +180,7 @@ test("Extra initialization failure preserves rollback facts and blocks failed di
   await assert.rejects(startExtra(options), (error) => {
     assert.ok(error instanceof ComponentStartError);
     assert.equal(error.message, "EXTRA_START_FAILED");
-    assert.equal(error.cleanup.complete, true);
+    assert.equal(error.cleanup.complete, true, JSON.stringify(error.cleanup));
     return true;
   });
   const extra = await startExtra({

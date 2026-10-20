@@ -109,7 +109,6 @@ function waitForReady<T>(
   timeoutMs: number,
   signal?: AbortSignal
 ): Promise<T> {
-  if (signal?.aborted) return Promise.reject(new Error("adapter-host spawn cancelled"));
   return new Promise<T>((resolve, reject) => {
     let settled = false;
     const finish = (callback: () => void): void => {
@@ -131,6 +130,8 @@ function waitForReady<T>(
       (error) =>
         finish(() => reject(error instanceof Error ? error : new Error(errorMessage(error))))
     );
+    // 即使 onSpawn 期间已取消，也必须观察已创建的 RPC，避免回滚触发未处理拒绝。
+    if (signal?.aborted) onAbort();
   });
 }
 
