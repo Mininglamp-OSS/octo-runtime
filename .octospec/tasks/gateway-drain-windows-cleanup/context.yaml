@@ -45,6 +45,7 @@ external_sources:
   - https://github.com/nodejs/node/blob/v24.19.0/deps/uv/src/win/process.c
   - https://github.com/nodejs/node/blob/v24.19.0/deps/uv/src/win/process-stdio.c
 decisions:
+  - PR72 head816ad54 后续 P2：以每次 attempt 的原流耗尽/终态确认协调 drain 的 INVOCATION_NOT_TRACKED；只消除已结束执行的误报，不改 Kernel 公共合同，不恢复旧桥或增加观察订阅。
   - 本轮按用户要求 rebase main@e82a2f0（PR73）；保留统一 KernelClient 入口与旧 extra-port 删除，drain 使用新 cancelInvocation/accepted，并保留业务收尾与执行排空的并行共享期限。
   - 用户追加要求在 AGENTS.md 约束核心实现和接入使用注释，重点补齐 Kernel/Executor；以 engineering 规则为正文，更新公开入口、状态/身份、取消/尾流、资源归属及 Windows 能力边界的中文注释。
   - 最初用户授权新worktree与Octospec开发计划，随后授权英文提交、推送、创建PR和合并；其后明确要求直接实施原计划。
@@ -60,6 +61,7 @@ decisions:
   - 用户随后关闭规划PR68、要求分支使用feat，并明确授权按计划直接实施；当前已完成产品接线与本地/真实IM检查，不重新创建规划PR。
   - Gateway真实联验使用用户指定im-test环境和本机octo-im-account.md；凭据只在测试进程读取，不进入知识文件或日志。
 validation:
+  terminal_reconciliation: macOS arm64 Node24.19.0；真实 Kernel/IPC 的终态先于订阅与延迟交互展示先 RED 后 GREEN；专项71通过；UI35及Node1355通过/10平台跳过，0失败或取消；typecheck/lint/names/format通过；本轮未重跑真实IM、发行包或其他平台
   rebase_main: main@e82a2f0 (PR73); macOS arm64 Node24.19.0, typecheck/lint/names/format/OKF passed; UI35 and Node1344 passed with 10 platform skips, focused62 and disposal14 passed
   rebase_live_cards: SDK390ms/CLI280ms; original-card terminal edit ACK, unique final at stop, sibling and Kernel isolation, restart reply passed; no rendered-terminal readback or fault injection claimed this round
   current_node_only: macOS arm64 Node24.19.0; typecheck/lint/names/format/OKF passed; UI35 and Node1300 passed, 10 platform skips; two-axis re-review no new P1/P2

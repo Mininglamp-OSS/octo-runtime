@@ -9,6 +9,12 @@ status: in_progress
 
 # 实现与源码
 
+## 终态先于订阅的误报修复
+
+`816ad54` 后续 P2：Kernel 在订阅 ACK 确认源已 completed 并释放登记后，Gateway 仍可能等待交互展示。真实 IPC 回归先复现完整消费和 final 已成功、但 close 因 INVOCATION_NOT_TRACKED 失败。现以每次 attempt 的原流正常耗尽与真实终态共同确认，仅协调这一登记缺失竞态；控制错误、丢流、缺终态和业务收尾失败继续拒绝关闭，原3秒/4秒共享预算不变。
+
+本地 macOS arm64/Node24.19.0/pnpm11.19.0：专项71通过；完整UI35/35，Node1355通过/10平台跳过，0失败或取消；typecheck/lint/命名/格式通过。新增两组真实 Kernel 用例覆盖成功与 finish 失败；九组反向/终态用例验证不吞未知或其他错误、放弃观察不算耗尽；既有活动执行取消、兄弟隔离与失败路径全部保留。命令为 `node --test test/gateway-runner-drain.test.js test/gateway-shutdown-drain.test.js test/im-task-retry.test.js test/kernel-invoke.test.js test/kernel-invoke-lifecycle.test.js` 及 `corepack pnpm@11.19.0 test:suites`。真实IM、发行包及其他平台本轮未重跑，不沿用旧成绩替代本次验收；新提交CI与review状态另行确认。
+
 ## main@e82a2f0 rebase 与核心注释
 
 按用户要求将 PR72 rebase 到已合入 PR73 的 main。冲突处理保留上游 KernelClient.invoke/独立登记、Windows CI 与任务索引，旧 extra-port 删除。Gateway 的取消调用与新增 fixture 使用 cancelInvocation/accepted；runner 并行等待 Kernel 排空与业务 dispose，两者共用原有4秒预算，换算 epoch 期限时不增加额度，最后再断开 client。检查 range-diff，历史原生提交仅保留 Git 历史，最终产品无 Go broker 接线。

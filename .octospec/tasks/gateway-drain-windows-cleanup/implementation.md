@@ -9,6 +9,14 @@ status: in_progress
 
 # 当前进度
 
+## 终态登记与业务尾流的后续 P2
+
+针对 `816ad54` 的[阻塞评审](https://github.com/Mininglamp-OSS/octo-runtime/pull/72#pullrequestreview-5587220013)，先用真实 Kernel/IPC 延迟订阅：另一观察者确认交互并答复，让源先完成；随后放行订阅 ACK、暂停 Gateway 交互展示。旧代码在完整消费和唯一 final 成功后仍因 `INVOCATION_NOT_TRACKED` 拒绝 close，回归先 RED。
+
+修复只在 Gateway 的每次 attempt 保存原流完成确认。drain 只对实际 KernelError 的 `INVOCATION_NOT_TRACKED` 等待同次原流正常耗尽且含真实终态，其他取消错误原样保留；原始取消回执不反向等待流完成，避免循环等待。仍使用既有 owner 共享期限，业务 tail/finish/final 继续独立验收。没有修改 Kernel 公共 API、恢复旧桥、增加产品订阅或引入原生实现。关键状态与竞态已补中文注释。
+
+修复后真实客户端的 close/重复 close 成功，finish 和含 answer 的 final 各一次；展示 finish 注入失败时保留 `IM_PRESENTATION_FAILED`，close/重复 close 仍失败且 final 仍一次。反向用例覆盖缺终态、lost、终态后错误、放弃观察、取消结果未知和仅同名普通 Error；另覆盖 completed/failed/cancelled 三种真实终态。macOS arm64/Node24.19.0：专项71通过，UI35及Node1355通过/10平台跳过，0失败或取消；typecheck/lint/命名/格式通过。本轮未重跑真实IM、发行包或其他平台；新提交远端CI和复审另行确认。
+
 ## main 更新后的接线与注释
 
 本轮 rebase 至 `main@e82a2f0`（PR #73）。沿用实际 KernelClient，旧 extra-port/adapterHost 保持删除；Gateway drain 与测试 fixture 改为 cancelInvocation/accepted。runner 的 Kernel 执行排空和插件业务 dispose 并发，仍共用最早 4 秒期限；epoch/单调时钟只换算剩余预算，双方完成或到期后才关闭 client。上游 Kernel invoke 的 Windows CI 步骤完整保留。
