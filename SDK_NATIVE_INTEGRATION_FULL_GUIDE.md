@@ -24,6 +24,7 @@ const endpoint = componentEndpoint(absoluteHome);
 const owner = await startOwnedKernel({
   endpoint,
   workerEntrypoint: absoluteWorkerJs,
+  nodePath: absoluteNodeExecutable,
   stateDirectory: absoluteStateDirectory
 });
 const client = owner.client;
@@ -36,6 +37,8 @@ if (!stopped.complete) reportCleanupFailure(stopped);
 
 absoluteHome、input、consume 等由宿主提供。输入是 InvokeInput；Context 固定 v3，Run 固定 7。stateDirectory 只保存进程清理事实，不保存业务历史。不同宿主可用自己的端点，不必使用 CLI 目录。
 
+nodePath 为宿主准备的 Node.js 24.x 绝对可执行路径；普通 Node 宿主可省略，默认 process.execPath。Electron main 必须显式传入独立 Node，不能将 Electron 可执行程序当作 Node。Kernel.restart 延续相同路径，worker 使用 Kernel 的 Node。
+
 已有服务使用 attachKernel({endpoint})。attached.close 只释放连接，不取消 Run，不停止 Kernel。读取断开后以原 ref 和 after_seq 继续；cancel/ref 是显式动作，响应的 accepted 不等于终态。Kernel 重启后旧 instance 的引用明确失败，不自动重新提交。
 
 owner.restart 会先检查旧组件清理完成，再启动新实例。owner.exited 可供宿主检测意外退出。停止账号或应用时由宿主决定先停哪些 Extra，再停 owned Kernel；附加到共享服务的客户不得停止该服务。
@@ -46,6 +49,7 @@ owner.restart 会先检查旧组件清理完成，再启动新实例。owner.exi
 import { startExtra } from "@mininglamp-oss/octo-runtime/host";
 
 const extra = await startExtra({
+  nodePath: absoluteNodeExecutable,
   endpoint,
   declaration: {
     name: "channel-gateway",

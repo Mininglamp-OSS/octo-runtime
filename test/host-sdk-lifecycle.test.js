@@ -13,6 +13,40 @@ import { kernelInput, frames } from "./kernel-fixture.js";
 import { waitFor } from "./runtime-fixture.js";
 import { kernelFixture } from "./kernel-fixture.js";
 
+test("owned components honor the host-selected Node executable and roll back failed launches", async (t) => {
+  const home = await mkdtemp(join(tmpdir(), "okn-"));
+  t.after(() => rm(home, { recursive: true, force: true }));
+  const options = {
+    endpoint: componentEndpoint(home),
+    workerEntrypoint: resolve("test/fixtures/direct-adapter-host.js"),
+    nodePath: join(home, "missing-node")
+  };
+  await assert.rejects(startOwnedKernel(options), /COMPONENT_START_FAILED/);
+  await assert.rejects(
+    startOwnedKernel({ ...options, nodePath: "node" }),
+    /NODE_PATH_MUST_BE_ABSOLUTE/
+  );
+  const kernel = await startOwnedKernel({ ...options, nodePath: process.execPath });
+  t.after(() => kernel.stop());
+  const first = await kernel.client.status();
+  assert.notEqual((await kernel.restart()).pid, first.pid);
+  const extraOptions = {
+    endpoint: options.endpoint,
+    declaration: {
+      name: "independent",
+      module: resolve("test/fixtures/independent-extra.mjs"),
+      config: {}
+    }
+  };
+  await assert.rejects(
+    startExtra({ ...extraOptions, nodePath: options.nodePath }),
+    /COMPONENT_START_FAILED/
+  );
+  const extra = await startExtra({ ...extraOptions, nodePath: process.execPath });
+  t.after(() => extra.stop());
+  assert.equal((await extra.stop()).complete, true);
+});
+
 test("stopping an Extra cancels its own accepted Run while sibling and Kernel remain live", async (t) => {
   const { client, endpoint } = await kernelFixture(t);
   const sibling = await client.submit(kernelInput("wait-for-host-exit"));

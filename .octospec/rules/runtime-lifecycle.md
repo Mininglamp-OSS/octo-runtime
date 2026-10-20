@@ -53,6 +53,8 @@ Extra runner 为异步初始化和关闭保留 4 秒共享清理预算，另设�
 
 宿主动态函数留在宿主进程，真实 Promise 未结束前仍占容量；超时、取消、账号切换、断线或 scope 更新不能提前释放。宿主同步阻塞函数不能由 IPC 代理隔离。
 
+非普通 Node 宿主（例如 Electron）通过 owned Kernel/Extra 的 `nodePath` 显式选择已准备好的 Node 绝对路径；Kernel restart 与其 worker 使用同一解释器。省略时使用 `process.execPath`，不修改宿主全局环境。spawn 失败且没有创建子进程时，不要求不存在组件的清理 ACK；必须清理临时配置，不能保留虚假的失败所有权。
+
 ## CLI
 
 两组固定命令为 executor-kernel 和 channel-gateway，分别提供 uninstall/install/start/restart/stop/run。首次 install 默认不自启，重复安装省略选项保留原值；--autostart=true/false 显式修改。start/restart 要求已安装，不隐式安装、启用或控制另一组件。stop 不修改自启；uninstall 保留 Home 和用户数据。

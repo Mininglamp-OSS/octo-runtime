@@ -17,6 +17,7 @@ export interface OwnedKernel {
 }
 export type OwnedKernelOptions = Omit<KernelServerOptions, "configurations"> & {
   entrypoint?: string;
+  nodePath?: string;
   signal?: AbortSignal;
 };
 export async function startOwnedKernel(options: OwnedKernelOptions): Promise<OwnedKernel> {
@@ -31,7 +32,13 @@ export async function startOwnedKernel(options: OwnedKernelOptions): Promise<Own
     adapterConfigurations: options.adapterConfigurations,
     stateDirectory: options.stateDirectory
   };
-  let process = await launchNode(entrypoint, configuration, undefined, options.signal);
+  let process = await launchNode(
+    entrypoint,
+    configuration,
+    undefined,
+    options.signal,
+    options.nodePath
+  );
   let client = attachKernel({ endpoint: options.endpoint });
   let failedStartup: ComponentStartError | undefined;
   let operation: Promise<unknown> = Promise.resolve();
@@ -63,7 +70,13 @@ export async function startOwnedKernel(options: OwnedKernelOptions): Promise<Own
         const cleanup = await process.stop();
         if (!cleanup.complete) throw new Error("COMPONENT_CLEANUP_INCOMPLETE");
         try {
-          process = await launchNode(entrypoint, configuration);
+          process = await launchNode(
+            entrypoint,
+            configuration,
+            undefined,
+            undefined,
+            options.nodePath
+          );
           failedStartup = undefined;
         } catch (error) {
           if (error instanceof ComponentStartError) failedStartup = error;

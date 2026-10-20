@@ -18,6 +18,7 @@ export interface ExtraLaunchOptions {
   endpoint: string;
   controlEndpoint?: string;
   entrypoint?: string;
+  nodePath?: string;
   dependencies?: ChannelDependencies;
   dependencyModule?: { entrypoint: string; exportName: string };
   signal?: AbortSignal;
@@ -47,7 +48,7 @@ export async function startExtra(options: ExtraLaunchOptions): Promise<OwnedExtr
     typeof settings?.max_in_flight === "number" ? settings.max_in_flight : 8
   );
   let unbind: (() => void) | undefined;
-  const { dependencies, entrypoint, signal, ...configuration } = options;
+  const { dependencies, entrypoint, signal, nodePath, ...configuration } = options;
   let child: Awaited<ReturnType<typeof launchNode>>;
   try {
     child = await launchNode(
@@ -58,7 +59,8 @@ export async function startExtra(options: ExtraLaunchOptions): Promise<OwnedExtr
           unbind = pool.bind(processChannel(process), instance, epoch, dependencies);
         process.once("disconnect", () => unbind?.());
       },
-      signal
+      signal,
+      nodePath
     );
   } catch (error) {
     unbind?.();

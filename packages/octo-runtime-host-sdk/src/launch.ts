@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdtemp, chmod, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { createProcessCleanup } from "@mininglamp-oss/octo-runtime-adapter-sdk/process-cleanup";
 import { processChannel } from "./process-channel.js";
@@ -42,9 +42,11 @@ export async function launchNode(
   entrypoint: string,
   config: object,
   onChild?: (child: ChildProcess) => void,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  nodePath = process.execPath
 ) {
   signal?.throwIfAborted();
+  if (!isAbsolute(nodePath)) throw new TypeError("NODE_PATH_MUST_BE_ABSOLUTE");
   const directory = await mkdtemp(join(tmpdir(), "octo-runtime-component-"));
   const file = join(directory, "config.json");
   try {
@@ -54,7 +56,8 @@ export async function launchNode(
     await rm(directory, { recursive: true, force: true });
     throw error;
   }
-  const child = spawn(process.execPath, [entrypoint, "--config", file], {
+  // Electron 宿主显式选择独立 Node；不改变宿主进程的全局环境。
+  const child = spawn(nodePath, [entrypoint, "--config", file], {
     stdio: ["ignore", "ignore", "ignore", "ipc"],
     // Windows 的非 detached 子进程随父进程被强杀，无法执行 IPC 断连回滚。
     detached: true,
@@ -108,7 +111,8 @@ export async function launchNode(
   const stop = () =>
     (closed ??= (async () => {
       const errors: CleanupResult["errors"] = [];
-      const exited = child.exitCode !== null || child.signalCode !== null;
+      const spawned = child.pid !== undefined;
+      const exited = !spawned || child.exitCode !== null || child.signalCode !== null;
       let acknowledgementError =
         cleanupComplete === false
           ? "COMPONENT_CLEANUP_INCOMPLETE"
@@ -140,7 +144,8 @@ export async function launchNode(
       } catch {
         errors.push({ code: "COMPONENT_CLOSE_INCOMPLETE", component: entrypoint });
       }
-      if (cleanupComplete !== true)
+      // spawn 失败没有组件需要确认关闭，不能留下虚假的失败所有权。
+      if (spawned && cleanupComplete !== true)
         errors.push({ code: acknowledgementError, component: entrypoint });
       offCleanup();
       try {
@@ -148,7 +153,7 @@ export async function launchNode(
       } catch {
         errors.push({ code: "COMPONENT_CONFIG_CLEANUP_INCOMPLETE", component: entrypoint });
       }
-      const processExited = child.exitCode !== null || child.signalCode !== null;
+      const processExited = !spawned || child.exitCode !== null || child.signalCode !== null;
       return {
         complete: !errors.length && processExited,
         processExited,
