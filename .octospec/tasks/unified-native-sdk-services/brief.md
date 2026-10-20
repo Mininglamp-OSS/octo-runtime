@@ -10,7 +10,7 @@ status: locally-validated
 
 依据 [Issue #71](https://github.com/Mininglamp-OSS/octo-runtime/issues/71)，让 CLI 服务进程和 Electron 主进程通过相同公共 SDK API，在调用进程内直接构造、初始化和关闭 Kernel 或 Extra 服务。服务 socket 必须属于该调用进程。SDK 不得启动外部 Node、Runtime CLI 或另一顶层服务进程来代替原生服务启动。
 
-当前基线为 2026-10-21 拉取的 `origin/main@70f0247ac7dc00cc9729b366eba64ea8288b5b78`；独立 worktree 为 `octo-runtime-71-unified-sdk`，分支为 `refactor/71-unified-sdk-services`。旧分支改动仅作参考，最新 main 是协议与行为基准；#73 的共享 invoke、交互和调用登记以及 #72 的 Gateway 排空、失败确认、单调截止和 Node-only 约束均须保留，不重复实现。已提交 `134b98b` 并创建 [PR #74](https://github.com/Mininglamp-OSS/octo-runtime/pull/74)，尚未合并；第二轮评审整改目标与验收见[整改方案](remediation.md#pr-74-第二轮评审整改)，实际验证见[实施记录](implementation.md)。PR #70 已关闭，不作为实现或交付依赖。
+当前基线为 2026-10-21 拉取的 `origin/main@70f0247ac7dc00cc9729b366eba64ea8288b5b78`；独立 worktree 为 `octo-runtime-71-unified-sdk`，分支为 `refactor/71-unified-sdk-services`。旧分支改动仅作参考，最新 main 是协议与行为基准；#73 的共享 invoke、交互和调用登记以及 #72 的 Gateway 排空、失败确认、单调截止和 Node-only 约束均须保留，不重复实现。`134b98b` 和 `afeea70` 已推送至 [PR #74](https://github.com/Mininglamp-OSS/octo-runtime/pull/74)，尚未合并；当前慢管道输出整改目标与验收见[第三轮方案](remediation.md#pr-74-第三轮cli-慢管道输出)，实际验证见[实施记录](implementation.md)。PR #70 已关闭，不作为实现或交付依赖。
 
 ## 解决的点
 

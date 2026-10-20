@@ -8,7 +8,7 @@ status: locally-validated
 
 # 当前状态
 
-当前基线 origin/main@70f0247ac7dc00cc9729b366eba64ea8288b5b78，分支 refactor/71-unified-sdk-services。2026-10-21 拉取最新 main 并 rebase；旧分支全部未提交改动（含新增文件）保存在 stash，仅作参考。最新 main 是协议和行为基准，不能以旧分支覆盖。`134b98b` 已提交并推送至 [PR #74](https://github.com/Mininglamp-OSS/octo-runtime/pull/74)；当前新增整改和核验见文末第二轮记录。
+当前基线 origin/main@70f0247ac7dc00cc9729b366eba64ea8288b5b78，分支 refactor/71-unified-sdk-services。2026-10-21 拉取最新 main 并 rebase；旧分支全部未提交改动（含新增文件）保存在 stash，仅作参考。最新 main 是协议和行为基准，不能以旧分支覆盖。`134b98b` 和第二轮修复 `afeea70` 已推送至 [PR #74](https://github.com/Mininglamp-OSS/octo-runtime/pull/74)；当前新增整改和核验见文末第三轮记录。
 
 本次纳入 #72，保留 Gateway/Core/KernelClient 源码及其排空和失败语义，ExtraPlugins 已还原 main 实现，原生服务复用相同单调预算协调清理。删除旧 launcher 后，其专有启动 ACK 测试不再适用；新增 Gateway 排空测试和真实验证脚本迁移到 createKernelService/createExtraService。真实验证脚本只做 API 迁移，本轮不执行外部 IM/Provider 操作。
 
@@ -76,3 +76,13 @@ node scripts/pack-release.mjs 生成实际 dist/release/mininglamp-oss-octo-runt
 本轮 pnpm typecheck、lint、lint:names、format:check 通过；定向 50/50，全量 Node 1369 项中 1359 通过、10 跳过、0 失败，UI 35 项通过。重新生成实际 tgz 并通过 scripts/verify-release.mjs：offlineInstall/publicTypes/builtinExtras/webuiAssets/nativeKernel/independentExtra/cliKernel/uninstallPreservedHome 均 true。实际日志为 /tmp/octo-71-review-{typecheck,lint,names,format,focused,tests,pack,release}.log；失败对照为 review-red.log 和 bind-red.log。
 
 本轮 OctoSpec lint 通过：273 个单元、20 条规则；git diff --check 通过。完整检查后将上述修复与回归一起提交；托管 CI 和 reviewer 重新确认独立于本地结果，不能用既有 `134b98b` 的绿色 CI 宣称新提交已通过。
+
+# PR 第三轮：慢管道输出整改验证
+
+依据 [Jerry-Xin 最新 review](https://github.com/Mininglamp-OSS/octo-runtime/pull/74#pullrequestreview-5588971464)，确认 `afeea70` 对全部命令安装退出 timer 的作用范围错误。对照执行旧入口和未改行为的 extraget：有效配置预期输出 700,049 字节，暂停读取 800ms 后只收到 65,536 字节，退出码仍为 0。初始回归也在旧入口失败，证明不能把有限输出刷新余量当作成功数据命令的刷新保证。
+
+修复只涉及 CLI：既有 parse 与命令校验确认 action=run 后，通过内部 onComponentRun 通知入口选择进程策略，通知不表示 ready。index.ts 仅对该前台组件命令保留 250ms/unref 兜底；数据、帮助、状态及部署命令通过 process.exitCode 自然退出，待管道输出完成。没有重复参数解析，SDK、普通 invoke、SQLite 所有权和前两轮资源清理源码均不变。
+
+真实 CLI 慢读取回归通过：逐字节核对完整 JSON、反序列化结果及 stderr 路径，退出 0。挂起/拒绝 disposer 和初始化失败三个残留句柄回归仍退出 5，挂起路径约 4.4 秒。41 项 CLI/生命周期/绑定/架构定向测试通过；本轮全量 Node 1370 项，1360 通过、10 跳过、0 失败，UI 35 项通过；typecheck、lint、lint:names、format:check 通过。日志为 /tmp/octo-71-output-{red,typecheck,lint,names,format,focused,tests}.log。origin/main 再次 fetch 仍为 70f0247。
+
+本轮重新生成实际 tgz，并通过离线安装、严格包外类型、三个内置 Extra、WebUI 静态资源、原生 Kernel、独立 Extra、CLI Kernel 及卸载保留 Home 验证；日志为 /tmp/octo-71-output-{pack,release}.log。OctoSpec lint 通过：273 个单元、20 条规则、1724 个本地文件链接；git diff --check 通过。未发布发行物，未执行外部 Electron 或真实 IM/Provider。新提交的托管 CI 与 reviewer 复核独立于上述本地结果。

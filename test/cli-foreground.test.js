@@ -5,10 +5,60 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { Readable } from "node:stream";
+import { once } from "node:events";
+import { setTimeout as delay } from "node:timers/promises";
 import { runCli } from "../apps/cli/dist/main.js";
 import { attachKernel } from "@mininglamp-oss/octo-runtime-executor-kernel";
 import { componentEndpoint, componentServiceId } from "@mininglamp-oss/octo-runtime-host-sdk";
 import { waitFor } from "./runtime-fixture.js";
+
+test(
+  "extraget preserves complete JSON under slow stdout backpressure",
+  { timeout: 15_000 },
+  async (t) => {
+    const home = await mkdtemp(join(tmpdir(), "oco-"));
+    t.after(() => rm(home, { recursive: true, force: true }));
+    const stored = { module: "example-extra", config: { value: "x".repeat(700_000) } };
+    assert.equal(
+      await runCli(["--home", home, "extraset", "example"], {
+        input: Readable.from([JSON.stringify(stored)]),
+        output() {}
+      }),
+      0
+    );
+    const child = spawn(
+      process.execPath,
+      [resolve("apps/cli/dist/index.js"), "extraget", "example", "--home", home],
+      { stdio: ["ignore", "pipe", "pipe"] }
+    );
+    const exited = new Promise((resolve, reject) => {
+      child.once("exit", (code, signal) => resolve({ code, signal }));
+      child.once("error", reject);
+    });
+    t.after(async () => {
+      if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+      await exited;
+    });
+    let errors = "";
+    child.stderr.on("data", (chunk) => {
+      errors += chunk;
+    });
+    // 首批输出已进入管道后才暂停读取，跨过旧 250ms timer，实际制造写入背压。
+    await once(child.stdout, "readable");
+    const first = child.stdout.read();
+    assert.ok(first?.length > 0);
+    await delay(800);
+    const chunks = [first];
+    for await (const chunk of child.stdout) chunks.push(chunk);
+    const output = Buffer.concat(chunks);
+    assert.deepEqual(await exited, { code: 0, signal: null });
+    const expected = Buffer.from(`${JSON.stringify(stored)}\n`);
+    assert.equal(output.length, expected.length);
+    assert.equal(output.toString(), expected.toString());
+    assert.deepEqual(JSON.parse(output.toString()), stored);
+    assert.equal(errors, `Config file: ${join(home, "extras", "example", "config.json")}\n`);
+  }
+);
 
 for (const mode of ["hang", "reject", "startup-failure"]) {
   test(

@@ -35,6 +35,8 @@ export interface CliDependencies extends ServiceControlOptions {
   output?: (line: string) => void;
   errorOutput?: (line: string) => void;
   sleep?: (ms: number) => Promise<void>;
+  /** CLI 入口选择前台组件的退出策略；仅确认命令类型，不表示服务 ready。 */
+  onComponentRun?: () => void;
 }
 const components = ["executor-kernel", "channel-gateway"] as const;
 type Component = (typeof components)[number];
@@ -142,6 +144,7 @@ export async function runCli(args: string[], dependencies: CliDependencies = {})
       throw new Error("INVALID_ARGUMENTS");
     if (flags.autostart !== undefined && action !== "install") throw new Error("INVALID_ARGUMENTS");
     if (action === "run") {
+      dependencies.onComponentRun?.();
       await mkdir(home, { recursive: true, mode: 0o700 });
       let handle: KernelService | ExtraService;
       if (component === "executor-kernel") {

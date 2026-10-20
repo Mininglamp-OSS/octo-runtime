@@ -69,7 +69,7 @@ Windows 使用 Node.js 和系统已有命令，公共层不引入原生 supervis
 
 status 汇总原生服务状态、Kernel 可用性和 Extra 状态。run 前台组件意外退出时 CLI 返回失败；SIGINT/SIGTERM 时等待清理，未完整清理返回 5。服务 ID 和端点按规范化 Home 与组件派生。
 
-CLI 可执行入口在命令返回后设置原退出码，允许 stdout/stderr 刷新；250ms 后若仍因残留句柄存活则显式退出。该定时器 unref，正常资源回收后无需额外等待。最终退出不改变 incomplete 事实；此策略仅属于可执行入口，不进入 SDK 或可导入的 runCli，也不作为同进程同步死循环的强停保证。
+CLI 可执行入口仅为参数解析及校验确认的前台组件 run 选择有界最终退出：命令返回后设置原退出码，250ms 后若仍因残留句柄存活则显式退出。该定时器 unref，正常资源回收后无需额外等待。extraget 等数据命令、帮助、状态和部署命令必须自然等待 stdout/stderr 刷新，不能以固定 timer 截断慢管道并返回成功。命令类型由既有解析结果通知可执行入口，不能重复猜测参数。最终退出不改变 incomplete 事实；进程退出只属于可执行入口，不进入 SDK 或可导入的 runCli，也不作为同进程同步死循环的强停保证。
 
 旧 daemon 架构的 1.0.1 列为 deprecated；不支持旧版升级或迁移。已有安装须先停止并移除旧服务，执行 npm uninstall -g @mininglamp-oss/octo-runtime 后重新安装新架构版本并重新配置。npm 卸载不会自动移除系统服务或 Home；遗留数据存在不表示支持迁移。发行时须另行完成 npm registry deprecation，记录实际结果，不能用文档声明替代 registry 操作。
 

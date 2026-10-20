@@ -31,3 +31,9 @@ main@70f0247 为基准，在当前功能 worktree 完成三个评审项。工程
 yujiawei 提出的 Kernel bind 取消漏关未复现：当前串行 await listen、检查取消并 catch 回滚的顺序已经覆盖该路径。确定性测试在改动前后都确认 socket 关闭、endpoint 释放且允许新实例，不改 Kernel 实现。此项与成立的 Extra 问题分别记录，不能用相似代码推定相同竞态。
 
 本轮 50 项定向回归、1359 项 Node 测试（10 跳过）、35 项 UI 测试及类型/lint/命名/格式、实际 tgz 验证通过。新增 gate 回归纳入 Windows CI；本地证据限 macOS。验收和原始对照见[第二轮实施记录](../../tasks/unified-native-sdk-services/implementation.md#pr-第二轮评审整改验证)。
+
+# PR 第三轮整改
+
+Jerry-Xin 指出的慢管道输出截断成立：服务进程退出兜底被推广到普通数据命令，固定 timer 会在 stdout 背压未解除时退出且返回成功。现由已校验的前台组件 run 通知 CLI 可执行入口选择退出策略，只有服务命令安装兜底；普通命令自然等待输出刷新。该区分只在 CLI 内部，未给 SDK 或业务方新增生命周期要求。
+
+700,049 字节配置输出在暂停读取 800ms 后完整保留并退出 0；旧入口只收到 65,536 字节仍退出 0。挂起清理仍在约 4.4 秒退出 5。41 项定向测试、1360 项 Node 测试（10 跳过）、35 项 UI 测试与静态检查通过，见[第三轮实施记录](../../tasks/unified-native-sdk-services/implementation.md#pr-第三轮慢管道输出整改验证)。

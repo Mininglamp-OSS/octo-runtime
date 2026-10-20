@@ -49,6 +49,8 @@ sources:
   - packages/octo-runtime-executor-kernel/src/supervisor.ts
   - packages/octo-runtime-executor-kernel/src/index.ts
   - apps/cli/src/main.ts
+  - apps/cli/src/index.ts
+  - test/cli-foreground.test.js
   - public/host.ts
   - public/executor-kernel.ts
   - public/extra.ts
@@ -81,6 +83,13 @@ remediation:
     R06: fixed-late-extra-bind-cleanup-retains-incomplete-ownership
     R07: kernel-finding-not-reproduced-existing-serial-rollback-regression-passed
     reviewers: [Jerry-Xin, yujiawei]
+  pr_review_round_3:
+    reviewed_head: afeea70a6e4f701ca437fb97316a4d761f6a6a3d
+    review: https://github.com/Mininglamp-OSS/octo-runtime/pull/74#pullrequestreview-5588971464
+    status: locally-validated
+    R08: fixed-forced-exit-scoped-to-parsed-foreground-component-run
+    slow_reader: complete-700049-byte-json-after-800ms-pause-exit-0
+    incomplete_cleanup: bounded-cli-exit-5-preserved
 external_sources:
   - https://www.electronjs.org/docs/latest/api/environment-variables
   - https://www.electronjs.org/docs/latest/tutorial/fuses
@@ -127,7 +136,7 @@ verification:
   lint: passed
   lint_names: passed
   format_check: passed
-  node_tests: { total: 1369, passed: 1359, skipped: 10, failed: 0 }
-  focused_tests: { passed: 50 }
+  node_tests: { total: 1370, passed: 1360, skipped: 10, failed: 0 }
+  focused_tests: { passed: 41 }
   ui_tests: { passed: 35 }
   offline_release: passed-after-remediation-including-webui-assets
