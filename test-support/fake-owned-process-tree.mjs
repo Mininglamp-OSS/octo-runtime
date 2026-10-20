@@ -1,7 +1,6 @@
 import { createInterface } from "node:readline";
 import { spawn } from "node:child_process";
 import { appendFileSync, writeFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 
 const [
   readyPath = process.env.OCTO_REVIEW_READY,
@@ -40,14 +39,13 @@ if (mode === "zcode")
   });
 if (mode === "tool") {
   process.on("SIGTERM", () => {});
-  appendFileSync(tickPath, ".");
   process.send("ready");
   setInterval(() => appendFileSync(tickPath, "."), 20);
 } else {
   if (mode === "ignore-term") process.on("SIGTERM", () => {});
   const tool = spawn(
     process.execPath,
-    [fileURLToPath(import.meta.url), readyPath, tickPath, "tool"],
+    [new URL(import.meta.url).pathname, readyPath, tickPath, "tool"],
     {
       stdio: ["ignore", "inherit", "inherit", "ipc"]
     }

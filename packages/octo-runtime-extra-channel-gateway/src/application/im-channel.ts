@@ -300,6 +300,10 @@ export class ImRuntime {
       /* 诊断不改变业务结果。 */
     }
   }
+  #finalizationFailed(code: string, runId?: string): void {
+    if (this.#draining) this.#drainErrors.push(new Error(code));
+    this.#diagnostic(code, runId);
+  }
   #key(message: Pick<ImInboundMessage, "conversationKind" | "conversationId">): string {
     return [
       this.#connector!.identity,
@@ -340,7 +344,7 @@ export class ImRuntime {
         }
       );
     } catch {
-      this.#diagnostic("IM_HISTORY_POSITION_UNAVAILABLE");
+      this.#finalizationFailed("IM_HISTORY_POSITION_UNAVAILABLE");
     }
   }
   #invalidateRules(change: { groupNo: string; shortId?: string }): void {
@@ -358,7 +362,7 @@ export class ImRuntime {
         );
       });
     } catch {
-      this.#diagnostic("IM_RULES_STATE_UNAVAILABLE");
+      this.#finalizationFailed("IM_RULES_STATE_UNAVAILABLE");
     }
   }
   #finishRules(
@@ -385,8 +389,7 @@ export class ImRuntime {
         }
       );
     } catch {
-      this.#diagnostic("IM_RULES_STATE_UNAVAILABLE");
-      if (this.#draining) this.#drainErrors.push(new Error("IM_RULES_STATE_UNAVAILABLE"));
+      this.#finalizationFailed("IM_RULES_STATE_UNAVAILABLE");
     }
   }
   #receive(message: ImInboundMessage): void {
@@ -965,7 +968,7 @@ export class ImRuntime {
                 )
             );
           } catch {
-            this.#diagnostic("IM_HISTORY_POSITION_UNAVAILABLE");
+            this.#finalizationFailed("IM_HISTORY_POSITION_UNAVAILABLE");
           }
         }
         for (const [id, entry] of this.#interactions)
@@ -1013,7 +1016,7 @@ export class ImRuntime {
                 })
               );
             } catch {
-              this.#diagnostic("IM_HISTORY_POSITION_UNAVAILABLE");
+              this.#finalizationFailed("IM_HISTORY_POSITION_UNAVAILABLE");
             }
           }
         }
@@ -1134,7 +1137,7 @@ export class ImRuntime {
             }
           );
         } catch {
-          this.#diagnostic("IM_HISTORY_POSITION_UNAVAILABLE");
+          this.#finalizationFailed("IM_HISTORY_POSITION_UNAVAILABLE");
         }
       }
       if (task.stopReason) this.#diagnostic(task.stopReason, rootRunId);
@@ -1157,8 +1160,7 @@ export class ImRuntime {
             attempts: task.attempts.map((attempt) => ({ ...attempt }))
           });
       } catch {
-        this.#diagnostic("IM_SESSION_STORE_FAILED", rootRunId);
-        if (this.#draining) this.#drainErrors.push(new Error("IM_SESSION_STORE_FAILED"));
+        this.#finalizationFailed("IM_SESSION_STORE_FAILED", rootRunId);
       }
       session.activeInvocationId = undefined;
       for (const [id, entry] of this.#interactions)
@@ -1166,8 +1168,7 @@ export class ImRuntime {
       try {
         if (!this.#closed) await presentation?.finish();
       } catch {
-        this.#diagnostic("IM_PRESENTATION_FAILED", request.runId);
-        if (this.#draining) this.#drainErrors.push(new Error("IM_PRESENTATION_FAILED"));
+        this.#finalizationFailed("IM_PRESENTATION_FAILED", request.runId);
       }
     }
     if (this.#closed || this.#signal.aborted) return;

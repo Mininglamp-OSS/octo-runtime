@@ -9,7 +9,9 @@ status: planned
 
 # 状态与依据
 
-本文为选定开发方向，尚未实现。现行 API 以基线源码为准；拟新增名称均为私有实现草案。
+2026-10-20 方案修订：D1–D3 的 Gateway drain 继续实施；下文 Windows Job/broker、原生构建与分发设计已撤回，仅保留历史。公共层严格采用 TypeScript / Node.js，业务 Extra 例外遵守[架构规则](../../rules/architecture.md#实现语言与原生依赖边界)。Windows 回归原 Node spawn/taskkill 机制，不再承诺父先退或强杀后的后代完整回收；旧机制试验通过不计当前产品保证。
+
+以下为原设计记录。现行 API 以实现为准，当前状态见[实施记录](implementation.md)。
 公共合同遵循 [架构](../../rules/architecture.md)、[Extra](../../rules/extras.md)、
 [生命周期](../../rules/runtime-lifecycle.md)、[本地执行](../../rules/local-execution.md)和
 [输出协议](../../rules/output-protocol.md)。现行规则中的已实现描述不在规划阶段提前改写。

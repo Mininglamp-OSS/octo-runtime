@@ -238,10 +238,113 @@ for (const scenario of ["unknown", "delivery", "timeout", "rules", "binding", "p
     const rejected = assert.rejects(closing, /IM_DISPOSE_FAILED/);
     if (scenario !== "timeout") release();
     await rejected;
+    await assert.rejects(runtime.close(), /IM_DISPOSE_FAILED/);
     const before = { replies, saves };
     release();
     await new Promise((resolve) => setTimeout(resolve, 30));
     assert.equal(calls, 1);
     assert.deepEqual({ replies, saves }, before);
+  });
+}
+
+for (const scenario of ["pending-gap", "fresh-fallback", "output-position", "rules-invalidation"]) {
+  test(`Gateway drain preserves failure of ${scenario} persistence`, async (t) => {
+    let callbacks,
+      release,
+      storeKey,
+      started = false,
+      draining = false;
+    let finals = 0,
+      connectorsClosed = 0;
+    const blocked = new Promise((resolve) => {
+      release = resolve;
+    });
+    const store = new MemoryImSessionStore();
+    t.mock.method(store, "save", function (key, value) {
+      storeKey = key;
+      return MemoryImSessionStore.prototype.save.call(this, key, value);
+    });
+    t.mock.method(store, "patchGap", function (...args) {
+      if (draining && scenario !== "rules-invalidation")
+        throw new Error("fixture gap write failed");
+      return MemoryImSessionStore.prototype.patchGap.apply(this, args);
+    });
+    t.mock.method(store, "invalidateRules", function (...args) {
+      if (draining) throw new Error("fixture rules invalidation failed");
+      return MemoryImSessionStore.prototype.invalidateRules.apply(this, args);
+    });
+    t.mock.method(GatewayTransport.prototype, "start", async function () {
+      callbacks = this.callbacks;
+    });
+    t.mock.method(GatewayTransport.prototype, "close", async () => {
+      connectorsClosed++;
+    });
+    const runtime = new ImRuntime(
+      {
+        bot_id: "persist-drain",
+        api_url: "https://im-test.deepminer.com.cn/api",
+        adapter: { adapter_type: "codex", workdir: process.cwd() }
+      },
+      {
+        sessions: store,
+        host: {
+          async *invoke() {
+            started = true;
+            await blocked;
+            if (scenario === "fresh-fallback")
+              yield {
+                protocolVersion: 2,
+                type: "session.update",
+                payload: {
+                  providerSession: {
+                    adapterType: "codex",
+                    sessionId: "fresh",
+                    resumeOutcome: "fresh_fallback"
+                  }
+                }
+              };
+            yield {
+              protocolVersion: 2,
+              type: scenario === "pending-gap" ? "run.cancelled" : "run.completed",
+              payload: {}
+            };
+          },
+          cancel: async () => ({ cancelled: true })
+        }
+      }
+    );
+    await runtime.start();
+    connectorsClosed = 0;
+    callbacks.onMessage({
+      messageId: "110",
+      senderId: "owner",
+      conversationId: "group",
+      conversationKind: "group",
+      text: "run",
+      position: { messageSeq: 110 },
+      buildContext: async () => ({ schema: "octo.context-envelope/v3", items: [] }),
+      reply: async () => {
+        finals++;
+      }
+    });
+    await waitFor(() => started);
+    const gapBefore = structuredClone(store.read(storeKey).gap);
+    draining = true;
+    const closing = runtime.close();
+    const rejected = assert.rejects(closing, /IM_DISPOSE_FAILED/);
+    if (scenario === "rules-invalidation") callbacks.onRulesChanged({ groupNo: "group" });
+    if (scenario === "output-position")
+      callbacks.onPosition({ conversationKind: "group", conversationId: "group", messageSeq: 111 });
+    release();
+    await rejected;
+    await assert.rejects(runtime.close(), /IM_DISPOSE_FAILED/);
+    assert.equal(finals, 1, "other finalizers must still run");
+    assert.equal(connectorsClosed, 1);
+    if (scenario === "pending-gap")
+      assert.deepEqual(
+        store.read(storeKey).gap,
+        gapBefore,
+        "failed persistence leaves the prior boundary unchanged"
+      );
   });
 }

@@ -6,7 +6,6 @@ import { tmpdir } from "node:os";
 import { promisify } from "node:util";
 import { pathToFileURL } from "node:url";
 import { readReleaseBuildInfo } from "./read-release-build-info.mjs";
-import { verifyWindowsOwnerResources } from "./windows-owner-resources.mjs";
 
 const execute = promisify(execFile);
 export async function verifyRelease(archiveInput, { expectedCommit, requireClean = false } = {}) {
@@ -43,36 +42,6 @@ export async function verifyRelease(archiveInput, { expectedCommit, requireClean
     const consumer = process.platform === "win32" ? directory : join(directory, "lib");
     const installed = join(consumer, "node_modules/@mininglamp-oss/octo-runtime");
     const metadata = JSON.parse(await readFile(join(installed, "package.json"), "utf8"));
-    const adapterSdk = join(
-      installed,
-      "node_modules/@mininglamp-oss/octo-runtime-adapter-sdk/dist"
-    );
-    await verifyWindowsOwnerResources(join(adapterSdk, "native"));
-    if (process.platform === "win32") {
-      const { stdout } = await execute(
-        process.execPath,
-        [
-          "--input-type=module",
-          "-e",
-          `
-        import assert from 'node:assert/strict';
-        import {once} from 'node:events';
-        const {spawnManaged, managedIdentity, managedCleanup} = await import(${JSON.stringify(pathToFileURL(join(adapterSdk, "managed-process.js")).href)});
-        const child = spawnManaged(process.execPath, ['-e', 'console.log("packaged-owner");setInterval(()=>{},1000)']);
-        const closed = once(child, 'close');
-        let output = ''; child.stdout.on('data', chunk => output += chunk);
-        const identity = await managedIdentity(child);
-        assert.notEqual(identity.pid, child.pid);
-        while (!output.includes('packaged-owner')) await new Promise(resolve => setTimeout(resolve, 10));
-        await managedCleanup(child)(); await closed;
-        assert.throws(() => process.kill(identity.pid, 0));
-        console.log('packaged Windows owner verified');
-      `
-        ],
-        { cwd: consumer, timeout: 15000 }
-      );
-      assert.match(stdout, /packaged Windows owner verified/);
-    }
     assert.equal(metadata.license, "Apache-2.0");
     assert.equal(
       await readFile(join(installed, "LICENSE"), "utf8"),

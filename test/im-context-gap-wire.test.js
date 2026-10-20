@@ -12,6 +12,7 @@ import { WukongConnection } from "../packages/octo-runtime-extra-channel-gateway
 import { setImmediate as settle } from "node:timers/promises";
 import { GatewayTransport } from "../packages/octo-runtime-extra-channel-gateway/dist/transport/channel.js";
 import { CardSession } from "../packages/octo-runtime-extra-channel-gateway/dist/transport/card-session.js";
+import { OctoConnector } from "../packages/octo-runtime-extra-channel-gateway/dist/transport/connector.js";
 
 const hash = (value) => createHash("md5").update(value).digest("hex");
 function integer(value, bytes = 4) {
@@ -186,6 +187,106 @@ test("gateway observation keeps scope gates, separates execution admission and b
   assert.deepEqual(observed.at(-1).turn, original);
   wire.onPosition({ ...position, fromUid: "bot", messageId: "known-card", messageSeq: 103 });
   assert.deepEqual(observed.at(-1).turn, original);
+});
+
+test("interaction finalization retains failed resolutions and attempts every remaining card", async (context) => {
+  let wire,
+    incoming,
+    reasoningFinished = 0;
+  const edits = [];
+  let created = 0;
+  context.mock.method(globalThis, "fetch", async (url, options) => {
+    if (url.endsWith("/auth/verify-bot"))
+      return Response.json({ bot_uid: "bot", space_id: "space" });
+    if (url.endsWith("/bot/register"))
+      return Response.json({
+        robot_id: "bot",
+        owner_uid: "owner",
+        owner_channel_id: "owner",
+        ws_url: "wss://im-test.deepminer.com.cn/ws",
+        im_token: "fixture"
+      });
+    if (url.endsWith("/bot/events"))
+      return new Promise((resolve) => {
+        const done = () => resolve(Response.json({ results: [] }));
+        if (options.signal.aborted) done();
+        else options.signal.addEventListener("abort", done, { once: true });
+      });
+    throw Error("unexpected fixture request");
+  });
+  context.mock.method(WukongConnection.prototype, "connect", async function () {
+    wire = this;
+  });
+  context.mock.method(WukongConnection.prototype, "close", async () => {});
+  context.mock.getter(WukongConnection.prototype, "connected", () => true);
+  context.mock.method(CardSession.prototype, "finish", async () => {
+    reasoningFinished++;
+  });
+  context.mock.method(
+    OctoConnector.prototype,
+    "interactionCard",
+    async (_address, _document, effect, messageId) => {
+      if (!messageId) return ++created === 1 ? "first-card" : "second-card";
+      edits.push(messageId);
+      if (messageId.includes("first")) throw Error("fixture card edit failed");
+      return messageId;
+    }
+  );
+  const transport = new GatewayTransport(
+    {
+      bot_id: "bot",
+      api_url: "https://im-test.deepminer.com.cn/api",
+      typing: false,
+      adapter: { adapter_type: "codex" }
+    },
+    async () => "bf_fixture",
+    {
+      onMessage: (message) => {
+        incoming = message;
+      },
+      onDisconnect() {}
+    }
+  );
+  context.after(() => transport.close());
+  await transport.start(new AbortController().signal);
+  wire.onMessage({
+    channelId: "owner",
+    channelType: 1,
+    fromUid: "owner",
+    messageId: "request",
+    payload: { type: 1, content: "run", space_id: "space" }
+  });
+  assert.ok(incoming);
+  const presentation = incoming.beginPresentation("run", () => {}, {
+    cancel: async () => false,
+    retry: () => false
+  });
+  for (const id of ["first", "second"])
+    assert.equal(
+      await presentation.interaction({
+        interactionId: id,
+        kind: "approval",
+        request: { operation: { summary: "fixture" } }
+      }),
+      true
+    );
+  await assert.rejects(
+    presentation.resolveInteraction("first", "accepted"),
+    /fixture card edit failed/
+  );
+  await assert.rejects(presentation.finish(), /IM_PRESENTATION_FAILED/);
+  assert.equal(
+    edits.filter((id) => id.includes("first")).length,
+    2,
+    "failed resolution must remain for terminal invalidation"
+  );
+  assert.equal(
+    edits.filter((id) => id.includes("second")).length,
+    1,
+    "one failure must not skip other cards"
+  );
+  assert.equal(reasoningFinished, 1);
+  await assert.rejects(presentation.finish(), /IM_PRESENTATION_FAILED/);
 });
 
 test("wire positions distinguish SENDACK client/message sequences, observe own RECV without executing it, and ignore failed ACKs", async (context) => {

@@ -28,7 +28,8 @@ for (const protocolMode of ["canonical", "native"]) {
     test(
       `Codex ${protocolMode} ${mode} reaps tools after leader exits`,
       {
-        timeout: 10000
+        skip: process.platform === "win32", // POSIX 组专项；Windows 真机验收由 issue #2 跟踪。
+        timeout: 6000
       },
       async () => {
         const directory = await mkdtemp(join(tmpdir(), "octo-codex-owned-"));
@@ -72,7 +73,7 @@ for (const protocolMode of ["canonical", "native"]) {
               if (mode === "cancel-paused") {
                 // 消费者停在 session 帧，取消仍必须独立完成清理。
                 await waitGone(pids.childPid);
-              } else if (process.platform !== "win32") assert.equal(alive(pids.childPid), true);
+              } else assert.equal(alive(pids.childPid), true);
             }
           }
           assert.ok(pids);

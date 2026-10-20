@@ -1,5 +1,4 @@
-import { execFile } from "node:child_process";
-import { spawnManaged } from "./managed-process.js";
+import { execFile, spawn } from "node:child_process";
 import { constants } from "node:fs";
 import { access, stat } from "node:fs/promises";
 import { delimiter, isAbsolute, resolve } from "node:path";
@@ -215,7 +214,7 @@ export async function* spawnJsonLines<TNative>(
   options: SpawnJsonLinesOptions<TNative>
 ): AsyncGenerator<TNative> {
   const { command, args = [], cwd, env, input, signal, parseLine, onInputWritten } = options;
-  const child = spawnManaged(command, args, {
+  const child = spawn(command, args, {
     cwd,
     env: { ...process.env, ...env },
     stdio: ["pipe", "pipe", "pipe"],

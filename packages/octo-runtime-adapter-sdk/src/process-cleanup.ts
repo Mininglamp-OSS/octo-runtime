@@ -1,6 +1,5 @@
 import { execFile, type ChildProcess } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
-import { managedCleanup } from "./managed-process.js";
 
 /**
  * 只回收调用方创建的进程/独立进程组；leader 退出不代表工具后代已退出。
@@ -11,8 +10,6 @@ export function createProcessCleanup(
   child: ChildProcess,
   { processGroup = false, processTree = false, termGraceMs = 400, killGraceMs = 200 } = {}
 ): () => Promise<void> {
-  const owned = managedCleanup(child);
-  if (owned) return owned;
   let cleanup: Promise<void> | undefined;
   let signalError: Error | undefined;
   const grouped = processGroup && process.platform !== "win32" && child.pid !== undefined;

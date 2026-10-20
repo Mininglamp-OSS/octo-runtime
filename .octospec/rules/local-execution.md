@@ -66,9 +66,9 @@ worker 丢失令活动源产生一次 lost；已保留终态不改写。重启�
 
 POSIX 只回收自己创建的独立进程组，leader 退出不表示后代消失；TERM 400 ms、KILL 确认 200 ms 共用起点，EPERM 不是消失证明。spawn/stdin/stdout/stderr 错误只归属本次调用，不能中断兄弟调用；异步启动失败须保留原 errno，不能因尚无 PID 而提前清理未启动的句柄。
 
-Windows 的 owned launcher 使用包内私有 Go broker：目标挂起创建，先关联不可 breakaway 的 KILL_ON_JOB_CLOSE Job，再恢复入口。Node fd3 和原始数据通道直接继承，控制通道独立；ChildProcess 表示真实 broker，不伪造其 PID。status/manifest 使用目标 PID 和 GetProcessTimes 创建身份，不靠启动后的全机扫描确定归属。leader 退出仍清理原 Job，只有 active process count=0 才确认树已清空；原生组件另等 broker/stdio 关闭后报告 processExited。
+Windows 使用 Node.js 创建进程，并通过系统已有的 `taskkill /PID … /T /F` 处理仍可识别的进程树。ChildProcess、status 和 manifest 保留真实目标身份。父进程先退出后可能失去后代归属；Runtime 被强杀或事件循环无法运行时，退出回调也可能不执行。这些场景不具备 Job Object 级回收保证。现有清理在 leader 已退出时仍可能返回成功，因此 cleanup.complete 不是异常退出后整棵树已清空的证明；对应缺口保留，不以文档修改宣称已经修复。
 
-Job 关联、控制或清理失败不得回退为普通 spawn 成功。Go 1.25.14 只在开发/CI 构建，发行包携带 amd64/arm64 exe、摘要及 Go 许可；消费者无需编译器或隐式下载。Job 外部服务/WMI 等工作不属于该保证。原生 Windows Server CI、Windows10/11 桌面、arm64 与真实 Provider 的证据分别记录，见[专项实施记录](../tasks/gateway-drain-windows-cleanup/implementation.md)。
+公共 Runtime 不引入 Go broker、原生扩展或随包辅助二进制，遵守[实现语言与原生依赖边界](architecture.md#实现语言与原生依赖边界)。已观察到的清理失败及协议未确认仍按既有合同报告 incomplete。各 Windows 平台及真实 Provider 的验证证据分别记录，历史原生方案的测试结果不能作为当前 Node.js 方案的回收保证，见[专项实施记录](../tasks/gateway-drain-windows-cleanup/implementation.md)。
 
 ## 临时执行与证据
 

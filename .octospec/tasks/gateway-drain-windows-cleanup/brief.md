@@ -1,7 +1,7 @@
 ---
 type: Task
 title: Gateway 关闭收尾与 Windows 受管后代回收
-description: 在最新 Kernel 与独立 Extra 架构上修复两项 P1 生命周期缺口。
+description: 在纯 TypeScript/Node.js 公共层约束下修复 Gateway 收尾，明确 Windows 异常回收限制。
 tags: [planning, lifecycle, channel, windows, ipc, testing]
 timestamp: 2026-10-20T00:00:00Z
 status: in_progress
@@ -13,10 +13,10 @@ status: in_progress
 初始规划基线为 `origin/main@6f5f25f97ec4b2ca879ac78ca2990ee2019f9eeb`；提交PR前已rebase至
 `origin/main@fae6333632010602506774b0648b639b70d25e22`。分支为
 `feat/gateway-drain-windows-cleanup`。用户已要求关闭规划PR #68、重命名分支，并明确授权按M0–M5直接实施。
-当前进入M0；实现与验收按实际结果逐项记录，不以规划完成代替缺陷修复。详见[实施记录](implementation.md)。
+2026-10-20 用户明确公共层不引入原生实现、业务 Extra 除外。该决定取代旧 Windows Job 方案，现行范围见[架构规则](../../rules/architecture.md#实现语言与原生依赖边界)和[实施记录](implementation.md)。
 
 1. Gateway 停止时，先停止接纳和准备，再取消所属执行，在预算内消费真实尾事件、更新当前代次 binding 并尝试最终回复，最后释放业务连接。
-2. Windows 清理按启动时建立的 OS 资源归属回收进程树；Provider leader 先退出或 owner 消失后，也能回收本次受管后代，不依赖退出后的 PID 树重建。
+2. 撤除 Windows Go broker、专属构建、两架构二进制分发及公共接线。Windows 保留 Node.js 与系统 taskkill 常规清理；父进程先退、Runtime 被强杀时的强回收目标尚未达成，不能标记已修复或关闭对应 umbrella issue。
 
 关联 #30、#14、#47、#48、#50；与 #57、#65、#66 协调接触文件，不接管会话存储工厂或公共 Extra API 重构。
 索引：[设计](design.md)、[开发步骤](plan.md)、[验收](acceptance.md)、[95 分评估](assessment.md)、[阅读记录](context.yaml)。
@@ -57,11 +57,11 @@ rebase后重新核对Gateway close/事件循环/finalReply，提前中断链路�
 
 不实现 SQLite/存储工厂、Go 执行 IPC client、LoopDaemon、远程设备注册、Provider 新功能或 UI。
 不迁移旧 daemon，不删除或重建身份、profile、凭据及用户数据。
-Windows 私有进程 launcher 可使用 Go 编译，但它只管理本地 OS 资源，不是 #51 的业务执行客户端或 Loop 服务。
+公共层不允许使用 Go 或其他原生 launcher；业务 Extra 的原生依赖只在自身范围负责，不把公共进程管理迁入 Extra 绕过约束。
 
 ## 完成条件
 
-开发和测试按 [M0–M5](plan.md)执行。[G01–G10、W01–W10、I01–I04](acceptance.md)提供可观察判据。
+Gateway 开发和测试沿用 [M0–M5](plan.md) 中的 Gateway 部分及 [G01–G10、I01–I04](acceptance.md)。旧 Windows W 矩阵及 95 分评估仅保留为已撤回方案的历史，不能作为当前完成条件或成绩。
 真实接口只使用 `https://im-test.deepminer.com.cn/`；真实 Windows 10/11、真实 Provider 与 SDK 宿主的证据独立记录。
 未执行、环境不可用、仅交叉编译均不能标记为平台通过。
 计划评分为工程判断，不表示实现完成率或 95% 成功概率。

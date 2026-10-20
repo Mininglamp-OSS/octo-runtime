@@ -13,6 +13,7 @@ import {
 } from "../packages/octo-runtime-host-sdk/dist/index.js";
 import { runCli } from "../apps/cli/dist/main.js";
 import { kernelInput } from "../test/kernel-fixture.js";
+import { selectReasoningTemplate } from "../packages/octo-runtime-extra-channel-gateway/dist/transport/cards.js";
 
 // 凭据只进入测试子进程环境和权限为 0600 的临时 Extra 配置，不写入验收输出。
 const directory = await mkdtemp(
@@ -23,6 +24,9 @@ const absolute = (path) => fileURLToPath(new URL(path, import.meta.url));
 const report = { endpoint: "https://im-test.deepminer.com.cn", platform: process.platform };
 const cliMode = process.argv.includes("--cli");
 const failDelivery = process.argv.includes("--fail-delivery");
+const failCard = process.argv.includes("--fail-card");
+const cards = failCard || process.argv.includes("--cards");
+const instrumented = failDelivery || cards;
 let kernel, gateway;
 let stage = "accounts";
 const ensure = (condition, code) => {
@@ -66,6 +70,7 @@ async function cli(account, args, body) {
   }
 }
 try {
+  ensure(!(failDelivery && failCard), "QA_FAULT_MODES_EXCLUSIVE");
   ensure(process.env.OCTO_CHANNEL_QA_ACCOUNTS, "QA_ACCOUNTS_REQUIRED");
   const text = await readFile(process.env.OCTO_CHANNEL_QA_ACCOUNTS, "utf8");
   const accounts = text
@@ -86,6 +91,26 @@ try {
   for (const account of [receiver, sender]) {
     ensure(account.api === `${report.endpoint}/api`, "QA_TEST_ONLY");
     await cli(account, ["config", "show"]);
+  }
+  if (cards) {
+    const profile = await cli(receiver, [
+      "api",
+      "GET",
+      "/v1/bot/card/profile",
+      "--service",
+      "dmworkim"
+    ]);
+    report.cardCapability = {
+      enabled: profile.config?.card_enabled === true,
+      reasoning: profile.config?.reasoning_enabled === true,
+      templating: profile.templating?.supported === true
+    };
+    report.cardCapability.compatibleTemplate = !!selectReasoningTemplate({
+      ...profile,
+      available: true
+    });
+    if (!process.argv.includes("--inspect"))
+      ensure(Object.values(report.cardCapability).every(Boolean), "QA_CARD_CAPABILITY_DISABLED");
   }
   stage = "group";
   const data = await cli(receiver, ["group", "list"]);
@@ -108,23 +133,24 @@ try {
   }
   ensure(group, "QA_SHARED_TEST_GROUP_REQUIRED");
   report.groupFingerprint = createHash("sha256").update(group.group_no).digest("hex").slice(0, 12);
+  const history = async () => {
+    const data = await cli(receiver, ["message", "sync"], {
+      channel_id: group.group_no,
+      channel_type: 2,
+      limit: 100
+    });
+    return (data.messages ?? []).map((message) => ({
+      ...message,
+      message_id: String(message.message_idstr ?? message.message_id),
+      payload:
+        typeof message.payload === "string"
+          ? JSON.parse(Buffer.from(message.payload, "base64").toString("utf8"))
+          : message.payload
+    }));
+  };
   if (process.argv.includes("--inspect")) {
     report.ready = true;
   } else {
-    const history = async () => {
-      const data = await cli(receiver, ["message", "sync"], {
-        channel_id: group.group_no,
-        channel_type: 2,
-        limit: 100
-      });
-      return (data.messages ?? []).map((message) => ({
-        ...message,
-        payload:
-          typeof message.payload === "string"
-            ? JSON.parse(Buffer.from(message.payload, "base64").toString("utf8"))
-            : message.payload
-      }));
-    };
     const send = (content) =>
       cli(sender, ["message", "send"], {
         channel_id: group.group_no,
@@ -161,19 +187,35 @@ try {
     });
     const sibling = await kernel.client.submit(kernelInput("wait-for-host-exit"));
     const attemptsFile = join(directory, "send-attempts.ndjson");
-    const preload = join(directory, "fail-delivery.mjs");
+    const cardAcks = join(directory, "card-acks.ndjson");
+    const preload = join(directory, "delivery-observer.mjs");
     const extraEntrypoint = join(directory, "extra-entry.mjs");
-    if (failDelivery) {
-      await writeFile(
-        preload,
+    if (instrumented) {
+      const source = [
         `import { appendFile } from 'node:fs/promises';
-import { WukongConnection } from ${JSON.stringify(new URL("../packages/octo-runtime-extra-channel-gateway/dist/transport/wukong.js", import.meta.url).href)};
 import { ImSendError } from ${JSON.stringify(new URL("../packages/octo-runtime-extra-channel-gateway/dist/delivery/text-send.js", import.meta.url).href)};
+`
+      ];
+      if (failDelivery)
+        source.push(`import { WukongConnection } from ${JSON.stringify(new URL("../packages/octo-runtime-extra-channel-gateway/dist/transport/wukong.js", import.meta.url).href)};
 WukongConnection.prototype.sendText = async function () {
   await appendFile(${JSON.stringify(attemptsFile)}, 'attempt;');
   throw new ImSendError('IM_SEND_REJECTED_TEST', 'failed');
-};\n`
-      );
+};\n`);
+      if (cards)
+        source.push(`import { OctoConnector } from ${JSON.stringify(new URL("../packages/octo-runtime-extra-channel-gateway/dist/transport/connector.js", import.meta.url).href)};
+const originalCard = OctoConnector.prototype.card;
+OctoConnector.prototype.card = async function (...args) {
+  const frame = args[2];
+  if (${failCard} && ['completed', 'stopped', 'error'].includes(frame.state)) {
+    await appendFile(${JSON.stringify(attemptsFile)}, 'attempt;');
+    throw new ImSendError('IM_CARD_REJECTED_TEST', 'failed');
+  }
+  const messageId = await originalCard.apply(this, args);
+  await appendFile(${JSON.stringify(cardAcks)}, JSON.stringify({run: frame.reasoningId, messageId, state: frame.state, collapsed: frame.traceCollapsed}) + '\\n', {mode: 0o600});
+  return messageId;
+};\n`);
+      await writeFile(preload, source.join("\n"), { mode: 0o600 });
       await writeFile(
         extraEntrypoint,
         `await import(${JSON.stringify(pathToFileURL(preload).href)});
@@ -184,7 +226,7 @@ await import(${JSON.stringify(new URL("../packages/octo-runtime-host-sdk/dist/ex
     const open = async () => {
       const options = {
         endpoint,
-        ...(failDelivery ? { entrypoint: extraEntrypoint } : {}),
+        ...(instrumented ? { entrypoint: extraEntrypoint } : {}),
         declaration: {
           name: "channel-gateway",
           module: absolute("../packages/octo-runtime-extra-channel-gateway/dist/index.js"),
@@ -196,7 +238,7 @@ await import(${JSON.stringify(new URL("../packages/octo-runtime-host-sdk/dist/ex
                 api_url: receiver.api,
                 group_ids: [group.group_no],
                 allowed_sender_ids: [sender.id],
-                cards: false,
+                cards,
                 typing: false,
                 approval_mode: "full_access",
                 codex_retry: { enabled: false },
@@ -239,7 +281,7 @@ await import(${JSON.stringify(new URL("../packages/octo-runtime-host-sdk/dist/ex
         [entrypoint, "--home", directory, "channel-gateway", "run"],
         {
           stdio: ["ignore", "pipe", "ignore"],
-          ...(failDelivery
+          ...(instrumented
             ? {
                 env: {
                   ...process.env,
@@ -350,13 +392,25 @@ await import(${JSON.stringify(new URL("../packages/octo-runtime-host-sdk/dist/ex
       "QA_REAL_TOOL_NOT_STARTED",
       90000
     );
+    const progressCard = cards
+      ? await waitFor(
+          async () =>
+            (await history()).find(
+              (message) =>
+                message.from_uid === receiver.id &&
+                message.payload?.type === 17 &&
+                !before.has(message.message_id)
+            ),
+          "QA_PROGRESS_CARD_MISSING"
+        )
+      : undefined;
     stage = "stop";
     const started = performance.now();
     const stopped = await gateway.stop();
     report.stopMs = Math.round(performance.now() - started);
     ensure(
-      stopped.complete === !failDelivery,
-      failDelivery ? "QA_SEND_FAILURE_HIDDEN" : "QA_STOP_INCOMPLETE"
+      stopped.complete === !(failDelivery || failCard),
+      failDelivery || failCard ? "QA_SEND_FAILURE_HIDDEN" : "QA_STOP_INCOMPLETE"
     );
     ensure((await gateway.stop()).complete === stopped.complete, "QA_REPEATED_STOP_CHANGED");
     gateway = undefined;
@@ -364,28 +418,70 @@ await import(${JSON.stringify(new URL("../packages/octo-runtime-host-sdk/dist/ex
     ensure((await kernel.client.get(ref)).terminal, "QA_TERMINAL_MISSING");
     ensure(!(await kernel.client.get(sibling.ref)).terminal, "QA_SIBLING_INTERRUPTED");
     ensure((await kernel.client.status()).execution_ready, "QA_KERNEL_INTERRUPTED");
-    const finals = (await history()).filter(
+    const stoppedHistory = await history();
+    const finals = stoppedHistory.filter(
       (message) =>
         !before.has(message.message_id) &&
         message.from_uid === receiver.id &&
         message.payload?.type === 1
     );
     ensure(finals.length === (failDelivery ? 0 : 1), "QA_UNIQUE_FINAL_MISSING");
+    if (cards) {
+      const acknowledged = (await readFile(cardAcks, "utf8"))
+        .trim()
+        .split("\n")
+        .map(JSON.parse)
+        .filter((frame) => frame.run === task.runId);
+      const terminal = observed.findLast((frame) =>
+        ["run.completed", "run.cancelled", "run.failed"].includes(frame.event?.type)
+      )?.event.type;
+      const state = {
+        "run.completed": "completed",
+        "run.cancelled": "stopped",
+        "run.failed": "error"
+      }[terminal];
+      ensure(
+        acknowledged.length > 0 &&
+          acknowledged.every((frame) => frame.messageId === progressCard.message_id),
+        "QA_CARD_ID_CHANGED"
+      );
+      if (!failCard)
+        ensure(
+          state && acknowledged.some((frame) => frame.state === state && frame.collapsed),
+          "QA_TERMINAL_CARD_NOT_ACKNOWLEDGED"
+        );
+    }
+    const sendAttempts =
+      failDelivery || failCard
+        ? (await readFile(attemptsFile, "utf8")).split(";").filter(Boolean).length
+        : 0;
+    if (failDelivery || failCard) ensure(sendAttempts === 1, "QA_FAULT_SEND_REPEATED");
     const result = {
       realCodexTool: true,
       terminal: true,
+      ...(cards && !failCard
+        ? { terminalCardAcknowledgedAtStop: true, sameCardMessage: true }
+        : {}),
+      ...(failCard
+        ? {
+            injectedTerminalCardFailure: true,
+            incompleteReported: true,
+            finalPresentAtStop: true,
+            cardSendAttempts: sendAttempts
+          }
+        : {}),
       ...(failDelivery
         ? {
             injectedSendFailure: true,
             incompleteReported: true,
-            sendAttempts: (await readFile(attemptsFile, "utf8")).split(";").filter(Boolean).length
+            sendAttempts
           }
         : { finalPresentAtStop: true }),
       siblingPreserved: true,
       kernelPreserved: true,
       ...(cliMode ? {} : { contextsLoaded: contexts > 0 })
     };
-    if (!failDelivery) {
+    if (!failDelivery && !failCard) {
       stage = "restart";
       gateway = await open();
       await waitFor(

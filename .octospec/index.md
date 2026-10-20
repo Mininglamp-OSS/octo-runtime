@@ -52,7 +52,7 @@
 
 - [Issue 69：Kernel client 统一 invoke](tasks/69-kernel-client-invoke/brief.md)：基于 `main@fae6333`，分支 `feat/69-kernel-client-invoke`，用户确认破坏性更新后已实施。App、owned.client、Extra 和 Playboard 共用 KernelClient.invoke，删除旧执行端口；Gateway 消费结果做 delivery。见[接口设计](tasks/69-kernel-client-invoke/design.md)、[32 项验收证据](tasks/69-kernel-client-invoke/implementation.md)和[验证记录](journal/shared/2026-10-20-kernel-client-invoke.md)。本地 Node 1318 通过、10 跳过，UI 35 通过，仓外 tgz 验证通过；Windows/Linux 与真实 Provider/IM 未验，尚未提交。规划[96 分](tasks/69-kernel-client-invoke/assessment.md)仅表示当时可执行性。
 
-- [Gateway关闭收尾与Windows后代回收](tasks/gateway-drain-windows-cleanup/brief.md)：分支`plan/gateway-drain-windows-cleanup`已rebase至main@fae6333；[M0–M5计划](tasks/gateway-drain-windows-cleanup/plan.md)、[关闭与Job设计](tasks/gateway-drain-windows-cleanup/design.md)、[24项验收](tasks/gateway-drain-windows-cleanup/acceptance.md)及[95分评估](tasks/gateway-drain-windows-cleanup/assessment.md)已形成。当前仅规划，Windows原生机制、产品修复和业务验收均待实施；[本轮记录](journal/shared/2026-10-20-gateway-drain-windows-cleanup-plan.md)。
+- [Gateway关闭收尾与Windows后代回收](tasks/gateway-drain-windows-cleanup/brief.md)：分支`feat/gateway-drain-windows-cleanup`、PR72。Gateway drain 与失败收尾已实施；按用户[公共层原生依赖约束](rules/architecture.md#实现语言与原生依赖边界)撤回 Go/Job 方案及旧95分自评，Windows异常退出强回收仍有限制。现行状态见[实施记录](tasks/gateway-drain-windows-cleanup/implementation.md)，[原计划记录](journal/shared/2026-10-20-gateway-drain-windows-cleanup-plan.md)仅保留历史。
 
 - [GROUP.md 更新事件与本地规则游标（Issue #54/#55）](tasks/group-md-refresh-cursor/brief.md)：基于 `main@6f5f25f`，分支 `fix/group-md-refresh-cursor`。通知分流后只使现有 binding 的单个 rulesContext 字段失效，普通请求按版本决定携带；成功后条件确认，/new 复用 /reset，同轮恢复使用已有备用输入。已实现，自动化通过；线上多 Bot/真实 Provider 待联验，见[验证记录](journal/shared/2026-10-20-group-md-refresh-cursor.md)。
 

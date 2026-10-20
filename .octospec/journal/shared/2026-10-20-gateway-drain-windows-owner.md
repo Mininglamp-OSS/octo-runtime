@@ -9,9 +9,21 @@ status: in_progress
 
 # 实现与源码
 
+## Node-only 修订验证
+
+当前工作区：macOS arm64、Node24.19.0、pnpm11.19.0；公共代码和构建/分发无 Go broker。typecheck、lint、命名、格式、OKF通过，UI35/35，Node1300通过/10平台跳过、0失败/取消；双轴复核未发现新增P1/P2，重点四文件53项通过。
+
+真实 IM 继续使用用户指定测试环境和账号，group fingerprint为`d010c2b3cd5a`。命令为`OCTO_CHANNEL_QA_ACCOUNTS=<本机账号文件> node scripts/verify-gateway-drain-live.mjs --cards`，CLI增加`--cli`；故障模式以`--fail-card`替换`--cards`。SDK/CLI正常卡片stop为281ms/294ms，同一消息的终态折叠编辑获得真实REST ACK、唯一final在stop返回时可回读、兄弟与Kernel存活、重建后可再回复。终态卡片拒绝注入为665ms/500ms，两入口均incomplete、重复stop失败保持、仅尝试一次且final可回读。故障为客户端受控注入，不记作服务端自然故障。
+
+服务端消息sync返回创建时渲染内容，不返回编辑后的原始reasoning状态；因此只确认终态编辑ACK，不能声称客户端渲染或终态读回。Windows父先退/Runtime强杀清树仍无强保证，现有complete仅覆盖既有可观测结果。最终干净提交的发行包及CI结果另记。
+
+## 撤回前的历史证据
+
+2026-10-20 用户明确撤回公共层原生方案。以下记录属于历史提交，Go broker 与二进制发行已从当前实现撤除；旧 Windows Job 成绩不能用于 Node.js 方案。当前强制边界见[架构约束](../../rules/architecture.md#实现语言与原生依赖边界)，新验证另行记录。Windows 父先退和强杀后代回收不标记完成。
+
 工作分支为`feat/gateway-drain-windows-cleanup`，基于main的`fae6333`。规划PR68已关闭；本记录不表示它曾包含实现。`6b79493909ed80b40e75b35b1747d1939e14408f`包含Gateway drain、全部owned launcher的Windows Job接线、原生关闭竞态修正及真实IM验收脚本。后续提交统一runner外层的单调截止，并修正终态之后卡片/final仍在发送时的连接提前撤销，公开API不变。
 
-Gateway停准入后保留原调用消费及投递，最多3秒drain、4秒共享清理；失败保留归属。Windows目标在挂起时进入不可breakaway Job，再恢复入口；leader先退仍清理Job，active count=0确认后代已回收，组件另等待broker/stdio关闭。机制及不覆盖的外部服务见[native说明](../../../native/windows-process-owner/README.md)。
+Gateway停准入后保留原调用消费及投递，最多3秒drain、4秒共享清理；失败保留归属。已撤回的 Windows 原型将目标挂起后关联 Job，等待后代及 broker/stdio 关闭；对应源码已删除，不再作为现行机制说明。
 
 # 本地与发行包
 

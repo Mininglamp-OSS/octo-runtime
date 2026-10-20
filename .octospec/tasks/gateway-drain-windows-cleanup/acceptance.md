@@ -9,6 +9,8 @@ status: in_progress
 
 # 记录口径
 
+2026-10-20 修订：Gateway G/I 验收继续有效；下文 Windows Job/broker W 矩阵属于已撤回方案，不再要求引入原生实现。当前 Windows 检查仅证明 Node.js 生命周期、Gateway drain 和发行包行为，不能证明父进程先退或 Runtime 强杀后的后代必然回收。新增必须满足：公共产品无 Go helper、原生 addon、随包/隐式下载二进制；取消 Promise 立即被观察；drain 期间所有规则/历史持久化及必需卡片终态失败进入 incomplete，重复关闭保留失败，其他 finalizers 仍被尝试。
+
 下表保留验收要求；已执行范围见[实施记录](implementation.md)和[脱敏验收记录](../../journal/shared/2026-10-20-gateway-drain-windows-owner.md)。未覆盖的子场景不得随整行测试通过而自动计为完成。每项记录 SHA/dirty、OS/架构、Node/Go、命令、预期、实际、耗时、PID/创建身份与脱敏日志。
 使用闩锁控制 admission、cancel ACK、session.update、terminal、final send 和 close；不靠增加 sleep 掩盖竞态。
 “通过”必须满足结果与资源两类断言；平台跳过、环境不可用、交叉编译分别记录，不能计入通过数。

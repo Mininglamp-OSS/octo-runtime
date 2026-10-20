@@ -16,8 +16,7 @@ import {
   resolveStreamLimitPolicy,
   type StreamLimitPolicy
 } from "@mininglamp-oss/octo-runtime-protocol";
-import type { ChildProcessWithoutNullStreams } from "node:child_process";
-import { spawnManaged } from "@mininglamp-oss/octo-runtime-adapter-sdk/managed-process";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createInterface } from "node:readline";
 
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -968,7 +967,7 @@ function defaultSpawn(
   args: readonly string[],
   options: { cwd: string; env: NodeJS.ProcessEnv; detached: boolean }
 ): ChildProcessWithoutNullStreams {
-  return spawnManaged(command, [...args], { ...options, stdio: ["pipe", "pipe", "pipe"] });
+  return spawn(command, [...args], { ...options, stdio: ["pipe", "pipe", "pipe"] });
 }
 
 function asRecord(value: unknown): JsonRecord | undefined {

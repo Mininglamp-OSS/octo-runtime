@@ -3,7 +3,6 @@ import test from "node:test";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 import { spawnJsonLines } from "../packages/octo-runtime-adapter-sdk/dist/index.js";
 import { spawnAcpClient } from "@mininglamp-oss/octo-runtime-acp-client";
@@ -35,7 +34,7 @@ for (const transport of ["ACP", "NDJSON", "Host"])
     : ["normal", "ignore-term", "parent-exits"]) {
     test(
       `${transport} reaps group after ${mode}; concurrent closes await same cleanup`,
-      { timeout: 10000 },
+      { skip: process.platform === "win32", timeout: 5000 },
       async () => {
         const directory = await mkdtemp(join(tmpdir(), "octo-review-tree-"));
         const readyPath = join(directory, "ready.json"),
@@ -45,9 +44,7 @@ for (const transport of ["ACP", "NDJSON", "Host"])
           const options = {
             command: process.execPath,
             args: [
-              fileURLToPath(
-                new URL("../test-support/fake-owned-process-tree.mjs", import.meta.url)
-              ),
+              new URL("../test-support/fake-owned-process-tree.mjs", import.meta.url).pathname,
               readyPath,
               tickPath,
               mode
@@ -117,7 +114,7 @@ test("cleanup reports timeout instead of success when an owned process cannot be
 
 test(
   "ZCode completed turn reaps tools even after the provider leader exits",
-  { timeout: 10000 },
+  { skip: process.platform === "win32", timeout: 5000 },
   async () => {
     const { createZcodeGuiAdapter } =
       await import("@mininglamp-oss/octo-runtime-adapter-zcode-gui");
@@ -130,7 +127,7 @@ test(
       const adapter = createZcodeGuiAdapter({
         command: process.execPath,
         appServerArgs: [
-          fileURLToPath(new URL("../test-support/fake-owned-process-tree.mjs", import.meta.url)),
+          new URL("../test-support/fake-owned-process-tree.mjs", import.meta.url).pathname,
           readyPath,
           tickPath,
           "zcode"

@@ -5,8 +5,7 @@ import {
   type StreamLimitPolicy
 } from "@mininglamp-oss/octo-runtime-protocol";
 import { createProcessCleanup } from "@mininglamp-oss/octo-runtime-adapter-sdk/process-cleanup";
-import type { ChildProcessWithoutNullStreams } from "node:child_process";
-import { spawnManaged } from "@mininglamp-oss/octo-runtime-adapter-sdk/managed-process";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createInterface } from "node:readline";
 
 type JsonRecord = Record<string, unknown>;
@@ -442,7 +441,7 @@ export function spawnAcpClient(options: SpawnAcpClientOptions): AcpClient {
     onPermissionResponseFailed,
     streamLimits
   } = options;
-  const child = spawnManaged(command, args, {
+  const child = spawn(command, args, {
     cwd,
     env: { ...process.env, ...env },
     stdio: ["pipe", "pipe", "pipe"],

@@ -9,6 +9,14 @@ status: in_progress
 
 # 当前进度
 
+2026-10-20 用户最新约束优先：Kernel/Core/SDK/公共进程管理采用 TypeScript / Node.js，业务 Extra 可以拥有隔离的原生依赖，见[架构规则](../../rules/architecture.md#实现语言与原生依赖边界)。Go broker、所有 launcher 接线、构建/打包资源及专属 Windows Job 测试已撤除；原 Node spawn/taskkill 保留。Windows 父先退和强杀后的强回收目标未完成，不以旧原生测试或旧 95 分自评宣称已修复。
+
+本轮同时修复评审 P1：取消 Promise 立即挂接拒绝处理，配置准备后再次检查取消；评审 P2 及同类遗漏：drain 期间历史观察、pending boundary、fresh_fallback、规则失效写入错误统一汇入失败；审批卡发送成功后才删除待收尾项，最终失效失败仍尝试其余卡片和 reasoning finish，并上报失败。既有 reasoning 卡终态投递失败也由 finish 返回。
+
+当前 Node-only 工作区在 macOS arm64/Node24.19.0 通过 typecheck、lint、命名、格式、OKF；UI35、Node1300通过/10平台跳过，无失败或取消。双轴复核未发现新增 P1/P2，四个重点文件53项全部通过。真实 IM+Codex 的 SDK/CLI 卡片收尾分别281ms/294ms：stop前同一消息的终态编辑已获服务端ACK、唯一final可回读、兄弟和Kernel存活、重建后再次回复。终态卡片拒绝注入分别665ms/500ms：返回incomplete且重复stop保持失败、发送一次、final仍可回读。ACK不代表客户端已渲染；消息sync只能读创建时渲染内容，本轮不声称回读了编辑后的客户端终态。当前提交的最终tgz和三平台CI另行验收。
+
+以下 M0–M5 为撤回原生方案前的历史记录；其中 Gateway 行为仍保留，Windows Job 证据不适用于当前产品。
+
 用户已关闭规划PR #68，分支本地/远端重命名为`feat/gateway-drain-windows-cleanup`，并明确要求按计划实施。
 M0原生机制通过，M1/M2产品实现与本地回归通过，M3接线已完成；最终平台及真实业务验收进行中。
 

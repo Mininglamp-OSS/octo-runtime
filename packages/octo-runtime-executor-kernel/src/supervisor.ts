@@ -1,10 +1,6 @@
 import { spawnWorker, type SpawnWorkerOptions, type WorkerProcess } from "./process.js";
 import type { KernelStatus } from "./types.js";
 import { KernelError } from "./types.js";
-import {
-  managedIdentity,
-  managedTargetPid
-} from "@mininglamp-oss/octo-runtime-adapter-sdk/managed-process";
 
 /** Kernel 独占 worker 的创建与回收；清理失败时禁止启动替代实例。 */
 export class WorkerSupervisor {
@@ -23,11 +19,11 @@ export class WorkerSupervisor {
   #cleanupFailure?: AggregateError;
   constructor(
     private readonly options: SpawnWorkerOptions,
-    private readonly recordWorker?: (pid: number | undefined, started?: string) => Promise<void>
+    private readonly recordWorker?: (pid: number | undefined) => Promise<void>
   ) {}
   get status(): KernelStatus["worker"] {
     return {
-      pid: this.#worker && managedTargetPid(this.#worker.child),
+      pid: this.#worker?.child.pid,
       generation: this.#generation,
       state: this.#state,
       restart_attempt: this.#attempt
@@ -55,8 +51,7 @@ export class WorkerSupervisor {
         ...this.options,
         signal: this.#abort.signal,
         onSpawn: async (child) => {
-          const identity = await managedIdentity(child);
-          await this.recordWorker?.(identity.pid, identity.started);
+          await this.recordWorker?.(child.pid);
         }
       });
     } catch (error) {

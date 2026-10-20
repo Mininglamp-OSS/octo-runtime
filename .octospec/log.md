@@ -6,6 +6,8 @@
 
 - 实施 [Issue 69 统一 Kernel invoke](tasks/69-kernel-client-invoke/implementation.md)：App、owned.client、Extra 和 Playboard 共享入口，删除 Extra 执行桥，Gateway 继续负责 delivery。原身份 ACK 查询与游标恢复不重发执行，取消未知和 lost 保留真实状态；每个 client 有界登记与 owner 共用绝对期限排空。专项 42/42，全量 Node 1318 通过、10 跳过，UI 35/35，显式 GC 补测 13/13；类型、lint、格式、命名、仓外 tgz、OctoSpec 和 diff 检查通过。Windows/Linux 及真实 Provider/IM 未验，未提交、推送或发布，详见[验证 journal](journal/shared/2026-10-20-kernel-client-invoke.md)。
 
+- 用户明确[公共层原生依赖约束](rules/architecture.md#实现语言与原生依赖边界)：Kernel/Core/SDK/公共框架采用 TS/Node，不引入 Go helper、addon 或随包二进制；业务 Extra 的原生依赖可选隔离。撤除 PR72 的 Windows Job 实现与分发，保留 Node/taskkill 及异常退出限制；旧 95 分评估失效。修复启动取消拒绝与 drain 持久化、审批卡、reasoning 卡终态失败漏报；类型/lint/格式/OKF、UI35和Node1300通过/10平台跳过，真实 SDK/CLI 卡片故障收尾通过，最终 CI 另行记录。
+
 - 从最新 `origin/main@6f5f25f` 新建独立 worktree 和 `plan/gateway-drain-windows-cleanup` 分支，形成[Gateway 收尾与 Windows 后代回收计划](tasks/gateway-drain-windows-cleanup/brief.md)：M0–M5、15 项逐文件安排、24 项验收，以及 95/100 工程自评。先验证 Gateway 尾流与 Windows Job/Node IPC 机制，再实施；公共 SDK 与独立 Kernel/Extra 架构不变。本轮仅规划，未修改产品代码或创建提交，见[记录](journal/shared/2026-10-20-gateway-drain-windows-cleanup-plan.md)。
 
 ## 2026-10-19

@@ -1,8 +1,4 @@
-import type { ChildProcess } from "node:child_process";
-import {
-  spawnManaged,
-  managedIdentity
-} from "@mininglamp-oss/octo-runtime-adapter-sdk/managed-process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { mkdtemp, chmod, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -54,21 +50,17 @@ export async function launchNode(
   try {
     await chmod(directory, 0o700);
     await writeFile(file, JSON.stringify(config), { mode: 0o600 });
+    signal?.throwIfAborted();
   } catch (error) {
     await rm(directory, { recursive: true, force: true });
     throw error;
   }
-  const child = spawnManaged(
-    process.execPath,
-    [entrypoint, "--config", file],
-    {
-      stdio: ["ignore", "ignore", "ignore", "ipc"],
-      // Windows 的非 detached 子进程随父进程被强杀，无法执行 IPC 断连回滚。
-      detached: true,
-      windowsHide: true
-    },
-    4500
-  );
+  const child = spawn(process.execPath, [entrypoint, "--config", file], {
+    stdio: ["ignore", "ignore", "ignore", "ipc"],
+    // Windows 的非 detached 子进程随父进程被强杀，无法执行 IPC 断连回滚。
+    detached: true,
+    windowsHide: true
+  });
   const exited = new Promise<void>((resolve) => {
     child.once("exit", () => resolve());
     child.once("error", () => resolve());
@@ -171,9 +163,9 @@ export async function launchNode(
     signal?.addEventListener("abort", onAbort, { once: true });
     if (signal?.aborted) onAbort();
   });
+  void aborted.catch(() => undefined);
   try {
     onChild?.(child);
-    await managedIdentity(child);
     await deadline(Promise.race([ready, aborted]), 30_000, "COMPONENT_START_TIMEOUT");
   } catch (error) {
     const cleanup = await stop();

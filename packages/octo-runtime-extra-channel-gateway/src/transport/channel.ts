@@ -300,13 +300,13 @@ export class GatewayTransport {
             const resolveInteraction = async (id: string, status: string) => {
               const entry = interactions.get(id);
               if (!entry) return;
-              interactions.delete(id);
               await this.#api!.interactionCard(
                 message,
                 interactionCard(entry.request, status),
                 stableEffectKey(this.identity, message, id, "interaction"),
                 entry.messageId
               );
+              interactions.delete(id);
             };
             const stopTyping =
               this.config.typing === false ? () => {} : this.#typing!.acquire(message, runId);
@@ -359,15 +359,22 @@ export class GatewayTransport {
               resolveInteraction,
               update: (snapshot) => card.update(snapshot),
               finish: async () => {
+                const errors: unknown[] = [];
                 try {
                   for (const id of interactions.keys()) {
                     try {
                       await resolveInteraction(id, "invalidated");
-                    } catch {
+                    } catch (error) {
+                      errors.push(error);
                       onDiagnostic("IM_INTERACTION_CARD_FAILED");
                     }
                   }
-                  await card.finish();
+                  try {
+                    await card.finish();
+                  } catch (error) {
+                    errors.push(error);
+                  }
+                  if (errors.length) throw new AggregateError(errors, "IM_PRESENTATION_FAILED");
                 } finally {
                   const binding = this.#bindings.get(runId);
                   if (binding) {

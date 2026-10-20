@@ -53,7 +53,7 @@ stop 关闭接纳，取消自己的调用，执行 dispose，回收受管进程�
 
 Extra runner 为异步初始化和关闭保留 4 秒共享清理预算，另设从 stop 开始计时的 4.5 秒最终退出兜底。stop 同步停准入，然后并发取消所属 Run 与 dispose；原调用订阅保持到消费收尾完成或共享截止，再断开执行连接。取消 ACK 不代替终态/消费确认，失败 ref 不无条件删除。私有截止沿 owner signal 及异步关闭作用域传递，不新增 ExtraContext 字段或改变普通调用方 abort 合同。
 
-owner 断连时 runner 兜底必须保持引用，不能因插件子进程 unref 而提前自然退出；POSIX 回收本 runner 的独立进程组。Windows 外部 Job broker 对组件保留最多 4.5 秒宽限，即使组件同步阻塞也能回收原 Job；POSIX owner 同时消失且 Extra 同步死循环仍缺少外部 supervisor 保证。未完成的 dispose 仍是 incomplete，不因强制退出改为成功，端点租约仅在所有清理成功后释放。Kernel 的 manifest 或端点删除失败也保留租约。
+owner 断连时 runner 兜底必须保持引用，不能因插件子进程 unref 而提前自然退出；POSIX 回收本 runner 的独立进程组。Windows 使用 Node.js 和系统已有命令，公共层不引入原生 supervisor，遵守[架构约束](architecture.md#实现语言与原生依赖边界)。owner 已消失、父进程先退或 Extra 同步阻塞时，不承诺退出回调及后代清理必然执行。未完成的 dispose 仍是 incomplete，不因强制退出改为成功，端点租约仅在所有清理成功后释放。Kernel 的 manifest 或端点删除失败也保留租约。
 
 宿主动态函数留在宿主进程，真实 Promise 未结束前仍占容量；超时、取消、账号切换、断线或 scope 更新不能提前释放。宿主同步阻塞函数不能由 IPC 代理隔离。
 
