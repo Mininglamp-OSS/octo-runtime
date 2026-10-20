@@ -87,10 +87,12 @@ test(
       return value;
     };
     assert.equal((await status())["channel-gateway"].runtime.status.kernel_available, false);
+    assert.equal((await status())["channel-gateway"].runtime.pid, gateway.child.pid);
     const kernel = await start("executor-kernel");
     const client = attachKernel({ endpoint: componentEndpoint(home) });
     t.after(() => client.close());
     const instance = (await client.status()).kernel_instance_id;
+    assert.equal((await client.status()).pid, kernel.child.pid);
     const calls = [];
     const backend = {
       inspect: async () => ({ state: "stopped", enabled: false, drift: [] }),

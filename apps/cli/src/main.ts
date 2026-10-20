@@ -5,14 +5,15 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   attachKernel,
+  createKernelService,
+  type KernelService,
   readAdapterConfigurations
 } from "@mininglamp-oss/octo-runtime-executor-kernel";
 import {
   componentEndpoint,
-  startOwnedKernel,
-  startExtra,
-  type OwnedExtra,
-  type OwnedKernel
+  createExtraService,
+  extraRegistration,
+  type ExtraService
 } from "@mininglamp-oss/octo-runtime-host-sdk";
 import { getExtra, readExtra, setExtra } from "./extras.js";
 import { cliVersionInfo, helpText } from "./help.js";
@@ -142,7 +143,7 @@ export async function runCli(args: string[], dependencies: CliDependencies = {})
     if (flags.autostart !== undefined && action !== "install") throw new Error("INVALID_ARGUMENTS");
     if (action === "run") {
       await mkdir(home, { recursive: true, mode: 0o700 });
-      let handle: OwnedKernel | OwnedExtra;
+      let handle: KernelService | ExtraService;
       if (component === "executor-kernel") {
         await initializeCliOpenClaw(paths.profileRoot, dependencies.env ?? process.env);
         await syncCliOpenClawToolEnvironment(
@@ -150,7 +151,7 @@ export async function runCli(args: string[], dependencies: CliDependencies = {})
           await readExtraDirectory(join(home, "extras"))
         );
         const config = await readJsonFile<ProfileConfiguration>(paths.profileConfig);
-        handle = await startOwnedKernel({
+        handle = createKernelService({
           endpoint,
           stateDirectory: join(home, "run"),
           workerEntrypoint: fileURLToPath(
@@ -167,16 +168,26 @@ export async function runCli(args: string[], dependencies: CliDependencies = {})
           }
         });
       } else {
-        handle = await startExtra({
+        const registration = extraRegistration(await readExtra(paths, component));
+        const module =
+          registration.enabled === false
+            ? { name: registration.name, default: () => () => {} }
+            : await registration.load();
+        if (module.name !== registration.name) throw new Error("EXTRA_NAME_MISMATCH");
+        handle = createExtraService({
           logging: { directory: join(home, "logs") },
-          declaration: await readExtra(paths, component),
+          module,
+          config: registration.config,
+          dependencies: {},
+          enabled: registration.enabled,
           endpoint,
           controlEndpoint: componentEndpoint(home, component, dependencies.platform)
         });
       }
-      publish({ component, state: "ready" });
       return new Promise<number>((resolve) => {
+        const initialization = new AbortController();
         let stopped = false;
+        let ready = false;
         const detach = () => {
           process.off("SIGINT", stop);
           process.off("SIGTERM", stop);
@@ -185,20 +196,36 @@ export async function runCli(args: string[], dependencies: CliDependencies = {})
           if (stopped) return;
           stopped = true;
           detach();
-          void handle.stop().then(
+          initialization.abort();
+          void handle.close().then(
             (result) => resolve(result.complete ? 0 : 5),
             () => resolve(5)
           );
         };
         process.once("SIGINT", stop);
         process.once("SIGTERM", stop);
-        void handle.exited
-          .then(async () => {
+        void handle.initialize({ signal: initialization.signal }).then(
+          () => {
+            if (!stopped) {
+              ready = true;
+              publish({ component, state: "ready" });
+            }
+          },
+          async () => {
             if (stopped) return;
             stopped = true;
             detach();
-            await handle.stop();
-            resolve(1);
+            const result = await handle.close();
+            publish({ error: { code: "SERVICE_INITIALIZATION_FAILED" } });
+            resolve(result.complete ? 1 : 5);
+          }
+        );
+        void handle.closed
+          .then((result) => {
+            if (stopped || !ready) return;
+            stopped = true;
+            detach();
+            resolve(result.complete ? 1 : 5);
           })
           .catch(() => resolve(5));
       });
