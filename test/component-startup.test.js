@@ -32,6 +32,7 @@ async function startupFixture(t) {
     options: {
       endpoint: componentEndpoint(home),
       stateDirectory: home,
+      entrypoint: resolve("test/fixtures/startup-kernel-entry.mjs"),
       workerEntrypoint: resolve("test/fixtures/delayed-startup-worker.mjs"),
       env: { ...process.env, OCTO_TEST_WORKER_PID: join(home, "worker-pid") }
     }
@@ -56,9 +57,11 @@ async function identities(t, fixture, startupFailure = () => undefined) {
     }, 15_000);
   } catch (error) {
     const files = await Promise.allSettled(
-      [fixture.pidFile, join(fixture.home, "kernel-invocations.json")].map((file) =>
-        readFile(file, "utf8")
-      )
+      [
+        fixture.pidFile,
+        join(fixture.home, "kernel-invocations.json"),
+        join(fixture.home, "startup-diagnostics")
+      ].map((file) => readFile(file, "utf8"))
     );
     throw new Error(
       `startup identity unavailable: ${JSON.stringify({ files, cleanup: startupFailure()?.cleanup })}`,
@@ -85,7 +88,12 @@ async function assertReleased(fixture, identity) {
     }
   }, 10_000).catch(async (error) => {
     const remaining = await readFile(manifest, "utf8").catch(() => "absent");
-    throw new Error(`Kernel startup rollback incomplete: ${remaining}`, { cause: error });
+    const diagnostics = await readFile(join(fixture.home, "startup-diagnostics"), "utf8").catch(
+      () => "absent"
+    );
+    throw new Error(`Kernel startup rollback incomplete: ${remaining}; ${diagnostics}`, {
+      cause: error
+    });
   });
   await assert.rejects(access(join(fixture.home, "kernel-invocations.json")), { code: "ENOENT" });
   if (process.platform !== "win32") {
