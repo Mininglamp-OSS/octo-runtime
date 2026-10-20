@@ -60,9 +60,9 @@ validation:
   final_okf: 255 units, 20 rules, 1595 local links; passed after rebase using uv with pyyaml
   diff_check: passed
   plan_matrix: verified 6 stages, 15 file mappings, 24 acceptance cases; self-assessment 95 of 100
-  product_tests: clean 6b79493, macOS arm64 Node24.19.0, typecheck/lint/names/format, UI35 and Node1289 passed with 18 platform skips
-  release_package: clean 6b79493, offline install and public TS/owned Kernel/independent Extra/CLI/uninstall checks passed
+  product_tests: 1d6104f code, macOS arm64 Node24.19.0, typecheck/lint/names/format, UI35 and Node1291 passed with 18 platform skips; CI39434536989 Linux/macOS/Windows and Gate passed
+  release_package: clean 1d6104f, offline install and public TS/owned Kernel/independent Extra/CLI/uninstall checks passed locally and in three-platform CI
   live_im: SDK and CLI with real Codex0.154.0 passed stop/restart/sibling isolation; injected WebSocket send failure preserved incomplete
-  native_windows: 6b79493 Windows CI job passed, including native close, installed helper, 100 cycles and handles 203 to 203; final head CI pending
+  native_windows: 1d6104f Windows CI passed; ownership62 passed2 skipped, lifecycle94 passed7 skipped, native close and installed helper passed, handles 203 to 203 after 100 cycles
   linux_regression: terminal-to-finalization connection race reproduced in Node24.19.0 Linux container; corrected, container11 and local12 focused tests passed
   remaining: native Windows10/11 real Provider/desktop, arm64 execution, restricted nested Job/query failure injection

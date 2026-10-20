@@ -29,7 +29,7 @@ node scripts/verify-release.mjs dist/release/mininglamp-oss-octo-runtime-0.0.0.t
 
 结果：类型、lint、命名、格式通过；UI35/35，Node1289通过、18平台跳过、0失败/取消，共1307项，Node部分31.5秒。跳过不计Windows通过。包外离线安装、skipLibCheck=false公开类型、owned Kernel、独立Extra、CLI Kernel、卸载保留Home全部通过；包内两架构PE/摘要及Go许可通过。
 
-终态后连接修正后的待提交工作区再次完成typecheck、lint、命名、格式和OKF检查；UI35/35、Node1291通过/18平台跳过，共1309项，0失败/取消，Node部分30.6秒。两项新增回归不改变平台跳过口径。最终提交需重建并验证对应干净SHA的发行包。
+终态后连接修正后的工作区再次完成typecheck、lint、命名、格式和OKF检查；UI35/35、Node1291通过/18平台跳过，共1309项，0失败/取消，Node部分30.6秒。两项新增回归不改变平台跳过口径。提交后在干净`1d6104fdf477cfa30512be9dbcaba3ccc73d1bd2`重建，使用上述pack与verify命令（expected-commit改为此完整SHA）通过离线安装、公开类型、owned Kernel、独立Extra、CLI Kernel及卸载保留Home。
 
 # 真实IM
 
@@ -63,6 +63,10 @@ node scripts/verify-gateway-drain-live.mjs --cli --fail-delivery
 `6b79493`的[CI39431785904](https://github.com/Mininglamp-OSS/octo-runtime/actions/runs/39431785904)：Windows与macOS job通过，包含最终tgz。Windows扩大步骤62项中60通过/2跳过，生命周期101项中94通过/7跳过；原生组件3项通过，100次创建回收后句柄203→203。Linux在IM集成测试收尾挂起，该轮已主动取消以取得日志，不记为全绿。
 
 使用官方`node:24.19.0-bookworm-slim`容器在Linux/arm64复现：终态到达后活动任务表已空，但`session.tail`仍在发送，close误判空闲而撤销连接，导致IM_DELIVERY_UNKNOWN。修正为在线连接统一在drain后撤销；新增卡片结束和final发送两个精确窗口回归。测试fixture改为finally释放其WebSocket/HTTP资源，保留原失败。容器IM与drain回归11/11，本地加独立runner回归12/12通过。该Linux容器证据不代替Windows或CI amd64结果。
+
+最终代码`1d6104f`的[CI39434536989](https://github.com/Mininglamp-OSS/octo-runtime/actions/runs/39434536989)三平台和CI Gate全部成功。Windows归属步骤64项中62通过/2跳过，生命周期101项中94通过/7跳过；100次创建回收的句柄203→203，兄弟哨兵存活，最终安装包验证通过。Linux与macOS完整测试及离线发行包验证通过，Linux Node1291通过/18跳过，UI35/35。后续提交只回写此证据。
+
+英文实现PR为[#72](https://github.com/Mininglamp-OSS/octo-runtime/pull/72)。仓库保护要求main至少一名reviewer批准、管理员同样适用，且auto-merge未启用。记录时PR仍待review，未合并；不修改仓库保护规则。
 
 尚无原生Windows10/11桌面、arm64机器、实际客户应用构建/重启结果；Codex与Claude在Windows桌面的真实Provider回收仍待验证。拒绝嵌套Job/Win32查询失败的故障注入未执行；100次创建回收与哨兵不能代替所有资源故障分支。Windows Server/amd64结果、交叉编译和平台跳过分别计数。M5整体仍未完成，#14/#30更广验收和无关#55不自动关闭。
 

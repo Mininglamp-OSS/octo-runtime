@@ -44,11 +44,12 @@ M0原生机制通过，M1/M2产品实现与本地回归通过，M3接线已完�
 - im-test真实SDK与CLI均使用独立Gateway+独立Kernel+真实Codex0.154.0。工具开始后停止，SDK98ms/CLI109ms返回完整，立即回读唯一final，兄弟Run与Kernel存活，重新创建后再次真实回复。
 - 相同真实连接与Provider上，在实际WebSocket文本发送边界注入拒绝：SDK621ms/CLI481ms返回未完成，重复stop保持失败，兄弟Run与Kernel仍可用；这是受控发送故障，不是服务端自然503。
 - 私有关闭截止统一使用performance.now；框架公开Extra API、Context v3、Run 7及主包exports不变。
-- `6b79493`三平台CI中Windows/macOS通过；Linux IM集成测试收尾挂起后主动取消。在Linux容器复现并修正终态后卡片/final未发完时撤销连接的问题，新增两个窗口回归；Linux容器11/11、本地加独立runner12/12通过，等待最终提交三平台CI。
+- `6b79493`三平台CI中Windows/macOS通过；Linux IM集成测试收尾挂起后主动取消。在Linux容器复现并修正终态后卡片/final未发完时撤销连接的问题，新增两个窗口回归；Linux容器11/11、本地加独立runner12/12通过。
 - 此修正后工作区全量检查通过，UI35项、Node1291通过/18平台跳过，无失败或取消。真实IM再验SDK127ms/CLI141ms完成停止，final在stop返回时可回读，重新创建后再次回复。
+- 最终代码`1d6104f`的[CI39434536989](https://github.com/Mininglamp-OSS/octo-runtime/actions/runs/39434536989)三平台与CI Gate全部通过；Windows归属62通过/2跳过、生命周期94通过/7跳过，100次回收后句柄203→203。Linux/macOS全量与三平台最终包外验证通过；本地相同干净SHA的发行包亦通过离线安装和公开类型等检查。M4完成，后续仅回写此验收证据。
 - 精确命令、平台和未验范围见[验收记录](../../journal/shared/2026-10-20-gateway-drain-windows-owner.md)。
 
 ## 待完成
 
-最终三平台CI；Windows10/11真实Provider与实际宿主构建/重启；arm64原生执行；拒绝嵌套Job/Win32查询失败的故障注入。M5不能整体标记完成，不关闭#14/#30的更广范围，不关联无关#55。
+Windows10/11真实Provider与实际宿主构建/重启；arm64原生执行；拒绝嵌套Job/Win32查询失败的故障注入。M5不能整体标记完成，不关闭#14/#30的更广范围，不关联无关#55。实现PR为[#72](https://github.com/Mininglamp-OSS/octo-runtime/pull/72)，main要求至少一名reviewer批准，记录时尚未获得，不能绕过保护规则合并。
 真实业务使用用户指定的im-test和本机账号文件，记录中不得出现凭据或规则正文。
