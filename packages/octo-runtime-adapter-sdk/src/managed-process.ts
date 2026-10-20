@@ -45,7 +45,7 @@ export function spawnManaged(
   const stdio = Array.isArray(original) ? [...original] : [original, original, original];
   if (stdio.length > 4) throw new Error("WINDOWS_MANAGED_STDIO_UNSUPPORTED");
   while (stdio.length < 4) stdio.push("ignore");
-  stdio.push("pipe");
+  stdio.push("overlapped");
   const child = spawn(ownerExecutable(), [], {
     ...options,
     stdio,

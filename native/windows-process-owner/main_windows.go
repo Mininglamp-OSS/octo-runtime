@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -30,7 +31,38 @@ var (
 	initAttributes   = kernel32.NewProc("InitializeProcThreadAttributeList")
 	updateAttribute  = kernel32.NewProc("UpdateProcThreadAttribute")
 	deleteAttributes = kernel32.NewProc("DeleteProcThreadAttributeList")
+	createEvent      = kernel32.NewProc("CreateEventW")
+	getOverlapped    = kernel32.NewProc("GetOverlappedResult")
 )
+
+// fd4 uses an overlapped duplex pipe: a blocking ReadFile would serialize a
+// concurrent reply on the same Windows file object and deadlock the handshake.
+type controlPipe struct{ handle syscall.Handle }
+
+func (p controlPipe) transfer(data []byte, write bool) (int, error) {
+	event, _, err := createEvent.Call(0, 1, 0, 0)
+	if event == 0 {
+		return 0, err
+	}
+	defer syscall.CloseHandle(syscall.Handle(event))
+	overlapped := syscall.Overlapped{HEvent: syscall.Handle(event)}
+	var count uint32
+	if write {
+		err = syscall.WriteFile(p.handle, data, &count, &overlapped)
+	} else {
+		err = syscall.ReadFile(p.handle, data, &count, &overlapped)
+	}
+	if err == syscall.ERROR_IO_PENDING {
+		err = checked(getOverlapped, uintptr(p.handle), uintptr(unsafe.Pointer(&overlapped)), uintptr(unsafe.Pointer(&count)), 1)
+	}
+	if !write && (errors.Is(err, syscall.ERROR_BROKEN_PIPE) || (err == nil && count == 0)) {
+		return 0, io.EOF
+	}
+	return int(count), err
+}
+
+func (p controlPipe) Read(data []byte) (int, error)  { return p.transfer(data, false) }
+func (p controlPipe) Write(data []byte) (int, error) { return p.transfer(data, true) }
 
 type basicLimits struct {
 	ProcessTime, JobTime int64
@@ -139,11 +171,8 @@ func run() int {
 	if err != nil {
 		return 125
 	}
-	control := os.NewFile(uintptr(handles[4]), "owner-control")
-	if control == nil {
-		return 125
-	}
-	defer control.Close()
+	control := controlPipe{handles[4]}
+	defer syscall.CloseHandle(handles[4])
 	encoder := json.NewEncoder(control)
 	failed := func() int {
 		_ = encoder.Encode(map[string]any{"type": "failed", "code": "WINDOWS_PROCESS_START_FAILED"})
