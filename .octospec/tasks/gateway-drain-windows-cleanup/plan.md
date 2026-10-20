@@ -4,7 +4,7 @@ title: 两项 P1 的开发阶段与逐文件安排
 description: 先验证高风险机制，再分别实现 Gateway drain、Windows 归属回收和发行验收。
 tags: [planning, lifecycle, testing, windows, channel]
 timestamp: 2026-10-20T00:00:00Z
-status: planned
+status: in_progress
 ---
 
 # 开发顺序
@@ -76,6 +76,8 @@ Windows 另运行 `verify-windows-release.mjs`，参数沿用脚本当时的实�
 - [x] 设计、逐文件计划、故障矩阵、发行门禁及评分落文档。
 - [x] M0 最小 broker 的 Node IPC/argv/leader退出/owner退出/被杀原生 Windows 机制通过。
 - [x] M1/M2 Gateway drain 与共享关闭预算已实现，受控与独立 runner 回归通过。
-- [x] M3 所有 owned launcher 接线完成，等待扩大后的 Windows 回归。
+- [x] M3 所有 owned launcher 接线完成，扩大后的 Windows Job/Provider 及原生组件关闭回归通过；缺失故障子场景保留待验。
 - [ ] M4 最终实现的三平台 CI、打包与公开接口验证。
 - [ ] M5 真实 IM/Provider/桌面验收及知识回写。
+
+M5 的 im-test SDK/CLI、真实 Codex 执行中停止及重启已经通过；发送边界故障注入也已验证 incomplete。桌面 Windows10/11 与 arm64 原生机器仍未提供，不能把 M5 整体勾选完成。

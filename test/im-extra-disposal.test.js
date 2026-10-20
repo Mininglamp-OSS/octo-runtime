@@ -183,12 +183,13 @@ for (const kind of ["gateway", "wecom"]) {
       await runtime.start();
       const first = runtime.close();
       assert.equal(first, runtime.close());
-      assert.equal(signal.aborted, true);
+      assert.equal(signal.aborted, kind !== "gateway");
       let settled = false;
       void first.then(() => {
         settled = true;
       });
       await new Promise((resolve) => setImmediate(resolve));
+      assert.equal(signal.aborted, true, "the connection is revoked after the empty drain");
       assert.equal(settled, false);
       release();
       await first;

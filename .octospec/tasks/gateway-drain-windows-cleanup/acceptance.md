@@ -4,12 +4,12 @@ title: Gateway 与 Windows 生命周期验收矩阵
 description: 用真实事件顺序、进程句柄和发行包验证两项 P1，不以退出码或取消 ACK 代替清理。
 tags: [testing, lifecycle, channel, windows, ipc]
 timestamp: 2026-10-20T00:00:00Z
-status: planned
+status: in_progress
 ---
 
 # 记录口径
 
-下列项目当前均待实施/执行。每项记录 SHA/dirty、OS/架构、Node/Go、命令、预期、实际、耗时、PID/创建身份与脱敏日志。
+下表保留验收要求；已执行范围见[实施记录](implementation.md)和[脱敏验收记录](../../journal/shared/2026-10-20-gateway-drain-windows-owner.md)。未覆盖的子场景不得随整行测试通过而自动计为完成。每项记录 SHA/dirty、OS/架构、Node/Go、命令、预期、实际、耗时、PID/创建身份与脱敏日志。
 使用闩锁控制 admission、cancel ACK、session.update、terminal、final send 和 close；不靠增加 sleep 掩盖竞态。
 “通过”必须满足结果与资源两类断言；平台跳过、环境不可用、交叉编译分别记录，不能计入通过数。
 
@@ -72,5 +72,5 @@ I03 的 Provider 无 Windows 原生运行入口时，记录 Provider 的实际�
 | `scripts/verify-release.mjs`、`scripts/verify-windows-release.mjs` | W10、I02 | 最终tgz包外离线运行 |
 | 真实宿主/Provider/IM操作记录 | I03/I04 | 原生桌面及im-test；凭据不入日志 |
 
-新增文件仅为计划路径。实现后将精确命令填入 journal；现有文件与focused命令先核对实际名字，
+表中的测试入口已实际建立，精确命令与执行范围记入 journal；现有文件与focused命令先核对实际名字，
 不得为使计划命令可执行而创建只返回成功的占位测试。

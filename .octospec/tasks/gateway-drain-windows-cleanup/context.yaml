@@ -42,7 +42,7 @@ external_sources:
   - https://github.com/nodejs/node/blob/v24.19.0/deps/uv/src/win/process.c
   - https://github.com/nodejs/node/blob/v24.19.0/deps/uv/src/win/process-stdio.c
 decisions:
-  - 规划阶段用户授权新worktree与Octospec开发计划；后续授权英文提交、推送、创建PR和合并，交付范围仍仅规划。
+  - 最初用户授权新worktree与Octospec开发计划，随后授权英文提交、推送、创建PR和合并；其后明确要求直接实施原计划。
   - 用户已澄清与55无关；PR关联30/14，未完成的修复与更广的平台验收不能记为已交付。
   - 最新origin/main已fetch并固定；原main工作区不修改。
   - App创建worktree工具因聊天根目录不是Git仓库失败；改用git worktree add。App attachment不接受非managed checkout，Git worktree已实际建立且可用。
@@ -52,7 +52,7 @@ decisions:
   - 评分95为工程自评；保留5分具体风险，不代表实现或Windows真机通过。
   - 会话存储工厂、公共Extra API重构、Go执行IPC client与Loop均不纳入；接触文件与65/66显式协调。
   - 提交PR前按用户要求rebase最新main@fae6333；保留上游GROUP.md任务索引，重读Channel/session规则并将rulesContext代次保护纳入G03。
-  - 用户随后关闭规划PR68、要求分支使用feat，并明确授权按计划直接实施；当前M0阶段，不重新创建规划PR。
+  - 用户随后关闭规划PR68、要求分支使用feat，并明确授权按计划直接实施；当前已完成产品接线与本地/真实IM检查，不重新创建规划PR。
   - Gateway真实联验使用用户指定im-test环境和本机octo-im-account.md；凭据只在测试进程读取，不进入知识文件或日志。
 validation:
   baseline_okf: 246 units, 20 rules, 1548 local links; passed using uv with pyyaml
@@ -60,5 +60,9 @@ validation:
   final_okf: 255 units, 20 rules, 1595 local links; passed after rebase using uv with pyyaml
   diff_check: passed
   plan_matrix: verified 6 stages, 15 file mappings, 24 acceptance cases; self-assessment 95 of 100
-  product_tests_this_turn: not_run_planning_only
-  native_windows_this_turn: not_run
+  product_tests: clean 6b79493, macOS arm64 Node24.19.0, typecheck/lint/names/format, UI35 and Node1289 passed with 18 platform skips
+  release_package: clean 6b79493, offline install and public TS/owned Kernel/independent Extra/CLI/uninstall checks passed
+  live_im: SDK and CLI with real Codex0.154.0 passed stop/restart/sibling isolation; injected WebSocket send failure preserved incomplete
+  native_windows: 6b79493 Windows CI job passed, including native close, installed helper, 100 cycles and handles 203 to 203; final head CI pending
+  linux_regression: terminal-to-finalization connection race reproduced in Node24.19.0 Linux container; corrected, container11 and local12 focused tests passed
+  remaining: native Windows10/11 real Provider/desktop, arm64 execution, restricted nested Job/query failure injection

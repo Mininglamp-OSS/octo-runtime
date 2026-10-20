@@ -13,9 +13,8 @@ import type { ChannelDependencies } from "./context-loader.js";
 import { attachKernel, acquireEndpoint } from "@mininglamp-oss/octo-runtime-executor-kernel";
 import { createDependencyProxy } from "./dependencies.js";
 import { processChannel } from "./process-channel.js";
-import { deadline } from "./launch.js";
 import { performance } from "node:perf_hooks";
-import { abortForShutdown, withShutdownDeadline } from "./shutdown.js";
+import { abortForShutdown, withShutdownDeadline, withinShutdown } from "./shutdown.js";
 
 interface ExtraConfiguration {
   logging?: RuntimeLoggingOptions;
@@ -102,9 +101,9 @@ const stop = (requestId?: string): Promise<void> =>
     const errors: unknown[] = [];
     const attempt = async (operation: () => void | Promise<void>) => {
       try {
-        await deadline(
+        await withinShutdown(
           Promise.resolve().then(operation),
-          Math.max(0, until - Date.now()),
+          shutdownUntil,
           "EXTRA_RUN_CLEANUP_INCOMPLETE"
         );
       } catch (error) {

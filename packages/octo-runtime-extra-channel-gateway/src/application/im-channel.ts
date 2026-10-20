@@ -1217,7 +1217,8 @@ export class ImRuntime {
     this.#everOnline = false;
     this.#retry = 0;
     for (const preparation of this.#preparing.values()) preparation.abort();
-    if (!wasOnline || !this.#tasks.size) this.#connectionAbort?.abort();
+    // 执行终态之后 session.tail 仍可能在结束卡片或发送 final，连接在 drain 后统一撤销。
+    if (!wasOnline) this.#connectionAbort?.abort();
     if (this.#reconnect) {
       clearTimeout(this.#reconnect);
       this.#reconnect = undefined;

@@ -84,6 +84,76 @@ test("Gateway owner stop keeps accepted tail events and final delivery ahead of 
   assert.equal(saved.providerSession.sessionId, "last-provider-session");
 });
 
+for (const phase of ["presentation", "final"]) {
+  test(`Gateway stop preserves the connection after terminal while ${phase} is pending`, async (t) => {
+    let callbacks,
+      connectionSignal,
+      holding = false,
+      release;
+    const gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    let finals = 0;
+    t.mock.method(GatewayTransport.prototype, "start", async function (signal) {
+      connectionSignal = signal;
+      callbacks = this.callbacks;
+    });
+    t.mock.method(GatewayTransport.prototype, "close", async () => {});
+    const runtime = new ImRuntime(
+      {
+        bot_id: "finalizing",
+        api_url: "https://im-test.deepminer.com.cn/api",
+        adapter: { adapter_type: "codex", workdir: process.cwd() }
+      },
+      {
+        host: {
+          async *invoke() {
+            yield { protocolVersion: 2, type: "run.completed", payload: {} };
+          },
+          cancel: async () => ({ cancelled: false })
+        }
+      }
+    );
+    t.after(async () => {
+      release();
+      await runtime.close();
+    });
+    await runtime.start();
+    callbacks.onMessage({
+      messageId: "finalizing",
+      senderId: "sender",
+      conversationId: "chat",
+      conversationKind: "direct",
+      text: "run",
+      buildContext: async () => ({ schema: "octo.context-envelope/v3", items: [] }),
+      beginPresentation: () => ({
+        update() {},
+        async finish() {
+          if (phase === "presentation") {
+            holding = true;
+            await gate;
+          }
+        }
+      }),
+      reply: async () => {
+        if (phase === "final") {
+          holding = true;
+          await gate;
+        }
+        assert.equal(connectionSignal.aborted, false);
+        finals++;
+      }
+    });
+    await waitFor(() => holding);
+    assert.equal(runtime.status.tasks.length, 0, "the source terminal has already been consumed");
+    const closing = runtime.close();
+    assert.equal(connectionSignal.aborted, false, "finalization still owns the live connection");
+    release();
+    await closing;
+    assert.equal(finals, 1);
+  });
+}
+
 for (const scenario of ["unknown", "delivery", "timeout", "rules", "binding", "presentation"]) {
   test(`Gateway drain reports ${scenario} failure and fences late work`, async (t) => {
     let callbacks,
