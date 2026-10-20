@@ -84,3 +84,4 @@ Core、Provider、Run7/Context v3、HostRunService/流预算、交互、进程�
 - Standards 原始发现 5 类、最高 P1；Spec 原始及复核发现合计 4 项、最高 P1，存在交叉，不相加作为独立缺陷数。最终只读复核均无剩余必须修复项。上述“尚未验收”仍适用，不能把本次启动回归等同完整 A22/A23 矩阵。
 - `7efdf3b` 的 Linux/macOS 完整 CI 通过，Windows 新增测试发现 `onSpawn` 结束前取消会遗留未观察的 readiness RPC Promise；本地新增确定性回归先复现未处理拒绝，再修复为所有分支均观察 RPC。Windows 第二个启动身份等待超时尚需后续 CI 核实，测试已保留启动错误/cleanup/manifest 诊断并在失败后取消后台启动。
 - 全量复跑另捕获子进程自主启动回滚的 ACK 与父进程 stop 发送竞态：发送失败曾使已收到完整 ACK 的回滚误报 incomplete。现在等待进程 close 排空 IPC 后判定 ACK，同时保留真正的进程/配置清理错误；确定性发送失败 fixture 已回归。
+- `387c4ca` 的 Windows 主动取消与两个新增竞态回归通过，父退出场景仍报告 manifest 存在。回归现将进程退出与 manifest 删除放在同一有界等待中，并在失败时打印残留清单，后续远端结果仍待确认。

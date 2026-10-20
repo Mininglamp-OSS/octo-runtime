@@ -73,7 +73,20 @@ async function identities(t, fixture, startupFailure = () => undefined) {
   return identity;
 }
 async function assertReleased(fixture, identity) {
-  await waitFor(() => !alive(identity.worker) && !alive(identity.kernel), 10_000);
+  const manifest = join(fixture.home, "kernel-invocations.json");
+  await waitFor(async () => {
+    if (alive(identity.worker) || alive(identity.kernel)) return false;
+    try {
+      await access(manifest);
+      return false;
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+      return true;
+    }
+  }, 10_000).catch(async (error) => {
+    const remaining = await readFile(manifest, "utf8").catch(() => "absent");
+    throw new Error(`Kernel startup rollback incomplete: ${remaining}`, { cause: error });
+  });
   await assert.rejects(access(join(fixture.home, "kernel-invocations.json")), { code: "ENOENT" });
   if (process.platform !== "win32") {
     await assert.rejects(access(fixture.options.endpoint), { code: "ENOENT" });
