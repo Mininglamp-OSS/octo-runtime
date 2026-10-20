@@ -24,11 +24,11 @@ export default (context, config) => async () => {
   const tail = new Promise((resolve) => {
     releaseTail = resolve;
   });
-  const host = {
-    ...context.adapterHost,
+  const kernel = {
+    ...context.kernel,
     async *invoke(input, environment) {
       record("invoke", { invocationId: input.invocationId });
-      for await (const event of context.adapterHost.invoke(input, environment)) {
+      for await (const event of context.kernel.invoke(input, environment)) {
         if (event.type === "session.update") {
           record("accepted.tail");
           await tail;
@@ -36,8 +36,8 @@ export default (context, config) => async () => {
         yield event;
       }
     },
-    async cancel(id, reason) {
-      const result = await context.adapterHost.cancel(id, reason);
+    async cancelInvocation(id, reason) {
+      const result = await context.kernel.cancelInvocation(id, reason);
       record("cancel.ack");
       releaseTail();
       return result;
@@ -49,7 +49,7 @@ export default (context, config) => async () => {
       api_url: "https://im-test.deepminer.com.cn/api",
       adapter: { adapter_type: "test", workdir: process.cwd() }
     },
-    { host, signal: context.signal, sessions }
+    { kernel, signal: context.signal, sessions }
   );
   context.onDispose(async () => {
     try {

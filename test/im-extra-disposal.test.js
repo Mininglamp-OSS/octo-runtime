@@ -222,7 +222,7 @@ for (const kind of ["gateway", "wecom"]) {
         },
         async cancelInvocation(id) {
           cancelled.push(id);
-          return { cancelled: true };
+          return { accepted: true };
         }
       };
       const extras = new ExtraPlugins([entry([bot("active")])], host);

@@ -76,7 +76,7 @@ export class ImTask {
     this.#draining = true;
     this.stopRetries();
     if (!this.#active) return;
-    this.#cancelPending ??= this.host.cancel(this.#active, reason);
+    this.#cancelPending ??= this.kernel.cancelInvocation(this.#active, reason);
     await this.#cancelPending;
   }
   async cancel(reason = "IM user stop"): Promise<boolean> {

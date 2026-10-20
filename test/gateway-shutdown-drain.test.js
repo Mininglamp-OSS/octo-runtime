@@ -26,7 +26,7 @@ test("Gateway owner stop keeps accepted tail events and final delivery ahead of 
   t.mock.method(GatewayTransport.prototype, "close", async () => {
     order.push("connector.close");
   });
-  const host = {
+  const kernel = {
     async *invoke(_input, environment) {
       invokeSignal = environment.signal;
       await terminal;
@@ -38,9 +38,9 @@ test("Gateway owner stop keeps accepted tail events and final delivery ahead of 
       };
       yield { protocolVersion: 2, type: "run.cancelled", payload: {} };
     },
-    async cancel() {
+    async cancelInvocation() {
       order.push("cancel.ack");
-      return { cancelled: true };
+      return { accepted: true };
     }
   };
   const runtime = new ImRuntime(
@@ -49,7 +49,7 @@ test("Gateway owner stop keeps accepted tail events and final delivery ahead of 
       api_url: "https://im-test.deepminer.com.cn/api",
       adapter: { adapter_type: "codex", workdir: process.cwd() }
     },
-    { host, signal: controller.signal, sessions: store }
+    { kernel, signal: controller.signal, sessions: store }
   );
   await runtime.start();
   // start 可关闭空旧 connector；只观察已接纳任务后的顺序。
@@ -106,11 +106,11 @@ for (const phase of ["presentation", "final"]) {
         adapter: { adapter_type: "codex", workdir: process.cwd() }
       },
       {
-        host: {
+        kernel: {
           async *invoke() {
             yield { protocolVersion: 2, type: "run.completed", payload: {} };
           },
-          cancel: async () => ({ cancelled: false })
+          cancelInvocation: async () => ({ accepted: false })
         }
       }
     );
@@ -196,7 +196,7 @@ for (const scenario of [
       },
       {
         sessions: store,
-        host: {
+        kernel: {
           async *invoke() {
             calls++;
             started = true;
@@ -209,7 +209,7 @@ for (const scenario of [
             if (scenario !== "unknown")
               yield { protocolVersion: 2, type: "run.completed", payload: {} };
           },
-          cancel: async () => ({ cancelled: true })
+          cancelInvocation: async () => ({ accepted: true })
         }
       }
     );
@@ -304,7 +304,7 @@ for (const scenario of ["pending-gap", "fresh-fallback", "output-position", "rul
       },
       {
         sessions: store,
-        host: {
+        kernel: {
           async *invoke() {
             started = true;
             await blocked;
@@ -326,7 +326,7 @@ for (const scenario of ["pending-gap", "fresh-fallback", "output-position", "rul
               payload: {}
             };
           },
-          cancel: async () => ({ cancelled: true })
+          cancelInvocation: async () => ({ accepted: true })
         }
       }
     );
