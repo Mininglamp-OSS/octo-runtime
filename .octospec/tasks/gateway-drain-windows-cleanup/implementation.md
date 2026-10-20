@@ -9,6 +9,8 @@ status: in_progress
 
 # 当前进度
 
+后续 P2 修复：`interactionCard` 在能力关闭/profile 404 时可返回 undefined 而不发送编辑；仅 await 不足以确认原卡片已收尾。现在 resolve/finish 只有拿到原 messageId 的确认结果才删除 pending，否则抛出私有未确认错误并保留记录；finish 沿既有路径汇总错误，仍尝试其他卡片及最终文本。实际 GatewayTransport/OctoConnector 的六组 HTTP 受控回归覆盖 disabled/404/healthy 各两条 resolve/finish 路径；修复前四个异常组 RED，健康组通过，修复后全部通过，并验证重复失败、恢复后编辑原卡和不创建替代卡。新增 Gateway dispose 回归确认 finish 失败时 close/重复 close 均失败但唯一 final 仍被投递。本地三文件定向46项、类型/lint/命名/格式/OKF及全套UI35、Node1307通过/10平台跳过，无失败或取消；最终提交CI在PR72跟踪，本轮未重跑真实IM或修改线上Bot能力。
+
 2026-10-20 用户最新约束优先：Kernel/Core/SDK/公共进程管理采用 TypeScript / Node.js，业务 Extra 可以拥有隔离的原生依赖，见[架构规则](../../rules/architecture.md#实现语言与原生依赖边界)。Go broker、所有 launcher 接线、构建/打包资源及专属 Windows Job 测试已撤除；原 Node spawn/taskkill 保留。Windows 父先退和强杀后的强回收目标未完成，不以旧原生测试或旧 95 分自评宣称已修复。
 
 本轮同时修复评审 P1：取消 Promise 立即挂接拒绝处理，配置准备后再次检查取消；评审 P2 及同类遗漏：drain 期间历史观察、pending boundary、fresh_fallback、规则失效写入错误统一汇入失败；审批卡发送成功后才删除待收尾项，最终失效失败仍尝试其余卡片和 reasoning finish，并上报失败。既有 reasoning 卡终态投递失败也由 finish 返回。

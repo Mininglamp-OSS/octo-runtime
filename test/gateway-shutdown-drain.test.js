@@ -154,7 +154,15 @@ for (const phase of ["presentation", "final"]) {
   });
 }
 
-for (const scenario of ["unknown", "delivery", "timeout", "rules", "binding", "presentation"]) {
+for (const scenario of [
+  "unknown",
+  "delivery",
+  "timeout",
+  "rules",
+  "binding",
+  "presentation",
+  "presentation-finish"
+]) {
   test(`Gateway drain reports ${scenario} failure and fences late work`, async (t) => {
     let callbacks,
       started = false,
@@ -217,13 +225,16 @@ for (const scenario of ["unknown", "delivery", "timeout", "rules", "binding", "p
         replies++;
         if (scenario === "delivery") throw new Error("test delivery failed");
       },
-      ...(scenario === "presentation"
+      ...(scenario === "presentation" || scenario === "presentation-finish"
         ? {
             beginPresentation: () => ({
               update(value) {
-                if (value.terminal) throw new Error("test terminal presentation failed");
+                if (scenario === "presentation" && value.terminal)
+                  throw new Error("test terminal presentation failed");
               },
-              async finish() {}
+              async finish() {
+                if (scenario === "presentation-finish") throw new Error("IM_PRESENTATION_FAILED");
+              }
             })
           }
         : {})
@@ -239,6 +250,12 @@ for (const scenario of ["unknown", "delivery", "timeout", "rules", "binding", "p
     if (scenario !== "timeout") release();
     await rejected;
     await assert.rejects(runtime.close(), /IM_DISPOSE_FAILED/);
+    if (scenario === "presentation-finish")
+      assert.equal(
+        replies,
+        1,
+        "final text must still be delivered after failed presentation cleanup"
+      );
     const before = { replies, saves };
     release();
     await new Promise((resolve) => setTimeout(resolve, 30));

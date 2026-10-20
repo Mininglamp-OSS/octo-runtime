@@ -9,6 +9,10 @@ status: in_progress
 
 # 实现与源码
 
+## 后续 P2：跳过交互卡终态编辑
+
+PR72 的新评审指出：终态编辑 API 可因 disabled/profile404 返回 undefined，原先等待后仍删除 pending，导致 finish 假成功。通过真实 GatewayTransport/OctoConnector 和受控 HTTP 复现六组；修复前四个异常组失败、两个健康对照通过。修复要求返回原 messageId 才能移除，未确认记录保留并让 finish 失败。新增回归覆盖全部卡片继续收尾、重复 finish 保持失败、能力恢复后编辑原卡而非替代卡，以及 dispose 失败仍投递唯一 final。定向三文件46项通过；本地macOS arm64/Node24.19.0类型、lint、命名、格式、OKF、全套UI35及Node1307通过/10平台跳过，无失败或取消。最终提交CI在PR72跟踪；这属于受控 HTTP/编排验证，本轮没有重跑真实IM或修改真实 Bot 能力配置。
+
 ## Node-only 修订验证
 
 当前工作区：macOS arm64、Node24.19.0、pnpm11.19.0；公共代码和构建/分发无 Go broker。typecheck、lint、命名、格式、OKF通过，UI35/35，Node1300通过/10平台跳过、0失败/取消；双轴复核未发现新增P1/P2，重点四文件53项通过。

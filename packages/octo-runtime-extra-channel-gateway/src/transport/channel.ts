@@ -300,12 +300,15 @@ export class GatewayTransport {
             const resolveInteraction = async (id: string, status: string) => {
               const entry = interactions.get(id);
               if (!entry) return;
-              await this.#api!.interactionCard(
+              const messageId = await this.#api!.interactionCard(
                 message,
                 interactionCard(entry.request, status),
                 stableEffectKey(this.identity, message, id, "interaction"),
                 entry.messageId
               );
+              // 能力不可用会返回 undefined；已显示卡片只有确认编辑成功后才能移除。
+              if (messageId !== entry.messageId)
+                throw new Error("IM_INTERACTION_CARD_FINALIZATION_UNCONFIRMED");
               interactions.delete(id);
             };
             const stopTyping =
