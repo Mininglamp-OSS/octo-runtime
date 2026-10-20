@@ -20,7 +20,7 @@ timestamp: 2026-10-20T00:00:00Z
 | --- | --- | --- |
 | M0 | 本地合同与消费清单完成 | 下方迁移清单；R3 关闭消费映射已实施并测试；R1/R2 仍为 M5 进入条件。 |
 | M1 | 本机通过 | 单一 AgentExecutor，原 worker 接线、类型、构建及原装配回归通过。 |
-| M2 | 本机通过 | 接纳、取消、关闭门禁、资源所有权与重试；新生命周期测试及原失败/超时/终态回归通过。 |
+| M2 | 本机通过 | 接纳、取消、关闭门禁、资源所有权与未决清理等待；新生命周期测试及原失败/超时/终态回归通过。 |
 | M3 | 本机通过 | 真实 PID/stdin/stdout NDJSON 双模式对比、交互、取消、worker 丢失；原窗口/容量回归通过。 |
 | M4 | 本机交付检查通过；跨平台证据待补 | 主包公开入口及仓库外 Node/TS tgz 验证通过；新增 Windows Core 专项 CI，未运行远端 CI、原生 Windows/Linux。 |
 | M5 | 后续关联任务，未进入 | 需要 #47 新 Kernel、#51 共同源丢失 fixture、#50 具名真实 SDK 宿主和 im-test 联验；按用户最新决定，本次 PR 使用 Closes #46，后续联验不作为关闭前置条件。 |
@@ -52,7 +52,7 @@ Core 的源码、manifest、公开入口和测试分别见：
 重复 invocation/run 身份拒绝；已接纳暂停调用和未完成清理不按 TTL 淘汰。Core 不保存请求正文或源帧回放。
 
 shutdown 同步关闭新注册和接纳；并发调用共享尝试，默认 2500ms。返回不可变的 complete/incomplete 快照；
-未决与失败清理保留所有权，后续调用可等待或重试，不能重新开放执行。流的清理沿用原 cancelGraceMs，
+未决与失败清理保留所有权，后续调用可继续等待未决清理；失败或未确认清理不重复 return，不能重新开放执行。流的清理沿用原 cancelGraceMs，
 不再叠加一个 2500ms 等待。已终态调用不能因尚有资源清理而再次被 cancel，资源仍由独立 owner 记录负责。
 
 候选完成、清理和最终终态保留原合同：清理失败不能完成，迟到取消不能覆盖已接受的 Provider 候选结果。
@@ -64,11 +64,11 @@ shutdown 同步关闭新注册和接纳；并发调用共享尝试，默认 2500
 | --- | --- |
 | `serve.ts` 的信号 / stdin end / close | 等待结果并检查 cleanup；incomplete 输出安全诊断、以 exit 1 退出，不能因 Promise resolve 就 exit 0。 |
 | `rpc.ts` 的连接错误 | 关闭接纳及传输，记录 incomplete；不声称资源清理成功，不操作 Home 锁。 |
-| direct HostApp | 公开说明要求检查结果；再次 shutdown 可重试清理，closed 不是释放宿主锁的依据。 |
+| direct HostApp | 公开说明要求检查结果；再次 shutdown 可观察未决清理，失败不因再次 return 伪装成功；closed 不是释放宿主锁的依据。 |
 | 原 daemon 的 worker 所有者 | 保留原 `hostProcess.close()` 的受管进程组回收；不从 Core.closed 推导进程退出。未把 #13 全部关闭、启动失败或锁问题写成本次已修复。 |
 
 新增真实子进程 fixture 让 iterator.return 拒绝，父进程断开 stdin 后观察 worker **exit 1**。
-另有假时钟与可控 cleanup Promise 验证 incomplete、迟到清理、快照不变、再次清理及兄弟清理不短路。
+另有假时钟与可控 cleanup Promise 验证 incomplete、迟到清理、快照不变、再次等待及兄弟清理不短路。
 
 ## D01–D18 证据对应
 
@@ -77,7 +77,7 @@ shutdown 同步关闭新注册和接纳；并发调用共享尝试，默认 2500
 | 场景 | 本次实际证据 |
 | --- | --- |
 | D01–D04 | executor-core：公开类严格等于旧别名、无全局信号/传输依赖；拒绝后同 ID 可用；首帧后取消双模式；并发重复身份；invoke-input/权限/大小原回归。 |
-| D05–D08 | 真实 worker 双模式 startup throw、无终态与非法 native 输出；adapter-failures、native-host、watchdog、host 既有清理/终态竞态；新测试确认清理失败终态不可再取消，随后可重试清理。 |
+| D05–D08 | 真实 worker 双模式 startup throw、无终态与非法 native 输出；adapter-failures、native-host、watchdog、host 既有清理/终态竞态；新测试确认清理失败终态不可再取消，重复关闭仍报告失败归属。 |
 | D09 | direct 与真实 worker 双模式回答、错 invocation、重复回答；原审批/原生写入、过期、模式、权限与 responder 失败回归；外部 tgz 原生回答。 |
 | D10–D12 | 1100 个未消费 iterator 不占身份；1024 边界与假 Date；暂停调用不过期；shutdown 门禁、共享尝试、假时钟超时、快照、再次清理、兄弟清理；真实 worker exit 1。 |
 | D13–D14 | 原 watchdog、model-context、context-extension/envs/MCP、输入与图片恢复回归均通过；无默认值或协议版本变化。 |
@@ -85,7 +85,28 @@ shutdown 同步关闭新注册和接纳；并发调用共享尝试，默认 2500
 | D17 | 现有 HostRunService、流窗口和 daemon 重启回归通过；新 Kernel 源丢失的 R1 fixture 尚未验证，不用旧路径代替。 |
 | D18 | 中央容量、慢读和不同预算原回归通过；仓库外 tgz 编译/执行通过；Windows 原生专项已加入 CI，实际结果未取得。 |
 
-## 实际检查
+## PR 52 资源清理评审整改
+
+Jerry-Xin 的评审意见成立：async generator 的 finally 抛错后已永久关闭，再次 return
+可能直接返回 done:true，不能证明原资源清理成功。以真实本地 TCP listener 复现并修复，
+重复三次 shutdown 仍保留 failedCleanupInvocationIds，finalizer 只执行一次。
+
+同类检查还修复了自然 next 拒绝被误判清理成功、finally yield 导致 return 返回 done:false、
+提前关闭却无 return，以及取消后放弃 receipt 导致 modes 永久占据容量。清理成功的取消
+调用现在释放 modes；最终 Host state 交付前也释放模式记录，canonical 终态事件交付前
+结束 Core 包装流，避免消费者在终态处停止 next 导致容量永久占用。streamId 校验阻止
+旧 iterator 在 TTL 后影响复用同一 ID 的新调用。
+成功或失败清理都会解除 caller/controller 的 AbortSignal 监听。
+
+新增 21 项回归，其中 14 项先在修复前执行并全部按预期失败，再验证修复；另补
+真实 listener 成功关闭、无 return 的自然结束、Host/canonical 终态暂停正向用例。覆盖的是 Core 及现有 worker
+资源合同，没有引入新 Provider disposal API 或宣称 #47 监督已完成。
+
+限制：现有 AsyncIterator 合同不能区分普通 next 错误与 finally 错误，故保守保留未确认
+所有权；incomplete 不等于证实泄漏。失败记录受 1024 上限约束且可耗尽接纳容量，由宿主
+或隔离 worker 处理故障域，不通过重复执行 Run、全机扫描或清空记录隐藏问题。
+
+## 初次交付检查（cb2e2dc）
 
 | 命令 | 本次结果 |
 | --- | --- |
@@ -104,9 +125,19 @@ shutdown 同步关闭新注册和接纳；并发调用共享尝试，默认 2500
 明确返回 `dirty=true`、`liveAgentRun=not-run`。测试只创建隔离临时 Home 与本次 child process；退出后回收，
 没有重启用户 Runtime，没有读取凭据或重建身份/profile/配置，没有改 Run/Context Schema。
 
+## 评审整改本机检查
+
+最终 Node 1295 项中 1285 通过、10 跳过、0 失败，UI 35 通过；Core 专项 38 项。
+完整 typecheck/build、整改后的 Core rebuild、lint、lint:names、format:check、diff 空白检查通过。
+重新 pack-release 与仓库外 verify-release 通过，包括公开类型/Core、离线安装及卸载保留 Home；
+构建标识仍为旧提交 dirty=true，未执行真实 Provider/IM。知识校验仍只有原 14 处跨仓库链接问题。
+
+原提交 cb2e2dc 的 [CI 39365453742](https://github.com/Mininglamp-OSS/octo-runtime/actions/runs/39365453742)
+已通过 Windows、Linux、macOS 和 CI Gate；整改后最新提交的三平台 CI 仍待 GitHub 验证。
+
 ## 待完成的证据
 
-- Windows/Linux CI 原生结果；新增 Windows 专项只表示入口已接入，不能记为已通过。
+- 评审整改后最新提交的三平台 CI 结果；上方旧提交结果不能替代。
 - #47/#51 新 Kernel 的最终终态前后 source-lost、ACK/订阅查回共同 fixture（R1）。
 - #50 实际维护的 SDK 宿主、版本、启动入口和 im-test/真实 Provider 联验（R2）。
 - 用户已授权 Git commit、push 和正式 PR 到 main，使用 `Closes #46`，其余 issue 为 Related；实际 PR 和平台 CI 结果以 GitHub 记录为准。未授权合并或发布。

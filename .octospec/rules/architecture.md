@@ -31,7 +31,8 @@ worker 和 stdio NDJSON 调用同一实现；旧包的 AdapterHost 导出只是�
 直接执行与宿主共享进程故障域，不能隔离 process.exit、OOM 或同步阻塞。Core 负责输入准备、
 本轮固定渲染、接纳身份、执行、交互路由、取消和正常终态；不加载业务、安装 Provider 或保存
 业务历史。实例所有者必须检查 shutdown 的 cleanup 结果，closed 不等于资源已回收或 Home
-锁可释放。具体 API 和限制见 [Core](../../packages/octo-runtime-executor-core/README.md)。
+锁可释放。失败或未确认的 iterator 清理持续报告 incomplete，不得用再次 return 的空操作
+宣称清理成功；后续 shutdown 只能继续观察尚未结束的清理。具体 API 和限制见 [Core](../../packages/octo-runtime-executor-core/README.md)。
 
 ExecutorKernel 的新包、IPC 命令及监督由 #47 实施，当前不能把旧传输壳称为已完成的新 Kernel。
 Extra 独立运行、CLI 重组与 SDK 模式选择分别属于后续 issue。LoopDaemon 是另一个项目的 Go

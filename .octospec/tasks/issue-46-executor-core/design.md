@@ -41,7 +41,7 @@ flowchart LR
 | cancel(invocationId, reason?) | boolean 只表示向活动调用提出取消，不表示已确认 Provider 退出。 |
 | respondInteraction(invocationId, response) | canonical 回答写回原活动调用，Promise 确认写入而非工具成功。 |
 | respondNative(invocationId, response) | 保留 requestId 与 Provider payload；拒绝跨模式、过期或非活动回答。 |
-| shutdown(reason?, timeoutMs?) | 返回 ExecutorShutdownResult；同步关闭接纳，并发调用共享当前清理，超时如实返回 incomplete，后续允许重试清理且不重新开放执行。见下文状态合同。 |
+| shutdown(reason?, timeoutMs?) | 返回 ExecutorShutdownResult；同步关闭接纳，并发调用共享当前清理，超时如实返回 incomplete，后续可继续等待未决清理且不重新开放执行。见下文状态合同。 |
 
 InvokeInput 继续接受普通结构对象；InvokeEnvironment.signal 与宿主函数留在当前 JS 进程。已有 executionEnvOverrides 和 streamLimits 经可信执行环境处理，不能注入模型文本或混入 input JSON。streamLimits 由宿主受信配置提供，不从 Context、聊天正文或 Provider 参数取得；Core 保留每轮策略冻结及 AdapterInvocationContext 下发。直接调用不自动获得 IPC 接入、断流续订或 worker 故障恢复能力。
 
@@ -98,11 +98,11 @@ consumer.return、signal.abort、显式 cancel 和 shutdown 都引用同一取�
 
 1. OPEN 接到 shutdown 时，先同步关闭新执行与新注册接纳，再触发所有已接纳调用的取消/清理。已有 receipt 后但未启动 Provider 的调用同样处理，禁止此后启动。
 2. CLOSING 的并发 shutdown 共享当前清理尝试；第一个调用决定该次 reason/timeoutMs，默认等待仍为 2500ms。timeoutMs 必须是正的安全整数，不静默裁剪。结束前每个已拥有调用均尝试清理，单个失败不跳过兄弟清理。
-3. 清理结束或预算耗尽后进入 CLOSED，返回结果快照。未决或已失败清理列表非空时 cleanup=incomplete；继续保留对未清理资源的所有权与可重试清理引用，不以清空 Map 表示成功。
-4. CLOSED 且上次 incomplete 时，再次 shutdown 可以开始一次有界清理重试；并发重试仍共享一次尝试，不重新注册 Adapter、不开放 invoke、不重放 Run。上次 complete 时再次关闭返回同等完成结果且不重复副作用。
+3. 清理结束或预算耗尽后进入 CLOSED，返回结果快照。未决或已失败清理列表非空时 cleanup=incomplete；继续保留资源所有权，不以清空 Map 表示成功。iterator.return 拒绝、返回 done:false、提前关闭却无 return，以及 next 拒绝后无法确认 finalizer 成功时，均保留失败状态。
+4. CLOSED 且上次 incomplete 时，再次 shutdown 可以有界等待尚未结束的同一次清理；失败或未确认清理不通过再次 return 重试，防止已关闭 generator 的空操作伪造成功。并发调用仍共享一次等待，不重新注册 Adapter、不开放 invoke、不重放 Run。上次 complete 时再次关闭返回同等完成结果且不重复副作用。
 5. late cleanup 的结果不回改已返回的快照。后续查询通过下一次 shutdown 获取结果，诊断记录不输出正文或凭据。Provider 原生进程强杀仍归拥有该进程的 Adapter/worker 边界，Core 不扫描全机。
 
-旧 serve 的成功回调检查 cleanup，incomplete 以 exit(1) 退出；父进程锁和端点由原所有者处理，Core.state=closed 不构成释放 Home 锁的依据。R3 消费映射与失败/重试已落实并验证，见 [实施记录](implementation.md#r3-消费映射)；不把 #13 全部整改纳入 #46。
+旧 serve 的成功回调检查 cleanup，incomplete 以 exit(1) 退出；父进程锁和端点由原所有者处理，Core.state=closed 不构成释放 Home 锁的依据。next 拒绝可能来自普通执行错误，也可能来自 finalizer；现有合同无法区分，保守保留未确认所有权，受 1024 上限约束，宿主负责隔离处置。R3 消费映射与关闭结果已落实并验证，见 [实施记录](implementation.md#r3-消费映射)；不把 #13 全部整改纳入 #46。
 
 发行建议：内部 workspace 包使用 issue 指定的新名称并继续 private，单一 npm 发行物增加 `@mininglamp-oss/octo-runtime/executor-core`，导出类、必要 Adapter 结构类型和引用的公开类型；不默认把所有 workspace 包改成独立 npm 包。编译/运行样例必须从包 exports 接入，不从嵌套 node_modules 或 dist 物理路径导入。
 

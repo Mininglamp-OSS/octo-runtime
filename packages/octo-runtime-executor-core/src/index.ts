@@ -107,6 +107,7 @@ export interface ExecutorShutdownResult {
 }
 
 interface InvocationOwner {
+  streamId: string;
   controller: AbortController;
   detach: () => void;
   close?: () => Promise<unknown>;
@@ -326,19 +327,20 @@ export class AgentExecutor {
       if (!this.#acceptedTerminals.has(invocationId)) controller.abort(signal?.reason);
     };
     const owner: InvocationOwner = {
+      streamId: receipt.stream_id,
       controller,
-      detach: () => signal?.removeEventListener("abort", callerAbort)
+      detach: () => {
+        signal?.removeEventListener("abort", callerAbort);
+        controller.signal.removeEventListener("abort", onAbort);
+      }
+    };
+    const onAbort = (): void => {
+      void this.#cleanupOwner(invocationId, owner).catch(() => undefined);
     };
     this.#owners.set(request.invocationId, owner);
     this.#active.set(request.invocationId, controller);
     request.signal?.addEventListener("abort", callerAbort, { once: true });
-    controller.signal.addEventListener(
-      "abort",
-      () => {
-        void this.#cleanupOwner(invocationId, owner).catch(() => undefined);
-      },
-      { once: true }
-    );
+    controller.signal.addEventListener("abort", onAbort, { once: true });
     this.#log("info", "invoke.accepted", {
       run_id: request.runId,
       invocation_id: request.invocationId,
@@ -350,24 +352,34 @@ export class AgentExecutor {
     yield* this.#streamInvocation(adapterType, request, receipt, streamLimits, owner);
   }
 
-  #cleanupOwner(id: string, owner: InvocationOwner, retry = false): Promise<unknown> {
-    if (owner.cleanupAttempt && !(retry && owner.cleanupState === "failed"))
-      return owner.cleanupAttempt;
+  #isCurrent(id: string, owner: InvocationOwner): boolean {
+    return this.#runs.get(id)?.receipt.stream_id === owner.streamId;
+  }
+
+  #cleanupOwner(id: string, owner: InvocationOwner): Promise<unknown> {
+    // A failed generator finalizer cannot be retried by calling return() again.
+    if (owner.cleanupAttempt) return owner.cleanupAttempt;
     owner.cleanupState = "pending";
     owner.cleanupAttempt = Promise.resolve()
       .then(() => owner.close?.())
       .then(
         () => {
           if (this.#owners.get(id) === owner) this.#owners.delete(id);
-          this.#active.delete(id);
-          this.#activeAdapters.delete(id);
-          owner.detach();
+          if (this.#isCurrent(id, owner)) {
+            this.#active.delete(id);
+            this.#activeAdapters.delete(id);
+            if (owner.controller.signal.aborted) this.#modes.delete(id);
+          }
         },
         (error: unknown) => {
           owner.cleanupState = "failed";
           throw error;
         }
-      );
+      )
+      .finally(() => {
+        owner.detach();
+        owner.detach = () => {};
+      });
     return owner.cleanupAttempt;
   }
 
@@ -445,7 +457,7 @@ export class AgentExecutor {
           output.control.state !== "running"
         )
           state = output.control;
-        else if (!("kind" in output) && isTerminal(output))
+        else if (!("kind" in output) && isTerminal(output)) {
           state = {
             type: "state",
             state:
@@ -455,6 +467,11 @@ export class AgentExecutor {
                   ? "cancelled"
                   : "failed"
           };
+          // Canonical consumers may stop at the event instead of the Host state.
+          await source.return(undefined);
+          if (this.#isCurrent(request.invocationId, owner))
+            this.#modes.delete(request.invocationId);
+        }
         if (!(
           "kind" in output &&
           output.kind === "control" &&
@@ -482,9 +499,10 @@ export class AgentExecutor {
           control: { type: "interaction", requestId, status: "invalidated" }
         });
       pendingInteractions.clear();
+      if (this.#isCurrent(request.invocationId, owner)) this.#modes.delete(request.invocationId);
       yield frame({ kind: "control", control: state });
     } catch (error) {
-      this.#active.get(request.invocationId)?.abort(error);
+      owner.controller.abort(error);
       await source.return(undefined);
       state = { type: "state", state: "failed" };
       const causeCode = errorCode(error);
@@ -519,20 +537,22 @@ export class AgentExecutor {
           ...(failure ? { failure } : {})
         }
       };
+      if (this.#isCurrent(request.invocationId, owner)) this.#modes.delete(request.invocationId);
       yield { ...receipt, kind: "control", seq: ++seq, control: state };
     } finally {
       try {
-        this.cancel(request.invocationId, "consumer_closed");
+        if (this.#active.get(request.invocationId) === owner.controller)
+          this.cancel(request.invocationId, "consumer_closed");
         await source.return(undefined);
       } finally {
-        this.#modes.delete(request.invocationId);
+        if (this.#isCurrent(request.invocationId, owner)) this.#modes.delete(request.invocationId);
         const cleanup = this.#cleanupOwner(request.invocationId, owner).catch(() => undefined);
         // Provider cleanup already used its grace budget; retain pending ownership
         // without adding a second shutdown-sized delay to stream completion.
         if (!owner.close) await cleanup;
         else void cleanup;
         const run = this.#runs.get(request.invocationId);
-        if (run) run.at = Date.now();
+        if (run?.receipt.stream_id === owner.streamId) run.at = Date.now();
         if (state?.state === "failed")
           this.#log("error", "invoke.failed", {
             ...identity,
@@ -615,7 +635,7 @@ export class AgentExecutor {
     const adapter = this.#adapters.get(adapterType);
     if (!adapter) throw new Error(`unknown adapter: ${adapterType}`);
     const controller = owner.controller;
-    this.#activeAdapters.set(request.invocationId, adapter);
+    if (!controller.signal.aborted) this.#activeAdapters.set(request.invocationId, adapter);
     let terminal: CanonicalEvent | undefined;
     let nativeTerminal: (HostControl & { type: "state" }) | undefined;
     let outcome = "stopped";
@@ -633,9 +653,27 @@ export class AgentExecutor {
       })
     );
     let iterator: AsyncIterator<AdapterOutput> | undefined;
+    let nextFailed = false;
+    let iteratorDone = false;
     let cleanupWait: Promise<void> | undefined;
     owner.close = async () => {
-      await iterator?.return?.();
+      if (!iterator) return;
+      if (iterator.return) {
+        const closed = await iterator.return();
+        if (closed?.done !== true) throw new Error("EXECUTOR_CLEANUP_UNVERIFIED");
+      } else if (!iteratorDone) throw new Error("EXECUTOR_CLEANUP_UNVERIFIED");
+      // next() rejection can originate in finally; a later return() is not proof.
+      if (nextFailed) throw new Error("EXECUTOR_CLEANUP_UNVERIFIED");
+    };
+    const readNext = async (source: AsyncIterator<AdapterOutput>) => {
+      try {
+        const result = await source.next();
+        if (result.done) iteratorDone = true;
+        return result;
+      } catch (error) {
+        nextFailed = true;
+        throw error;
+      }
     };
     const closeIterator = (): Promise<unknown> => this.#cleanupOwner(request.invocationId, owner);
     const waitCleanup = (): Promise<void> =>
@@ -763,7 +801,7 @@ export class AgentExecutor {
       iterator = invocation[Symbol.asyncIterator]();
       while (true) {
         if (controller.signal.aborted) throw controller.signal.reason;
-        const pendingNext = iterator.next();
+        const pendingNext = readNext(iterator);
         const next =
           terminal || nativeTerminal
             ? await withCleanupDeadline(pendingNext, watchdog.limits.cancelGraceMs, controller)
@@ -951,9 +989,11 @@ export class AgentExecutor {
         controller.abort("consumer closed");
       await waitCleanup().catch(() => undefined);
       controller.signal.removeEventListener("abort", onAbort);
-      this.#active.delete(request.invocationId);
-      this.#activeAdapters.delete(request.invocationId);
-      this.#acceptedTerminals.delete(request.invocationId);
+      if (this.#isCurrent(request.invocationId, owner)) {
+        this.#active.delete(request.invocationId);
+        this.#activeAdapters.delete(request.invocationId);
+        this.#acceptedTerminals.delete(request.invocationId);
+      }
     }
   }
 
@@ -1012,7 +1052,7 @@ export class AgentExecutor {
     const pending: Promise<unknown>[] = [];
     for (const [id, owner] of this.#owners) {
       if (!this.#acceptedTerminals.has(id)) owner.controller.abort(reason);
-      pending.push(this.#cleanupOwner(id, owner, true));
+      pending.push(this.#cleanupOwner(id, owner));
     }
     this.#shutdownAttempt = boundedCleanup(Promise.allSettled(pending), timeoutMs).then(() => {
       this.#state = "closed";

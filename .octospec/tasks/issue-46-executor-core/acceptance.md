@@ -16,7 +16,7 @@ timestamp: 2026-10-20T00:00:00Z
 
 ## A：Core 独立交付检查点
 
-以下 Core 本机检查点已经实施并通过；实际命令、17 项新增回归及既有测试对应见 [实施记录](implementation.md)。Windows 原生及新 Kernel/真实业务证据继续单列，不能因本机通过而勾选 B。
+以下 Core 本机检查点已经实施并通过；实际命令、初次 17 项及评审整改 21 项新增回归对应见 [实施记录](implementation.md)。三平台 CI 与新 Kernel/真实业务证据继续单列，不能用本机检查替代。
 
 | 编号 | 必须观察到的结果 | 测试方式 / 既有参考 |
 | --- | --- | --- |
@@ -75,7 +75,7 @@ Core 检查点完成可供下游开工；B 未完成时 #46 的新 Kernel 原始
 | D09 / M2 | native/canonical 审批与追问；错 invocation、错模式、过期、并发重复回答、写回失败 | 只写回原 pending responder，成功仅在原生写入确认后；终止后拒绝晚答 | fake responder 计数和写回闩锁；全程不用模型或人工审批。 |
 | D10 / M2 | 仅创建不消费、读首帧暂停、执行中 return、长时间暂停并推进 TTL | 不消费不占 Core Map；已接纳暂停调用不被误淘汰；return/取消有界清理 | 构造 1024 边界与受控时钟；继续提交探测容量释放，核对无后台 Provider。 |
 | D11 / M2 | shutdown 时并发新 invoke/register、两个 shutdown、一个 disposer 失败 | 接纳立即关闭；两次关闭共享当前尝试；兄弟清理均执行，不能短路 | 同一 event-loop turn 调用与 cleanup 闩锁；拒绝新执行且 Provider 启动数不增。 |
-| D12 / M2 | 清理在预算内不结束，随后允许结束并再次 shutdown | 首次 incomplete 明确未决 IDs，仍持有资源；再次清理可 complete，执行门禁从未重开 | 可控 iterator.return 与 fake scheduler；另在子进程验证所有者退出结果，不将 Promise 超时当进程消失。 |
+| D12 / M2 | 清理在预算内不结束，随后允许结束并再次 shutdown；清理拒绝、finally 抛错/继续 yield 或提前关闭无 return | 首次 incomplete 明确未决 IDs；未决清理真正完成后可 complete；失败/未确认清理持续 incomplete，门禁从未重开 | 可控 iterator.return 与 fake scheduler；真实 TCP listener 验证重复关闭不能伪造释放；子进程验证所有者退出结果，不将 Promise 超时当进程消失。 |
 | D13 / M2 | 截止前/后进度、审批等待、工具运行、消费暂停、完成/取消竞态 | watchdog 预算保持现有合同，运行/清理截止不被无关进度延长 | 复用 watchdog 测试与假时钟；超时断言使用配置预算，不新增更短产品默认值。 |
 | D14 / M1–M3 | 空业务 Context、保序项、跨轮重复、图片/恢复输入、执行配置与未知可选项 | 同轮数据完整、两轮重复均发送；不补历史；配置/凭据不进模型文本 | 捕获 Adapter 接收请求；复用 model-context/input/权限样例，使用脱敏值。 |
 | D15 / M3 | 同一场景经 direct 与真实 worker NDJSON 执行 | 有独立 PID、同一 Core、相同执行输入/事件/终态语义；identity/seq 独立校验 | 复用 fixtures 加真实 child_process；明确可归一化字段，禁止抹掉故障/身份差异。 |

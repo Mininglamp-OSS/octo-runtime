@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { once } from "node:events";
+import { getEventListeners, once } from "node:events";
+import { createServer } from "node:net";
+import { setImmediate as nextTurn } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { readFile, readdir } from "node:fs/promises";
 import { AgentExecutor } from "@mininglamp-oss/octo-runtime/executor-core";
@@ -33,6 +35,262 @@ const executor = (t, invoke) => {
   return core;
 };
 const raw = { kind: "native", messageKind: "notification", payload: { exact: true } };
+const progress = (mode) =>
+  mode === "native"
+    ? raw
+    : {
+        protocolVersion: 2,
+        type: "message.delta",
+        payload: { channel: "final", text: "progress" }
+      };
+const completed = (mode) =>
+  mode === "native"
+    ? { kind: "control", control: { type: "state", state: "completed" } }
+    : { protocolVersion: 2, type: "run.completed", payload: {} };
+const resource = async (t) => {
+  const server = createServer();
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(async () => {
+    if (!server.listening) return;
+    server.close();
+    await once(server, "close");
+  });
+  return server;
+};
+
+for (const mode of ["native", "canonical"]) {
+  test(`${mode}: a failed generator finalizer never becomes successful on another shutdown`, async (t) => {
+    const server = await resource(t);
+    let attempts = 0,
+      started = false;
+    const caller = new AbortController();
+    const core = executor(t, async function* () {
+      started = true;
+      try {
+        yield progress(mode);
+      } finally {
+        attempts++;
+        throw new Error("owned listener cleanup failed");
+      }
+    });
+    const source = core.invokeFrames(input(mode, mode), { signal: caller.signal });
+    while (!started) await source.next();
+    for (let i = 0; i < 3; i++) {
+      const result = await core.shutdown();
+      assert.equal(result.cleanup, "incomplete");
+      assert.deepEqual(result.failedCleanupInvocationIds, [`invoke-${mode}`]);
+      assert.equal(server.listening, true);
+      assert.equal(attempts, 1);
+    }
+    assert.equal(getEventListeners(caller.signal, "abort").length, 0);
+    await source.return();
+    assert.equal(getEventListeners(caller.signal, "abort").length, 0);
+    assert.equal((await core.shutdown()).cleanup, "incomplete");
+  });
+
+  for (const candidate of [false, true]) {
+    test(`${mode}: natural finalizer failure retains ownership with candidate=${candidate}`, async (t) => {
+      const server = await resource(t);
+      let attempts = 0;
+      const core = executor(t, async function* () {
+        try {
+          yield progress(mode);
+          if (candidate) yield completed(mode);
+        } finally {
+          attempts++;
+          throw new Error("natural finalizer failed");
+        }
+      });
+      const frames = await collect(core.invokeFrames(input(mode, mode)));
+      assert.equal(frames.at(-1).control.state, "failed");
+      for (let i = 0; i < 2; i++) {
+        const result = await core.shutdown();
+        assert.equal(result.cleanup, "incomplete");
+        assert.deepEqual(result.failedCleanupInvocationIds, [`invoke-${mode}`]);
+        assert.equal(attempts, 1);
+        assert.equal(server.listening, true);
+      }
+    });
+  }
+
+  test(`${mode}: yielding from a finalizer does not prove cleanup finished`, async (t) => {
+    const server = await resource(t);
+    let started = false,
+      released = false;
+    const core = executor(t, async function* () {
+      started = true;
+      try {
+        yield progress(mode);
+      } finally {
+        yield progress(mode);
+        server.close();
+        await once(server, "close");
+        released = true;
+      }
+    });
+    const source = core.invokeFrames(input(mode, mode));
+    while (!started) await source.next();
+    for (let i = 0; i < 2; i++) {
+      const result = await core.shutdown();
+      assert.equal(result.cleanup, "incomplete");
+      assert.deepEqual(result.failedCleanupInvocationIds, [`invoke-${mode}`]);
+      assert.equal(released, false);
+      assert.equal(server.listening, true);
+    }
+    await source.return();
+  });
+
+  test(`${mode}: missing iterator return cannot confirm cancellation cleanup`, async (t) => {
+    const server = await resource(t);
+    let started = false;
+    const core = executor(t, () => ({
+      [Symbol.asyncIterator]() {
+        return this;
+      },
+      async next() {
+        started = true;
+        return { done: false, value: progress(mode) };
+      }
+    }));
+    const source = core.invokeFrames(input(mode, mode));
+    while (!started) await source.next();
+    const result = await core.shutdown();
+    assert.equal(result.cleanup, "incomplete");
+    assert.deepEqual(result.failedCleanupInvocationIds, [`invoke-${mode}`]);
+    assert.equal(server.listening, true);
+    await source.return();
+  });
+
+  test(`${mode}: successful generator cleanup releases its actual resource`, async (t) => {
+    const server = await resource(t);
+    const caller = new AbortController();
+    let started = false,
+      attempts = 0;
+    const core = executor(t, async function* () {
+      started = true;
+      try {
+        yield progress(mode);
+      } finally {
+        attempts++;
+        server.close();
+        await once(server, "close");
+      }
+    });
+    const source = core.invokeFrames(input(mode, mode), { signal: caller.signal });
+    while (!started) await source.next();
+    assert.equal(core.cancel(`invoke-${mode}`), true);
+    assert.equal((await core.shutdown()).cleanup, "complete");
+    assert.equal(server.listening, false);
+    assert.equal(attempts, 1);
+    assert.equal(getEventListeners(caller.signal, "abort").length, 0);
+    await source.return();
+    assert.equal((await core.shutdown()).cleanup, "complete");
+    assert.equal(attempts, 1);
+  });
+
+  test(`${mode}: a naturally exhausted iterator needs no return method`, async (t) => {
+    let index = 0;
+    const values = [progress(mode), completed(mode)];
+    const core = executor(t, () => ({
+      [Symbol.asyncIterator]() {
+        return this;
+      },
+      async next() {
+        return index < values.length ? { done: false, value: values[index++] } : { done: true };
+      }
+    }));
+    assert.equal(
+      (await collect(core.invokeFrames(input(mode, mode)))).at(-1).control.state,
+      "completed"
+    );
+    assert.equal((await core.shutdown()).cleanup, "complete");
+  });
+
+  test(`${mode}: cancelled abandoned receipts release capacity after their TTL`, async (t) => {
+    t.mock.timers.enable({ apis: ["Date"], now: 1000 });
+    let starts = 0;
+    const core = executor(t, async function* () {
+      starts++;
+    });
+    for (let i = 0; i < 1024; i++) {
+      const source = core.invokeFrames(input(String(i), mode));
+      await source.next();
+      assert.equal(core.cancel(`invoke-${i}`), true);
+    }
+    await nextTurn();
+    t.mock.timers.tick(120001);
+    const source = core.invokeFrames(input("after-cancel", mode));
+    await source.next();
+    await source.return();
+    assert.equal(starts, 0);
+    assert.equal((await core.shutdown()).cleanup, "complete");
+  });
+
+  test(`${mode}: consuming the final Host state releases capacity without another next`, async (t) => {
+    t.mock.timers.enable({ apis: ["Date"], now: 1000 });
+    const core = executor(t);
+    const sources = [];
+    t.after(() => Promise.all(sources.map((source) => source.return())));
+    for (let i = 0; i < 1024; i++) {
+      const source = core.invokeFrames(input(String(i), mode));
+      sources.push(source);
+      while (!isHostTerminal((await source.next()).value)) {}
+    }
+    t.mock.timers.tick(120001);
+    const replacement = core.invokeFrames(input("after-terminal", mode));
+    await replacement.next();
+    await replacement.return();
+    // Finishing an old stream after ID reuse must leave the replacement owned.
+    const reused = core.invokeFrames(input("0", mode));
+    await reused.next();
+    await sources[0].return();
+    assert.equal(core.cancel("invoke-0"), true);
+    await reused.return();
+    assert.equal((await core.shutdown()).cleanup, "complete");
+  });
+
+  test(`${mode}: a late cancelled iterator cannot affect a reused invocation ID`, async (t) => {
+    t.mock.timers.enable({ apis: ["Date"], now: 1000 });
+    const core = executor(t);
+    const old = core.invokeFrames(input("reuse", mode));
+    await old.next();
+    assert.equal(core.cancel("invoke-reuse"), true);
+    await nextTurn();
+    t.mock.timers.tick(120001);
+    const sweep = core.invokeFrames(input("sweep", mode));
+    await sweep.next();
+    await sweep.return();
+    const replacement = core.invokeFrames(input("reuse", mode));
+    await replacement.next();
+    assert.equal((await collect(old)).at(-1).control.state, "cancelled");
+    assert.equal(core.cancel("invoke-reuse"), true);
+    assert.equal((await collect(replacement)).at(-1).control.state, "cancelled");
+    assert.equal((await core.shutdown()).cleanup, "complete");
+  });
+}
+
+test("canonical terminal event consumers release capacity and cannot affect reused identities", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: 1000 });
+  const core = executor(t);
+  const sources = [];
+  t.after(() => Promise.all(sources.map((source) => source.return())));
+  for (let i = 0; i < 1024; i++) {
+    const source = core.invokeFrames(input(String(i), "canonical"));
+    sources.push(source);
+    while ((await source.next()).value.event?.type !== "run.completed") {}
+  }
+  t.mock.timers.tick(120001);
+  const sweep = core.invokeFrames(input("sweep", "canonical"));
+  await sweep.next();
+  await sweep.return();
+  const reused = core.invokeFrames(input("0", "canonical"));
+  await reused.next();
+  await sources[0].return();
+  assert.equal(core.cancel("invoke-0"), true);
+  await reused.return();
+  assert.equal((await core.shutdown()).cleanup, "complete");
+});
 
 test("public Core is the only execution class and has no transport or process setup", async () => {
   assert.equal(AdapterHost, AgentExecutor);
@@ -184,7 +442,7 @@ test("shutdown timeout retains ownership; late completion changes only the next 
   await source.return();
 });
 
-test("failed cleanup is retryable and does not skip sibling cleanup or reopen admission", async (t) => {
+test("failed cleanup stays owned and does not skip sibling cleanup or reopen admission", async (t) => {
   const attempts = new Map();
   const core = executor(t, (request) => ({
     [Symbol.asyncIterator]() {
@@ -209,8 +467,8 @@ test("failed cleanup is retryable and does not skip sibling cleanup or reopen ad
   assert.equal(result.cleanup, "incomplete");
   assert.deepEqual(result.failedCleanupInvocationIds, ["invoke-bad"]);
   assert.equal(attempts.get("invoke-sibling"), 1);
-  assert.equal((await core.shutdown()).cleanup, "complete");
-  assert.equal(attempts.get("invoke-bad"), 2);
+  assert.equal((await core.shutdown()).cleanup, "incomplete");
+  assert.equal(attempts.get("invoke-bad"), 1);
   await assert.rejects(core.invokeFrames(input("new")).next(), /EXECUTOR_CLOSED/);
   await Promise.all(sources.map((source) => source.return()));
 });
@@ -345,8 +603,8 @@ test("a failed terminal ends cancellation while unresolved cleanup remains owned
   assert.equal(frames.at(-1).control.state, "failed");
   assert.equal(frames.filter(isHostTerminal).length, 1);
   assert.equal(core.cancel("invoke-one"), false);
-  assert.equal((await core.shutdown()).cleanup, "complete");
-  assert.equal(cleanups, 2);
+  assert.equal((await core.shutdown()).cleanup, "incomplete");
+  assert.equal(cleanups, 1);
 });
 
 test("worker shutdown reports incomplete cleanup with a failing exit status", async (t) => {

@@ -101,6 +101,8 @@ decisions:
   - R3 已落实到 serve/RPC/直接宿主消费映射和真实 worker 失败退出测试；R1/R2 仍待 M5。
   - 用户最新交付决定将 M5 留作 47/51/50 的后续联验，不再作为本次 PR 关闭 46 的前置条件；不能将其写成已运行或通过。
   - 保留 Run7、Context v3、Adapter2、当前身份、Home、profile、配置和 Provider 状态。
+  - PR52评审整改：失败或未确认iterator清理持续incomplete，不靠重复return伪造成功；再次shutdown只继续观察未决清理。
+  - 取消清理成功和最终Host/canonical终态交付均释放模式占额；旧stream不得修改复用ID的新调用。
   - 保留当前中央 StreamLimitPolicy、受信覆盖、每轮冻结、容量错误、安全 failure 信封及 Windows 路径与端点修复。
   - 原强制独立 Host 的规则与显式 direct 目标冲突时按当前用户决定设计，实施时同步规则和路径触发器。
 validation:
@@ -119,11 +121,13 @@ validation:
     - 实施最终：pnpm test:suites 的 Node 1264 通过 10 跳过 0 失败，UI 35 通过，包含 17 项新 Core 测试。
     - 实施最终：本地 pack-release 与 verify-release 的仓库外离线安装、公开类型、Core 执行/交互/取消/关闭、CLI/Extra 与卸载保留 Home 检查通过。
     - 实施后全仓知识校验仍为原 14 处跨仓库失效链接，迁移产生的新源码链接失效已修复。
+    - cb2e2dc的GitHub CI运行39365453742：Windows、Linux、macOS和CI Gate均通过；不作为后续整改提交的CI证据。
+    - PR52评审整改新增21项回归，14项先在旧实现复现失败；含真实TCP资源、finally故障、容量回收和旧ID复用。
   pending:
-    - 原生 Windows/Linux CI；Windows Core 生命周期及真实 worker 专项已接入工作流，但没有远端运行证据。
+    - PR52评审整改提交的最新三平台CI结果。
     - M5 所需的 47/51 新 Kernel 与共同 source-lost fixture，以及 50 具名宿主/真实 Provider/im-test 联验。
   unavailable:
     - 此干净 checkout 未包含被忽略的 .octospec/_global；已使用仓库规则和当前用户约束，未同步或声称读取缺失内容。
   not_performed:
-    - 新 Kernel/Go 联验、真实 Provider/IM/原生 Windows/Linux 验证、发布、用户进程重启。
+    - 新 Kernel/Go 联验、真实 Provider/IM 验证、发布、用户进程重启。
     - 合并、发布；未单独修改或关闭远端 issue，46 将由 PR 合并时的 Closes 引用关闭。

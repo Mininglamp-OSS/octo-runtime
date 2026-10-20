@@ -26,6 +26,10 @@ worker 路径。直接嵌入 Core 是允许显式选择的 SDK 简易方案，�
 显式 direct 入口为 `@mininglamp-oss/octo-runtime/executor-core` 的 AgentExecutor，同一执行类
 也由默认独立 worker 实例化。direct 不创建 IPC，不具备订阅回放和进程隔离；HostApp 管理
 实例生命周期。首个 running 帧可见前已建立取消所有权；未消费 iterator 不接纳、不占容量。
+失败的 generator finalizer 不能靠再次 return 重试；next 拒绝、return 未确认 done 或提前
+关闭却无 return 时保留未确认清理所有权，shutdown 持续报告 incomplete。尚在等待的清理
+可以稍后完成，由下一次 shutdown 观察。取消已确认清理的调用可按 TTL 淘汰；旧 iterator
+迟到结束不得修改复用同一 invocationId 的新调用。具体限制见 [Core](../../packages/octo-runtime-executor-core/README.md)。
 shutdown 同步关闭新接纳，返回不可变的清理快照；incomplete 保留所有权并允许再次清理。
 具体合同见 [Core API](../../packages/octo-runtime-executor-core/README.md)。
 

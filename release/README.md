@@ -51,7 +51,9 @@ already owns cancellation, even before the Provider starts. Close abandoned
 iterators with `return()` or cancel their invocation.
 
 Always inspect `await executor.shutdown()`: `cleanup: "incomplete"` retains
-ownership and permits a subsequent bounded cleanup attempt. Closed admission
+ownership. A subsequent shutdown can observe pending cleanup completing; failed
+or unverified iterator cleanup stays incomplete and is not retried via another
+`return()`. A rejected `next()` cannot prove finalizer success either. Closed admission
 does not prove that resources exited or authorize releasing a host Home lock.
 Direct execution shares the host process: process exit, OOM and synchronous
 blocking cannot be isolated. Default worker execution over stdio NDJSON remains

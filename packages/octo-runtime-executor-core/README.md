@@ -93,9 +93,19 @@ safe integer. `ExecutorShutdownResult` is an immutable snapshot:
 - `cleanup: "complete"` means all cleanup observed by this Core has completed.
 - `cleanup: "incomplete"`, `unresolvedInvocationIds` and
   `failedCleanupInvocationIds` retain unresolved ownership. A later `shutdown`
-  retries failed cleanup or waits again for pending cleanup without reopening
-  execution or replaying any request. A late completion does not alter an
-  earlier result.
+  waits again for pending cleanup without reopening execution or replaying any
+  request. Failed or unverified cleanup stays incomplete: another iterator
+  `return()` cannot retry a failed generator finalizer. A late completion of
+  pending cleanup does not alter an earlier result.
+
+The iterator contract provides no independent resource-disposal proof. A rejected
+`next()` may originate in a failing finalizer, so Core conservatively retains
+failed ownership even if a later `return()` resolves. A `return()` yielding
+`done: false`, or an early close without `return()`, also cannot confirm cleanup.
+Incomplete means cleanup is unconfirmed, not that a leak is proven. These records
+remain within the 1024-entry bound and can exhaust admission; the owning host or
+isolated worker must handle containment. Core does not retry the Run or scan
+unowned processes to hide this state.
 
 Closed admission does not authorize releasing a host's Home lock, nor prove that
 arbitrary JavaScript or unowned descendants stopped. Adapter-owned process
