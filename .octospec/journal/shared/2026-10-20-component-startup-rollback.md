@@ -23,5 +23,6 @@ Extra 的独立清理步骤各自尝试，Kernel client 或日志关闭失败不
 - Windows CI 新增三个启动测试文件；远端结果以 PR #61 对应提交检查为准。本轮未安装系统服务、调用真实模型或发送 IM 消息。
 - 首次远端验证中 Linux/macOS 完整通过，Windows 触发 `onSpawn` 结束时已经取消的 readiness 分支。该分支原先未观察已创建的 `client.list()` Promise，回滚中的 client.close 会导致未处理拒绝并提前中断清理；新增本地确定性测试先失败后通过，修复为取消分支也观察该 Promise。另一个 Windows 启动身份超时保留诊断，等待后续 CI 核实。
 - 自主回滚 ACK 与 stop 发送关闭竞态曾误报 incomplete；等待进程 close 排空 IPC 后再判断 ACK，发送错误不覆盖已确认的资源回收事实，其他清理错误继续保留。新增确定性 IPC 发送失败回归。
+- Windows 诊断发现父进程退出时 Kernel 被直接终止，未执行 disconnect/exit handler。[Node/libuv 的非 detached 子进程 Job](https://github.com/nodejs/node/blob/v24.19.0/deps/uv/src/win/process.c#L65-L80) 会在父进程退出时强杀成员。SDK 的 Node 组件现在统一 detached，并隐藏 Windows 窗口，使 IPC owner 断连回滚有机会完成；Kernel 到 Windows worker 的 Job 关系保留。
 
 完整功能待验范围继续见[实施记录](../../tasks/executor-kernel-host-lifecycle/implementation.md)。

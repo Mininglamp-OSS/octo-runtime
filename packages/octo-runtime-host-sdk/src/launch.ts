@@ -56,7 +56,9 @@ export async function launchNode(
   }
   const child = spawn(process.execPath, [entrypoint, "--config", file], {
     stdio: ["ignore", "ignore", "ignore", "ipc"],
-    detached: process.platform !== "win32"
+    // Windows 的非 detached 子进程随父进程被强杀，无法执行 IPC 断连回滚。
+    detached: true,
+    windowsHide: true
   });
   const exited = new Promise<void>((resolve) => {
     child.once("exit", () => resolve());
