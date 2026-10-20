@@ -5,6 +5,7 @@ import {
   type SpawnOptions
 } from "node:child_process";
 import { createHash } from "node:crypto";
+import { once } from "node:events";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { Duplex } from "node:stream";
@@ -168,12 +169,13 @@ export function spawnManaged(
   return child;
 }
 
-export function managedIdentity(child: ChildProcess): Promise<Identity> {
+export async function managedIdentity(child: ChildProcess): Promise<Identity> {
   const owner = owners.get(child);
   if (owner) return owner.identity;
-  return child.pid === undefined
-    ? Promise.reject(new Error("PROCESS_NOT_STARTED"))
-    : Promise.resolve({ pid: child.pid });
+  // spawn 失败通过异步 error 报告；先观察它，保留 errno 并避免提前清理尚未启动的句柄。
+  if (child.pid === undefined) await once(child, "spawn");
+  if (child.pid === undefined) throw new Error("PROCESS_NOT_STARTED");
+  return { pid: child.pid };
 }
 
 export function managedTargetPid(child: ChildProcess): number | undefined {
