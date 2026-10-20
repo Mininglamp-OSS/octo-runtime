@@ -9,6 +9,16 @@ status: in_progress
 
 # 实现与源码
 
+## main@e82a2f0 rebase 与核心注释
+
+按用户要求将 PR72 rebase 到已合入 PR73 的 main。冲突处理保留上游 KernelClient.invoke/独立登记、Windows CI 与任务索引，旧 extra-port 删除。Gateway 的取消调用与新增 fixture 使用 cancelInvocation/accepted；runner 并行等待 Kernel 排空与业务 dispose，两者共用原有4秒预算，换算 epoch 期限时不增加额度，最后再断开 client。检查 range-diff，历史原生提交仅保留 Git 历史，最终产品无 Go broker 接线。
+
+用户追加核心注释约束已写入 AGENTS.md 和 engineering 规则。核心实现和接入使用须解释职责、必要输入/结果、所有权、调用顺序、复杂状态转换与竞态；修改行为时同步维护。补齐 Core/Kernel 的输入准备、模型 Context、watchdog、接纳/ACK、订阅恢复、client 登记、worker RPC/监督/进程、身份清单与共享期限注释；SDK 示例增加清理责任说明，删除 serveWorker/rpc/Core README 的旧架构描述。注释不改变产品策略或公开接口。
+
+本地环境 macOS arm64/Node24.19.0/pnpm11.19.0：build/typecheck、lint、命名、格式、OKF 和 diff 检查通过；UI35/35，Node1344通过、10平台跳过，0失败/取消。Gateway/Kernel专项62/62；取消回执统一后的 disposal14/14。
+
+im-test 真实 Codex 工具开始后，以 --cards 联验 SDK 与 --cards --cli 联验 CLI：stop分别390ms/280ms，返回前同一卡片终态编辑已获ACK、唯一final可回读、兄弟Run与Kernel仍可用、重新创建后再次回复。只记录群指纹d010c2b3cd5a，不包含凭据/正文；ACK不代表客户端渲染。此轮未重跑故障注入；对应历史证据不冒充当前结果。干净提交发行包与远端CI另行确认，Windows真机和异常退出后代回收限制仍保留。
+
 ## 后续 P2：跳过交互卡终态编辑
 
 PR72 的新评审指出：终态编辑 API 可因 disabled/profile404 返回 undefined，原先等待后仍删除 pending，导致 finish 假成功。通过真实 GatewayTransport/OctoConnector 和受控 HTTP 复现六组；修复前四个异常组失败、两个健康对照通过。修复要求返回原 messageId 才能移除，未确认记录保留并让 finish 失败。新增回归覆盖全部卡片继续收尾、重复 finish 保持失败、能力恢复后编辑原卡而非替代卡，以及 dispose 失败仍投递唯一 final。定向三文件46项通过；本地macOS arm64/Node24.19.0类型、lint、命名、格式、OKF、全套UI35及Node1307通过/10平台跳过，无失败或取消。最终提交CI在PR72跟踪；这属于受控 HTTP/编排验证，本轮没有重跑真实IM或修改真实 Bot 能力配置。

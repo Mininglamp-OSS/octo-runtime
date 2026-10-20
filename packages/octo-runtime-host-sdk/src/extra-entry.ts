@@ -97,6 +97,7 @@ const stop = (requestId?: string): Promise<void> =>
     });
     proxy?.close();
     for (const socket of connections) socket.destroy();
+    // Kernel drain 使用 epoch 毫秒；私有 dispose 预算使用单调时钟，只换算剩余额度，不重置 4 秒期限。
     const until = Date.now() + Math.max(0, Math.floor(shutdownUntil - performance.now()));
     const errors: unknown[] = [];
     const attempt = async (operation: () => void | Promise<void>) => {
@@ -112,6 +113,7 @@ const stop = (requestId?: string): Promise<void> =>
     };
     // 初始化仍可能取得资源；必须等它结束后才能确认资源已回收。
     await attempt(() => initialized);
+    // Kernel 确认执行终态与插件持久化/卡片收尾并行；二者都结束或到期后才能关闭尾流连接。
     await Promise.all([
       attempt(async () => {
         if (kernel) {

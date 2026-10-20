@@ -9,6 +9,16 @@ status: in_progress
 
 # 当前进度
 
+## main 更新后的接线与注释
+
+本轮 rebase 至 `main@e82a2f0`（PR #73）。沿用实际 KernelClient，旧 extra-port/adapterHost 保持删除；Gateway drain 与测试 fixture 改为 cancelInvocation/accepted。runner 的 Kernel 执行排空和插件业务 dispose 并发，仍共用最早 4 秒期限；epoch/单调时钟只换算剩余预算，双方完成或到期后才关闭 client。上游 Kernel invoke 的 Windows CI 步骤完整保留。
+
+按用户追加要求，在 AGENTS.md 设置[核心代码注释要求](../../rules/engineering.md#核心代码注释要求)入口，并补充 Core/Kernel、SDK 与接入示例的中文注释：身份与代次、ACK 与终态区别、尾流与业务收尾、worker 替换条件、进程所有权和平台限制。修正 serveWorker/rpc 中仍提及旧 daemon/AdapterHost 架构的注释。
+
+本轮 macOS arm64/Node24.19.0：typecheck、lint、命名、格式、OKF 通过；UI35、Node1344通过/10平台跳过，无失败或取消。专项62项通过；最后统一取消回执后的 disposal 14项通过。im-test 真实 Codex 的 SDK/CLI 卡片关闭分别390ms/280ms：stop前同卡终态编辑获ACK、唯一final可回读、兄弟Run和Kernel存活、重建后回复。ACK不等于客户端渲染。最终干净包及新提交CI尚待单独确认，旧SHA成绩不能替代当前验收。
+
+## 前轮修复与历史证据
+
 后续 P2 修复：`interactionCard` 在能力关闭/profile 404 时可返回 undefined 而不发送编辑；仅 await 不足以确认原卡片已收尾。现在 resolve/finish 只有拿到原 messageId 的确认结果才删除 pending，否则抛出私有未确认错误并保留记录；finish 沿既有路径汇总错误，仍尝试其他卡片及最终文本。实际 GatewayTransport/OctoConnector 的六组 HTTP 受控回归覆盖 disabled/404/healthy 各两条 resolve/finish 路径；修复前四个异常组 RED，健康组通过，修复后全部通过，并验证重复失败、恢复后编辑原卡和不创建替代卡。新增 Gateway dispose 回归确认 finish 失败时 close/重复 close 均失败但唯一 final 仍被投递。本地三文件定向46项、类型/lint/命名/格式/OKF及全套UI35、Node1307通过/10平台跳过，无失败或取消；最终提交CI在PR72跟踪，本轮未重跑真实IM或修改线上Bot能力。
 
 2026-10-20 用户最新约束优先：Kernel/Core/SDK/公共进程管理采用 TypeScript / Node.js，业务 Extra 可以拥有隔离的原生依赖，见[架构规则](../../rules/architecture.md#实现语言与原生依赖边界)。Go broker、所有 launcher 接线、构建/打包资源及专属 Windows Job 测试已撤除；原 Node spawn/taskkill 保留。Windows 父先退和强杀后的强回收目标未完成，不以旧原生测试或旧 95 分自评宣称已修复。

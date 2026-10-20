@@ -2,7 +2,7 @@ task: gateway-drain-windows-cleanup
 date: 2026-10-20
 status: in_progress
 initial_baseline: 6f5f25f97ec4b2ca879ac78ca2990ee2019f9eeb
-baseline: fae6333632010602506774b0648b639b70d25e22
+baseline: e82a2f0ce339c94497fc90ccf82d8db0aa28361c
 branch: feat/gateway-drain-windows-cleanup
 worktree: /Users/lvsijia/github.com/Mininglamp-OSS/octo-runtime-gateway-drain-windows-cleanup
 related_issues: [30, 14, 47, 48, 50, 57, 65, 66]
@@ -28,7 +28,10 @@ sources_read:
   - packages/octo-runtime-extra-channel-gateway/src/application/im-channel.ts
   - packages/octo-runtime-extra-channel-gateway/src/lifecycle/manager.ts
   - packages/octo-runtime-extra-channel-gateway/src/execution/task.ts
-  - packages/octo-runtime-host-sdk/src/extra-port.ts
+  - packages/octo-runtime-executor-kernel/src/client.ts
+  - packages/octo-runtime-executor-kernel/src/invocation-lifecycle.ts
+  - packages/octo-runtime-executor-kernel/src/types.ts
+  - packages/octo-runtime-executor-core/src/index.ts
   - packages/octo-runtime-host-sdk/src/extra-entry.ts
   - packages/octo-runtime-host-sdk/src/extras.ts
   - packages/octo-runtime-host-sdk/src/launch.ts
@@ -42,6 +45,8 @@ external_sources:
   - https://github.com/nodejs/node/blob/v24.19.0/deps/uv/src/win/process.c
   - https://github.com/nodejs/node/blob/v24.19.0/deps/uv/src/win/process-stdio.c
 decisions:
+  - 本轮按用户要求 rebase main@e82a2f0（PR73）；保留统一 KernelClient 入口与旧 extra-port 删除，drain 使用新 cancelInvocation/accepted，并保留业务收尾与执行排空的并行共享期限。
+  - 用户追加要求在 AGENTS.md 约束核心实现和接入使用注释，重点补齐 Kernel/Executor；以 engineering 规则为正文，更新公开入口、状态/身份、取消/尾流、资源归属及 Windows 能力边界的中文注释。
   - 最初用户授权新worktree与Octospec开发计划，随后授权英文提交、推送、创建PR和合并；其后明确要求直接实施原计划。
   - 用户已澄清与55无关；PR关联30/14，未完成的修复与更广的平台验收不能记为已交付。
   - 最新origin/main已fetch并固定；原main工作区不修改。
@@ -55,6 +60,8 @@ decisions:
   - 用户随后关闭规划PR68、要求分支使用feat，并明确授权按计划直接实施；当前已完成产品接线与本地/真实IM检查，不重新创建规划PR。
   - Gateway真实联验使用用户指定im-test环境和本机octo-im-account.md；凭据只在测试进程读取，不进入知识文件或日志。
 validation:
+  rebase_main: main@e82a2f0 (PR73); macOS arm64 Node24.19.0, typecheck/lint/names/format/OKF passed; UI35 and Node1344 passed with 10 platform skips, focused62 and disposal14 passed
+  rebase_live_cards: SDK390ms/CLI280ms; original-card terminal edit ACK, unique final at stop, sibling and Kernel isolation, restart reply passed; no rendered-terminal readback or fault injection claimed this round
   current_node_only: macOS arm64 Node24.19.0; typecheck/lint/names/format/OKF passed; UI35 and Node1300 passed, 10 platform skips; two-axis re-review no new P1/P2
   current_live_cards: SDK281ms/CLI294ms; same-card terminal edit acknowledged, unique final at stop, sibling and Kernel isolation, restart reply passed; client-rendered terminal not independently read back
   current_live_card_fault: SDK665ms/CLI500ms; terminal-card rejection yields stable incomplete, one attempt and final text still delivered

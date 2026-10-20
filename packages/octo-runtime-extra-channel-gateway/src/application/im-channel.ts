@@ -1206,6 +1206,10 @@ export class ImRuntime {
         : {})
     });
   }
+  /**
+   * 同步停准入，在共享预算内取消执行并等待会话持久化、卡片和 final，再释放连接。
+   * 源终态或空任务表不代表业务 tail 已结束；失败/超时及重复调用都保留同一关闭结果。
+   */
   close(): Promise<void> {
     if (this.#closing) return this.#closing;
     this.#draining = true;

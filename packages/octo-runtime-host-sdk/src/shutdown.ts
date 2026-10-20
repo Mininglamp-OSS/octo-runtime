@@ -26,11 +26,13 @@ export function abortForShutdown(controller: AbortController): void {
 }
 
 export function shutdownSignal(signals: AbortSignal[]): AbortSignal {
+  // AbortSignal.any 不携带私有预算；保留父信号关系，让稍后开始的 dispose 仍继承最早期限。
   const signal = AbortSignal.any(signals);
   parents.set(signal, signals);
   return signal;
 }
 
+/** 只限制等待时间，不强停 operation；owner 须在到期后撤销迟到操作的写入和投递权限。 */
 export async function withinShutdown<T>(
   operation: Promise<T>,
   until: number,

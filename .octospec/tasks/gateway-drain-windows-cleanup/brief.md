@@ -15,6 +15,8 @@ status: in_progress
 `feat/gateway-drain-windows-cleanup`。用户已要求关闭规划PR #68、重命名分支，并明确授权按M0–M5直接实施。
 2026-10-20 用户明确公共层不引入原生实现、业务 Extra 除外。该决定取代旧 Windows Job 方案，现行范围见[架构规则](../../rules/architecture.md#实现语言与原生依赖边界)和[实施记录](implementation.md)。
 
+本轮按用户要求再次 rebase 至 `main@e82a2f0`（PR #73），沿用统一 KernelClient，保留旧执行桥删除，迁移 drain 与相关测试。用户追加核心代码注释要求：在 AGENTS.md 设置强制入口，正文见[工程规则](../../rules/engineering.md#核心代码注释要求)；重点补齐 Kernel/Core 公开接口、接入使用、状态与资源边界的中文注释，清除旧 daemon/AdapterHost 职责描述。注释维护不增加执行策略或原生依赖。
+
 1. Gateway 停止时，先停止接纳和准备，再取消所属执行，在预算内消费真实尾事件、更新当前代次 binding 并尝试最终回复，最后释放业务连接。
 2. 撤除 Windows Go broker、专属构建、两架构二进制分发及公共接线。Windows 保留 Node.js 与系统 taskkill 常规清理；父进程先退、Runtime 被强杀时的强回收目标尚未达成，不能标记已修复或关闭对应 umbrella issue。
 
