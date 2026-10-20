@@ -69,3 +69,8 @@ Core、Provider、Run7/Context v3、HostRunService/流预算、交互、进程�
 - 最后增补的 CLI 已安装 start/restart 路由与就绪检查、端点恢复、Schema、Host 生命周期 9/9 通过；真实服务管理器行为仍按 A30 待验。
 - 后续文档对齐已处理最后 9 处跨仓库失效链接，历史外部文件保留为明确注明缺失的源码路径；知识检查现已通过。线上架构来源仍因 octo-cli 无凭据待读取，见[对齐记录](architecture-alignment.md)。
 - 原 main 目录干净，所有修改仅在本 worktree；本次测试进程已退出。
+
+## PR 验证
+
+- PR #61 首轮 Linux 构建/测试/包验证及 Windows 包与生命周期验证通过。
+- macOS 首轮仅 native-component Go fixture 因 runner 缺少 go 失败；CI 已补充显式安装 Go 1.25.x，不跳过该测试。修复后的远端结果以 PR 检查为准。
