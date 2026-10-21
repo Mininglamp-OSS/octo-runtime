@@ -2,6 +2,8 @@
 
 ## 2026-10-21
 
+- 按后续授权完成 Issue 85 本地双轴审查，更新到 main@318b0f2 并使用 fix/85-provider-decoupling 交付分支；修复 IPC 快照发送不受启动预算/取消约束的 P2 和旧扩展文档矛盾的 P3，两项均复审通过。补充大快照背压超时/取消回收测试；PR 与合并遵守 main 的 CI/审批保护，见[审查记录](tasks/85-provider-decoupling/review.md)。
+
 - 按后续授权实施 [Issue 85](tasks/85-provider-decoupling/implementation.md)：框架生产依赖中立，SDK 原生 import 并在调用进程创建 Kernel/Extra，CLI 内置与 Home 双清单逐项来源解析、启动快照恢复、Extra 按需加载及旧 module 显式迁移。构建、类型、lint、名称、docs 及实际 tgz 离线安装验证通过；Node 1447 通过/10 跳过、UI 35 通过。OctoSpec checker 保留 main 已知 docs 目录冲突。未提交、推送或发布，见[实施记录](journal/shared/2026-10-21-provider-decoupling-implementation.md)。
 
 - 新建并按用户补充更新 [Issue 85 的 OctoSpec](tasks/85-provider-decoupling/brief.md)：Adapter 与 Extra 同时按需载入；SDK 原生 import、无 manifest；CLI 统一内置清单加 Home 用户扩展，两者均有 adapters/extras，逐条保留原始清单解析锚点。默认发行全量，FDE 自行复制并处理依赖，不新增 probe 握手。同步[中英文 docs](../docs/zh-CN/concepts/module-loading.md)和[整体架构约束](rules/architecture.md#cli-与-sdk-的-adapterextra-装配约束)。仅调查、方案与文档，未实现或提交，见[记录](journal/shared/2026-10-21-provider-decoupling-plan.md)。

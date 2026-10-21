@@ -24,6 +24,44 @@ const runner = resolve("packages/octo-runtime-executor-kernel/dist/runner.js");
 const adapterFixture = resolve("test/fixtures/test-adapter.js");
 const declaration = (module, type = "test") => ({ type, module, export: "testAdapter" });
 const manifest = (adapters = [], extras = []) => ({ version: 1, adapters, extras });
+
+for (const mode of ["timeout", "abort"]) {
+  test(`blocked Adapter snapshot send respects ${mode} and reclaims the owned worker`, async (t) => {
+    const controller = new AbortController();
+    let child;
+    let timer;
+    t.after(() => {
+      clearTimeout(timer);
+      if (child?.exitCode === null && child?.signalCode === null) child.kill("SIGKILL");
+    });
+    const started = Date.now();
+    await assert.rejects(
+      spawnWorker({
+        entrypoint: resolve("test/fixtures/ipc-stalled-worker.mjs"),
+        adapterModules: [
+          {
+            ...declaration(adapterFixture),
+            factory: false,
+            options: { payload: "x".repeat(8 * 1024 * 1024) },
+            sourceManifest: resolve("unused-manifest.json")
+          }
+        ],
+        readyTimeoutMs: mode === "timeout" ? 100 : 5000,
+        signal: controller.signal,
+        onSpawn: async (value) => {
+          child = value;
+          if (mode === "abort") timer = setTimeout(() => controller.abort(), 100);
+        }
+      }),
+      mode === "timeout" ? /readiness timed out/ : /spawn cancelled/
+    );
+    assert.ok(child?.pid, "worker ownership must be registered before sending the snapshot");
+    assert.ok(Date.now() - started < 3000, "startup must not wait for the stalled worker");
+    assert.ok(child.exitCode !== null || child.signalCode !== null);
+    assert.throws(() => process.kill(child.pid, 0), { code: "ESRCH" });
+  });
+}
+
 async function fixture(t) {
   const root = await mkdtemp(join(process.platform === "darwin" ? "/tmp" : tmpdir(), "oml-"));
   t.after(() => rm(root, { recursive: true, force: true }));

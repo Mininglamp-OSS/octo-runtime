@@ -11,6 +11,8 @@ timestamp: 2026-10-21T00:00:00Z
 
 用户在规划后授权本 worktree 实施。基线为 origin/main@d064cfe，分支 spec/85-provider-decoupling。未执行 Git 提交、推送、远端 issue/PR 更新或发布。
 
+以上为首次实施阶段记录。用户随后授权本地审查、提交 PR 并合入 main；已更新到 main@318b0f2，交付分支改为 fix/85-provider-decoupling。[审查记录](review.md)包含发现、修复、复审和 GitHub 保护约束。
+
 Kernel 移除全部 12 个具体 Adapter 依赖，完整目录由 CLI 持有。Core、Kernel、Host SDK 的生产依赖闭包没有具体 Adapter/Extra。默认单一发行仍包含 12 个 Adapter 和三个 Extra，不改变业务方自行复制代码并管理依赖的责任。
 
 SDK 沿用原生 import 与宿主装配。Kernel 服务和 Extra 服务在调用进程直接创建；宿主自己的 worker 原生 import 并注册所选 Adapter。没有引入 startOwnedKernel、外部 Node 顶层服务装配器或任何临时/永久 manifest 要求。内部执行 worker 保留既有隔离和恢复职责。

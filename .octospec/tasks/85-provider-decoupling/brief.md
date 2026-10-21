@@ -19,7 +19,7 @@ timestamp: 2026-10-21T00:00:00Z
 
 两份 CLI manifest 均有 adapters 与 extras 数组。默认 Home 为 ~/.octo-runtime，指定 --home 时使用该 Home 下的 manifest.json。现有 apps/cli/src/default_adapters.json 的内容迁入统一清单，不维护两份默认目录。
 
-基线为 origin/main@d064cfe78f6818d3c451ecf803a280245f4b0496；分支 spec/85-provider-decoupling，独立 worktree 为 octo-runtime-issue-85。
+起始基线为 origin/main@d064cfe78f6818d3c451ecf803a280245f4b0496；实施后更新到 main@318b0f2，交付分支为 fix/85-provider-decoupling，独立 worktree 为 octo-runtime-issue-85。原规划分支名为 spec/85-provider-decoupling。
 
 ## 关键合同
 
@@ -46,12 +46,13 @@ timestamp: 2026-10-21T00:00:00Z
 - FDE 业务工程的复制、打包、安装及依赖处理工具。
 - 拆分 npm 产品、发布 private 包、自动下载、运行中热加载或重构 probe/就绪。
 - 改变业务模型、会话策略，重置 Home、身份、凭据或数据库。
-- Git 提交、推送、远端 issue/PR 更新及发布，均未获授权。
+- npm 发布。本地审查、Git 提交、推送、PR 和合入 main 已由用户后续明确授权；遵守仓库 required checks 和审批保护。
 
 ## 交付入口
 
 - [设计](design.md)：两种装配、双清单合并、解析与 Extra 配置迁移。
 - [实施与验收](acceptance.md)：按变更范围验证两条加载路径及默认全量发行。
 - [实施记录](implementation.md)：变更、A01–A17 证据与验证边界。
+- [本地审查](review.md)：Standards/Spec 发现、修复与复审证据。
 - [读取上下文](context.yaml)和[本轮记录](../../journal/shared/2026-10-21-provider-decoupling-plan.md)。
 - 双语设计：[中文](../../../docs/zh-CN/concepts/module-loading.md) / [English](../../../docs/en/concepts/module-loading.md)。

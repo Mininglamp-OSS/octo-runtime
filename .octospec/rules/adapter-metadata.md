@@ -79,7 +79,7 @@ manifest.module 的本机绝对路径（Windows 包含盘符与 UNC）和以点�
 
 ### CLI 帮助与开发者高级入口
 
-普通 CLI `--help` 说明默认使用内置 Adapter、无需 Adapter 配置，不展示高级 `--manifest` 参数。隐藏只影响帮助渲染，不能删除参数解析、优先级或显式清单执行支持。现有显式 manifest 是完整加载集合，不是自动追加；第三方结构式模块可由其加载，但 `/adapter` 公开 SDK 和 extra_adapters.json 自动追加仍须分别实施验收。
+普通 CLI `--help` 说明默认使用内置 Adapter、无需 Adapter 配置，不展示高级 `--manifest` 参数。隐藏只影响帮助渲染，不能删除参数解析、优先级或显式清单执行支持。显式 manifest 是完整加载集合，不是自动追加；用户追加已统一由 `<Home>/manifest.json` 实现，不另设 extra_adapters.json。`/adapter` 公开 SDK 仍为独立待办。
 
 开发者用法、公开 import、完整 Extra/Adapter 示例及 SDK/CLI 兼容边界见[飞书开发指南](https://my.feishu.cn/docx/IW30d2KL6o137ExHKHRc2yrJngh)。公开合同属于增量导出，不能据此声称使用旧物理清单路径的宿主无需迁移。
 

@@ -2,14 +2,16 @@ status: locally-validated
 recorded_on: 2026-10-21
 baseline: d064cfe78f6818d3c451ecf803a280245f4b0496
 baseline_source: git-fetch-origin-main
-branch: spec/85-provider-decoupling
+branch: fix/85-provider-decoupling
+review_baseline: 318b0f22db5e45e6effe3b35c89bc7ef426127f9
 issue: https://github.com/Mininglamp-OSS/octo-runtime/issues/85
 authorization:
   new_worktree: requested
   scope: octospec-proposal-and-implementation
   user_clarification: full-default-app-sdk-native-import-cli-builtin-and-home-adapters-extras
   implementation: authorized-in-this-worktree-after-planning
-  commit_push_pr_publish: not-authorized
+  commit_push_pr_merge: authorized-after-implementation
+  npm_publish: not-authorized
   github_language: english-per-user-instruction
 delivery:
   default_app: full-catalog-single-existing-release
@@ -92,7 +94,12 @@ sources:
   - test/adapter-host-manifest.test.js
   - test/module-loading.test.js
   - test/native-module-selection.test.js
+  - test/fixtures/ipc-stalled-worker.mjs
+  - test/host-process-close.test.js
+  - CONTRIBUTING.md
+  - /Users/lvsijia/.agents/skills/code-review/SKILL.md
   - .octospec/tasks/85-provider-decoupling/implementation.md
+  - .octospec/tasks/85-provider-decoupling/review.md
 external_sources:
   - https://nodejs.org/docs/latest-v24.x/api/esm.html#importmetaresolvespecifier
   - https://github.com/wooorm/import-meta-resolve

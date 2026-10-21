@@ -15,7 +15,7 @@ export interface SpawnWorkerOptions {
   env?: NodeJS.ProcessEnv;
   /** 取消就绪等待并请求回收子进程；POSIX 使用进程组，Windows taskkill 不保证父先退后的后代回收。 */
   signal?: AbortSignal;
-  /** Maximum time allowed for the initial RPC readiness handshake. */
+  /** 启动快照发送和首次 RPC 就绪握手共用的最大等待时间。 */
   readyTimeoutMs?: number;
   onSpawn?: (child: ChildProcess) => Promise<void>;
 }
@@ -102,14 +102,18 @@ export async function spawnWorker({
   child.on("error", (error) => client.close(error));
   let adapters: HostedAdapterMetadata[];
   try {
-    if (adapterModules !== undefined)
-      await new Promise<void>((resolve, reject) => {
-        child.send({ type: "kernel.adapters", adapters: adapterModules }, (error) =>
-          error ? reject(error) : resolve()
-        );
-      });
+    // 先登记进程所有权；快照发送也可能因子进程未读取 IPC 而阻塞，须纳入就绪预算。
     await onSpawn?.(child);
-    adapters = await waitForReady(client.list(), readyTimeoutMs, signal);
+    const initialize = async () => {
+      if (adapterModules !== undefined)
+        await new Promise<void>((resolve, reject) => {
+          child.send({ type: "kernel.adapters", adapters: adapterModules }, (error) =>
+            error ? reject(error) : resolve()
+          );
+        });
+      return client.list();
+    };
+    adapters = await waitForReady(initialize(), readyTimeoutMs, signal);
   } catch (error) {
     client.close(error instanceof Error ? error : new Error(errorMessage(error)));
     try {
