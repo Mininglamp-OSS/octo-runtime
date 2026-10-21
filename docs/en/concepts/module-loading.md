@@ -57,6 +57,8 @@ An Adapter entry uses `type`, `module`, `export`, and the existing optional `fac
 5. Do not retry resolution from the process working directory, Kernel package, another manifest, or a global package location.
 6. Empty arrays contribute no entries. A CLI `--manifest` override remains a complete replacement, without automatically merging built-in or Home files; a legacy Adapter-only override is normalized to an empty Extra array.
 
+Legacy explicit manifests also allow an Adapter to omit `type`. The CLI-owned execution worker instantiates each selected module once and uses its actual `metadata.type` to perform OpenClaw connection discovery and credential refresh before the existing readiness handshake. CLI Kernel and Playboard share this order. It does not infer types from package names or import unselected Providers to identify the selection.
+
 For example, a user-relative `./plugins/example-extra.mjs` points inside the selected Home. An internal package name in the built-in manifest resolves from the CLI installation. Merging the two files must not change either anchor.
 
 ## Loading Is Separate from Activation

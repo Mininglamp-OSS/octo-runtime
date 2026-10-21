@@ -94,19 +94,17 @@ export async function runPlayboard(options: PlayboardOptions): Promise<number> {
   try {
     const paths = runtimePaths(home, profile);
     const manifest = await loadCliManifest(home, options.manifest);
-    if (manifest.adapters.some((entry) => entry.type === "openclaw")) {
-      const { initializeCliOpenClaw } = await import("./openclaw.js");
-      await initializeCliOpenClaw(paths.profileRoot, options.env ?? process.env);
-    }
     const configuration = await readJsonFile<ProfileConfiguration>(paths.profileConfig);
     kernel = createKernelService({
       endpoint:
         process.platform === "win32" ? componentEndpoint(temporary) : join(temporary, "k.sock"),
-      workerEntrypoint: fileURLToPath(
-        import.meta.resolve("@mininglamp-oss/octo-runtime-executor-kernel/runner")
-      ),
+      workerEntrypoint: fileURLToPath(new URL("./worker.js", import.meta.url)),
       adapterModules: resolveAdapterModules(manifest),
-      env: options.env ?? process.env,
+      env: {
+        ...(options.env ?? process.env),
+        OCTO_RUNTIME_CLI_PROFILE_ROOT: paths.profileRoot,
+        OCTO_RUNTIME_CLI_SYNC_OPENCLAW_TOOLS: "0"
+      },
       adapterConfigurations: readAdapterConfigurations(paths.profileRoot, configuration?.adapters)
     });
     await kernel.initialize({ signal: controller.signal });

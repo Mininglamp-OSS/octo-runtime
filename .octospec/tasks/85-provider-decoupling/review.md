@@ -36,3 +36,23 @@ timestamp: 2026-10-21T00:00:00Z
 用户已授权提交、推送、创建 PR 并合入 main，未授权 npm 发布。main 当前保护要求 CI Gate 成功且至少一个其他账号批准，并对管理员生效；仓库未启用自动合并。交付须遵守这些保护，不绕过审批或修改仓库设置。实际 PR、CI 和合并状态由 GitHub 记录确认。
 
 审查统计：Standards 1 项 P3、Spec 1 项 P2，均已修复并复审通过，无剩余阻塞发现。
+
+## PR 91 远端审查修复
+
+远端两名审查者针对 34eb937 指出同一兼容性缺陷，分别定为 P2 和 P1：显式旧 manifest 允许省略 Adapter type，但 CLI 与 Playboard 仅检查声明 type，导致实际所选 OpenClaw 跳过连接初始化和凭据刷新。另有一项 Standards P3：workspace 指南仍要求将具体 Provider 依赖加入 Kernel。
+
+### Standards
+
+已修正指南中三个相关旧段落，明确 CLI/release 持有默认目录的具体依赖。将已有中立清单实例化逻辑抽为 Kernel 私有 workspace 子路径，CLI 自有执行 worker 负责产品准备；没有向通用 Kernel 加入具体 Provider 依赖或 SDK 顶层加载器。独立复审无新增阻塞发现。
+
+### Spec
+
+CLI 与 Playboard 共享执行 worker，按所选实例真实 metadata.type 初始化 OpenClaw，在既有 list/probe 握手前完成连接刷新。通用清单入口复用同一实例化函数，不猜模块名，不在父进程重复调用工厂。SDK 仍由接入层原生 import 并直接创建顶层服务。
+
+新增省略 type 的真实 OpenClaw 包装工厂测试，覆盖 fresh Home、启动重启、Playboard、源凭据和端口轮换、设备身份保留及每个进程工厂只执行一次。负向测试移除 CLI OpenClaw helper 后选择其他无 type Adapter，仍可就绪，证明未选 Provider 不加载。独立复审无剩余实质缺陷。
+
+完整回归：UI 35 通过；Node 1484 项中 1452 通过、32 按平台跳过、0 失败。类型/构建、lint、命名、格式、双语文档及四项文档行为测试通过。专项五文件 46 通过、1 Windows 平台跳过。发布包及远端 CI 结果以本次提交后实际执行结果为准。
+
+非阻塞观察：OpenClaw 准备移入 worker 后，可选诊断由现有 worker stderr 缓存机制接收，成功启动时不会像原父进程直接输出；启动失败仍附带 stderr。此次未扩展通用诊断协议。
+
+本轮审查统计：Standards 1 项 P3、Spec 1 个重复报告的 P1/P2 缺陷，均已修复，本地双轴复审通过。远端 changes requested 仍须由审查者复核，不代表已经批准或合并。

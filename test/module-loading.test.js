@@ -291,6 +291,44 @@ test("Core/Kernel/Host SDK production closures contain no concrete Adapter or Ex
     await visit("@mininglamp-oss/octo-runtime-" + name);
 });
 
+test("CLI untyped selection loads its factory once without importing an unselected Provider helper", async (t) => {
+  const directory = await mkdtemp(join(resolve("apps/cli/dist"), "selected-worker-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  // 此目录只有 worker，没有 openclaw.js；误判 untyped 项为 OpenClaw 会因导入缺失而失败。
+  const entrypoint = join(directory, "worker.mjs");
+  await copyFile(resolve("apps/cli/dist/worker.js"), entrypoint);
+  const module = join(directory, "selected.mjs");
+  const calls = join(directory, "calls");
+  await writeFile(
+    module,
+    `import { appendFileSync } from "node:fs";
+import { testAdapter } from ${JSON.stringify(pathToFileURL(adapterFixture).href)};
+export function selected() {
+  appendFileSync(${JSON.stringify(calls)}, "1");
+  return testAdapter;
+}`
+  );
+  const worker = await spawnWorker({
+    entrypoint,
+    adapterModules: [
+      {
+        module,
+        export: "selected",
+        factory: true,
+        options: {},
+        sourceManifest: join(directory, "unused.json")
+      }
+    ],
+    env: { ...process.env, OCTO_RUNTIME_CLI_PROFILE_ROOT: directory }
+  });
+  t.after(() => worker.close());
+  assert.deepEqual(
+    worker.adapters.map((adapter) => adapter.type),
+    ["test"]
+  );
+  assert.equal(await readFile(calls, "utf8"), "1");
+});
+
 test(
   "CLI Kernel and disabled Extra start independently while unused Extra modules are absent",
   { timeout: 15000 },

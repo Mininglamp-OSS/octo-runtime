@@ -233,25 +233,18 @@ export async function runCli(args: string[], dependencies: CliDependencies = {})
       await mkdir(home, { recursive: true, mode: 0o700 });
       let handle: KernelService | ExtraService;
       if (component === "executor-kernel") {
-        // Provider 专用发现只属于选中它的 CLI 产品装配，未选时不导入其模块。
-        if (manifest.adapters.some((entry) => entry.type === "openclaw")) {
-          const { initializeCliOpenClaw, syncCliOpenClawToolEnvironment } =
-            await import("./openclaw.js");
-          await initializeCliOpenClaw(paths.profileRoot, dependencies.env ?? process.env);
-          await syncCliOpenClawToolEnvironment(paths.profileRoot, registrations);
-        }
         const config = await readJsonFile<ProfileConfiguration>(paths.profileConfig);
         handle = createKernelService({
           endpoint,
           stateDirectory: join(home, "run"),
-          workerEntrypoint: fileURLToPath(
-            import.meta.resolve("@mininglamp-oss/octo-runtime-executor-kernel/runner")
-          ),
+          workerEntrypoint: fileURLToPath(new URL("./worker.js", import.meta.url)),
           adapterModules: resolveAdapterModules(manifest),
           adapterConfigurations: readAdapterConfigurations(paths.profileRoot, config?.adapters),
           env: {
             ...(dependencies.env ?? process.env),
             OCTO_RUNTIME_HOME: home,
+            OCTO_RUNTIME_CLI_PROFILE_ROOT: paths.profileRoot,
+            OCTO_RUNTIME_CLI_SYNC_OPENCLAW_TOOLS: "1",
             OCTO_RUNTIME_LOGS_DIRECTORY: join(home, "logs")
           }
         });

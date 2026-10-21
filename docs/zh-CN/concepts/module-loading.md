@@ -57,6 +57,8 @@ Adapter 项使用 `type`、`module`、`export` 和现有可选 `factory`/`option
 5. 查找失败后不从进程 cwd、Kernel 包、另一份清单或全局包目录尝试第二套解析。
 6. 空数组表示该来源没有条目。CLI `--manifest` 保留完整替换语义，不自动叠加内置或 Home 文件；旧 Adapter-only 显式文件规范化为 Extra 空数组。
 
+旧式显式清单还允许 Adapter 省略 `type`。CLI 自有执行 worker 只实例化所选模块一次，按实例的真实 `metadata.type` 完成 OpenClaw 连接发现和凭据刷新，再进入现有就绪握手；CLI Kernel 与 Playboard 使用同一装配顺序。不会按包名猜测类型或为了判断类型而导入未选 Provider。
+
 例如，用户清单中的 `./plugins/example-extra.mjs` 指向指定 Home 内的文件；内置清单中的包名从 CLI 安装位置解析。合并后两者的解析锚点均不能改变。
 
 ## 加载与激活分别处理

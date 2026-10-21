@@ -374,6 +374,8 @@ IM Agent 固定 workdir、reset 只切会话是架构决策，不是待开发功
 
 双语设计和实施状态见 [中文](../../docs/zh-CN/concepts/module-loading.md) / [English](../../docs/en/concepts/module-loading.md)。本节是整体架构责任的唯一规范正文；旧任务中 default_adapters.json、extra_adapters.json 和 owned launcher 的描述按其历史状态理解，不作为本次新接口要求。
 
+旧式显式 --manifest 允许省略 Adapter type。CLI 自有执行 worker 先仅装配所选实例，再根据其真实 metadata.type 完成 OpenClaw 连接准备，之后进入既有 serveWorker/list 就绪链；不得按包名猜测、省略初始化或在父进程重复实例化工厂。CLI Kernel 与 Playboard 共享此顺序；通用清单 runner 不包含产品准备逻辑，SDK 保持宿主自有 worker 的原生 import。
+
 ### Extra 外部接入插件
 
 每个 Extra 负责自己与外部系统的连接启动、认证、请求接收、业务路由、执行交互和结果投递。外部系统下发的请求由 Extra 转为统一执行请求，交给共享 AgentExecutor；执行事件和结果由 Extra 按外部系统协议回传。

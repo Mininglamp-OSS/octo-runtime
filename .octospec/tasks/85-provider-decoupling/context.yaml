@@ -66,6 +66,7 @@ sources:
   - packages/octo-runtime-executor-core/src/index.ts
   - packages/octo-runtime-executor-kernel/src/index.ts
   - packages/octo-runtime-executor-kernel/src/runner.ts
+  - packages/octo-runtime-executor-kernel/src/manifest-adapters.ts
   - packages/octo-runtime-executor-kernel/src/module-specifier.ts
   - packages/octo-runtime-executor-kernel/src/serve.ts
   - packages/octo-runtime-executor-kernel/src/service.ts
@@ -81,6 +82,7 @@ sources:
   - apps/cli/src/module-manifest.ts
   - packages/octo-runtime-adapter-sdk/src/module-manifest.ts
   - apps/cli/src/main.ts
+  - apps/cli/src/worker.ts
   - apps/cli/src/playboard.ts
   - apps/cli/src/extras.ts
   - apps/cli/scripts/copy-manifest.mjs

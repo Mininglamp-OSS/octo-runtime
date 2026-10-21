@@ -2,6 +2,8 @@
 
 ## 2026-10-21
 
+- 修复 [PR 91](https://github.com/Mininglamp-OSS/octo-runtime/pull/91) 审查问题：CLI/Playboard 根据所选实例实际类型准备旧 manifest 中省略 type 的 OpenClaw，覆盖 fresh Home、凭据轮换和未选模块不加载；修正具体 Provider 依赖归属指南。双轴复审及完整回归通过，见[记录](tasks/85-provider-decoupling/review.md)。
+
 - 按后续授权完成 Issue 85 本地双轴审查，更新到 main@318b0f2 并使用 fix/85-provider-decoupling 交付分支；修复 IPC 快照发送不受启动预算/取消约束的 P2 和旧扩展文档矛盾的 P3，两项均复审通过。补充大快照背压超时/取消回收测试；PR 与合并遵守 main 的 CI/审批保护，见[审查记录](tasks/85-provider-decoupling/review.md)。
 
 - 按后续授权实施 [Issue 85](tasks/85-provider-decoupling/implementation.md)：框架生产依赖中立，SDK 原生 import 并在调用进程创建 Kernel/Extra，CLI 内置与 Home 双清单逐项来源解析、启动快照恢复、Extra 按需加载及旧 module 显式迁移。构建、类型、lint、名称、docs 及实际 tgz 离线安装验证通过；Node 1447 通过/10 跳过、UI 35 通过。OctoSpec checker 保留 main 已知 docs 目录冲突。未提交、推送或发布，见[实施记录](journal/shared/2026-10-21-provider-decoupling-implementation.md)。
