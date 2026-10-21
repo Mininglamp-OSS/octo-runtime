@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile, readdir, stat } from "node:fs/promises";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import markdown from "prettier/plugins/markdown";
 import Ajv from "ajv";
 import { InvokeInput, assertContextEnvelope } from "@mininglamp-oss/octo-runtime/protocol";
@@ -30,6 +30,11 @@ function* nodes(node) {
   for (const child of node.children ?? []) yield* nodes(child);
 }
 
+function isWithinDirectory(directory, path) {
+  const suffix = relative(directory, path);
+  return !isAbsolute(suffix) && suffix !== ".." && !suffix.startsWith(`..${sep}`);
+}
+
 const paths = await files(docs);
 const pages = new Map();
 let jsonExamples = 0;
@@ -50,10 +55,7 @@ for (const path of paths) {
     if (/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(url)) continue;
     const [target, fragment] = url.split("#");
     const destination = resolve(dirname(path), decodeURIComponent(target));
-    assert.ok(
-      destination.startsWith(`${root}/`) || destination === root,
-      `${path}: link outside repository: ${url}`
-    );
+    assert.ok(isWithinDirectory(root, destination), `${path}: link outside repository: ${url}`);
     const info = await stat(destination).catch(() => undefined);
     assert.ok(info, `${relative(root, path)}: broken link ${url}`);
     // Library links intentionally use whole pages; fail instead of silently ignoring new anchors.
@@ -84,8 +86,10 @@ for (const path of paths) {
   pages.set(path, { source, links, blocks });
 }
 
-const english = paths.filter((p) => p.startsWith(join(docs, "en") + "/"));
-const chinese = paths.filter((p) => p.startsWith(join(docs, "zh-CN") + "/"));
+const english = paths.filter((p) => isWithinDirectory(join(docs, "en"), p));
+const chinese = paths.filter((p) => isWithinDirectory(join(docs, "zh-CN"), p));
+assert.ok(english.length > 0, "The English documentation tree must not be empty");
+assert.ok(chinese.length > 0, "The Chinese documentation tree must not be empty");
 assert.equal(english.length, chinese.length, "Both language trees must have the same page count");
 for (const path of english) {
   const suffix = relative(join(docs, "en"), path);

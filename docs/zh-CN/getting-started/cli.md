@@ -114,6 +114,6 @@ node docs/examples/attach.mts /absolute/path/to/kernel.sock codex
 
 Channel Gateway 会为它发起的调用准备这些业务环境变量。OpenClaw 的工具运行在独立的 Gateway 进程中，需要在该进程中配置环境；CLI 可以向已发现的本地 Gateway 同步所选 OpenClaw bot 的变量，随后需要重启该 Gateway，远端 Gateway 则需自行配置。
 
-`octo-cli` 自己也会选择账号：已保存的 profile 优先于环境变量凭据，`OCTO_TOKEN` 优先于 `OCTO_BOT_TOKEN`。Agent 使用了错误的 Octo 账号时，应检查其执行环境中的这些来源。最新命令和配置方式见 [octo-cli 安装与认证指南](https://github.com/Mininglamp-OSS/octo-cli#readme)。
+`octo-cli` 自己也会选择账号：显式传入 `--profile` 或 `--bot-id` 时，指定的账号优先于环境变量凭据。未显式选择账号时，环境变量凭据优先于隐式选中的已保存 profile，其中 `OCTO_TOKEN` 优先于 `OCTO_BOT_TOKEN`。Agent 使用了错误的 Octo 账号时，应检查实际命令中的选择参数和执行环境。该顺序已对照 [3d39abd 版本的凭据实现](https://github.com/Mininglamp-OSS/octo-cli/blob/3d39abddc64a75de5570ebd0b6548b091c682df5/internal/cmdutil/factory.go)核实，最新命令和配置方式见 [octo-cli 安装与认证指南](https://github.com/Mininglamp-OSS/octo-cli#readme)。
 
 来源：[CLI 帮助](../../../apps/cli/src/help.ts)、[Home 与 profile 路径](../../../apps/cli/src/state.ts)、[OpenClaw 配置](../../../apps/cli/src/openclaw.ts)、[Octo 工具环境](../../../packages/octo-runtime-extra-channel-gateway/src/execution/tool-environment.ts)。
