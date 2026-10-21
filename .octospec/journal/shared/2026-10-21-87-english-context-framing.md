@@ -34,3 +34,11 @@ Renderer 精确输出测试覆盖中英日混合 guidance、payload、换行和�
 ## 边界
 
 没有调用真实 Provider、IM 或外部宿主；固定输出合同用 fake Provider 验证，不将其描述为模型语言遵循率或外部集成已完成迁移。原始 main 的 OKF 目录检查冲突本轮不修改。GitHub CI 状态以 PR 实际检查结果为准。
+
+## PR 90 Windows CI 顺序断言修复
+
+远端分支已通过合并提交 2cdf0ae 同步 main 的 318b0f2（#53）。Run 39591260941 中 Ubuntu/macOS 通过；Windows 22 项关闭测试仅 `Windows SDK preserves the final log near the full drain bound: incomplete=true` 在 host-process-close.test.js 的跨进程时间戳比较处失败。该次记录为 cleanupStart=3449 ms、close=3460 ms、tail=true、complete=false；尾日志、失败结果、PID 和清单断言均已通过。
+
+原断言用子进程记录的 Date.now 与父进程采样比较大小，不能可靠证明两个进程的因果顺序。源码顺序为日志 close 返回、fixture 同步写 trace、worker 发 drained IPC、父进程调用 taskkill。修改测试在 taskkill 前同步写 `tree.cleanup.started`，核对共享 trace 的事件顺序；显式检查两个事件均存在，并在 fixture 中只对子进程 trace 时间戳增加一分钟偏移。该偏移不影响产品时钟、日志 Worker 或关闭预算，旧时间断言会因偏移失败，新断言仍须证明日志先关闭。生产代码、CI 门禁、5 秒预算及所有日志/资源/失败断言保持原样。
+
+实施前可执行性评估 98/100，范围与依据追加到任务 brief。本地 macOS 验证：pnpm build 通过；相关日志/Context/关闭测试 14 通过、22 Windows skip；两个修改文件的 Prettier、fixture 语法及 diff 检查通过。Windows 原生证据等待推送后的 CI，不能将本地 skip 写成通过。

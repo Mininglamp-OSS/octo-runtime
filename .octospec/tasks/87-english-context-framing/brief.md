@@ -47,3 +47,11 @@ tags: [context, model-input, testing]
 | 工程检查通过 | pnpm typecheck、lint、lint:names、format:check、test:suites |
 
 规划阶段尚未执行验证；评分见 [可执行性评估](assessment.md)。
+
+## PR 90 CI 后续处理
+
+远端已合并 main 的 #53（318b0f2），本地快进至 2cdf0ae 后继续处理 Windows CI 失败。Run 39591260941 的关闭测试尾日志存在、执行器 incomplete 仍返回失败、进程回收及清单断言通过，仅跨进程时间戳顺序断言失败。
+
+本次只修改测试与 fixture：在父进程调用 taskkill 前同步追加 trace 标记，按共享文件事件顺序核对 logging.close.finished 先于 tree.cleanup.started；对子进程 trace 注入一分钟偏移，证明顺序校验不依赖父子时钟。预算、日志、失败保留与进程存活断言继续有效。生产关闭路径和 CI 门禁不变。
+
+可执行性 98/100：失败位置、因果链、窄范围修改与远端 Windows 验证入口明确；本机 macOS 无法替代 Windows 结果。先运行构建及本地相关测试，再推送同一 PR 并等待原生 Windows CI。
