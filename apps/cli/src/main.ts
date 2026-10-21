@@ -1,6 +1,6 @@
 import net from "node:net";
 import { randomUUID } from "node:crypto";
-import { mkdir } from "node:fs/promises";
+import { access, mkdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -28,6 +28,13 @@ import {
 import { resolveServiceControl, type ServiceControlOptions } from "./service-control.js";
 import { initializeCliOpenClaw, syncCliOpenClawToolEnvironment } from "./openclaw.js";
 import { readExtraDirectory } from "@mininglamp-oss/octo-runtime-host-sdk";
+import {
+  describeError,
+  formatStatus,
+  recordStartupFailure,
+  readStartupFailure,
+  type ComponentSnapshot
+} from "./output.js";
 
 export interface CliDependencies extends ServiceControlOptions {
   env?: NodeJS.ProcessEnv;
@@ -39,17 +46,26 @@ export interface CliDependencies extends ServiceControlOptions {
   onComponentRun?: () => void;
 }
 const components = ["executor-kernel", "channel-gateway"] as const;
-type Component = (typeof components)[number];
+const builtinComponents: readonly string[] = [...components, "channel-wecom", "webui"];
 export async function runCli(args: string[], dependencies: CliDependencies = {}): Promise<number> {
   const output = dependencies.output ?? ((line: string) => process.stdout.write(`${line}\n`));
+  let json = args.includes("--json");
+  let context: { component?: string; action?: string; logs?: string } = {};
+  let runningComponent: string | undefined;
   try {
     const { flags, positional } = parse(args);
+    json = Boolean(flags.json);
     if (flags.version || positional[0] === "version") {
       output(cliVersionInfo);
       return 0;
     }
     if (flags.help || !positional.length || positional[0] === "help") {
-      output(helpText());
+      output(helpText(builtinComponents.includes(positional[0]) ? positional[0] : undefined));
+      return 0;
+    }
+    // 裸组件帮助仅做词法校验，不读取配置或创建服务管理器。
+    if (positional.length === 1 && builtinComponents.includes(positional[0])) {
+      output(helpText(positional[0]));
       return 0;
     }
     const home = resolve(flags.home ?? defaultRuntimeHome(dependencies.env, dependencies.platform));
@@ -59,10 +75,59 @@ export async function runCli(args: string[], dependencies: CliDependencies = {})
     const profile = flags.profile ?? root?.default_profile ?? "default";
     const paths = runtimePaths(home, profile, dependencies.platform);
     const endpoint = componentEndpoint(home, "executor-kernel", dependencies.platform);
+    context = { component: positional[0], action: positional[1], logs: join(home, "logs") };
+    const registrations = await readExtraDirectory(join(home, "extras"));
+    const componentNames = [
+      ...new Set([...components, ...registrations.map((entry) => entry.name)])
+    ];
+    const isComponent = (name: string) =>
+      builtinComponents.includes(name) || registrations.some((entry) => entry.name === name);
+    if (positional.length === 1 && isComponent(positional[0])) {
+      output(helpText(positional[0]));
+      return 0;
+    }
     const service = resolveServiceControl(dependencies);
     const input = dependencies.input ?? process.stdin;
-    const publish = (value: unknown) =>
-      output(typeof value === "string" ? value : JSON.stringify(value));
+    const publish = (value: unknown, human?: string) =>
+      output(
+        typeof value === "string" ? value : !json && human ? human : JSON.stringify(value, null, 2)
+      );
+    const snapshot = async (component: string): Promise<ComponentSnapshot> => {
+      const inspect = async () => {
+        let spec = service.spec(home, component);
+        let native = await service.backend.inspect(spec);
+        // 自启是已安装服务的事实，不能用 status 的默认 spec(false) 伪造配置漂移。
+        if (native.enabled) {
+          spec = { ...spec, enabled: true };
+          native = await service.backend.inspect(spec);
+        }
+        return native;
+      };
+      // 原生管理器和 IPC 是两条独立事实；管理器失效不能跳过 Extra 自身的 status。
+      const [native, runtime] = await Promise.all([
+        inspect().catch((error: unknown) => ({
+          manager: service.backend.kind,
+          state: "unknown" as const,
+          enabled: false,
+          drift: [],
+          detail: describeError(error).code
+        })),
+        componentStatus(home, component, dependencies.platform).catch((error: unknown) => ({
+          available: false,
+          error: describeError(error, "COMPONENT_UNAVAILABLE")
+        }))
+      ]);
+      return { service: native, runtime };
+    };
+    const snapshots = async (names: string[]) =>
+      Object.fromEntries(
+        await Promise.all(
+          names.map(async (name): Promise<[string, ComponentSnapshot]> => [
+            name,
+            await snapshot(name)
+          ])
+        )
+      );
     if (["extraset", "extraget"].includes(positional[0]) && flags.profile)
       throw new Error("INVALID_ARGUMENTS");
     if (positional[0] === "extraset" && positional.length === 2) {
@@ -70,7 +135,8 @@ export async function runCli(args: string[], dependencies: CliDependencies = {})
       return 0;
     }
     if (positional[0] === "extraget" && positional.length === 2) {
-      publish(await getExtra(paths, positional[1]));
+      // 配置命令是数据接口，保持紧凑 JSON 与慢管道完整输出合同。
+      output(JSON.stringify(await getExtra(paths, positional[1])));
       (dependencies.errorOutput ?? ((line: string) => process.stderr.write(`${line}\n`)))(
         `Config file: ${join(home, "extras", positional[1], "config.json")}`
       );
@@ -108,46 +174,50 @@ export async function runCli(args: string[], dependencies: CliDependencies = {})
     }
     if (positional[0] === "doctor" && positional.length === 1) {
       const manager = await service.backend.probe();
-      const checks = await Promise.all(
-        components.map(async (component) => ({
-          component,
-          service: await service.backend.inspect(service.spec(home, component)),
-          runtime: await componentStatus(home, component, dependencies.platform).catch(() => ({
-            available: false
-          }))
-        }))
+      const status = await snapshots(componentNames);
+      const checks = Object.entries(status).map(([component, value]) => ({ component, ...value }));
+      publish(
+        { manager, checks },
+        `Manager: ${manager.manager} (${manager.supported ? "available" : "unavailable"})\n\n${Object.entries(
+          status
+        )
+          .map(([name, value]) => formatStatus(name, value))
+          .join("\n\n")}`
       );
-      publish({ manager, checks });
       return 0;
     }
     if (positional[0] === "status" && positional.length === 1) {
-      const status = await Promise.all(
-        components.map(async (component) => {
-          const spec = service.spec(home, component);
-          const native = await service.backend.inspect(spec);
-          const runtime = await componentStatus(home, component, dependencies.platform).catch(
-            () => ({ available: false })
-          );
-          return [component, { service: native, runtime }];
-        })
+      const status = await snapshots(componentNames);
+      publish(
+        status,
+        Object.entries(status)
+          .map(([name, value]) => formatStatus(name, value))
+          .join("\n\n")
       );
-      publish(Object.fromEntries(status));
       return 0;
     }
-    const component = positional[0] as Component,
+    const component = positional[0],
       action = positional[1];
     if (
-      !components.includes(component) ||
+      !isComponent(component) ||
       positional.length !== 2 ||
-      !["uninstall", "install", "start", "restart", "stop", "run"].includes(action)
+      !["uninstall", "install", "start", "restart", "stop", "run", "status"].includes(action)
     )
       throw new Error("INVALID_ARGUMENTS");
     if (flags.autostart !== undefined && action !== "install") throw new Error("INVALID_ARGUMENTS");
+    if (action === "status") {
+      const status = await snapshots([component]);
+      publish(status[component], formatStatus(component, status[component]));
+      return 0;
+    }
     if (action === "run") {
+      runningComponent = component;
       dependencies.onComponentRun?.();
       await mkdir(home, { recursive: true, mode: 0o700 });
       let handle: KernelService | ExtraService;
       if (component === "executor-kernel") {
+        // 显式清单不存在时在宿主边界保留 ENOENT，而非等待 worker 断开后丢失原因。
+        if (flags.manifest) await access(resolve(flags.manifest));
         await initializeCliOpenClaw(paths.profileRoot, dependencies.env ?? process.env);
         await syncCliOpenClawToolEnvironment(
           paths.profileRoot,
@@ -211,15 +281,24 @@ export async function runCli(args: string[], dependencies: CliDependencies = {})
           () => {
             if (!stopped) {
               ready = true;
-              publish({ component, state: "ready" });
+              publish({ component, state: "ready" }, `${component}: ready`);
             }
           },
-          async () => {
+          async (error: unknown) => {
             if (stopped) return;
             stopped = true;
             detach();
             const result = await handle.close();
-            publish({ error: { code: "SERVICE_INITIALIZATION_FAILED" } });
+            await recordStartupFailure(join(home, "logs"), component, error);
+            const failure = {
+              ...describeError(error, "SERVICE_INITIALIZATION_FAILED"),
+              ...context
+            };
+            if (json) publish({ error: failure });
+            else
+              (dependencies.errorOutput ?? ((line: string) => process.stderr.write(`${line}\n`)))(
+                `${component}: ${failure.code}${failure.cause_code ? ` (${failure.cause_code})` : ""}\n${failure.message}\nLogs: ${context.logs}`
+              );
             resolve(result.complete ? 1 : 5);
           }
         );
@@ -238,65 +317,105 @@ export async function runCli(args: string[], dependencies: CliDependencies = {})
       ...(flags.manifest ? ["--manifest", resolve(flags.manifest)] : [])
     ];
     let spec = service.spec(home, component, false, serviceArgs);
+    const startedAt = Date.now();
     if (action === "install") {
       await withSetupLock(
         { ...paths, setupLock: join(home, "run", `${component}.setup.lock`) },
         async () => {
-          const before = await service.backend.inspect(spec);
-          spec = {
-            ...spec,
-            enabled:
-              flags.autostart === undefined
-                ? before.state !== "not_installed" && before.enabled
-                : flags.autostart === "true"
-          };
+          spec = { ...spec, enabled: flags.autostart !== "false" };
           await mkdir(home, { recursive: true, mode: 0o700 });
           await service.backend.install(spec);
         }
       );
     } else {
-      const before = await service.backend.inspect(spec);
-      if (["start", "restart"].includes(action) && before.state === "not_installed")
-        throw new Error("SERVICE_NOT_INSTALLED");
-      if (action === "uninstall") await service.backend.uninstall(spec);
-      if (action === "stop") await service.backend.stop(spec);
-      if (action === "start") await service.backend.start(spec);
-      if (action === "restart") await service.backend.restart(spec);
+      if (action === "start") {
+        // 安装检查与启动共用组件锁，避免并发 start 重复注册；已安装时保留用户设置。
+        await withSetupLock(
+          { ...paths, setupLock: join(home, "run", `${component}.setup.lock`) },
+          async () => {
+            const before = await service.backend.inspect(spec);
+            if (before.state === "not_installed") {
+              const progress =
+                dependencies.errorOutput ?? ((line: string) => process.stderr.write(`${line}\n`));
+              progress(`${component}: service not installed; installing with autostart enabled...`);
+              spec = { ...spec, enabled: true };
+              await mkdir(home, { recursive: true, mode: 0o700 });
+              await service.backend.install(spec);
+              progress(`${component}: installation complete; starting service...`);
+            }
+            await service.backend.start(spec);
+          }
+        );
+      } else {
+        const before = await service.backend.inspect(spec);
+        if (action === "restart" && before.state === "not_installed")
+          throw new Error("SERVICE_NOT_INSTALLED");
+        if (action === "uninstall") await service.backend.uninstall(spec);
+        if (action === "stop") await service.backend.stop(spec);
+        if (action === "restart") await service.backend.restart(spec);
+      }
       if (action === "start" || action === "restart") {
         const end = Date.now() + 30_000;
         while (true) {
           try {
             await componentStatus(home, component, dependencies.platform, true);
             break;
-          } catch {
-            if (Date.now() >= end) throw new Error("COMPONENT_UNAVAILABLE");
+          } catch (error) {
+            const failure = await readStartupFailure(join(home, "logs"), component, startedAt);
+            if (failure) throw failure;
+            const native = await service.backend.inspect(spec);
+            if (
+              native.state === "failed" ||
+              (native.state === "stopped" &&
+                native.lastExitCode !== undefined &&
+                native.lastExitCode !== 0)
+            )
+              throw new Error("SERVICE_PROCESS_EXITED", { cause: error });
+            if (Date.now() >= end) throw new Error("COMPONENT_UNAVAILABLE", { cause: error });
             await (dependencies.sleep ?? sleep)(100);
           }
         }
       }
     }
-    publish({ component, action, service: await service.backend.inspect(spec) });
+    if (action === "start" || action === "restart") {
+      const status = await snapshot(component);
+      publish(
+        { component, action, ...status },
+        `${component}: ${action} succeeded\n${formatStatus(component, status)}\nLogs: ${join(home, "logs")}`
+      );
+      return 0;
+    }
+    // 后续操作不把默认的 false 当作修改已安装服务自启的意图。
+    const native = await service.backend.inspect(spec);
+    publish(
+      { component, action, service: native },
+      `${component}: ${action} succeeded\nService: ${native.state}  Autostart: ${native.enabled ? "on" : "off"}\n${action === "install" ? `Next: octo-runtime ${component} start --home ${JSON.stringify(home)}\n` : ""}Logs: ${join(home, "logs")}`
+    );
     return 0;
   } catch (error) {
-    const code =
-      error instanceof Error && /^[A-Z][A-Z0-9_]+$/.test(error.message)
-        ? error.message
-        : "COMMAND_FAILED";
-    output(JSON.stringify({ error: { code } }));
-    return code === "SERVICE_NOT_INSTALLED"
+    if (runningComponent && context.logs)
+      await recordStartupFailure(context.logs, runningComponent, error);
+    const failure = { ...describeError(error), ...context };
+    const code = failure.code;
+    if (json) output(JSON.stringify({ error: failure }, null, 2));
+    else
+      (dependencies.errorOutput ?? ((line: string) => process.stderr.write(`${line}\n`)))(
+        `${[context.component, context.action].filter(Boolean).join(" ") || "octo-runtime"}: ${code}${failure.cause_code ? ` (${failure.cause_code})` : ""}\n${failure.message}${context.logs ? `\nLogs: ${context.logs}` : ""}`
+      );
+    return ["SERVICE_NOT_INSTALLED", "NOT_INSTALLED"].includes(code)
       ? 3
       : /INVALID|REQUIRED/.test(code)
         ? 2
         : /INCOMPLETE/.test(code)
           ? 5
-          : /UNAVAILABLE/.test(code)
+          : /UNAVAILABLE|SERVICE_PROCESS_EXITED/.test(code)
             ? 4
             : 1;
   }
 }
 async function componentStatus(
   home: string,
-  component: Component,
+  component: string,
   platform?: NodeJS.Platform,
   requireReady = false
 ): Promise<unknown> {
@@ -313,6 +432,7 @@ async function componentStatus(
   }
   return new Promise((resolve, reject) => {
     const socket = net.createConnection(endpoint);
+    const id = randomUUID();
     let bytes = "";
     socket.setTimeout(1000, () => {
       socket.destroy();
@@ -320,7 +440,7 @@ async function componentStatus(
     });
     socket.once("error", reject);
     socket.once("connect", () =>
-      socket.write(`${JSON.stringify({ jsonrpc: "2.0", id: randomUUID(), method: "status" })}\n`)
+      socket.write(`${JSON.stringify({ jsonrpc: "2.0", id, method: "status" })}\n`)
     );
     socket.on("data", (chunk: Buffer) => {
       bytes += chunk.toString("utf8");
@@ -331,7 +451,21 @@ async function componentStatus(
       }
       if (bytes.includes("\n")) {
         try {
-          resolve((JSON.parse(bytes) as { result: unknown }).result);
+          const response = JSON.parse(bytes.slice(0, bytes.indexOf("\n"))) as {
+            jsonrpc?: unknown;
+            id?: unknown;
+            result?: { name?: unknown; pid?: unknown; status?: unknown };
+          };
+          if (
+            response.jsonrpc !== "2.0" ||
+            response.id !== id ||
+            response.result?.name !== component ||
+            typeof response.result.pid !== "number" ||
+            !response.result.status ||
+            typeof response.result.status !== "object"
+          )
+            throw new Error("INVALID_RESPONSE");
+          resolve(response.result);
         } catch {
           reject(new Error("INVALID_RESPONSE"));
         }
