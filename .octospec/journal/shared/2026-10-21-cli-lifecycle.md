@@ -88,3 +88,7 @@ Gateway cardDeliveries、Gateway/WeCom deliveries 现直接读取内部 Map.size
 用户确认试用没有问题，要求解除全局链接并将当前 worktree 提交 PR、合并 main。已执行 npm unlink --global @mininglamp-oss/octo-runtime，确认 PATH 中不再有 octo-runtime；保留默认业务进程与配置。授权范围包括提交、推送、PR 和正常合并，不包括 npm 发布或绕过仓库保护。
 
 最终全仓格式与命名检查通过。交付前拉取 main，发现新增 #76 的宿主会话存储实现，需在提交后整合并重新验证；GitHub CI 与审批结果以 PR 为准。
+
+已 rebase 到 main@d44f5cd，保留宿主会话存储合同；冲突仅涉及索引及无状态规则文档，双方内容均保留。整合后构建、TypeScript、ESLint 与全量测试通过：Node 1416 通过、10 跳过，UI 35 通过，输出 /tmp/octo75-pr-integrated-tests.log。PR #80 首轮 Windows 发行包检查暴露 verify-release 仍断言旧的 stdout 错误、start 不安装与默认 JSON 合同；脚本改为文本错误检查 stderr、未安装 restart 显式 JSON、status/run 显式 JSON，并增加裸组件帮助和默认文本状态验证。自动安装仍由 CLI 回归及隔离原生生命周期脚本覆盖，离线包验证不新增系统服务。
+
+修正后重新打包并在空 npm 缓存、隔离 prefix/Home 中通过 verify-release：离线安装、公共类型、内置 Extra/WebUI、宿主会话存储、真实 Kernel/CLI 与卸载保留 Home 均通过，输出 /tmp/octo75-pr-offline.log。此验证未重新 link 全局。
