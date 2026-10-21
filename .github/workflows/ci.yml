@@ -77,6 +77,8 @@ jobs:
         run: pnpm format:check
       - name: Typecheck and build
         run: pnpm typecheck
+      - name: Check bilingual developer documentation and examples
+        run: pnpm docs:check
       - name: Check generated protocol and lockfile drift
         run: git diff --exit-code -- pnpm-lock.yaml packages/octo-runtime-protocol/src/generated/protocol-types.ts
       - name: Test
