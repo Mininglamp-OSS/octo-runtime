@@ -35,6 +35,7 @@ sources:
   - .octospec/tasks/_brief.template.md
   - .octospec/tasks/executor-kernel-host-lifecycle/design.md
   - packages/octo-runtime-host-sdk/src/extra-service.ts
+  - packages/octo-runtime-host-sdk/src/extra-dependencies.ts
   - packages/octo-runtime-executor-kernel/src/service.ts
   - packages/octo-runtime-executor-kernel/src/lifecycle.ts
   - packages/octo-runtime-host-sdk/src/extras.ts
@@ -68,6 +69,9 @@ sources:
   - public/channel-wecom.ts
   - public/webui.ts
   - test/extra-service-shutdown.test.js
+  - test/extra-dependency-container.test.js
+  - test/extra-startup.test.js
+  - test/service-bind-startup.test.js
   - test/host-sdk-lifecycle.test.js
   - test/component-startup.test.js
   - test-support/public-extra/builtin-extras.mts
@@ -90,6 +94,14 @@ remediation:
     R08: fixed-forced-exit-scoped-to-parsed-foreground-component-run
     slow_reader: complete-700049-byte-json-after-800ms-pause-exit-0
     incomplete_cleanup: bounded-cli-exit-5-preserved
+  pr_review_round_4:
+    reviewed_head: 843083693d060b21045df9af42fb3016f7fa93ae
+    review: https://github.com/Mininglamp-OSS/octo-runtime/pull/74#pullrequestreview-5593228740
+    status: locally-validated
+    R09: fixed-class-dependencies-preserve-prototype-symbol-nonenumerable-and-original-receiver
+    R10: extra-rejection-finding-not-reproduced-strict-late-failure-regression-passed
+    R11: kernel-race-observes-losing-branch-strict-late-failure-regression-passed
+    R12: kernel-bind-finding-not-reproduced-serial-rollback-and-expired-cleanup-regression-passed
 external_sources:
   - https://www.electronjs.org/docs/latest/api/environment-variables
   - https://www.electronjs.org/docs/latest/tutorial/fuses
@@ -136,7 +148,7 @@ verification:
   lint: passed
   lint_names: passed
   format_check: passed
-  node_tests: { total: 1370, passed: 1360, skipped: 10, failed: 0 }
-  focused_tests: { passed: 41 }
+  node_tests: { total: 1376, passed: 1366, skipped: 10, failed: 0 }
+  focused_tests: { passed: 52, unhandled_rejections: strict }
   ui_tests: { passed: 35 }
   offline_release: passed-after-remediation-including-webui-assets

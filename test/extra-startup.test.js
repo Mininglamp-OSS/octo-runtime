@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { performance } from "node:perf_hooks";
 import { createExtraService, componentEndpoint } from "@mininglamp-oss/octo-runtime-host-sdk";
+import { withShutdownDeadline } from "@mininglamp-oss/octo-runtime-host-sdk/shutdown";
 import { ServiceInitializationError } from "@mininglamp-oss/octo-runtime-executor-kernel";
 
 async function fixture(t) {
@@ -200,3 +202,34 @@ test(
     await stat(`${options.controlEndpoint}.owner`);
   }
 );
+
+test("startup rejection after cancelled cleanup expiry stays observed and preserves the cancellation cause", async (t) => {
+  const options = await fixture(t);
+  const entered = Promise.withResolvers();
+  const finish = Promise.withResolvers();
+  const controller = new AbortController();
+  const extra = createExtraService({
+    ...options,
+    module: {
+      name: "late-startup-rejection",
+      default: () => () => {
+        entered.resolve();
+        return finish.promise;
+      }
+    }
+  });
+  const initializing = extra.initialize({ signal: controller.signal });
+  const rejected = assert.rejects(initializing, (error) => {
+    assert.equal(error.cause.name, "AbortError");
+    assert.equal(error.cleanup.complete, false);
+    return true;
+  });
+  await entered.promise;
+  withShutdownDeadline(performance.now() + 80, () => controller.abort());
+  await rejected;
+  const cleanup = await extra.close();
+  finish.reject(new Error("LATE_STARTUP_FAILURE"));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal((await extra.status()).phase, "failed");
+  assert.equal(await extra.close(), cleanup);
+});

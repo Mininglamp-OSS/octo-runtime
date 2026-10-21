@@ -94,6 +94,8 @@ if (!cleanup.complete) reportCleanupFailure(cleanup);
 
 模块实例、JSON 配置和泛型业务依赖分别传入。业务函数直接在宿主进程执行，不序列化、不经依赖 IPC、不进入 Kernel。插件保持 extra(ctx, jsonConfig)(dependencies)，ctx.kernel 是实际 KernelClient，与 main 的普通 App 合同相同。ctx.onStatus 提供同步 JSON，ctx.onDispose 清理插件自己拥有的资源。SQLite 完全由宿主负责创建、连接、迁移和关闭；SDK/Extra 只调用宿主业务依赖，不接管数据库。
 
+dependencies 可为普通对象或类实例；继承方法、非枚举和 Symbol 成员均保留，方法 this 绑定宿主原对象，可读取私有状态。注入视图是只读浅快照，函数引用及值/访问器结果在装配时固定，宿主原对象不被冻结；动态数据通过这些方法读取，嵌套对象不递归代理。原生服务照常执行依赖关闭权限和实际异步在途限制。
+
 status 的服务 phase 与 plugin 业务快照分开；kernel_available 反映所选 Kernel 是否就绪，Extra 可以在 Kernel 暂时不可用时初始化。CLI 控制 socket 由同一服务实现维护，保留原有 status JSON-RPC 格式。Gateway 不创建或停止 Kernel。
 
 Extra 关闭共用 4 秒单调截止（可继承更早期限）：立即停止新 invoke 并通知插件停止新任务，并发等待所属 Run 排空和插件 dispose。插件在 disposer 中等待自己启动的消费、保存和投递任务，再清理自己的连接；这些任务在截止内仍可调用注入函数。插件清理结束或到期后拒绝后续依赖调用，再等待全部真实在途操作。宿主数据库始终由宿主关闭。超时只结束等待；返回 complete=false，保留失败所有权，不能重建同一 endpoint/name。SDK 不退出或强杀调用进程，也不能强停已开始的宿主函数。

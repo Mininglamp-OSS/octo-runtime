@@ -8,9 +8,9 @@ status: locally-validated
 
 # 当前状态
 
-当前基线 origin/main@70f0247ac7dc00cc9729b366eba64ea8288b5b78，分支 refactor/71-unified-sdk-services。2026-10-21 拉取最新 main 并 rebase；旧分支全部未提交改动（含新增文件）保存在 stash，仅作参考。最新 main 是协议和行为基准，不能以旧分支覆盖。`134b98b` 和第二轮修复 `afeea70` 已推送至 [PR #74](https://github.com/Mininglamp-OSS/octo-runtime/pull/74)；当前新增整改和核验见文末第三轮记录。
+当前基线 origin/main@70f0247ac7dc00cc9729b366eba64ea8288b5b78，分支 refactor/71-unified-sdk-services。2026-10-21 拉取最新 main 并 rebase；旧分支全部未提交改动（含新增文件）保存在 stash，仅作参考。最新 main 是协议和行为基准，不能以旧分支覆盖。`134b98b`、第二轮修复 `afeea70` 和第三轮修复 `8430836` 已推送至 [PR #74](https://github.com/Mininglamp-OSS/octo-runtime/pull/74)；当前新增整改和核验见文末第四轮记录。
 
-本次纳入 #72，保留 Gateway/Core/KernelClient 源码及其排空和失败语义，ExtraPlugins 已还原 main 实现，原生服务复用相同单调预算协调清理。删除旧 launcher 后，其专有启动 ACK 测试不再适用；新增 Gateway 排空测试和真实验证脚本迁移到 createKernelService/createExtraService。真实验证脚本只做 API 迁移，本轮不执行外部 IM/Provider 操作。
+本次纳入 #72，保留 Gateway/Core/KernelClient 源码及其排空和失败语义，ExtraPlugins 复用 main 生命周期实现，第四轮仅修正其泛型依赖快照装配；原生服务复用相同单调预算协调清理。删除旧 launcher 后，其专有启动 ACK 测试不再适用；新增 Gateway 排空测试和真实验证脚本迁移到 createKernelService/createExtraService。真实验证脚本只做 API 迁移，本轮不执行外部 IM/Provider 操作。
 
 此前独立评审发现：关闭过早禁用注入依赖导致终态写入失败、WebUI/WeCom 缺少公开模块迁移入口、工程规则残留依赖代理合同。本轮在 main 基线更新后，按用户授权完成三个整改项。
 
@@ -86,3 +86,13 @@ node scripts/pack-release.mjs 生成实际 dist/release/mininglamp-oss-octo-runt
 真实 CLI 慢读取回归通过：逐字节核对完整 JSON、反序列化结果及 stderr 路径，退出 0。挂起/拒绝 disposer 和初始化失败三个残留句柄回归仍退出 5，挂起路径约 4.4 秒。41 项 CLI/生命周期/绑定/架构定向测试通过；本轮全量 Node 1370 项，1360 通过、10 跳过、0 失败，UI 35 项通过；typecheck、lint、lint:names、format:check 通过。日志为 /tmp/octo-71-output-{red,typecheck,lint,names,format,focused,tests}.log。origin/main 再次 fetch 仍为 70f0247。
 
 本轮重新生成实际 tgz，并通过离线安装、严格包外类型、三个内置 Extra、WebUI 静态资源、原生 Kernel、独立 Extra、CLI Kernel 及卸载保留 Home 验证；日志为 /tmp/octo-71-output-{pack,release}.log。OctoSpec lint 通过：273 个单元、20 条规则、1724 个本地文件链接；git diff --check 通过。未发布发行物，未执行外部 Electron 或真实 IM/Provider。新提交的托管 CI 与 reviewer 复核独立于上述本地结果。
+
+# PR 第四轮：类实例依赖与异步拒绝核验
+
+核对 [yujiawei 对 8430836 的 review](https://github.com/Mininglamp-OSS/octo-runtime/pull/74#pullrequestreview-5593228740)，四项分别取证。R09 成立：createExtraService 与 ExtraPlugins.load 的对象展开都会丢失类原型方法。新增 3 项回归在修复前全部因 read/save 不是函数而失败。现共享私有浅快照函数保留继承、非枚举和 Symbol 成员，函数绑定宿主原对象，支持私有字段且不冻结宿主状态；服务继续包装权限、实际在途和共享截止。测试确认直接加载器和原生服务均可读取宿主更新、等待类方法保存；挂起的同一 Promise 仍逐次占额，超时保留 incomplete 和冲突所有权。值及访问器结果是构造时浅快照，嵌套对象不递归代理。
+
+R10/R11 未复现：Promise.race 对全部输入注册观察器，胜出后仍消费落败分支的拒绝；微任务间延后 catch 不会单独触发 Node 的未处理拒绝判定。Kernel 的 starting?.catch 实际在传参时同步执行。新增 Extra 初始化器在清理超时返回后才拒绝、Kernel bind 在取消及 5 秒清理超时返回后才拒绝的回归，在未改 Kernel 源码的情况下通过 --unhandled-rejections=strict，保留原错误和清理结果。R12 是 R07 的重复意见：Kernel 串行等待 bind，再检查取消并 rollback，测试确认迟到成功/失败后监听关闭、owner 租约释放、允许新实例。Kernel 源码保持不变，不添加无证据的拒绝吞错分支。
+
+52 项严格模式定向测试通过；全量 Node 1376 项，1366 通过、10 跳过、0 失败，UI 35 项通过。pnpm typecheck、lint、lint:names、format:check 通过。Windows 生命周期 CI 加入类实例回归并启用严格拒绝模式；本地执行平台仍为 macOS。失败对照为 /tmp/octo-71-review4-red.log，严格拒绝修复前对照为 review4-rejection-before.log，当前日志为 /tmp/octo-71-review4-{typecheck,lint,names,format,focused,full}.log。
+
+重新生成实际主包 tgz 并通过 scripts/verify-release.mjs，offlineInstall/publicTypes/builtinExtras/webuiAssets/nativeKernel/independentExtra/cliKernel/uninstallPreservedHome 均 true。包外 strict fixture 通过类实例方法读取宿主 SQLite，宿主随后自行查询和关闭数据库。日志为 /tmp/octo-71-review4-{pack,release}.log。OctoSpec lint 通过：273 个单元、20 条规则、1726 个本地文件链接；git diff --check 通过。托管 CI 和 reviewer 复核以新提交为准；未发布发行物、未执行外部 Electron 或真实 IM/Provider。

@@ -24,6 +24,7 @@ import {
   type JsonObject
 } from "./extras.js";
 import { shutdownDeadline, withShutdownDeadline, withinShutdown } from "./shutdown.js";
+import { snapshotExtraDependencies } from "./extra-dependencies.js";
 
 export interface ExtraServiceOptions<D extends object = Record<string, never>> {
   endpoint: string;
@@ -64,33 +65,20 @@ export function createExtraService<D extends object>(
   const owner = new AbortController();
   let dependenciesOpen = true;
   let shutdownUntil: number | undefined;
-  const dependencyValues = Object.freeze({ ...options.dependencies });
-  const dependencies = Object.freeze(
-    Object.fromEntries(
-      Object.entries(dependencyValues).map(([key, value]) => [
-        key,
-        typeof value !== "function"
-          ? value
-          : (...args: unknown[]) => {
-              // 取消通知不撤销尾部保存权限；清理完成或绝对截止后才禁止调用宿主函数。
-              if (!dependenciesOpen || performance.now() >= (shutdownUntil ?? Infinity))
-                throw new Error("EXTRA_DEPENDENCIES_CLOSED");
-              if (pendingDependencies.size >= 128)
-                throw new Error("EXTRA_DEPENDENCY_CAPACITY_EXHAUSTED");
-              const result: unknown = Reflect.apply(value, dependencyValues, args);
-              if (result && typeof (result as PromiseLike<unknown>).then === "function") {
-                // 每次调用独立占额；宿主复用同一 Promise 时也不能绕过在途上限。
-                const operation = Promise.resolve(result).then((value) => value);
-                pendingDependencies.add(operation);
-                void operation
-                  .finally(() => pendingDependencies.delete(operation))
-                  .catch(() => undefined);
-              }
-              return result;
-            }
-      ])
-    )
-  ) as Readonly<D>;
+  const dependencies = snapshotExtraDependencies(options.dependencies, (invoke) => (...args) => {
+    // 取消通知不撤销尾部保存权限；清理完成或绝对截止后才禁止调用宿主函数。
+    if (!dependenciesOpen || performance.now() >= (shutdownUntil ?? Infinity))
+      throw new Error("EXTRA_DEPENDENCIES_CLOSED");
+    if (pendingDependencies.size >= 128) throw new Error("EXTRA_DEPENDENCY_CAPACITY_EXHAUSTED");
+    const result = invoke(...args);
+    if (result && typeof (result as PromiseLike<unknown>).then === "function") {
+      // 每次调用独立占额；宿主复用同一 Promise 时也不能绕过在途上限。
+      const operation = Promise.resolve(result).then((value) => value);
+      pendingDependencies.add(operation);
+      void operation.finally(() => pendingDependencies.delete(operation)).catch(() => undefined);
+    }
+    return result;
+  });
   const ownership = { failed: false };
   let acquired = false;
   let phase: ServicePhase = "created";

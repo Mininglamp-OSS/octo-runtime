@@ -91,6 +91,15 @@ try {
         interface Dependencies {
           read(): string;
         }
+        class BusinessDependencies implements Dependencies {
+          readonly #database: DatabaseSync;
+          constructor(database: DatabaseSync) {
+            this.#database = database;
+          }
+          read(): string {
+            return String(this.#database.prepare("SELECT text FROM business").get()?.text);
+          }
+        }
         const module: ExtraPluginModule<Dependencies> = {
           name: "business-fixture",
           default(ctx) {
@@ -105,9 +114,7 @@ try {
           endpoint,
           module,
           config: {},
-          dependencies: {
-            read: () => String(database.prepare("SELECT text FROM business").get()?.text)
-          }
+          dependencies: new BusinessDependencies(database)
         });
         await business.initialize();
         assert.equal((await business.status()).plugin.text, "kept");

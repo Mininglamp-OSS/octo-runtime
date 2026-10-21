@@ -48,34 +48,57 @@ async function delayedBind(t) {
   };
 }
 
-test("Kernel cancellation waits for in-flight bind then rolls back and releases the endpoint", async (t) => {
-  const bind = await delayedBind(t);
-  const options = {
-    endpoint: bind.endpoint,
-    workerEntrypoint: resolve("test/fixtures/direct-adapter-host.js")
-  };
-  const kernel = createKernelService(options);
-  const controller = new AbortController();
-  const initializing = kernel.initialize({ signal: controller.signal });
-  const rejected = assert.rejects(initializing, (error) => error.cleanup.complete);
-  await bind.entered;
-  controller.abort();
-  let closed = false;
-  const closing = kernel.close().then((result) => {
-    closed = true;
-    return result;
-  });
-  await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(closed, false);
-  bind.resume();
-  await rejected;
-  assert.equal((await closing).complete, true);
-  assert.equal(bind.server.listening, false);
-  const replacement = createKernelService(options);
-  t.after(() => replacement.close());
-  await replacement.initialize();
-  assert.equal((await replacement.close()).complete, true);
-});
+for (const mode of ["success", "failure", "late-failure"])
+  test(
+    `Kernel cancellation observes in-flight bind and rollback (${mode})`,
+    { timeout: 10000 },
+    async (t) => {
+      const bind = await delayedBind(t);
+      const options = {
+        endpoint: bind.endpoint,
+        workerEntrypoint: resolve("test/fixtures/direct-adapter-host.js")
+      };
+      const kernel = createKernelService(options);
+      const controller = new AbortController();
+      const initializing = kernel.initialize({ signal: controller.signal });
+      const rejected = assert.rejects(initializing, (error) => {
+        assert.equal(error.cause, controller.signal.reason);
+        assert.equal(error.cleanup.complete, mode !== "late-failure");
+        return true;
+      });
+      await bind.entered;
+      controller.abort();
+      let closed = false;
+      const closing = kernel.close().then((result) => {
+        closed = true;
+        return result;
+      });
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.equal(closed, false);
+      if (mode === "late-failure") await rejected;
+      bind.resume(mode === "success" ? undefined : new Error("BIND_FAILED"));
+      await rejected;
+      assert.equal((await closing).complete, mode !== "late-failure");
+      // 即使服务已超时返回，迟到失败仍须被观察，原 server 的回滚也须实际结束。
+      if (process.platform !== "win32")
+        await waitFor(async () => {
+          try {
+            await stat(`${bind.endpoint}.owner`);
+            return false;
+          } catch (error) {
+            if (error.code === "ENOENT") return true;
+            throw error;
+          }
+        });
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.equal(bind.server.listening, false);
+      t.mock.restoreAll();
+      const replacement = createKernelService(options);
+      t.after(() => replacement.close());
+      await replacement.initialize();
+      assert.equal((await replacement.close()).complete, true);
+    }
+  );
 
 for (const failBind of [false, true]) {
   test(`Extra closes a control bind settled after its cleanup deadline (failure=${failBind})`, async (t) => {
