@@ -23,6 +23,14 @@ timestamp: 2026-10-21T00:00:00Z
 
 # 实施与验收
 
+PR #80 评审整改：先 rebase 最新 main@43cdee7，保留双语开发文档及根 README 复用发行策略，再处理并发部署、前台终态诊断及原生停止/删除失败。决定权仍属于各组件宿主；不更改 SDK 自启或业务投递合同。cross-service 除此前 launchd 修复外，本轮按评审补齐 systemd/Windows 的真实命令失败传播及停止确认，不调整其自启触发器或引入新服务实现。
+
+- [x] 所有修改服务的组件命令共用 setup lock，包含就绪等待和最终状态确认；并发请求返回可诊断忙状态。
+- [x] initialize 失败、ready 后意外关闭及 closed 拒绝只处理一次，移除 signal 监听、记录和输出受控错误，清理失败仍返回非零。
+- [x] 旧 manager 退出码不推定本次 start/restart 失败；当前日志失败或就绪预算负责决定结果。
+- [x] systemd/Windows 停止、删除失败不报成功；仅原生明确不存在可忽略，旧实例未停止不删除定义或启动替换。
+- [x] 更新 main 新增双语 CLI 文档的默认自启说明，已完成定向/全量及隔离 macOS 验证；提交后的实际发行包检查另行记录。
+
 - [x] Gateway cardDeliveries / Gateway 与 WeCom deliveries 仅返回现有回执总数，不输出明细；原有 512 条缓存及投递机制保持不变。
 - [x] start/restart 成功后包含同组件 status 的文本与 JSON 数据，并验证 Kernel Worker 与 Extra 业务状态。
 - [x] start 未安装时自动安装当前组件并开启自启，输出 stderr 阶段日志；安装失败不启动，--json 保持可解析，已安装保留设置。

@@ -198,6 +198,8 @@ test("Windows install registers structured XML and inspect detects no drift", as
       return registered ? result() : result(1, "", "task not found");
     }
     if (command.endsWith("powershell.exe")) {
+      if (args.at(-1).includes("Schedule.Service"))
+        return result(0, JSON.stringify({ exists: registered }));
       if (!registered) return result(1, "", "task not found");
       return result(
         0,

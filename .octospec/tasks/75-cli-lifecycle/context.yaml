@@ -1,5 +1,11 @@
 baseline: 0c1d1c99c90a85c715212de6e55858a41924f058
-integration_baseline: d44f5cd42694b5f8cb7c8c18daa65eff0265ba8e
+integration_baseline: 43cdee721857495138bb48539b2c42dfa5d8ca8b
+review_remediation:
+  pull_request: 80
+  component_mutations_locked: true
+  foreground_terminal_diagnostics: true
+  native_stop_delete_confirmation: true
+  historical_exit_status_not_current_failure: true
 issue: 75
 product_policy:
   audience: ordinary_users

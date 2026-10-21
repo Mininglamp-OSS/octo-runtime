@@ -111,14 +111,15 @@ export function describeError(error: unknown, fallback = "COMMAND_FAILED") {
     KERNEL_UNAVAILABLE:
       "Kernel is unavailable. Check executor-kernel status; Extras can remain running.",
     INVALID_ARGUMENTS: "Use --help to see the available commands and flags.",
+    SETUP_IN_PROGRESS:
+      "Another component lifecycle operation is in progress. Wait for it to finish, then retry.",
     SERVICE_NOT_INSTALLED: "Run this component's install command, then start it.",
     NOT_INSTALLED: "Run this component's install command, then start it.",
     EXTRA_NOT_REGISTERED: "Save this Extra's declaration with extraset before starting it.",
     MANAGER_UNAVAILABLE: "Run doctor and check the current user's native service manager.",
     COMPONENT_UNAVAILABLE:
       "Check component status and the service logs; the IPC or worker is not ready.",
-    SERVICE_PROCESS_EXITED:
-      "The service exited before readiness. Check its logs and configuration.",
+    SERVICE_PROCESS_EXITED: "The service exited unexpectedly. Check its logs and configuration.",
     SERVICE_INITIALIZATION_FAILED: "Check the component configuration, manifest and service logs.",
     SERVICE_DISABLED: "Enable this component with install --autostart=true, then start it."
   };

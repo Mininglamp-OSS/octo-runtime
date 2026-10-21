@@ -70,7 +70,7 @@ octo-runtime extraset channel-gateway <<'JSON'
 JSON
 ```
 
-Configuration is saved under your Runtime Home, normally `~/.octo-runtime` (`%LOCALAPPDATA%\OctoRuntime` on Windows). Bot workspaces default to `~/octo-runtime/channels/{bot_id}`. See the [Gateway guide](packages/octo-runtime-extra-channel-gateway/README.md) for multiple Bots, permissions and other Provider settings. For a browser workspace or WeCom, use the [Extra configuration guide](.octospec/guides/extra-configuration.md).
+Configuration is saved under your Runtime Home, normally `~/.octo-runtime` (`%LOCALAPPDATA%\OctoRuntime` on Windows). Bot workspaces default to `~/octo-runtime/channels/{bot_id}`. See the [Gateway guide](https://github.com/Mininglamp-OSS/octo-runtime/blob/main/packages/octo-runtime-extra-channel-gateway/README.md) for multiple Bots, permissions and other Provider settings. For a browser workspace or WeCom, use the [Extra configuration guide](https://github.com/Mininglamp-OSS/octo-runtime/blob/main/.octospec/guides/extra-configuration.md).
 
 ### 3. Start
 
@@ -84,7 +84,7 @@ Each `start` installs its component's service if needed, enables autostart durin
 
 Successful `start` and `restart` commands include the component's current status: service state, autostart, IPC, PID, Worker readiness or Extra business status, and the service definition path. `status` shows the same readable status; use `--json` for formatted JSON. Kernel readiness and Bot connectivity are reported separately. You can now message your Bot in Octo IM.
 
-After changing Gateway configuration, run `octo-runtime channel-gateway restart`. Use `stop` to stop a component or `uninstall` to remove its service while keeping your data. Explicit `install --autostart=false` disables autostart; a plain `install` enables it again. See [CLI commands](apps/cli/README.md) for foreground execution and troubleshooting.
+After changing Gateway configuration, run `octo-runtime channel-gateway restart`. Use `stop` to stop a component or `uninstall` to remove its service while keeping your data. Explicit `install --autostart=false` disables autostart; a plain `install` enables it again. See [CLI commands](https://github.com/Mininglamp-OSS/octo-runtime/blob/main/apps/cli/README.md) for foreground execution and troubleshooting.
 
 ## Embed the SDK
 
@@ -99,7 +99,7 @@ Applications can construct the Kernel and Extras directly in their own process t
 | `@mininglamp-oss/octo-runtime/protocol` | Execution inputs, events and validation |
 | `@mininglamp-oss/octo-runtime/extras/*` | Built-in Extra modules and configuration schemas |
 
-Follow the [SDK integration guide](SDK_NATIVE_INTEGRATION_FULL_GUIDE.md) or the [SDK Gateway guide](SDK_CHANNEL_GATEWAY_GUIDE.md). Desktop applications use the SDK directly. `octo-cli`, the Octo business API tool, is a separate program from `octo-runtime`.
+Follow the [SDK integration guide](https://github.com/Mininglamp-OSS/octo-runtime/blob/main/SDK_NATIVE_INTEGRATION_FULL_GUIDE.md) or the [SDK Gateway guide](https://github.com/Mininglamp-OSS/octo-runtime/blob/main/SDK_CHANNEL_GATEWAY_GUIDE.md). Desktop applications use the SDK directly. `octo-cli`, the Octo business API tool, is a separate program from `octo-runtime`.
 
 ## Documentation
 

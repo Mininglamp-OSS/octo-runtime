@@ -92,3 +92,18 @@ Gateway cardDeliveries、Gateway/WeCom deliveries 现直接读取内部 Map.size
 已 rebase 到 main@d44f5cd，保留宿主会话存储合同；冲突仅涉及索引及无状态规则文档，双方内容均保留。整合后构建、TypeScript、ESLint 与全量测试通过：Node 1416 通过、10 跳过，UI 35 通过，输出 /tmp/octo75-pr-integrated-tests.log。PR #80 首轮 Windows 发行包检查暴露 verify-release 仍断言旧的 stdout 错误、start 不安装与默认 JSON 合同；脚本改为文本错误检查 stderr、未安装 restart 显式 JSON、status/run 显式 JSON，并增加裸组件帮助和默认文本状态验证。自动安装仍由 CLI 回归及隔离原生生命周期脚本覆盖，离线包验证不新增系统服务。
 
 修正后重新打包并在空 npm 缓存、隔离 prefix/Home 中通过 verify-release：离线安装、公共类型、内置 Extra/WebUI、宿主会话存储、真实 Kernel/CLI 与卸载保留 Home 均通过，输出 /tmp/octo75-pr-offline.log。此验证未重新 link 全局。
+
+# PR 80 评审整改与再次整合 main
+
+用户要求先整合最新远端 main，再查看评审。已 rebase 到 main@43cdee7（#79 双语开发文档），保留双语文档入口、根 README 作为 npm README 的装包策略及已删除的 release/README.md。根 README 保持英文快速开始与 IPC 图，并使用可在发行包中打开的仓库链接；同步双语 CLI 指南的默认自启与显式 JSON 合同。
+
+评审指出的三个 P1 及一个 P2 已落实：
+
+- install/start/restart/stop/uninstall 共用组件 setup lock，覆盖 inspect、修改、就绪与最终状态确认。同组件并发请求返回 SETUP_IN_PROGRESS 和重试提示，不调用管理器；不同组件仍独立。
+- 前台服务通过统一幂等终态处理 initialize 失败、意外 closed、closed 拒绝和 signal；移除监听、取消初始化、确认清理并记录/输出受控失败一次，原始初始化失败不被清理拒绝吞掉。
+- systemd uninstall 停止/禁用失败传播，删除前确认 inactive/failed 与 MainPID=0；Windows /End 后等待旧任务停止再删除或启动替换。/End、/Delete、权限/管理器失败不视为成功；/Query 非零通过 Task Scheduler 原生 HRESULT 确认缺失，不依赖本地化文字。Windows 重装停止失败时保留旧 sidecar。
+- 启动后不再以 manager 的历史 LastTaskResult/ExecMainStatus 判定新启动失败，无本次日志失败证据就保留就绪预算。定向测试模拟旧失败仍被读取、随后 IPC 成功的延迟启动；不冒充原生 Windows 复现。
+
+本地构建、TypeScript、lint、命名、格式与 docs:check 通过。首轮整改全量 Node 1436 通过、10 跳过，UI 35 通过，输出 /tmp/octo80-review-full.log；之后补充 systemd 失败状态查询和 Windows 重装失败保护回归。macOS launchd 118 条命令通过，证据 /tmp/oc75-live-cwsm5V/evidence.json，临时服务/Home 已清理，未操作默认实例或恢复全局链接。Linux/Windows 后端故障由确定性 fixture 覆盖；本机仍未执行其原生服务注册、实际重登或真实 IM/Provider 调用。
+
+最终代码再次全量验证：Node 1438 通过、10 跳过、0 失败，UI 35 通过，输出 /tmp/octo80-review-final-full.log；最终后端/CLI lint 与 diff 检查通过。更新远端使用显式旧 head 的 force-with-lease，避免覆盖他人提交；后续发行包与 GitHub 检查结果记录在 PR。

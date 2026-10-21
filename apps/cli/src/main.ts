@@ -17,6 +17,7 @@ import {
 } from "@mininglamp-oss/octo-runtime-host-sdk";
 import { getExtra, readExtra, setExtra } from "./extras.js";
 import { cliVersionInfo, helpText } from "./help.js";
+import { runForegroundService } from "./foreground.js";
 import {
   defaultRuntimeHome,
   runtimePaths,
@@ -257,39 +258,13 @@ export async function runCli(args: string[], dependencies: CliDependencies = {})
           controlEndpoint: componentEndpoint(home, component, dependencies.platform)
         });
       }
-      return new Promise<number>((resolve) => {
-        const initialization = new AbortController();
-        let stopped = false;
-        let ready = false;
-        const detach = () => {
-          process.off("SIGINT", stop);
-          process.off("SIGTERM", stop);
-        };
-        const stop = () => {
-          if (stopped) return;
-          stopped = true;
-          detach();
-          initialization.abort();
-          void handle.close().then(
-            (result) => resolve(result.complete ? 0 : 5),
-            () => resolve(5)
-          );
-        };
-        process.once("SIGINT", stop);
-        process.once("SIGTERM", stop);
-        void handle.initialize({ signal: initialization.signal }).then(
-          () => {
-            if (!stopped) {
-              ready = true;
-              publish({ component, state: "ready" }, `${component}: ready`);
-            }
-          },
-          async (error: unknown) => {
-            if (stopped) return;
-            stopped = true;
-            detach();
-            const result = await handle.close();
+      return runForegroundService(
+        handle,
+        () => publish({ component, state: "ready" }, `${component}: ready`),
+        async (error: unknown) => {
+          try {
             await recordStartupFailure(join(home, "logs"), component, error);
+          } finally {
             const failure = {
               ...describeError(error, "SERVICE_INITIALIZATION_FAILED"),
               ...context
@@ -299,40 +274,25 @@ export async function runCli(args: string[], dependencies: CliDependencies = {})
               (dependencies.errorOutput ?? ((line: string) => process.stderr.write(`${line}\n`)))(
                 `${component}: ${failure.code}${failure.cause_code ? ` (${failure.cause_code})` : ""}\n${failure.message}\nLogs: ${context.logs}`
               );
-            resolve(result.complete ? 1 : 5);
           }
-        );
-        void handle.closed
-          .then((result) => {
-            if (stopped || !ready) return;
-            stopped = true;
-            detach();
-            resolve(result.complete ? 1 : 5);
-          })
-          .catch(() => resolve(5));
-      });
+        }
+      );
     }
     const serviceArgs = [
       ...(flags.profile ? ["--profile", profile] : []),
       ...(flags.manifest ? ["--manifest", resolve(flags.manifest)] : [])
     ];
     let spec = service.spec(home, component, false, serviceArgs);
-    const startedAt = Date.now();
-    if (action === "install") {
-      await withSetupLock(
-        { ...paths, setupLock: join(home, "run", `${component}.setup.lock`) },
-        async () => {
+    // 同组件所有部署修改及最终状态确认串行；不同组件仍可独立启动。
+    return await withSetupLock(
+      { ...paths, setupLock: join(home, "run", `${component}.setup.lock`) },
+      async () => {
+        if (action === "install") {
           spec = { ...spec, enabled: flags.autostart !== "false" };
           await mkdir(home, { recursive: true, mode: 0o700 });
           await service.backend.install(spec);
-        }
-      );
-    } else {
-      if (action === "start") {
-        // 安装检查与启动共用组件锁，避免并发 start 重复注册；已安装时保留用户设置。
-        await withSetupLock(
-          { ...paths, setupLock: join(home, "run", `${component}.setup.lock`) },
-          async () => {
+        } else {
+          if (action === "start") {
             const before = await service.backend.inspect(spec);
             if (before.state === "not_installed") {
               const progress =
@@ -343,55 +303,48 @@ export async function runCli(args: string[], dependencies: CliDependencies = {})
               await service.backend.install(spec);
               progress(`${component}: installation complete; starting service...`);
             }
-            await service.backend.start(spec);
+          } else if (action === "restart") {
+            const before = await service.backend.inspect(spec);
+            if (before.state === "not_installed") throw new Error("SERVICE_NOT_INSTALLED");
           }
-        );
-      } else {
-        const before = await service.backend.inspect(spec);
-        if (action === "restart" && before.state === "not_installed")
-          throw new Error("SERVICE_NOT_INSTALLED");
-        if (action === "uninstall") await service.backend.uninstall(spec);
-        if (action === "stop") await service.backend.stop(spec);
-        if (action === "restart") await service.backend.restart(spec);
-      }
-      if (action === "start" || action === "restart") {
-        const end = Date.now() + 30_000;
-        while (true) {
-          try {
-            await componentStatus(home, component, dependencies.platform, true);
-            break;
-          } catch (error) {
-            const failure = await readStartupFailure(join(home, "logs"), component, startedAt);
-            if (failure) throw failure;
-            const native = await service.backend.inspect(spec);
-            if (
-              native.state === "failed" ||
-              (native.state === "stopped" &&
-                native.lastExitCode !== undefined &&
-                native.lastExitCode !== 0)
-            )
-              throw new Error("SERVICE_PROCESS_EXITED", { cause: error });
-            if (Date.now() >= end) throw new Error("COMPONENT_UNAVAILABLE", { cause: error });
-            await (dependencies.sleep ?? sleep)(100);
+          if (action === "uninstall") await service.backend.uninstall(spec);
+          if (action === "stop") await service.backend.stop(spec);
+          const startedAt = Date.now();
+          if (action === "start") await service.backend.start(spec);
+          if (action === "restart") await service.backend.restart(spec);
+          if (action === "start" || action === "restart") {
+            const end = Date.now() + 30_000;
+            while (true) {
+              try {
+                await componentStatus(home, component, dependencies.platform, true);
+                break;
+              } catch (error) {
+                const failure = await readStartupFailure(join(home, "logs"), component, startedAt);
+                if (failure) throw failure;
+                // LastTaskResult/ExecMainStatus 可能仍属于旧进程；无本次失败证据就保留就绪预算。
+                if (Date.now() >= end) throw new Error("COMPONENT_UNAVAILABLE", { cause: error });
+                await (dependencies.sleep ?? sleep)(100);
+              }
+            }
           }
         }
+        if (action === "start" || action === "restart") {
+          const status = await snapshot(component);
+          publish(
+            { component, action, ...status },
+            `${component}: ${action} succeeded\n${formatStatus(component, status)}\nLogs: ${join(home, "logs")}`
+          );
+          return 0;
+        }
+        // 后续操作不把默认的 false 当作修改已安装服务自启的意图。
+        const native = await service.backend.inspect(spec);
+        publish(
+          { component, action, service: native },
+          `${component}: ${action} succeeded\nService: ${native.state}  Autostart: ${native.enabled ? "on" : "off"}\n${action === "install" ? `Next: octo-runtime ${component} start --home ${JSON.stringify(home)}\n` : ""}Logs: ${join(home, "logs")}`
+        );
+        return 0;
       }
-    }
-    if (action === "start" || action === "restart") {
-      const status = await snapshot(component);
-      publish(
-        { component, action, ...status },
-        `${component}: ${action} succeeded\n${formatStatus(component, status)}\nLogs: ${join(home, "logs")}`
-      );
-      return 0;
-    }
-    // 后续操作不把默认的 false 当作修改已安装服务自启的意图。
-    const native = await service.backend.inspect(spec);
-    publish(
-      { component, action, service: native },
-      `${component}: ${action} succeeded\nService: ${native.state}  Autostart: ${native.enabled ? "on" : "off"}\n${action === "install" ? `Next: octo-runtime ${component} start --home ${JSON.stringify(home)}\n` : ""}Logs: ${join(home, "logs")}`
     );
-    return 0;
   } catch (error) {
     if (runningComponent && context.logs)
       await recordStartupFailure(context.logs, runningComponent, error);
