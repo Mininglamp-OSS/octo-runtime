@@ -191,6 +191,20 @@ test("CLI daemon restart refreshes and authenticates rotated Home connection wit
   }
   const repo = fileURLToPath(new URL("..", import.meta.url));
   const env = { ...process.env, OPENCLAW_HOME: source };
+  const manifest = join(root, "openclaw-manifest.json");
+  await writeFile(
+    manifest,
+    JSON.stringify({
+      version: 1,
+      adapters: [
+        {
+          type: "openclaw",
+          module: join(repo, "packages/octo-runtime-adapter-openclaw/dist/index.js"),
+          export: "openclawAdapter"
+        }
+      ]
+    })
+  );
   delete env.OPENCLAW_GATEWAY_URL;
   delete env.OPENCLAW_GATEWAY_TOKEN;
   let previousDevice;
@@ -214,7 +228,7 @@ test("CLI daemon restart refreshes and authenticates rotated Home connection wit
         "--home",
         home,
         "--manifest",
-        join(repo, "test/fixtures/adapters.json")
+        manifest
       ],
       {
         env,

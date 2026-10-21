@@ -51,6 +51,8 @@
 
 ## 当前任务
 
+- [Issue 85：Adapter/Extra 解耦与双模式载入](tasks/85-provider-decoupling/brief.md)：基于 `origin/main@d064cfe`，分支 `spec/85-provider-decoupling`；默认发行全量，SDK 原生 import、调用进程装配、无 manifest，CLI 内置与 Home 双清单按原始来源解析。FDE 复制及依赖由业务方自行处理。M0–M3 已实施，[17 项验收及边界](tasks/85-provider-decoupling/implementation.md)、[双语文档](../docs/zh-CN/concepts/module-loading.md)及[架构约束](rules/architecture.md#cli-与-sdk-的-adapterextra-装配约束)已同步。全量回归及实际 tgz 隔离安装通过，未提交或发布。
+
 - [Gateway 宿主会话存储与 Extra 公共合同（#57/#66）](tasks/channel-host-session-store/brief.md)：基于 `main@0c1d1c9`、分支 `feat/channel-host-session-store` 实施。逐 Bot 工厂/句柄、共享关闭期限、业务入口与包外样例已接通；见[实施结果](tasks/channel-host-session-store/implementation.md)、[24 项验收](tasks/channel-host-session-store/acceptance.md)、[文档独立验收](tasks/channel-host-session-store/documentation.md)和[验证记录](journal/shared/2026-10-21-channel-host-session-store-implementation.md)。Node 1401 通过/10 跳过、UI 35 通过。整个 Runtime 不依赖 SQLite；用户授权合入 main 后自行执行真实宿主/Provider 测试。
 - [Issue 75：CLI 独立服务与启动诊断](tasks/75-cli-lifecycle/brief.md)：分支 fix/75-cli-lifecycle，PR #80 已 rebase 到 main@43cdee7。start 自动安装、默认自启、独立 Extra、易读 status、用途帮助及英文 README/IPC 图已实施；投递状态仅展示回执数量。评审整改覆盖组件修改锁、前台终态诊断、旧退出码误判及 systemd/Windows 停止/删除确认。最终 Node 1438 通过、10 跳过，UI 35 通过；隔离 macOS 真机 118 条命令通过，见[本轮记录](journal/shared/2026-10-21-cli-lifecycle.md)。Windows/Linux 原生与实际重登待验；全局已 unlink，提交 PR 与合并已授权。
 
@@ -155,7 +157,7 @@
 
 - [单一发行包的第三方插件合同](tasks/public-plugin-contracts/brief.md)：公开 Extra/协议类型与工具，仓库外 TS 工程及真实 Agent Run 验证；第三方 Adapter 入口和 CLI 追加清单仍待实施，详见[验证记录](journal/shared/2026-10-15-public-plugin-contracts.md)。
 
-- [CLI 与 SDK 分别决定 Adapter 加载集合](tasks/adapter-composition-ownership/brief.md)：CLI 默认清单固定归属 apps/cli/src/default_adapters.json，SDK 在独立 Host 入口直接 import；默认来源拆分已实施，第三方追加清单仍待实现。依赖与包体归宿主，接入示例及加载实现必须有详细中文注释。
+- [CLI 与 SDK 分别决定 Adapter 加载集合](tasks/adapter-composition-ownership/brief.md)：原 CLI 默认 Adapter 表已由 [Issue 85](tasks/85-provider-decoupling/implementation.md)合并为 apps/cli/src/manifest.json，支持 Home 扩展及 Extra；SDK 自有 worker 原生 import，Kernel/Extra 由调用进程直接创建。依赖与包体归宿主，接入示例及加载实现必须有详细中文注释。
 
 - [移除 AdapterHost app 启动壳](tasks/remove-adapter-host-app/brief.md)：apps 收敛为 CLI 与 daemon，统一使用 package runner，保留独立 Host 进程及全部 CLI 功能；检查、离线安装与真实 Provider 结果见[验证记录](journal/shared/2026-10-15-remove-adapter-host-app.md)。
 
