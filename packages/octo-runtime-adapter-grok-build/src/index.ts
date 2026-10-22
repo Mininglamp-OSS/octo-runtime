@@ -58,16 +58,11 @@ export function createGrokBuildAdapter({
         const methods = Array.isArray(init.authMethods)
           ? init.authMethods.map((m) => record(m).id)
           : [];
-        const methodId = env.XAI_API_KEY
-          ? methods.includes("xai.api_key")
-            ? "xai.api_key"
-            : undefined
-          : methods.includes("cached_token")
-            ? "cached_token"
-            : undefined;
+        // 只按 harness 广告顺序协商非交互握手；凭据来源和可用性由 harness 判断。
+        const methodId = methods.find((id) => id === "xai.api_key" || id === "cached_token");
         if (!methodId)
           throw new Error(
-            "GROK_AUTH_REQUIRED: run grok login or supply XAI_API_KEY in the execution environment"
+            "GROK_AUTH_REQUIRED: Grok Build did not advertise a supported non-interactive ACP authentication method; check the harness setup"
           );
         try {
           await client.request(
@@ -76,7 +71,9 @@ export function createGrokBuildAdapter({
             { timeoutMs: 30_000 }
           );
         } catch {
-          throw new Error("GROK_AUTH_FAILED: run grok login again or check XAI_API_KEY");
+          throw new Error(
+            "GROK_AUTH_FAILED: Grok Build rejected ACP authentication; check the harness setup"
+          );
         }
       },
       sessionParams(params, request, fresh) {

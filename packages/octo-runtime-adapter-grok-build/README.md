@@ -5,14 +5,15 @@
 Runtime 不调用 xAI 模型 API，也不嵌入 Grok 源码。支持 canonical，调用方必须显式选择
 `protocol_mode: "canonical"`。
 
-认证、会话配置、原生追问和取消策略均在 `grok-build` 包内；通用 ACP client、adapter 与 SDK
+ACP 认证握手、会话配置、原生追问和取消策略均在 `grok-build` 包内；通用 ACP client、adapter 与 SDK
 审批桥保持现有实现。每次调用独立持有子进程、RPC 队列、交互和取消状态，不修改全局环境或
 其他 adapter 实例。宿主仍负责为 bot 传入正确的工作目录和显式 provider session。
 
 ## 安装与认证
 
-按 [Grok Build 官方文档](https://docs.x.ai/build/overview)安装 CLI，在 Runtime 的操作系统账号下
-运行 `grok login`，或通过本轮执行环境提供 `XAI_API_KEY`。固定验证版本为
+宿主或使用者按 [Grok Build 官方文档](https://docs.x.ai/build/overview)安装 CLI，
+为 Runtime 的操作系统账号准备可直接使用的 harness。登录、授权、凭据来源、存储与刷新由宿主及
+harness 负责；Runtime 不要求或检测指定认证环境变量。固定验证版本为
 `grok 1.0.67 (2fe064390d07)`；适配器接受兼容的 `>=1.0.67, <2.0.0`，其他版本未实测。
 
 ```bash
@@ -21,7 +22,9 @@ pnpm cli adapter probe grok-build
 
 probe 仅检查命令与版本。invoke 使用 ACP `initialize` → `authenticate` →
 `session/new` 或 `session/load` → `session/prompt`。只使用已广告的 `xai.api_key` 或
-`cached_token` 非交互认证，不自动打开浏览器登录、不修改认证文件或持久配置。
+`cached_token` 非交互握手，按 harness 广告顺序选择，不根据环境变量推断认证状态。
+harness 自行解析并验证已有认证材料；真实拒绝如实失败，不自动尝试其他认证方式。
+不自动打开浏览器登录、不读取或修改认证文件及持久配置。
 `--no-leader` 保持每次调用的进程和环境独立，`--no-auto-update` 避免执行中升级。
 
 ## 参数与限制

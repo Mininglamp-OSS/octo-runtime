@@ -1,4 +1,4 @@
-status: pr-ready
+status: pr-review-updated
 recorded_on: 2026-10-22
 baseline: 102fb9caf995d9eb1ac53acaf5b91922be4f023d
 baseline_source: git-fetch-origin-main
@@ -72,3 +72,10 @@ verification:
   rebase: completed-with-log-only-conflict
   post_rebase_release_offline_install: passed
   post_rebase_full_suite: passed-on-recheck
+  auth_boundary_revision:
+    grok_fixture: 28-passed
+    full_node_suite: 1615-passed-35-skipped
+    ui_suite: 35-passed
+    typecheck_lint_names_format_docs: passed
+    provider_auth_env_dependency: removed
+    shared_acp_behavior_diff: none

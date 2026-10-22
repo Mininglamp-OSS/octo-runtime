@@ -20,7 +20,7 @@ worktree 为 `octo-runtime-grok-build-acp`。初次本地验证阶段未提交�
 
 - 新增 private workspace 模块 `@mininglamp-oss/octo-runtime-adapter-grok-build`，type `grok-build`，canonical-only。
 - 仍用共享 ACP client，每轮拉起 `grok --no-auto-update agent --no-leader stdio`。Grok CLI 拥有原生工具与模型调用；源码仅供字段参考，不成为运行依赖。
-- Grok 包负责认证、私有 session metadata、精确缺失会话判定、model/effort/mode setter、追问与计划 review 映射、用量和结果校验；不把 Provider 分支放入 Core、Kernel 或 Host SDK。
+- Grok 包负责 ACP 认证握手、私有 session metadata、精确缺失会话判定、model/effort/mode setter、追问与计划 review 映射、用量和结果校验；harness 的登录、授权及凭据准备归使用者与宿主，不把 Provider 分支放入 Core、Kernel 或 Host SDK。
 - 按用户追加约束撤回共享 ACP client、通用 ACP adapter、SDK 审批桥及通用取消测试的本次改动，以上文件与当前基线无差异。标准 RPC、更新队列和工具规范化复用既有实现；版本/认证/配置/结果校验及取消时序放在 `grok-build` 包内。
 - `grok-build` 的每次调用单独建立客户端与交互桥。包内客户端扩展只观察本进程的 RPC 错误和扩展请求；EOF 结束本客户端并保留 stderr 诊断。权限仍委托原 SDK 桥，原生问题由本调用维护 pending/timer/write acknowledgement，不改变其他 ACP 适配器的交互行为。
 - 公开错误保留容量错误的 code 和安全测量字段，继续脱敏环境凭据且不带回原始 cause。
@@ -78,3 +78,13 @@ SDK 审批桥和通用取消测试相对新 main 无差异。基于新 main 的�
 tgz 离线安装验证通过。第一次全量与其他检查并发运行时，既有 IM 等待和 WeCom 心跳计数两项
 失败；所在两文件单独复跑 14 项通过，暂停其他重检查后完整重跑通过，未改动这些测试或生产逻辑。
 OctoSpec lint 仍只有既有 docs 目录规则冲突。
+
+## PR 104 认证责任修正
+
+用户进一步明确：所有 Provider harness 的可用性、登录及认证来源归使用者、宿主与 harness，Runtime 不感知凭据来源。外部评审指出 API-key 方式虽已由 harness 广告，旧实现仍因父进程未提供特定变量而拒绝握手；该条件越过职责边界。
+
+删除 adapter 对专属认证环境变量的检查及相应诊断要求，仅按 harness 广告顺序选择受支持的非交互 ACP 方法，由 harness 自行解析并验证认证材料。拒绝后不切换方法、不创建会话。源码与测试不再包含该专属变量名，通用环境透传和敏感值脱敏保留。
+
+基础架构规则、根架构说明、双语开发者架构及 adapter 使用说明同步强调此责任边界。新增 API-key-only、API-key 与交互混合、广告顺序、cached-token-only 和认证拒绝不回退五项回归；测试只使用模拟凭据脱敏，不读取真实凭据存储。
+
+本轮验证：Grok fixture 28 项通过；完整 Node 1615 通过、35 跳过、0 失败（共 1650 项），UI 35 项通过；完整构建与类型、lint、命名、格式、双语文档及 `git diff --check` 通过。共享 ACP client、通用 ACP adapter、SDK 审批桥和通用取消测试仍与 main 无差异。OctoSpec lint 仅保留既有 docs 目录冲突。本轮未重复真实模型调用或发行安装；此前记录的验证结果保留其原有时间和范围。

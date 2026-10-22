@@ -15,7 +15,7 @@ timestamp: 2026-10-22T00:00:00Z
 | 来源 | 关键信息与用途 |
 | --- | --- |
 | [仓库 README](https://github.com/xai-org/grok-build#readme) | 官方 coding harness，原生工具、会话、headless 与 ACP；发行二进制名为 grok，源码构建产物名不同 |
-| [Overview / 认证](https://docs.x.ai/build/overview) | 本地登录或 XAI_API_KEY；不能把直接调用模型 API 当作 Grok Build 集成 |
+| [Overview / 认证](https://docs.x.ai/build/overview) | harness 的安装与认证由宿主及使用者准备，具体凭据来源不进入 Runtime 合同；不能把直接调用模型 API 当作 Grok Build 集成 |
 | [Headless 与 ACP](https://docs.x.ai/build/cli/headless-scripting) | `grok agent stdio` 使用 NDJSON JSON-RPC；先 initialize/authenticate，再 session/new/prompt；正文通过 session/update，prompt 响应提供结束元数据；自动化入口使用 --no-auto-update |
 | [CLI Reference](https://docs.x.ai/build/cli/reference) | cwd、model、effort、rules、权限、session 等 CLI 选项；CLI 选项存在不代表 agent stdio 会使用它，必须核对实现 |
 | [Sessions](https://docs.x.ai/build/features/sessions) | 新建/恢复/继续最近会话的产品语义；该页面首次 web 读取失败，不把未读正文作为已验证依据 |
@@ -59,7 +59,9 @@ timestamp: 2026-10-22T00:00:00Z
 
 首选 ACP，原因是现有 ACP Client、规范化器与审批桥可复用，并能完成同一次调用内的权限往返。headless streaming 不作为首版第二传输。
 
-每轮仍由共享 `octo-runtime-acp-client` 拉起 CLI，命令为 `grok --no-auto-update agent --no-leader stdio`，不编译或嵌入上游源码。用户明确使用通用 ACP client；源码仅作为公开文档缺失字段的辅助参考，不是新的运行依赖。Grok 认证和私有参数留在新 adapter 包，通用层仅提供生命周期扩展点。
+每轮仍由共享 `octo-runtime-acp-client` 拉起 CLI，命令为 `grok --no-auto-update agent --no-leader stdio`，不编译或嵌入上游源码。用户明确使用通用 ACP client；源码仅作为公开文档缺失字段的辅助参考，不是新的运行依赖。Grok 的 ACP 认证握手和私有参数留在新 adapter 包，共享 client、通用 ACP adapter 与 SDK 审批桥不增加本需求的行为扩展。
+
+认证来源不属于 Runtime 合同：宿主或使用者预先准备可直接使用的 harness，harness 自行解析环境或已有登录状态。Adapter 不检查专属认证环境变量或凭据文件；只按 initialize 广告顺序选择受支持的非交互方法完成 ACP authenticate。真实认证拒绝即失败，不自动切换认证方式或代办登录。
 
 控制指令使用新会话 `_meta.rules`，在原生系统提示中追加约束，不覆盖整个 Grok system prompt。load 不重传 rules，使用 `_meta["x.ai/restore_code"]=false` 禁止恢复代码快照。权限以 yoloMode/autoMode 逐会话表达；`full_access` 不代答追问或批准计划。显式 sandbox 不支持，直接拒绝。
 
@@ -67,7 +69,7 @@ timestamp: 2026-10-22T00:00:00Z
 
 ### 真实 CLI 只读执行，2026-10-22
 
-- 平台 macOS arm64；Node 24.19.0；`grok 1.0.67 (2fe064390d07)`；已有 cached_token 认证；未提供 XAI_API_KEY。
+- 平台 macOS arm64；Node 24.19.0；`grok 1.0.67 (2fe064390d07)`；使用 harness 已有认证状态，Runtime 未提供认证材料。
 - 初次适配器测试在 90 秒和 60 秒内未获得正文。通用 ACP client 原始复测成功完成握手、认证、新会话并收到队列及 retry_state 通知，但 45 秒内仍未获得正文，主动取消后收到 cancelled。未将超时归为 ACP 不兼容。
 - 用户开启代理后，同一 ACP 接入成功：第一轮要求记住并输出 `OCTO_GROK_95`；第二轮启动新 CLI，以显式 providerSession 恢复，要求复述前一轮标记，两次均准确返回该标记并完成。
 - 进一步用 [手动验证脚本](../../../scripts/verify-grok-build.mjs)经 AgentExecutor SDK 注册并调用，两轮均获得唯一 `run.completed`，第二轮 Provider session ID 与第一轮一致、没有 fresh fallback。脚本分别创建 invocation，不把历史标记放入第二轮输入。

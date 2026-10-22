@@ -17,14 +17,14 @@ timestamp: 2026-10-22T00:00:00Z
 - 业务目标：CLI 和 SDK 宿主可选择 Grok 的原生 coding harness，保留其工具执行与会话行为。
 - 宿主拥有模块选择、模型/模式/强度、审批策略、工作目录、环境及会话续用决定权。省略可选项不补产品策略，不继续最近会话。
 - Adapter 负责原生进程、认证握手、参数映射、协议转换、交互往返和资源回收；Core、Kernel、Channel 不出现 Grok 专属分支。
-- 显式输入按现有 InvokeRequest 与 Context v3 传递；凭据只通过进程环境或 Grok 已有本地认证使用，不进入 prompt、argv 或诊断。
+- 显式输入按现有 InvokeRequest 与 Context v3 传递；凭据不进入 prompt、argv 或诊断。harness 的登录、授权及凭据来源由使用者、宿主与 harness 负责，Runtime 不检查专属认证环境变量或凭据文件，不推断登录状态。
 - CLI 默认目录携带新模块；源码 SDK 仍由宿主直接 import 并注册，不要求 manifest，不为其他 SDK 产品自动加载 Grok。
 - 用户追加约束：适配器只命名为 `grok-build`；新增行为不得改变其他 bot 的 ACP 执行，包括其他 `grok-build` 调用。通用 ACP client、通用 adapter 和 SDK 审批桥不做本需求的行为扩展，特殊逻辑留在新包内。
 
 ## 关键合同
 
 1. 新包 `@mininglamp-oss/octo-runtime-adapter-grok-build`，type `grok-build`。通过共享 ACP client 调用 `grok --no-auto-update agent --no-leader stdio`，不直接调用模型 API、不改写持久配置。
-2. 根据真实 `initialize` 结果选择非交互认证；缺命令、认证缺失及不兼容版本提供可操作诊断。认证成功与模型可调用分别验证。
+2. 只根据真实 `initialize` 广告顺序选择受支持的非交互 ACP 认证方法；harness 自行解析凭据并验证可用性。缺命令、无受支持握手方式、真实认证拒绝及不兼容版本如实失败，不要求某种认证来源，不代办登录或自动切换认证方式。认证成功与模型可调用分别验证。
 3. 支持 canonical，准确声明 protocolSupport；首版不实现 native Driver。不新增 capabilities registry 或 executionFeatures。
 4. 明确新建和显式恢复，返回 provider session；缺失会话遵守已有恢复合同，不能把任意认证/网络错误当作会话缺失。
 5. 映射 cwd、输入、控制指令、环境、模型、MCP；模式和强度依据固定版本的真实载体处理。不能表达的选项按既有合同拒绝或返回未应用事实。

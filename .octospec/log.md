@@ -2,6 +2,8 @@
 
 ## 2026-10-22
 
+- 按用户要求修正 [PR 104 的认证责任边界](journal/shared/2026-10-22-95-grok-build-acp.md#pr-104-认证责任修正)：harness 的登录、授权与凭据来源归使用者、宿主及 harness。删除 `grok-build` 专属认证环境变量判断，仅依广告完成 ACP 握手，拒绝不切换认证方式；同步架构规则和双语说明，补充五项回归，不改共享 ACP 行为。
+
 - 修复 [PR #102 review 与同类问题](tasks/40-openclaw-compatibility/review.md#pr-102-外部意见与同类问题)：两项外部意见均复现，另确认旧 wait 覆盖终态、恢复步骤事件丢失和资源溢出误报成功三类缺陷。统一中间回执、终态提交及收尾，新增 17 条回归，OpenClaw 113 通过／1 GC skip；独立 Standards／Spec 最终复核无剩余已复现阻断。
 
 - 用户接受 Issue 40 现有代表实测为本次合并验收，授权提交 commit、创建 PR 及合入 main。进入最新 main 同步、双轴复核与 CI 交付；未实测版本继续保留原证据等级，不要求伪造全矩阵通过，见[任务](tasks/40-openclaw-compatibility/brief.md)。

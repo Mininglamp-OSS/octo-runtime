@@ -72,7 +72,7 @@ test("Grok canonical registration, streaming, native tools, usage, cwd, environm
     executionEnvOverrides: {
       env_variables: [
         { key: "OCTO_TEST_VALUE", value: "run-value" },
-        { key: "XAI_API_KEY", value: "secret-canary-95" }
+        { key: "OCTO_TEST_SECRET", value: "secret-canary-95" }
       ]
     }
   };
@@ -108,7 +108,7 @@ test("Grok canonical registration, streaming, native tools, usage, cwd, environm
     trace.map((entry) => entry.method),
     ["initialize", "authenticate", "session/new", "session/prompt"]
   );
-  assert.equal(trace[1].params.methodId, "xai.api_key");
+  assert.equal(trace[1].params.methodId, "cached_token");
   assert.equal(trace[1].params._meta.headless, true);
   assert.equal(trace[2].params._meta.rules, "CONTROL_95");
   assert.equal(trace[2].params._meta.yoloMode, false);
@@ -120,6 +120,38 @@ test("Grok canonical registration, streaming, native tools, usage, cwd, environm
   assert.deepEqual(f.spawns[0].args, ["--no-auto-update", "agent", "--no-leader", "stdio"]);
   assert.equal(JSON.stringify(f.spawns[0].args).includes("secret-canary-95"), false);
   assert.equal(process.env.OCTO_TEST_VALUE, undefined);
+});
+
+for (const [mode, methodId] of [
+  ["auth_api_key", "xai.api_key"],
+  ["auth_api_key_interactive", "xai.api_key"],
+  ["auth_api_key_first", "xai.api_key"],
+  ["auth_cached_token", "cached_token"]
+]) {
+  test(`Grok ${mode} authenticates using the harness advertisement without caller-supplied credentials`, async (t) => {
+    const f = await fixture(t, mode);
+    const events = await collect(f.adapter);
+    assert.deepEqual(
+      terminal(events).map((event) => event.type),
+      ["run.completed"]
+    );
+    const trace = await f.trace();
+    assert.deepEqual(trace.find((entry) => entry.method === "authenticate").params, {
+      methodId,
+      _meta: { headless: true }
+    });
+  });
+}
+
+test("Grok authentication rejection does not switch methods or create a session", async (t) => {
+  const f = await fixture(t, "auth_api_key_error");
+  await assert.rejects(() => collect(f.adapter), /GROK_AUTH_FAILED/);
+  const trace = await f.trace();
+  assert.deepEqual(
+    trace.map((entry) => entry.method),
+    ["initialize", "authenticate"]
+  );
+  assert.equal(trace[1].params.methodId, "xai.api_key");
 });
 
 for (const [mode, expected] of [
@@ -140,7 +172,9 @@ for (const [mode, expected] of [
     const request = {
       ...base(),
       ...(mode === "load_error" ? { providerSession: { sessionId: "prior" } } : {}),
-      executionEnvOverrides: { env_variables: [{ key: "XAI_API_KEY", value: "secret-canary-95" }] }
+      executionEnvOverrides: {
+        env_variables: [{ key: "OCTO_TEST_SECRET", value: "secret-canary-95" }]
+      }
     };
     const events = [];
     await assert.rejects(async () => {
