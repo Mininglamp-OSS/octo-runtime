@@ -42,4 +42,10 @@ timestamp: 2026-10-22T00:00:00Z
 
 # 同步最新 main
 
+此处为M8时点；后续授权以文末记录为准。
+
 用户授权推送、英文PR及合并。八个阶段提交无冲突rebase到 `origin/main@d076474`，完整保留 #94 的WebUI Windows会话修复；历史SHA仍表示当时证据。rebase后全量35项UI与1488项Node通过、34项跳过，lint/names/types/docs/format通过。main要求CI Gate和一位审阅者批准，自动合并关闭；按保护完成后续交付，原事故现场门槛和issue #93仍开放，见[实施记录M8](../../tasks/93-sleep-wake-recovery/implementation.md#m8-同步-main-与提交-pr)。
+
+# PR 评审覆盖补充
+
+PR #96原提交已获批准且全部远端门禁通过。用户要求落实P3，在Windows Node 24/26新增五个恢复/状态测试文件的独立步骤；保留原有平台条件跳过，SDK恢复在Windows执行。本机相同命令40项通过、0跳过，远端新提交须重新验CI和批准，见[实施记录M9](../../tasks/93-sleep-wake-recovery/implementation.md#m9-pr-96-windows-测试覆盖补充)。用户最新要求每五分钟跟进到就绪，merge仅由用户手动操作，已更新context授权。

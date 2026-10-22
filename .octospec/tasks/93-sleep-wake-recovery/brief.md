@@ -10,9 +10,9 @@ timestamp: 2026-10-22T00:00:00Z
 
 针对 [Issue #93](https://github.com/Mininglamp-OSS/octo-runtime/issues/93)，使有效配置的 CLI 与原生 SDK 在普通睡眠、断网、网络切换及离线启动后恢复新请求的完整执行链。恢复覆盖 IM 接收、Kernel 接纳、worker/Provider 执行和回复投递。
 
-用户已授权开始实施，并要求每阶段独立 commit、英文提交信息；未授权 push、PR 或发布。规划可执行性自评 **95/100**，口径及扣分见 [assessment.md](assessment.md)。它不表示根因已全部确认，也不表示修复或实测通过。当前进度与证据见 [implementation.md](implementation.md)。
+用户已授权实施、分阶段英文提交、push和PR；当前交付为 [PR #96](https://github.com/Mininglamp-OSS/octo-runtime/pull/96)。最新要求由用户手动merge，Agent只跟进评审、修复和CI，不得合并或发布。规划可执行性自评 **95/100**，口径及扣分见 [assessment.md](assessment.md)。它不表示根因已全部确认，也不表示实机验收通过；当前进度与证据见 [implementation.md](implementation.md)。
 
-基线：`origin/main@3b34415ca2a2297d48a1cec0458b15d52df9ab55`。分支：`plan/93-sleep-wake-recovery`。任务目录中的方案均为待实施目标；历史文档的通过记录不作为本任务证据。
+初始基线：`origin/main@3b34415ca2a2297d48a1cec0458b15d52df9ab55`；现已rebase到 `d076474673b1aac542b08940d987c5598e5a4968`。分支：`plan/93-sleep-wake-recovery`。任务目录中的方案保留规划合同，逐项实施、实际证据和未完成边界以实施记录为准；其他任务的历史通过记录不作为本任务证据。
 
 ## 产品意图与决定权
 
@@ -46,4 +46,4 @@ timestamp: 2026-10-22T00:00:00Z
 
 按 [plan.md](plan.md) 的 M0 开始；M0 先取得单 owner 的 reason-12 部署依据和故障现场直接 IPC 结果。M1 可先建设受控故障工具，M2 可先修复已确认的首次离线启动缺口；reason-12 自动恢复分支及 M3 的根因修复须满足各自证据门槛。
 
-所有产品验收当前为 **未执行**。本轮只校验文档格式、规则/链接和 diff；基线仓库 lint 的既有失败见 [assessment.md](assessment.md)。
+共享层修复、受控CLI/SDK试验和状态日志已实施验证；Windows新增测试选择正在按P3补充。原事故两层故障边界、部署reason12语义和S01-S14真实矩阵仍未完成，不关闭P0。具体结果见 [implementation.md](implementation.md)；基线仓库知识lint的既有失败见 [assessment.md](assessment.md)。

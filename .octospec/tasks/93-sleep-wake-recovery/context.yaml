@@ -67,6 +67,8 @@ source_reads:
   - test/recovery-im-fixture.js
   - test/extra-status-logs.test.js
   - scripts/verify-release.mjs
+  - .github/workflows/ci.yml
+  - .github/CI.md
   - package.json
 searched:
   - Kernel server readiness, worker failure, invocation registry, capacities and repair budgets
@@ -96,6 +98,8 @@ decisions:
     - Extra status stdout and mirror are implemented separately from conversation/execution records; native SDK remains silent unless a sink is provided.
     - Follow-up Kernel review found permanent exhaustion after the fast retry budget. Ordinary startup failures now recover serially with a 15-second cooldown; cleanup and ownership failures still block replacement.
     - The cooldown concerns internal worker startup only. Kernel and its local IPC listener are not restarted, and ordinary Provider network failures do not spend worker restart attempts.
+    - User requested the non-blocking PR 96 Windows CI coverage improvement after approval. Both Windows Node majors now select the five recovery/status suites; platform-specific skips remain explicit.
+    - User requests review and CI checks every five minutes until approval and merge readiness; merging is now reserved for the user and must never be performed by the agent.
   proposed:
     - 180-second measured recovery acceptance with separately accounted server Retry-After.
   unresolved_gates:
@@ -107,7 +111,7 @@ authorization:
   implementation_this_turn: true
   commits: true
   push_or_pr: true
-  merge: true
+  merge: false
   release: false
   external_messages: false
   git_identity: Preserve configured author; English GitHub and commit text; one Codex trailer only for authorized Codex-contributed commits.
@@ -143,3 +147,8 @@ validation:
     result: PASS; all eight stage commits rebased without conflicts. Full pnpm test passed with 35 UI and 1488 Node passes, 34 Node skips and zero failures; lint/names/types/docs/format passed. User authorized push, English PR and merge, subject to required CI Gate and one approving review; repository auto-merge is disabled.
   - scope: Real services, platform sleep/network and real Provider/IM
     result: UNEXECUTED; all S01-S14 live rows remain open. Controlled loopback evidence does not close issue 93 or establish deployed reason12 semantics.
+  - scope: PR 96 at bdcfa94537caba1ec9dd2d116a5d698d8ea911bc
+    result: PASS; all six hosted OS/Node jobs and CI Gate succeeded, code-review succeeded, Jerry-Xin approved. User subsequently reserved manual merge and requested the P3 Windows coverage improvement; new commits require fresh hosted checks and approval.
+  - command: node --unhandled-rejections=strict --test test/extra-status-logs.test.js test/kernel-heartbeat.test.js test/kernel-worker-recovery.test.js test/im-connection-state-machine.test.js test/recovery-dual-mode.test.js
+    scope: M9 Windows CI selection; executed locally on macOS before push
+    result: PASS; 40 tests, zero skips/failures. Prettier and git diff --check passed. Native Windows execution remains pending the updated PR workflow.

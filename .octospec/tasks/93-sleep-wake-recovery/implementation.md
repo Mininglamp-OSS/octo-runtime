@@ -131,3 +131,11 @@ CLI模式约15.0秒、SDK模式约14.8秒通过；此计时包括主动等待两
 rebase后全量 `pnpm test` 通过：35项UI通过；Node共1522项、1488通过、34跳过、0失败。lint、名称、根TypeScript、docs和format检查通过，工作树没有生成物漂移。新增跳过项来自main中的原生Windows文件锁测试，在本机macOS没有执行。
 
 main保护要求CI Gate通过和至少一位审阅者批准，且管理员也受约束；仓库关闭自动合并。后续按保护完成推送、PR和合并，不修改保护。PR以Refs #93关联；原事故根因、部署reason12语义和S01-S14仍缺现场证据，本次不关闭P0。
+
+## M9 PR 96 Windows 测试覆盖补充
+
+[PR #96](https://github.com/Mininglamp-OSS/octo-runtime/pull/96) 的 `bdcfa94537caba1ec9dd2d116a5d698d8ea911bc` 已完成全部六组平台/Node任务、CI Gate和代码审查检查，并获得Jerry-Xin批准。评审没有阻塞项，P3建议将新增恢复与状态日志测试纳入Windows显式列表；用户授权补充。用户同时明确以后由其手动merge，本次及后续跟进均不得代为合并；推送后须重新检查批准和CI，不沿用旧提交的就绪结论。
+
+Windows Node 24/26矩阵新增独立步骤，以 `--unhandled-rejections=strict --test` 执行 `extra-status-logs`、`kernel-heartbeat`、`kernel-worker-recovery`、`im-connection-state-machine` 和 `recovery-dual-mode` 五个文件。覆盖状态白名单、stdout背压、磁盘失败、三份轮转和follow，心跳调度间隔、readiness持续失败后恢复、首次离线/WS恢复及SDK实际loopback IM链路。沿用原有CLI信号场景和POSIX进程组注入的Windows skip，SDK场景正常执行；没有新增跳过、放宽断言或更改生产代码。
+
+本机macOS执行与新步骤相同的命令：40项通过，0跳过、0失败；CI配置与说明的Prettier检查、diff空白检查通过。Windows结果须以更新后远端两组任务为准，不将本机通过写成Windows通过。`.github/CI.md`已同步覆盖和平台边界；真实S01-S14仍开放。
