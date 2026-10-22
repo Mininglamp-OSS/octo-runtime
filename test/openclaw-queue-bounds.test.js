@@ -14,6 +14,7 @@ function fixture() {
   const client = {
     connect: async () => ({
       protocol: 4,
+      server: { version: "2026.9.1" },
       features: {
         methods: [
           "agents.list",

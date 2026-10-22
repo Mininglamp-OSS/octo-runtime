@@ -24,6 +24,14 @@ import {
   type OpenClawGatewayOptions
 } from "./gateway.js";
 import { resolveOpenClawGateway, localGatewayFailure } from "./local-gateway.js";
+import {
+  resolveGatewayContract,
+  resolveGatewayPermission,
+  gatewayCreateParams,
+  gatewayLegacyPermissionParams,
+  gatewayTerminal,
+  type GatewayTerminal
+} from "./compatibility.js";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -102,11 +110,7 @@ export function buildOpenClawGatewayInvocation(req: InvokeRequest): OpenClawGate
   const createParams: JsonRecord = {
     key: sessionKey,
     agentId,
-    permissionMode: req.approvalMode === "full_access" ? "full" : "guarded",
-
-    idempotencyKey: `${requestId}-session`,
-    ...(model ? { model } : {}),
-    ...(thinking ? { thinkingLevel: thinking } : {})
+    ...(model ? { model } : {})
   };
   const agentParams: JsonRecord = {
     message,
@@ -146,6 +150,7 @@ interface StreamState {
   reasoningText: string;
   stepStarted: boolean;
   stepFinished: boolean;
+  stepId?: string;
   messageNumber: number;
   messages: Map<string, CanonicalEvent["payload"]>;
   assistantItemId?: string;
@@ -232,7 +237,7 @@ function normalizeGatewayAgentEvent(payload: unknown, state: StreamState): Canon
     return [];
   state.lastSeq = seq;
   const events: CanonicalEvent[] = [];
-  const stepId = `openclaw:${nonEmptyString(native.runId) ?? "run"}`;
+  const stepId = (state.stepId ??= `openclaw:${nonEmptyString(native.runId) ?? "run"}`);
   const ensureStep = () => {
     if (state.stepStarted) return;
     state.stepStarted = true;
@@ -241,8 +246,14 @@ function normalizeGatewayAgentEvent(payload: unknown, state: StreamState): Canon
 
   if (stream === "lifecycle") {
     const phase = nonEmptyString(data.phase);
+    const terminal = gatewayTerminal(data, "lifecycle");
     if (phase === "start") ensureStep();
-    if ((phase === "end" || phase === "error") && state.stepStarted && !state.stepFinished) {
+    if (
+      (phase === "end" || phase === "error") &&
+      terminal &&
+      state.stepStarted &&
+      !state.stepFinished
+    ) {
       state.stepFinished = true;
       const finishReason = nonEmptyString(data.stopReason);
       events.push({
@@ -250,9 +261,7 @@ function normalizeGatewayAgentEvent(payload: unknown, state: StreamState): Canon
         type: "model_step.finished",
         payload: {
           stepId,
-          status: canonicalTerminalStatus(
-            phase === "error" ? "failed" : data.aborted === true ? "cancelled" : "completed"
-          ),
+          status: canonicalTerminalStatus(terminal),
           ...(finishReason ? { finishReason } : {})
         }
       });
@@ -390,10 +399,8 @@ function terminalState(payload: unknown): "completed" | "failed" | "cancelled" |
   const native = asRecord(payload);
   if (native?.stream !== "lifecycle") return undefined;
   const data = asRecord(native.data);
-  const phase = nonEmptyString(data?.phase);
-  if (phase === "error") return data?.aborted === true ? "cancelled" : "failed";
-  if (phase === "end") return data?.aborted === true ? "cancelled" : "completed";
-  return undefined;
+  if (data?.phase !== "end" && data?.phase !== "error") return undefined;
+  return gatewayTerminal(data, "lifecycle");
 }
 
 function terminalError(payload: unknown): string {
@@ -405,9 +412,9 @@ function terminalError(payload: unknown): string {
 async function waitForConfirmedTerminal(
   client: OpenClawGatewayClientLike,
   runId: string,
-  expected: "completed" | "failed" | "cancelled",
+  expected: GatewayTerminal | undefined,
   deadlineAt: number
-): Promise<void> {
+): Promise<GatewayTerminal> {
   while (Date.now() < deadlineAt) {
     const waitMs = Math.max(1, Math.min(30_000, deadlineAt - Date.now()));
     const result = asRecord(
@@ -418,19 +425,13 @@ async function waitForConfirmedTerminal(
       )
     );
     const status = nonEmptyString(result?.status);
-    const stopReason = nonEmptyString(result?.stopReason);
-    const endedAt = finiteNumber(result?.endedAt);
-    const cancelled =
-      endedAt !== undefined && (stopReason === "aborted" || stopReason === "restart");
-    const actual = cancelled
-      ? "cancelled"
-      : status === "ok"
-        ? "completed"
-        : status === "error" || (status === "timeout" && endedAt !== undefined)
-          ? "failed"
-          : undefined;
-    if (actual === expected) return;
-    if (!actual && (status === "pending" || status === "timeout")) {
+    const actual = gatewayTerminal(result, "wait");
+    if (actual && (expected === undefined || actual === expected)) return actual;
+    if (
+      !actual &&
+      (result?.pendingError === true ||
+        ["pending", "timeout", "accepted", "in_flight", "queued", "running"].includes(status ?? ""))
+    ) {
       await new Promise<void>((resolve) =>
         setTimeout(resolve, Math.min(250, Math.max(0, deadlineAt - Date.now())))
       );
@@ -443,12 +444,15 @@ async function waitForConfirmedTerminal(
         : `OpenClaw Gateway confirmed ${actual ?? status ?? "unknown"}, not ${expected}`
     );
   }
-  throw new Error(`OpenClaw Gateway did not confirm ${expected} before the invocation deadline`);
+  throw new Error(
+    `OpenClaw Gateway did not confirm ${expected ?? "a terminal state"} before the invocation deadline`
+  );
 }
 
 function normalizeFinalResponse(
   value: unknown,
-  state: StreamState
+  state: StreamState,
+  runId: string
 ): {
   events: CanonicalEvent[];
   terminal?: "completed" | "failed" | "cancelled";
@@ -459,6 +463,7 @@ function normalizeFinalResponse(
   const meta = asRecord(result?.meta);
   const agentMeta = asRecord(meta?.agentMeta);
   const events: CanonicalEvent[] = [];
+  const stepId = (state.stepId ??= `openclaw:${runId}`);
   const payloads = Array.isArray(result?.payloads) ? result.payloads : [];
   const finalText = payloads
     .map((item) => nonEmptyString(asRecord(item)?.text) ?? "")
@@ -470,7 +475,7 @@ function normalizeFinalResponse(
     events.push({
       protocolVersion: 2,
       type: "model_step.started",
-      payload: { stepId: `openclaw:${nonEmptyString(response?.runId) ?? "run"}` }
+      payload: { stepId }
     });
   };
   if (finalText) {
@@ -507,15 +512,7 @@ function normalizeFinalResponse(
   });
   if (usageUpdate) events.push(usageUpdate);
 
-  const status = nonEmptyString(response?.status);
-  const terminal =
-    status === "ok"
-      ? meta?.aborted === true
-        ? "cancelled"
-        : "completed"
-      : status
-        ? "failed"
-        : undefined;
+  const terminal = gatewayTerminal(response, "final");
   if (terminal && !state.stepFinished) {
     ensureStep();
     state.stepFinished = true;
@@ -523,7 +520,7 @@ function normalizeFinalResponse(
       protocolVersion: 2,
       type: "model_step.finished",
       payload: {
-        stepId: `openclaw:${nonEmptyString(response?.runId) ?? "run"}`,
+        stepId,
         status: canonicalTerminalStatus(
           terminal === "cancelled" ? "cancelled" : terminal === "failed" ? "failed" : "completed"
         ),
@@ -540,29 +537,6 @@ function normalizeFinalResponse(
       ? { error: nonEmptyString(response?.summary) ?? "OpenClaw Gateway agent run failed" }
       : {})
   };
-}
-
-function assertRuntimeGatewayContract(value: unknown): void {
-  const hello = asRecord(value);
-  const features = asRecord(hello?.features);
-  const methods = Array.isArray(features?.methods) ? features.methods : [];
-  const events = Array.isArray(features?.events) ? features.events : [];
-  if (hello?.protocol !== 4)
-    throw new Error(`unsupported OpenClaw Gateway protocol: ${String(hello?.protocol)}`);
-  const requiredMethods = [
-    "sessions.create",
-    "sessions.messages.subscribe",
-    "agent",
-    "agent.wait",
-    "sessions.abort"
-  ];
-  requiredMethods.unshift("agents.list");
-  for (const method of requiredMethods) {
-    if (!methods.includes(method))
-      throw new Error(`OpenClaw Gateway does not advertise required method ${method}`);
-  }
-  if (!events.includes("agent"))
-    throw new Error("OpenClaw Gateway does not advertise the agent event stream");
 }
 
 export interface OpenClawGatewayClientLike {
@@ -600,7 +574,7 @@ async function* invokeOpenClawGateway(
     unsubscribe();
     requestAbort.abort();
     closing = (async () => {
-      if (cancel && agentAccepted)
+      if (cancel && agentDispatched)
         await client
           .request(
             "sessions.abort",
@@ -618,18 +592,64 @@ async function* invokeOpenClawGateway(
     void closing.catch(() => undefined);
     return closing;
   };
-  permissions.bindTransport(() => stop(!terminal));
+  let cancellation: Promise<void> | undefined;
+  const confirmCancellation = (): Promise<void> => {
+    cancellation ??= (async () => {
+      if (!agentDispatched) return;
+      let recoveryClient: OpenClawGatewayClientLike | undefined;
+      try {
+        const abortParams = {
+          key: providerSessionKey,
+          runId: acceptedRunId,
+          agentId: invocation.agentId
+        };
+        let controlClient = client;
+        try {
+          await controlClient.request("sessions.abort", abortParams, { timeoutMs: 5_000 });
+        } catch {
+          recoveryClient = clientFactory(invocation.gateway);
+          resolveGatewayContract(await recoveryClient.connect());
+          controlClient = recoveryClient;
+          await controlClient.request("sessions.abort", abortParams, { timeoutMs: 5_000 });
+        }
+        await waitForConfirmedTerminal(
+          controlClient,
+          acceptedRunId,
+          "cancelled",
+          Date.now() + 30_000
+        );
+        terminal = "cancelled";
+      } finally {
+        await recoveryClient?.close();
+      }
+    })();
+    return cancellation;
+  };
+  // 桥和执行循环可能同时收到取消；共用一次 abort/对账，确认后才关闭连接。
+  permissions.bindTransport(async () => {
+    if (req.signal?.aborted) {
+      try {
+        await confirmCancellation();
+      } catch {
+        // 执行源负责发出取消对账失败；清理桥不重复抛出同一错误。
+      } finally {
+        await stop(false);
+      }
+    } else await stop(!terminal);
+  });
   const queue = new DriverQueue<EventQueueItem>({
     discardOnFailure: true,
     limits: context?.streamLimits,
     boundary: "openclaw.event_queue",
     onFailure: () => {
+      if (req.signal?.aborted) return;
       resourceFailure = true;
       void stop(true);
     }
   });
   const iterator = queue[Symbol.asyncIterator]();
   let acceptedRunId = invocation.requestId;
+  let agentDispatched = false;
   let agentAccepted = false;
   const seenApprovals = new Set<string>();
   const activeApprovals = new Map<string, JsonRecord>();
@@ -678,29 +698,61 @@ async function* invokeOpenClawGateway(
   };
   try {
     const hello = await client.connect();
-    assertRuntimeGatewayContract(hello);
-    if (req.approvalMode === "ask") {
-      const features = asRecord(asRecord(hello)?.features);
-      if (
-        !Array.isArray(features?.methods) ||
-        !features.methods.includes("exec.approval.resolve") ||
-        !features.methods.includes("exec.approval.list") ||
-        !Array.isArray(features.events) ||
-        !features.events.includes("exec.approval.requested") ||
-        !features.events.includes("exec.approval.resolved")
-      ) {
-        throw new Error("APPROVAL_MODE_UNSUPPORTED: OpenClaw Gateway has no approval transport");
-      }
-    }
+    const contract = resolveGatewayContract(hello);
+    const policy = resolveGatewayPermission(contract, req.approvalMode);
+    permissions.options.effectiveApprovalMode = policy.effective;
+    // 参数在真实握手之后生成；probe 的版本快照不作为本次执行依据。
+    const createParams = gatewayCreateParams(
+      contract,
+      policy,
+      invocation.createParams,
+      invocation.requestId,
+      invocation.agentParams.thinking
+    );
+    if (policy.fallbackReason)
+      yield {
+        protocolVersion: 2,
+        type: "run.notice",
+        payload: {
+          noticeId: `${req.invocationId}:openclaw-permission`,
+          code: "provider_diagnostic",
+          severity: "warning",
+          params: {
+            adapter: "openclaw",
+            diagnosticId: `openclaw-compat-${randomUUID()}`,
+            category: "permission_fallback",
+            message: `OpenClaw ${contract.version}: requested ask; using full_access for this invocation (${policy.fallbackReason}).`
+          }
+        }
+      };
     await assertExistingAgent(client, invocation.agentId, req.signal);
     const created = asRecord(
-      await client.request("sessions.create", invocation.createParams, {
+      await client.request("sessions.create", createParams, {
         timeoutMs: 30_000,
         signal: req.signal
       })
     );
-    providerSessionKey = nonEmptyString(created?.key) ?? invocation.sessionKey;
+    const createdKey = nonEmptyString(created?.key);
+    if (!createdKey) throw new Error("OpenClaw Gateway returned no created session key");
+    providerSessionKey = createdKey;
     invocation.agentParams.sessionKey = providerSessionKey;
+    if (contract.family === "legacy") {
+      const patched = asRecord(
+        await client.request("sessions.patch", gatewayLegacyPermissionParams(providerSessionKey), {
+          timeoutMs: 10_000,
+          signal: req.signal
+        })
+      );
+      const entry = asRecord(patched?.entry);
+      if (
+        patched?.ok !== true ||
+        patched.key !== providerSessionKey ||
+        entry?.execSecurity !== "full" ||
+        entry.execAsk !== "off"
+      ) {
+        throw new Error("OPENCLAW_PERMISSION_UNAVAILABLE: legacy session policy was not confirmed");
+      }
+    }
     await client.request(
       "sessions.messages.subscribe",
       {
@@ -709,7 +761,7 @@ async function* invokeOpenClawGateway(
       },
       { timeoutMs: 10_000, signal: req.signal }
     );
-    if (req.approvalMode === "ask") {
+    if (policy.effective === "ask") {
       const pending = await client.request(
         "exec.approval.list",
         {},
@@ -731,6 +783,8 @@ async function* invokeOpenClawGateway(
       }
     };
 
+    if (req.signal?.aborted) throw new Error("OpenClaw invocation aborted before dispatch");
+    agentDispatched = true;
     const request = client.request("agent", invocation.agentParams, {
       expectFinal: true,
       timeoutMs: null,
@@ -752,10 +806,38 @@ async function* invokeOpenClawGateway(
       const item = next.value;
       if (item.error) throw item.error;
       if (item.done) {
-        const reconciled = normalizeFinalResponse(item.result, state);
+        const reconciled = normalizeFinalResponse(item.result, state, acceptedRunId);
         for (const event of reconciled.events) yield event;
         terminal = reconciled.terminal;
-        if (terminal === "failed") throw new Error(reconciled.error);
+        if (!terminal) {
+          terminal = await waitForConfirmedTerminal(
+            client,
+            acceptedRunId,
+            undefined,
+            invocation.reconciliationDeadlineAt
+          );
+          if (!state.stepFinished) {
+            if (!state.stepStarted) {
+              state.stepStarted = true;
+              yield {
+                protocolVersion: 2,
+                type: "model_step.started",
+                payload: { stepId: state.stepId! }
+              };
+            }
+            state.stepFinished = true;
+            yield {
+              protocolVersion: 2,
+              type: "model_step.finished",
+              payload: {
+                stepId: state.stepId!,
+                status: canonicalTerminalStatus(terminal)
+              }
+            };
+          }
+        }
+        if (terminal === "failed")
+          throw new Error(reconciled.error ?? "OpenClaw Gateway agent run failed");
         break;
       }
       if (item.event?.event === "exec.approval.resolved") {
@@ -902,7 +984,7 @@ async function* invokeOpenClawGateway(
     yield { protocolVersion: 2, type: "run.completed", payload: {} };
   } catch (error) {
     if (req.signal?.aborted) {
-      if (!agentAccepted) {
+      if (!agentDispatched) {
         yield {
           protocolVersion: 2,
           type: "message.update",
@@ -921,28 +1003,8 @@ async function* invokeOpenClawGateway(
         };
         return;
       }
-      let recoveryClient: OpenClawGatewayClientLike | undefined;
       try {
-        const abortParams = {
-          key: providerSessionKey,
-          runId: acceptedRunId,
-          agentId: invocation.agentId
-        };
-        let controlClient = client;
-        try {
-          await controlClient.request("sessions.abort", abortParams, { timeoutMs: 5_000 });
-        } catch {
-          recoveryClient = clientFactory(invocation.gateway);
-          assertRuntimeGatewayContract(await recoveryClient.connect());
-          controlClient = recoveryClient;
-          await controlClient.request("sessions.abort", abortParams, { timeoutMs: 5_000 });
-        }
-        await waitForConfirmedTerminal(
-          controlClient,
-          acceptedRunId,
-          "cancelled",
-          Date.now() + 30_000
-        );
+        await confirmCancellation();
         yield {
           protocolVersion: 2,
           type: "message.update",
@@ -980,8 +1042,6 @@ async function* invokeOpenClawGateway(
           type: "run.failed",
           payload: { message, adapterType: "openclaw" }
         };
-      } finally {
-        await recoveryClient?.close();
       }
       return;
     }
@@ -989,11 +1049,11 @@ async function* invokeOpenClawGateway(
     if (!resourceFailure && agentAccepted && terminal !== "failed" && terminal !== "cancelled") {
       const recoveryClient = clientFactory(invocation.gateway);
       try {
-        assertRuntimeGatewayContract(await recoveryClient.connect());
-        await waitForConfirmedTerminal(
+        resolveGatewayContract(await recoveryClient.connect());
+        terminal = await waitForConfirmedTerminal(
           recoveryClient,
           acceptedRunId,
-          "completed",
+          undefined,
           invocation.reconciliationDeadlineAt
         );
         yield {
@@ -1002,12 +1062,28 @@ async function* invokeOpenClawGateway(
           payload: {
             ...gatewayMessage(state, "final", state.assistantItemId),
             role: "assistant",
-            status: "completed",
+            status: terminal === "cancelled" ? "stopped" : terminal,
             text: state.assistantText,
             channel: "final"
           }
         };
-        yield { protocolVersion: 2, type: "run.completed", payload: {} };
+        if (terminal === "completed")
+          yield { protocolVersion: 2, type: "run.completed", payload: {} };
+        else if (terminal === "cancelled")
+          yield {
+            protocolVersion: 2,
+            type: "run.cancelled",
+            payload: { reason: "openclaw_reconciled_cancellation" }
+          };
+        else
+          yield {
+            protocolVersion: 2,
+            type: "run.failed",
+            payload: {
+              message: `OpenClaw Gateway confirmed a failed run after disconnect: ${message}`,
+              adapterType: "openclaw"
+            }
+          };
         return;
       } catch (recoveryError) {
         const detail =
@@ -1047,7 +1123,7 @@ export function createOpenClawAdapter({
     let client: OpenClawGatewayClientLike | undefined;
     try {
       client = clientFactory(await resolveOpenClawGateway(options?.providerOptions));
-      assertRuntimeGatewayContract(await client.connect());
+      resolveGatewayContract(await client.connect());
       await client.request("agents.list", {});
       return { available: true, command: "openclaw-gateway" };
     } catch (error) {
