@@ -627,7 +627,7 @@ async function* invokeOpenClawGateway(
   };
   // 桥和执行循环可能同时收到取消；共用一次 abort/对账，确认后才关闭连接。
   permissions.bindTransport(async () => {
-    if (req.signal?.aborted) {
+    if (req.signal?.aborted && !terminal) {
       try {
         await confirmCancellation();
       } catch {
@@ -807,8 +807,9 @@ async function* invokeOpenClawGateway(
       if (item.error) throw item.error;
       if (item.done) {
         const reconciled = normalizeFinalResponse(item.result, state, acceptedRunId);
-        for (const event of reconciled.events) yield event;
         terminal = reconciled.terminal;
+        // 先保存原生终态，避免消费者在接收收尾事件时取消而覆盖真实结果。
+        for (const event of reconciled.events) yield event;
         if (!terminal) {
           terminal = await waitForConfirmedTerminal(
             client,
@@ -936,20 +937,20 @@ async function* invokeOpenClawGateway(
       const runId = nonEmptyString(native?.runId);
       if (!runId || (runId !== acceptedRunId && runId !== invocation.requestId)) continue;
       const events = normalizeGatewayAgentEvent(item.event.payload, state);
-      for (const event of events) yield event;
-      terminal = terminalState(item.event.payload);
-      if (terminal) {
-        await waitForConfirmedTerminal(
+      const nativeTerminal = terminalState(item.event.payload);
+      if (nativeTerminal) {
+        terminal = await waitForConfirmedTerminal(
           client,
           runId,
-          terminal,
+          nativeTerminal,
           invocation.reconciliationDeadlineAt
         );
-        if (terminal === "failed") throw new Error(terminalError(item.event.payload));
       }
+      for (const event of events) yield event;
+      if (terminal === "failed") throw new Error(terminalError(item.event.payload));
     }
 
-    if (req.signal?.aborted || terminal === "cancelled") {
+    if (terminal === "cancelled") {
       yield {
         protocolVersion: 2,
         type: "message.update",
@@ -983,7 +984,7 @@ async function* invokeOpenClawGateway(
     };
     yield { protocolVersion: 2, type: "run.completed", payload: {} };
   } catch (error) {
-    if (req.signal?.aborted) {
+    if (req.signal?.aborted && !terminal) {
       if (!agentDispatched) {
         yield {
           protocolVersion: 2,

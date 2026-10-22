@@ -2,6 +2,7 @@ task: 40-openclaw-compatibility
 phase: accepted-delivery-in-progress
 issue: https://github.com/Mininglamp-OSS/octo-runtime/issues/40
 baseline: 88fa71db6f32c7898bfcc05d40eb2a44fd91d141
+delivery_baseline: 102fb9caf995d9eb1ac53acaf5b91922be4f023d
 branch: research/40-openclaw-compatibility
 worktree: /Users/lvsijia/github.com/Mininglamp-OSS/octo-runtime-issue-40
 read_at: "2026-10-22"
@@ -58,7 +59,7 @@ rules:
 precedence:
   - User requires English GitHub issues, PRs, and commits for this OSS organization.
   - User requires authorization for commits and the Codex coauthor trailer when applicable.
-  - This phase has no commit authorization and no remote writes.
+  - Delivery commits, push, PR creation and merge are explicitly authorized by the user; repository protection rules still apply.
 source_reads:
   - packages/octo-runtime-adapter-openclaw/src/index.ts
   - packages/octo-runtime-adapter-openclaw/src/gateway.ts
@@ -125,6 +126,8 @@ upstream_detail_reads:
     - docs/gateway/permission-modes.md
   note: Paths differ between versions; 404s were resolved through source tree and imports. The list is a union, not a claim every version contains every path.
 verification:
+  - scope: Delivery verification after synchronization with main 102fb9c and late-cancellation fix
+    result: WebUI 35 passed; complete Node suite with --test-concurrency=4 had 1570 passed, 35 conditional skips and zero failures. Default-concurrency runs each failed a different unmodified timing-sensitive test; isolated Codex/compatibility 101 and process cleanup 11 all passed. Build/typecheck, lint, names, format and developer docs passed after synchronization; OpenClaw rebuilt after the race fix. See implementation.md and review.md.
   - scope: 27-tag protocol/create/agent field audit
     result: PASS; source-evidence.json records source and exact revisions. Not full semantic compatibility.
   - scope: Original 7.1 SessionsCreateParamsSchema with local TypeBox Compile

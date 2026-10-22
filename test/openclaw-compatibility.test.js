@@ -451,6 +451,25 @@ test("abort ACK alone cannot turn a completed native run into confirmed cancella
   }
 });
 
+for (const lifecycle of [undefined, { phase: "end" }])
+  for (const abortAt of ["model_step.finished", "message.update"])
+    test(`late cancellation preserves native completion: ${lifecycle ? "lifecycle" : "final receipt"}, ${abortAt}`, async () => {
+      const controller = new AbortController();
+      const f = fixture({ lifecycle, waits: [{ status: "ok", endedAt: 1 }] });
+      const events = [];
+      for await (const event of f.adapter.invoke(request({ signal: controller.signal }))) {
+        assertCanonicalEvent(event);
+        events.push(event);
+        if (event.type === abortAt && event.payload.status === "completed")
+          controller.abort("consumer cancelled after native completion");
+      }
+      assert.equal(controller.signal.aborted, true);
+      assert.equal(events.at(-1).type, "run.completed");
+      assert.equal(events.filter((event) => event.type === "run.cancelled").length, 0);
+      assert.equal(events.filter((event) => event.payload.status === "stopped").length, 0);
+      assert.equal(f.calls.filter((call) => call.method === "sessions.abort").length, 0);
+    });
+
 test("terminal interpretation distinguishes normal stop, cancellation cleanup and provider timeout", () => {
   for (const source of ["wait", "final"]) {
     for (const stopReason of ["rpc", "stop"]) {

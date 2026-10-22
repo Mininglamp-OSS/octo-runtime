@@ -20,6 +20,7 @@ timestamp: 2026-10-22T00:00:00Z
 6. agent 最终回执、lifecycle 和 agent.wait 共用终态归一化：accepted/queued/in_flight/pending/running、pendingError 不算结束；无 endedAt 的普通 wait timeout 继续等待；执行 timeout 归因优先于 abort 清理；正常成功 stop 不算取消，非成功 rpc/stop、restart、明确 aborted 才按取消处理。blocked/abandoned 不冒充成功。
 7. 取消桥和执行循环共用一次 abort／对账，在确认后关闭连接；修复原队列取消同时触发清理导致重复 abort 的竞态。区分尚未发送与已发送但未收到 ACK，后者也必须对账才能确认取消；abort ACK 与原生成功终态矛盾时明确失败，不伪造取消。既有断线对账读取真实完成／失败／取消，不仅允许恢复为 completed，也不重发 agent。模型步骤 ID 在事件与最终回执间保持一致，pending lifecycle 错误不提前结束步骤。
 8. Gateway 客户端在请求前已取消时立即拒绝，修复此前 Promise 不结算的问题；超时释放 signal 监听器，非法 hello 正常拒绝，queued/in_flight 回执继续等待真正最终结果。
+9. 交付复核修复晚取消竞态：原生终态先记录／对账，再向消费者输出收尾事件。消费者此时取消不能把真实成功或失败改写成取消，也不重复 abort 已结束的执行。4 条新增回归与原有矛盾取消证据回归通过，详见[评审记录](review.md)。
 
 ## 请求样本与可重复验证
 
@@ -36,6 +37,8 @@ node --test test/openclaw-compatibility.test.js test/openclaw-gateway-client.tes
 `openclaw-gateway-client.test.js` 使用真实本机 WebSocket 对端验证握手、非终态回执、结构化错误、预取消和超时清理。它不是 OpenClaw Gateway 进程。原有人工审批允许／拒绝／过期／外部决策、广播隔离、有界队列、CLI/SDK 连接和 Playboard 测试继续回归。
 
 ## 验证状态
+
+交付前同步到 main `102fb9c`，补齐晚取消回归后再次验证：WebUI 35 项通过；完整 Node 套件以 `node --test --test-concurrency=4 test/*.test.js packages/octo-runtime-protocol/test/*.test.js` 执行，1605 项中 1570 通过、35 条件跳过、0 失败。默认并发的两次全量分别遇到 Codex finalization elapsed 超过 4 秒、进程组回收 PROCESS_CLEANUP_TIMEOUT；未改这些模块或放宽断言。Codex 与兼容性定向复跑共 101 项、进程组回收定向复跑 11 项全部通过。保留失败记录，受控并发完整回归和远端 CI 分别作为证据，不将默认命令标成最终通过。
 
 最终验证通过：`pnpm typecheck`（包含完整构建）、`pnpm lint`、`pnpm lint:names`、`pnpm format:check`、`pnpm docs:check`（4 项执行测试通过）。构建完成后运行完整 `pnpm test:suites`，WebUI 35 项通过，Node 1596 项中 1562 项通过、34 项平台／环境条件跳过、0 失败。`git diff --check` 通过。
 
