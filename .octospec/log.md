@@ -2,6 +2,8 @@
 
 ## 2026-10-22
 
+- 新建 Issue 93 独立 worktree，完成[CLI/SDK睡眠恢复规划](tasks/93-sleep-wake-recovery/brief.md)，用户追加5/10/15/15秒重试和仅Extra状态的stdout/logs要求。M0-M6、27项断言、14类场景及95分自评均已落文档；未实施、未真实联调或提交，见[记录](journal/shared/2026-10-22-93-sleep-wake-recovery-plan.md)。
+
 - 按用户要求将最新 main@5ce0589 合入 PR 91 分支，解决本文件和知识索引中的新增记录冲突，保留双方记录。Context 英文格式与 Windows 顺序断言修复完整保留，Adapter/Extra 装配合同不变。类型构建、lint、格式、双语文档及完整回归通过（Node 1453 通过/32 平台跳过，UI 35 通过），见[本轮记录](journal/shared/2026-10-21-provider-decoupling-implementation.md#2026-10-22-同步最新-main)。
 
 ## 2026-10-21

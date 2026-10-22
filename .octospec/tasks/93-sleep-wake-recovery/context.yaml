@@ -1,0 +1,103 @@
+task: 93-sleep-wake-recovery
+phase: implementation
+issue: https://github.com/Mininglamp-OSS/octo-runtime/issues/93
+issue_updated_at: '2026-10-22T02:25:08Z'
+baseline: 3b34415ca2a2297d48a1cec0458b15d52df9ab55
+branch: plan/93-sleep-wake-recovery
+worktree: /Users/lvsijia/github.com/Mininglamp-OSS/octo-runtime-issue-93
+read_at: '2026-10-22'
+workflow: .claude/skills/octospec-workflow/SKILL.md
+loaded:
+  - AGENTS.md
+  - .claude/commands/octospec-plan.md
+  - .claude/skills/octospec-workflow/SKILL.md
+  - .octospec/index.md
+  - .octospec/manifest.yaml
+  - .octospec/rules/_index.yaml
+  - .octospec/tasks/_brief.template.md
+  - .octospec/tasks/69-kernel-client-invoke/context.yaml
+  - .octospec/tasks/69-kernel-client-invoke/assessment.md
+  - .octospec/scripts/lint.py
+  - /Users/lvsijia/.codex/skills/technical-writing-zh/SKILL.md
+rules:
+  - {id: runtime-architecture, path: .octospec/rules/architecture.md, sha256: 4101d5cbd87e6b5d9f835a676d97d360ab882bc4d608eca6de0c3db78b22891d}
+  - {id: runtime-protocol-design, path: .octospec/rules/protocol-design.md, sha256: 5b2abad6e825bce94701e3378ee33a4b027b6f30a3ca4a4bf4231d8f1351d578}
+  - {id: runtime-local-execution, path: .octospec/rules/local-execution.md, sha256: 047f6a6eb3cf01076eb2116c1fb6e151d735f93a3d94ff31153b6348dbfe3787}
+  - {id: runtime-lifecycle, path: .octospec/rules/runtime-lifecycle.md, sha256: 2103932f8b6839c8b952088151d590cc224ae7e87ffaaabda82aa2dc35336b91}
+  - {id: runtime-extras, path: .octospec/rules/extras.md, sha256: 2eca0b8222ab34f03b4fccba5750b62867181718653e080fef38f297196cd411}
+  - {id: runtime-channel, path: .octospec/rules/channel-integration.md, sha256: 932f592cfe589a8c9304afdff261fdc91dbef6b5771fc476ab14ea579c1ec135}
+  - {id: runtime-output-protocol, path: .octospec/rules/output-protocol.md, sha256: ea45f31935eb0b4185a26883041a613f97305453bdec00a97fa59845c1f76903}
+  - {id: runtime-stateless, path: .octospec/rules/stateless-execution.md, sha256: 1bd283b6728c70529ef9680114b46925be15e4399d43f86152c9ff4c59816c1b}
+  - {id: runtime-engineering, path: .octospec/rules/engineering.md, sha256: 11b676ac5e4e69b3adb6d7ef2f31f83ddc1e5d5828b33231ec8304103245e3da}
+  - {id: commit, path: .octospec/rules/collaboration.md, sha256: fe77443e68003d2c93506ee8fa4f2fd376145d57ace4d7e1b6034a4dbb7785f3}
+  - {id: runtime-adapter-metadata, path: .octospec/rules/adapter-metadata.md, sha256: 8e34e056f19a430b5db98519f9786452d3668bb28c4b3152ee4dc907733429a1}
+source_reads:
+  - packages/octo-runtime-extra-channel-gateway/src/transport/wukong.ts
+  - packages/octo-runtime-extra-channel-gateway/src/transport/channel.ts
+  - packages/octo-runtime-extra-channel-gateway/src/transport/connection-error.ts
+  - packages/octo-runtime-extra-channel-gateway/src/transport/auth.ts
+  - packages/octo-runtime-extra-channel-gateway/src/transport/connector.ts
+  - packages/octo-runtime-extra-channel-gateway/src/application/im-channel.ts
+  - packages/octo-runtime-executor-kernel/src/client.ts
+  - packages/octo-runtime-executor-kernel/src/supervisor.ts
+  - packages/octo-runtime-executor-kernel/src/service.ts
+  - packages/octo-runtime-host-sdk/src/extra-service.ts
+  - packages/octo-runtime-adapter-sdk/src/runtime-log.ts
+  - packages/octo-runtime-cross-service/src/types.ts
+  - apps/cli/src/main.ts
+  - apps/cli/src/service-control.ts
+  - apps/cli/src/help.ts
+  - test/im-connection-state-machine.test.js
+  - test/kernel-worker-supervision.test.js
+  - scripts/verify-release.mjs
+  - package.json
+searched:
+  - Kernel server readiness, worker failure, invocation registry, capacities and repair budgets
+  - CLI/native composition roots, public fixtures and existing live verification scripts
+  - cross-service stdoutPath and stderrPath platform support
+  - serveWorker heartbeat responder and runtime logging whitelist
+external_sources:
+  - source: https://github.com/Mininglamp-OSS/octo-runtime/issues/93
+    result: Full body and metadata read through gh; OPEN, P0; no comments.
+  - source: /Users/lvsijia/github.com/Mininglamp-OSS/octo-im
+    revision: 613fc2b2b3a4c23054385ee3f8238fc44a8f68e7
+    paths: [pkg/protocol/frame/common.go, internal/usecase/presence/gateway.go, internal/usecase/user/token.go]
+    result: ReasonConnectKick=12; route replacement and master token update emit it. Deployment match UNVERIFIED.
+  - source: /Users/lvsijia/github.com/Mininglamp-OSS/octo-spec/README.md
+    result: Four-phase workflow is agent-executed; this task stops at Plan.
+decisions:
+  confirmed:
+    - New worktree and OctoSpec P0 analysis/repair plan with executable readiness at least 95.
+    - User selects retry delays 5s, 10s, 15s, then repeated 15s; server Retry-After still respected.
+    - User requests channel-gateway logs for Extra service status stdout, excluding chat details.
+    - CLI and native SDK recovery both required by the issue.
+  proposed:
+    - 180-second measured recovery acceptance with separately accounted server Retry-After.
+    - Bounded Extra status stdout and hourly status mirror; logs tail/follow without service operations.
+    - Probe-epoch worker heartbeat grace only if the controlled reproduction confirms that failure path.
+  unresolved_gates:
+    - Deployed reason12 semantics and safe ownership classification.
+    - Original Kernel failure boundary and exact reporter environment.
+    - Real macOS, Windows, Linux, Provider and IM evidence.
+authorization:
+  planning_and_worktree: true
+  implementation_this_turn: true
+  commits: true
+  push_or_pr: false
+  merge_or_release: false
+  external_messages: false
+  git_identity: Preserve configured author; English GitHub and commit text; one Codex trailer only for authorized Codex-contributed commits.
+validation:
+  - command: uv run --with pyyaml python .octospec/scripts/lint.py
+    scope: Clean baseline before planning edits
+    result: FAIL; sole diagnostic is obsolete assertion rejecting existing docs directory.
+  - command: uv run --with pyyaml python /Users/lvsijia/github.com/Mininglamp-OSS/octo-spec/scripts/octospec-lint.py .
+    scope: Final planning documents
+    result: PASS; 296 knowledge files conform to OKF.
+  - command: uv run --with pyyaml python .octospec/scripts/lint.py
+    scope: Final frontmatter, rule index and local links
+    result: FAIL only on unchanged docs-directory assertion; no added frontmatter, index or link errors.
+  - scope: Context YAML, rule fingerprints, acceptance inventory and whitespace
+    result: PASS; 11 SHA-256 fingerprints, A01-A27, S01-S14, git diff --check and new-file trailing-whitespace scan.
+  - scope: Product build, tests, real services, platform sleep/network and Provider/IM
+    result: UNEXECUTED; planning-only scope.
