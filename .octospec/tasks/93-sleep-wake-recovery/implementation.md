@@ -16,7 +16,7 @@ timestamp: 2026-10-22T00:00:00Z
 | --- | --- | --- |
 | M0 调查基线 | 文档与本地源码调查完成；事故现场门槛待外部信息 | F01-F17、H1-H6 已定位；reason12 有本地 IM 源码线索，但部署版本未核实；未执行真实一小时合盖 |
 | M1 故障工具 | 隔离工具完成；真实 checkpoint 由维护者执行 | 真实 IPC relay 交叉矩阵、公共发行入口 native host 与 attach-only 探针 |
-| M2 Gateway | 待实施 | 首次离线恢复、5/10/15/15 秒与状态日志接线 |
+| M2 Gateway | 隔离回归完成；reason12 部署门槛保留 | 首次暂态离线恢复、5/10/15/15 秒，25 项连接状态/真实 WS 测试通过 |
 | M3 执行链 | 待实施 | 先复现监督时序，保留真实故障与未知执行边界 |
 | M4 状态日志 | 待实施 | Extra 状态 stdout、日志镜像与 CLI logs |
 | M5 双模式实测 | 待实施 | 隔离受控验证与真实平台结果分开 |
@@ -37,3 +37,7 @@ timestamp: 2026-10-22T00:00:00Z
 `recovery-kernel-probe.mts` 与 `recovery-native-host.mts` 只使用公共包入口，探针不启动服务、不重试 invoke、不输出聊天正文。native 宿主直接持有 factory。没有自动切换网络、合盖或原生服务；原计划 live runner 延后到实际专用目标和人工 checkpoint 就绪，避免把配置存在当作真实试验成功。
 
 验证：workspace build 通过；既有 invoke 27 项通过；新增交叉矩阵 1 项通过；两个公共入口工具 strict TypeScript 编译通过。fake Provider 结果不替代真实 IM/Provider 证据。
+
+## M2
+
+首次暂态连接失败不再要求历史 online；认证、明确终端拒绝和未知协议仍停止。每连接仅一个计时器，回收成功后按 5/10/15/15 秒等待，成功归零；Retry-After、超长 timer 分段、延迟回调不追赶、停止 fence 保留。增加 connecting/retry_started/retry_scheduled 元数据事件，M4 接入状态专用输出。构建与 25 项状态机/真实 WS 测试通过；reason12 仍终态，不能将本阶段写成原事故已经恢复。
