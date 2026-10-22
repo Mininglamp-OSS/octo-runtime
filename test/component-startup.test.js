@@ -53,12 +53,21 @@ test(
     t.after(() => kernel.close());
     const controller = new AbortController();
     const starting = kernel.initialize({ signal: controller.signal });
-    void starting.catch(() => undefined);
+    let startupError;
+    void starting.catch((error) => {
+      startupError = error;
+    });
     let worker;
+    t.after(async () => {
+      if (startupError && !controller.signal.aborted) t.diagnostic(startupError.stack);
+      t.diagnostic(`Kernel startup status: ${JSON.stringify(await kernel.status())}`);
+    });
     // 文件存在不代表 PID 已写完，空内容会被 Number 转成当前进程组的 0。
     // 子进程写出 PID 也不代表父进程已完成身份登记；Windows PowerShell 查询可超过清理预算。
     // 本用例验证登记完成后的启动取消，须等原子清单确认所有权，再要求完整回滚。
     await waitFor(async () => {
+      // 初始化可能已失败；保留原因和清理事实，不能将其吞掉后误报成轮询超时。
+      if (startupError) throw startupError;
       const text = await readFile(pidFile, "utf8").catch(() => "");
       if (!/^[1-9]\d*$/.test(text)) return false;
       worker = Number(text);
@@ -68,10 +77,12 @@ test(
       return Number.isSafeInteger(worker) && manifest?.worker?.pid === worker;
     }, 15_000);
     controller.abort();
-    await assert.rejects(
-      starting,
-      (error) => error instanceof ServiceInitializationError && error.cleanup.complete
-    );
+    await assert.rejects(starting, (error) => {
+      assert.ok(error instanceof ServiceInitializationError);
+      assert.equal(error.cause, controller.signal.reason);
+      assert.equal(error.cleanup.complete, true, JSON.stringify(error.cleanup));
+      return true;
+    });
     assert.equal(alive(worker), false);
     await assert.rejects(access(manifestFile), { code: "ENOENT" });
     if (process.platform !== "win32") {
