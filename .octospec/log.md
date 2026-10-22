@@ -20,6 +20,8 @@
 
 - 从最新 `origin/main@88fa71d` 新建 Issue 40 独立 worktree，完成 [OpenClaw 版本兼容调研与方案](tasks/40-openclaw-compatibility/brief.md)。26 个非 beta 标签核对表明 7.x 创建 Schema 不支持当前发送的三个字段，8.1 起已有对应字段，协议号均为 4；原始 7.1 Schema 四项本地校验通过。仅规划，旧版权限等价映射与真实联调待确认，见[记录](journal/shared/2026-10-22-40-openclaw-compatibility-plan.md)。
 
+- 从最新 main@102fb9c 建立 Issue 95 worktree，先补 [Grok Build ACP 简报](tasks/95-grok-build-acp/brief.md)和[参考资料](tasks/95-grok-build-acp/reference.md)，实现 `grok-build` ACP 适配与CLI/SDK注册。按用户要求撤回共享 ACP client/adapter/审批桥改动，扩展留在新包内；同 adapter 并发与通用 ACP 的错误回复、失败、取消隔离通过。隔离修订后Node1514通过/35跳过、UI35通过、类型/lint/docs及tgz离线安装通过，1.0.67真实两轮流与跨进程续聊重试通过。OctoSpec lint仍仅有main的docs目录冲突；真实工具/MCP/图片及其他平台未验，见[收尾记录](journal/shared/2026-10-22-95-grok-build-acp.md)。用户已授权 rebase、PR 交付及合并，遵守 main 的 CI 与评审保护。
+
 - 按用户要求落实PR #96的P3：Windows Node 24/26显式运行五个恢复与Extra状态日志测试文件，保留原平台边界，本机40项通过；新增提交的远端结果及批准另行确认，merge改由用户手动操作，见[实施记录M9](tasks/93-sleep-wake-recovery/implementation.md#m9-pr-96-windows-测试覆盖补充)。
 
 - 按用户授权将Issue 93八个阶段提交无冲突rebase到main@d076474；全量35项UI、1488项Node通过，34项跳过，静态与文档检查通过。更新推送/PR/合并授权与保护要求，原事故仍待现场验收，见[实施记录M8](tasks/93-sleep-wake-recovery/implementation.md#m8-同步-main-与提交-pr)。
