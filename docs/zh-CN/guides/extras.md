@@ -39,7 +39,7 @@ Gateway 默认指令也计入最终调用的 Context 预算。宿主返回达到
 
 当前用户明确要求通知真人或向当前群的 Bot 交接任务时，模型确认目标的真实 UID，在成功 final 普通正文中输出 `@[uid:displayName]`。Gateway 核验当前成员及明确的真人标记（`robot=0/false`）或 Bot 标记（`robot=1/true`），沿原回复连接发送可读正文及原生 `mention.uids/entities`。普通 `@名字` 不产生通知。无法确认的目标退为纯文本；代码、引用示例、进度、thinking 和失败回复不转换。该能力不开放广播、CLI 重复发送或自行发起 Bot 调用。
 
-`allowed_sender_ids` 省略时，DM 沿用平台好友准入，群聊和话题不增加发送者限制；owner、其他用户和其他 Bot 均可按 Space、群启停/范围和原生 mention 规则触发。显式名单仅允许列出的发送者，owner 不隐式补入；`[]` 拒绝全部，`null` 非法。Gateway 不维护另一套好友名单。卡片控制仍须匹配原任务发起者、Space、原卡片消息和频道地址。
+`allowed_sender_ids` 省略时，DM 沿用平台消息准入/访问策略，群聊和话题不增加发送者限制；owner、其他用户和其他 Bot 均可按 Space、群启停/范围和原生 mention 规则触发。显式名单仅允许列出的发送者，owner 不隐式补入；`[]` 拒绝全部，`null` 非法。Gateway 不维护另一套好友名单，也不另行实施仅好友可访问的策略。卡片控制仍须匹配原任务发起者、Space、原卡片消息和频道地址。
 
 Gateway 在命令处理、Context 准备和 AgentRun 调度前拒绝自身消息，包括自己 @ 自己和 AI 广播，即使自己的 UID 在 `allowed_sender_ids` 中也不能绕过。私聊、群和话题一致。
 

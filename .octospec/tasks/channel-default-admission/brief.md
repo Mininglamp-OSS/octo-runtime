@@ -14,6 +14,12 @@ timestamp: 2026-10-22T00:00:00+08:00
 
 本地已实施并通过构建、类型、lint、文档、定向 81 项、全量 Node 1630 项（35 跳过）与 UI 35 项。五 Bot 群/子区触发及 stop/reset 隔离四项回归通过。用户已授权提交 PR 并在门禁满足后合并 main，未部署运行中服务，见[验证记录](../../journal/shared/2026-10-22-channel-default-admission.md)；用户要求的类似问题检查见[相邻入口审计](audit.md)。
 
+## PR 112 Windows CI 修复
+
+用户反馈 Windows Node 24 的身份登记测试再次失败。原日志在约 10.56 秒报告 `cannot identify worker process`，与 PowerShell 的 10 秒期限吻合，但底层 cause 已丢失，不能据此确认系统层的具体耗时原因。Node 26 同轮通过。前次取消模块加载优化仍未消除完整 PowerShell 冷启动成本。
+
+此问题属于 Kernel 资源所有权实现与 CI 交付，不改变 Channel 产品准入：Windows 身份查询期限调整为 30 秒并保留登记错误 cause；身份格式、不缓存 PID、未知身份拒绝及关闭预算保持原合同。同步调整 Windows 回滚测试登记等待与总期限，保留真实查询、三轮串行运行、回滚及替代实例断言。新增跨平台可运行的 Windows 查询边界回归，覆盖 PID 不缓存、非法响应及失败不登记并保留 cause。
+
 ## 目标与责任
 
 核心事故是群聊里非 owner 的用户或其他 Bot 即使携带真实 mention，也无法触发接收 Bot 的 AgentRun。DM 与卡片回调属于同源默认值检查的补充，不替代此主要验收目标。
