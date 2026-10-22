@@ -103,6 +103,8 @@ probe、invocation 和取消／断线对账新连接共用 Adapter 内部合同�
 
 终态同时核对 status、endedAt、stopReason、aborted 和超时归因；正常成功的 stop 不是取消，rpc/stop 的非成功回执和 restart 才按取消处理。等待超时不等于执行结束，pendingError 不作为终态；执行超时、blocked/abandoned 不报成功。取消桥与执行循环共用一次 abort/对账，确认后关闭连接。断线对账只读已有执行，按实际完成／失败／取消返回，不重跑任务。
 
+RPC expectFinal、终态归一化和 wait 共用中间回执判定：accepted／queued／in_flight／pending／running 及 pendingError 保留原请求，不能提前丢弃最终答案或 usage。并发对账先返回局部结果，再仅填充未知终态；旧 wait 或主动关闭造成的错误不能覆盖已确认取消。断线恢复仍须发布已开始模型步骤的匹配结束事件。确认终态后忽略迟到广播；确认前发生的队列容量失败保留原始异常，并在对账返回和正常出口阻止成功收尾。真实 transport cleanup 错误仍须传播，不能因已知执行终态而吞掉。
+
 上述为代码合同与自动化验证范围，不能代替各 Gateway、reviewer／harness 和 IM 的真实验收。源码及逐标签证据见[Issue 40 实施记录](../tasks/40-openclaw-compatibility/implementation.md)。
 
 ## 操作入口

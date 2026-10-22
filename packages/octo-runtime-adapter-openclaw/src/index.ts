@@ -30,6 +30,7 @@ import {
   gatewayCreateParams,
   gatewayLegacyPermissionParams,
   gatewayTerminal,
+  isGatewayRunPending,
   type GatewayTerminal
 } from "./compatibility.js";
 
@@ -427,11 +428,7 @@ async function waitForConfirmedTerminal(
     const status = nonEmptyString(result?.status);
     const actual = gatewayTerminal(result, "wait");
     if (actual && (expected === undefined || actual === expected)) return actual;
-    if (
-      !actual &&
-      (result?.pendingError === true ||
-        ["pending", "timeout", "accepted", "in_flight", "queued", "running"].includes(status ?? ""))
-    ) {
+    if (!actual && (isGatewayRunPending(result) || status === "timeout")) {
       await new Promise<void>((resolve) =>
         setTimeout(resolve, Math.min(250, Math.max(0, deadlineAt - Date.now())))
       );
@@ -566,7 +563,7 @@ async function* invokeOpenClawGateway(
 ): AsyncGenerator<CanonicalEvent> {
   const client = clientFactory(invocation.gateway);
   const requestAbort = new AbortController();
-  let resourceFailure = false;
+  let resourceFailure: Error | undefined;
   let terminal: "completed" | "failed" | "cancelled" | undefined;
   let closing: Promise<void> | undefined;
   const stop = (cancel = false): Promise<void> => {
@@ -618,7 +615,7 @@ async function* invokeOpenClawGateway(
           "cancelled",
           Date.now() + 30_000
         );
-        terminal = "cancelled";
+        terminal ??= "cancelled";
       } finally {
         await recoveryClient?.close();
       }
@@ -641,9 +638,9 @@ async function* invokeOpenClawGateway(
     discardOnFailure: true,
     limits: context?.streamLimits,
     boundary: "openclaw.event_queue",
-    onFailure: () => {
+    onFailure: (error) => {
       if (req.signal?.aborted) return;
-      resourceFailure = true;
+      resourceFailure = error;
       void stop(true);
     }
   });
@@ -656,7 +653,7 @@ async function* invokeOpenClawGateway(
   let providerSessionKey = invocation.sessionKey;
   const routedApprovals = new Set<string>();
   const acceptEvent = (event: OpenClawGatewayEvent): void => {
-    if (closing) return;
+    if (closing || terminal) return;
     const payload = asRecord(event.payload);
     if (event.event === "agent") {
       const runId = nonEmptyString(payload?.runId);
@@ -695,6 +692,47 @@ async function* invokeOpenClawGateway(
     messageNumber: 0,
     messages: new Map(),
     tools: new Set()
+  };
+  // 原生终态和步骤收尾共用出口；旧等待失败不能覆盖已确认的结果或丢失步骤结束。
+  const terminalEvents = (outcome: GatewayTerminal, message?: string): CanonicalEvent[] => {
+    const events: CanonicalEvent[] = [];
+    if (state.stepStarted && !state.stepFinished) {
+      state.stepFinished = true;
+      events.push({
+        protocolVersion: 2,
+        type: "model_step.finished",
+        payload: { stepId: state.stepId!, status: canonicalTerminalStatus(outcome) }
+      });
+    }
+    events.push({
+      protocolVersion: 2,
+      type: "message.update",
+      payload: {
+        ...gatewayMessage(state, "final", state.assistantItemId),
+        role: "assistant",
+        status: outcome === "cancelled" ? "stopped" : outcome,
+        text: state.assistantText,
+        channel: "final"
+      }
+    });
+    if (outcome === "cancelled")
+      events.push({
+        protocolVersion: 2,
+        type: "run.cancelled",
+        payload: { reason: String(req.signal?.reason ?? "openclaw_aborted") }
+      });
+    else if (outcome === "completed")
+      events.push({ protocolVersion: 2, type: "run.completed", payload: {} });
+    else
+      events.push({
+        protocolVersion: 2,
+        type: "run.failed",
+        payload: {
+          message: message ?? "OpenClaw Gateway agent run failed",
+          adapterType: "openclaw"
+        }
+      });
+    return events;
   };
   try {
     const hello = await client.connect();
@@ -802,6 +840,7 @@ async function* invokeOpenClawGateway(
 
     while (!terminal) {
       const next = await iterator.next();
+      if (terminal) break;
       if (next.done) throw new Error("OpenClaw event queue closed before terminal");
       const item = next.value;
       if (item.error) throw item.error;
@@ -811,12 +850,14 @@ async function* invokeOpenClawGateway(
         // 先保存原生终态，避免消费者在接收收尾事件时取消而覆盖真实结果。
         for (const event of reconciled.events) yield event;
         if (!terminal) {
-          terminal = await waitForConfirmedTerminal(
+          const confirmed = await waitForConfirmedTerminal(
             client,
             acceptedRunId,
             undefined,
             invocation.reconciliationDeadlineAt
           );
+          if (resourceFailure) throw resourceFailure;
+          terminal ??= confirmed;
           if (!state.stepFinished) {
             if (!state.stepStarted) {
               state.stepStarted = true;
@@ -936,156 +977,63 @@ async function* invokeOpenClawGateway(
       const native = asRecord(item.event.payload);
       const runId = nonEmptyString(native?.runId);
       if (!runId || (runId !== acceptedRunId && runId !== invocation.requestId)) continue;
-      const events = normalizeGatewayAgentEvent(item.event.payload, state);
       const nativeTerminal = terminalState(item.event.payload);
       if (nativeTerminal) {
-        terminal = await waitForConfirmedTerminal(
+        const confirmed = await waitForConfirmedTerminal(
           client,
           runId,
           nativeTerminal,
           invocation.reconciliationDeadlineAt
         );
+        if (resourceFailure) throw resourceFailure;
+        // await 期间取消任务可能先完成；较早发出的等待不能覆盖较新的确认。
+        terminal ??= confirmed;
+        if (terminal !== nativeTerminal) break;
       }
+      const events = normalizeGatewayAgentEvent(item.event.payload, state);
       for (const event of events) yield event;
       if (terminal === "failed") throw new Error(terminalError(item.event.payload));
     }
 
-    if (terminal === "cancelled") {
-      yield {
-        protocolVersion: 2,
-        type: "message.update",
-        payload: {
-          ...gatewayMessage(state, "final", state.assistantItemId),
-          role: "assistant",
-          status: "stopped",
-          text: state.assistantText,
-          channel: "final"
-        }
-      };
-      yield {
-        protocolVersion: 2,
-        type: "run.cancelled",
-        payload: { reason: String(req.signal?.reason ?? "openclaw_aborted") }
-      };
+    if (resourceFailure) throw resourceFailure;
+    if (terminal !== "completed" && terminal !== "cancelled")
+      throw new Error("OpenClaw Gateway stream ended without a terminal lifecycle event");
+    yield* terminalEvents(terminal);
+  } catch (error) {
+    let message =
+      resourceFailure?.message ?? (error instanceof Error ? error.message : String(error));
+    if (!resourceFailure && terminal) {
+      yield* terminalEvents(terminal, message);
       return;
     }
-    if (terminal !== "completed")
-      throw new Error("OpenClaw Gateway stream ended without a terminal lifecycle event");
-    yield {
-      protocolVersion: 2,
-      type: "message.update",
-      payload: {
-        ...gatewayMessage(state, "final", state.assistantItemId),
-        role: "assistant",
-        status: "completed",
-        text: state.assistantText,
-        channel: "final"
-      }
-    };
-    yield { protocolVersion: 2, type: "run.completed", payload: {} };
-  } catch (error) {
-    if (req.signal?.aborted && !terminal) {
+    if (!resourceFailure && req.signal?.aborted) {
       if (!agentDispatched) {
-        yield {
-          protocolVersion: 2,
-          type: "message.update",
-          payload: {
-            ...gatewayMessage(state, "final", state.assistantItemId),
-            role: "assistant",
-            status: "stopped",
-            text: state.assistantText,
-            channel: "final"
-          }
-        };
-        yield {
-          protocolVersion: 2,
-          type: "run.cancelled",
-          payload: { reason: String(req.signal.reason ?? "openclaw_aborted_before_dispatch") }
-        };
+        yield* terminalEvents("cancelled");
         return;
       }
       try {
         await confirmCancellation();
-        yield {
-          protocolVersion: 2,
-          type: "message.update",
-          payload: {
-            ...gatewayMessage(state, "final", state.assistantItemId),
-            role: "assistant",
-            status: "stopped",
-            text: state.assistantText,
-            channel: "final"
-          }
-        };
-        yield {
-          protocolVersion: 2,
-          type: "run.cancelled",
-          payload: { reason: String(req.signal.reason ?? "openclaw_aborted") }
-        };
       } catch (abortError) {
-        const message =
+        message =
           abortError instanceof Error
             ? abortError.message
             : "OpenClaw Gateway abort confirmation failed";
-        yield {
-          protocolVersion: 2,
-          type: "message.update",
-          payload: {
-            ...gatewayMessage(state, "final", state.assistantItemId),
-            role: "assistant",
-            status: "failed",
-            text: state.assistantText,
-            channel: "final"
-          }
-        };
-        yield {
-          protocolVersion: 2,
-          type: "run.failed",
-          payload: { message, adapterType: "openclaw" }
-        };
       }
+      yield* terminalEvents(terminal ?? "failed", message);
       return;
     }
-    let message = error instanceof Error ? error.message : String(error);
-    if (!resourceFailure && agentAccepted && terminal !== "failed" && terminal !== "cancelled") {
+    if (!resourceFailure && agentAccepted) {
       const recoveryClient = clientFactory(invocation.gateway);
       try {
         resolveGatewayContract(await recoveryClient.connect());
-        terminal = await waitForConfirmedTerminal(
+        const confirmed = await waitForConfirmedTerminal(
           recoveryClient,
           acceptedRunId,
           undefined,
           invocation.reconciliationDeadlineAt
         );
-        yield {
-          protocolVersion: 2,
-          type: "message.update",
-          payload: {
-            ...gatewayMessage(state, "final", state.assistantItemId),
-            role: "assistant",
-            status: terminal === "cancelled" ? "stopped" : terminal,
-            text: state.assistantText,
-            channel: "final"
-          }
-        };
-        if (terminal === "completed")
-          yield { protocolVersion: 2, type: "run.completed", payload: {} };
-        else if (terminal === "cancelled")
-          yield {
-            protocolVersion: 2,
-            type: "run.cancelled",
-            payload: { reason: "openclaw_reconciled_cancellation" }
-          };
-        else
-          yield {
-            protocolVersion: 2,
-            type: "run.failed",
-            payload: {
-              message: `OpenClaw Gateway confirmed a failed run after disconnect: ${message}`,
-              adapterType: "openclaw"
-            }
-          };
-        return;
+        terminal ??= confirmed;
+        message = `OpenClaw Gateway confirmed a failed run after disconnect: ${message}`;
       } catch (recoveryError) {
         const detail =
           recoveryError instanceof Error ? recoveryError.message : "unknown reconciliation failure";
@@ -1094,18 +1042,10 @@ async function* invokeOpenClawGateway(
         await recoveryClient.close();
       }
     }
-    yield {
-      protocolVersion: 2,
-      type: "message.update",
-      payload: {
-        ...gatewayMessage(state, "final", state.assistantItemId),
-        role: "assistant",
-        status: "failed",
-        text: state.assistantText,
-        channel: "final"
-      }
-    };
-    yield { protocolVersion: 2, type: "run.failed", payload: { message, adapterType: "openclaw" } };
+    yield* terminalEvents(
+      resourceFailure ? "failed" : (terminal ?? "failed"),
+      resourceFailure?.message ?? message
+    );
   } finally {
     req.signal?.removeEventListener("abort", onAbort);
     queue.close();

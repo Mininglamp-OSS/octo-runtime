@@ -8,6 +8,7 @@ worktree: /Users/lvsijia/github.com/Mininglamp-OSS/octo-runtime-issue-40
 read_at: "2026-10-22"
 workflow: .claude/skills/octospec-workflow/SKILL.md
 authorization:
+  - User requested examination of PR 102 review findings and analogous defects; confirmed defects are fixed within the existing delivery scope.
   - Create a new worktree from latest origin/main.
   - Research issue 40 with OctoSpec and propose causes and a solution.
   - User subsequently authorized implementation, local verification, and OctoSpec updates.
@@ -126,6 +127,10 @@ upstream_detail_reads:
     - docs/gateway/permission-modes.md
   note: Paths differ between versions; 404s were resolved through source tree and imports. The list is a union, not a claim every version contains every path.
 verification:
+  - scope: Final local verification after PR 102 fixes
+    result: Default-concurrency pnpm test:suites passed with Node 1587 passed, 35 conditional skips, zero failures and WebUI 35 passed. Full build/typecheck, lint, naming, formatting, developer docs (four tests) and diff passed. OctoSpec retains only the existing docs-directory conflict. New hosted CI and reviewer approval are tracked separately from the old c3e4f1f results.
+  - scope: PR 102 review findings and adjacent lifecycle/transport defects
+    result: Both external findings reproduced at c3e4f1f; three adjacent defect groups also reproduced and fixed. Added 17 regressions plus expanded intermediate-response coverage. All OpenClaw tests had 113 passes and one GC skip. Standards and Spec rechecks found no remaining reproduced blockers. Loopback WS evidence is controlled transport verification, not another live Gateway deployment. See review.md.
   - scope: Delivery verification after synchronization with main 102fb9c and late-cancellation fix
     result: WebUI 35 passed; complete Node suite with --test-concurrency=4 had 1570 passed, 35 conditional skips and zero failures. Default-concurrency runs each failed a different unmodified timing-sensitive test; isolated Codex/compatibility 101 and process cleanup 11 all passed. Build/typecheck, lint, names, format and developer docs passed after synchronization; OpenClaw rebuilt after the race fix. See implementation.md and review.md.
   - scope: 27-tag protocol/create/agent field audit

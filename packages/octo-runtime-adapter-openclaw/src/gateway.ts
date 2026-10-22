@@ -1,5 +1,6 @@
 import { createHash, generateKeyPairSync, randomUUID, sign } from "node:crypto";
 import WebSocket, { type RawData } from "ws";
+import { isGatewayRunPending } from "./compatibility.js";
 
 export interface OpenClawDeviceIdentity {
   deviceId: string;
@@ -380,11 +381,7 @@ export class OpenClawGatewayClient {
     const pending = this.#pending.get(frame.id);
     if (!pending) return;
     const payload = record(frame.payload);
-    if (
-      frame.ok === true &&
-      pending.expectFinal &&
-      ["accepted", "in_flight", "queued"].includes(String(payload?.status))
-    ) {
+    if (frame.ok === true && pending.expectFinal && isGatewayRunPending(payload)) {
       pending.accepted?.(frame.payload);
       return;
     }

@@ -2,6 +2,8 @@
 
 ## 2026-10-22
 
+- 修复 [PR #102 review 与同类问题](tasks/40-openclaw-compatibility/review.md#pr-102-外部意见与同类问题)：两项外部意见均复现，另确认旧 wait 覆盖终态、恢复步骤事件丢失和资源溢出误报成功三类缺陷。统一中间回执、终态提交及收尾，新增 17 条回归，OpenClaw 113 通过／1 GC skip；独立 Standards／Spec 最终复核无剩余已复现阻断。
+
 - 用户接受 Issue 40 现有代表实测为本次合并验收，授权提交 commit、创建 PR 及合入 main。进入最新 main 同步、双轴复核与 CI 交付；未实测版本继续保留原证据等级，不要求伪造全矩阵通过，见[任务](tasks/40-openclaw-compatibility/brief.md)。
 
 - 用户批准配对后完成 [6.11 真实 Gateway 验证](tasks/40-openclaw-compatibility/remote-6.11-validation.md)：probe 及 full／ask 回退文本、固定 exec、取消共五场景通过；6.11 加入精确合同，27 标签／54 模式流程及全部 OpenClaw 回归 92 通过、1 跳过。完整构建／类型及 lint 再验通过，真实内网地址与配对编号已从交付文档脱敏，凭据未入库。测试经临时本地 TCP 转发，正式远程 WSS 校验保留。前一条配对待批准状态已解除，7.1 仍按源码与自动化证据记录。

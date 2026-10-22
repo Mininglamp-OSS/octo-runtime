@@ -559,3 +559,93 @@ test("disconnect reconciliation rechecks contracts and preserves the actual term
   assert.match(events.at(-1).payload.message, /COMPATIBILITY_UNSUPPORTED/);
   assert.deepEqual(second.calls, []);
 });
+
+for (const path of ["lifecycle", "final receipt", "reconnect"])
+  for (const staleOutcome of ["ok", "error"])
+    test(`confirmed cancellation wins over an older ${path} wait: ${staleOutcome}`, async () => {
+      const controller = new AbortController();
+      const older = Promise.withResolvers();
+      const holdOlderWait = () => {
+        queueMicrotask(() => controller.abort("cancel during older reconciliation"));
+        return older.promise;
+      };
+      let waits = 0;
+      const first = fixture({
+        lifecycle: path === "lifecycle" ? { phase: "end" } : undefined,
+        result: path === "reconnect" ? new Error("connection lost") : { status: "queued" },
+        fail: (method) => {
+          if (method !== "agent.wait") return;
+          if (path !== "reconnect" && ++waits === 1) return holdOlderWait();
+          return { status: "error", endedAt: 2, stopReason: "rpc" };
+        }
+      });
+      const close = first.client.close;
+      first.client.close = async () => {
+        await close();
+        older.resolve({ status: staleOutcome, endedAt: 1 });
+      };
+      const second = fixture({
+        fail: (method) => (method === "agent.wait" ? holdOlderWait() : undefined)
+      });
+      let factories = 0;
+      const adapter = createOpenClawAdapter({
+        clientFactory: () => (factories++ === 0 ? first.client : second.client)
+      });
+      const events = await invoke({ adapter }, request({ signal: controller.signal }));
+      assert.equal(events.at(-1).type, "run.cancelled");
+      assert.equal(events.filter((event) => event.type === "run.completed").length, 0);
+      assert.equal(events.filter((event) => event.type === "run.failed").length, 0);
+      const finishes = events.filter((event) => event.type === "model_step.finished");
+      assert.equal(finishes.length, 1);
+      assert.equal(finishes[0].payload.status, "cancelled");
+      assert.equal(first.calls.filter((call) => call.method === "agent").length, 1);
+      assert.equal(first.calls.filter((call) => call.method === "sessions.abort").length, 1);
+      assert.equal(factories, path === "reconnect" ? 2 : 1);
+    });
+
+test("late cancellation preserves confirmed native failure and its diagnostic", async () => {
+  const controller = new AbortController();
+  const f = fixture({ result: { status: "error", summary: "native failure retained" } });
+  const events = [];
+  for await (const event of f.adapter.invoke(request({ signal: controller.signal }))) {
+    events.push(event);
+    if (event.type === "model_step.finished") controller.abort("late cancellation");
+  }
+  assert.equal(events.at(-1).type, "run.failed");
+  assert.equal(events.at(-1).payload.message, "native failure retained");
+  assert.equal(f.calls.filter((call) => call.method === "sessions.abort").length, 0);
+});
+
+test("confirmed cancellation does not hide transport cleanup failure", async () => {
+  const controller = new AbortController();
+  const f = fixture({ cancel: controller, waits: [{ status: "error", stopReason: "rpc" }] });
+  f.client.close = async () => {
+    throw new Error("fixture cleanup failed");
+  };
+  await assert.rejects(invoke(f, request({ signal: controller.signal })), /fixture cleanup failed/);
+  assert.equal(f.calls.filter((call) => call.method === "sessions.abort").length, 1);
+});
+
+for (const [status, stopReason, expected] of [
+  ["ok", undefined, "completed"],
+  ["error", undefined, "failed"],
+  ["error", "rpc", "cancelled"]
+])
+  test(`lifecycle reconciliation after disconnect preserves the model-step terminal: ${expected}`, async () => {
+    const first = fixture({
+      lifecycle: { phase: "end" },
+      fail: (method) => (method === "agent.wait" ? new Error("connection lost") : undefined)
+    });
+    const second = fixture({ waits: [{ status, stopReason, endedAt: 1 }] });
+    let factories = 0;
+    const adapter = createOpenClawAdapter({
+      clientFactory: () => (factories++ === 0 ? first.client : second.client)
+    });
+    const events = await invoke({ adapter });
+    const finishes = events.filter((event) => event.type === "model_step.finished");
+    assert.equal(events.filter((event) => event.type === "model_step.started").length, 1);
+    assert.equal(finishes.length, 1);
+    assert.equal(finishes[0].payload.status, expected);
+    assert.equal(first.calls.filter((call) => call.method === "agent").length, 1);
+    assert.equal(second.closed, 1);
+  });

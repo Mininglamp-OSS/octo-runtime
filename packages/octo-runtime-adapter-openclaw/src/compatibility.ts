@@ -165,6 +165,15 @@ export function gatewayLegacyPermissionParams(key: string): JsonRecord {
   return { key, execSecurity: "full", execAsk: "off" };
 }
 
+/** 同一执行的中间回执在 RPC 等待、终态归一化和对账中使用同一判定。 */
+export function isGatewayRunPending(value: unknown): boolean {
+  const response = record(value);
+  return (
+    response?.pendingError === true ||
+    ["accepted", "in_flight", "queued", "pending", "running"].includes(String(response?.status))
+  );
+}
+
 /** RPC 最终回执、lifecycle 与 agent.wait 共用归一化；超时归因优先于 abort 清理。 */
 export function gatewayTerminal(
   value: unknown,
@@ -182,12 +191,7 @@ export function gatewayTerminal(
             ? "error"
             : undefined
         : undefined;
-  if (
-    !status ||
-    ["accepted", "in_flight", "queued", "pending", "running"].includes(status) ||
-    response?.pendingError === true
-  )
-    return undefined;
+  if (!status || isGatewayRunPending(response)) return undefined;
   const reason = response?.stopReason ?? meta?.stopReason;
   const timeoutPhase = response?.timeoutPhase ?? meta?.timeoutPhase;
   const hardTimeout =
