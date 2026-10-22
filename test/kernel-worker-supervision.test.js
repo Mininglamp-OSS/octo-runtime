@@ -42,7 +42,11 @@ test(
     process.kill(first.pid, "SIGUSR2");
     // 心跳截止由 kernel-heartbeat.test.js 的可控时钟精确验证；真实进程还需回收、退避和启动。
     // 分别等待故障检测和替代进程就绪，避免把整个恢复过程误限为一个心跳预算。
-    await waitFor(() => supervisor.status.state === "recovering", 8000);
+    await waitFor(
+      () =>
+        supervisor.status.state === "recovering" || supervisor.status.generation > first.generation,
+      8000
+    );
     await waitFor(
       () => supervisor.status.generation > first.generation && supervisor.status.state === "ready",
       15_000

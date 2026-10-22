@@ -22,7 +22,7 @@ upstream: https://github.com/Mininglamp-OSS/octo-runtime/actions/runs/3972834900
 - 原用例等待替代 worker 就绪最多 7 秒，并断言总恢复耗时小于 6.5 秒。
 - 每秒轮询、固定 5 秒心跳截止及 timer 精度意味着发现失联可能需要约 6 秒；随后仍需回收进程、250 ms 退避及启动握手。原测试将整个恢复过程误限为心跳预算。
 - 可控时钟验证 5 秒固定截止，补充略早于截止的 timer tick 不提前过期、下一次 tick 不延长截止的回归。
-- 真实进程测试分别等待进入 recovering（8 秒）和替代 worker ready（15 秒）；验证 PID 更换、一次重启、旧 PID 已不存在及新 worker RPC 可用。
+- 真实进程测试分别等待进入 recovering 或已完成替换（8 秒）和替代 worker ready（15 秒）；允许轮询跨过短暂 recovering 状态，验证 PID 更换、一次重启、旧 PID 已不存在及新 worker RPC 可用。
 - 保留空闲 worker 健康验证及 Windows 的 SIGUSR2 跳过条件；失败时输出清理前状态。
 
 ## 验收
