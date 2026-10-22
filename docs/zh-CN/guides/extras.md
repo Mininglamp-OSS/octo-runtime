@@ -29,7 +29,7 @@ Channel Gateway 支持通过 `GatewayDependencies.loadContexts(config, {signal})
 
 加载结果会与静态 Context 合并。同一 `namespace` 和 `name` 的动态项替换整个静态项，包括其 `payload`；不会逐字段合并。这是 Channel Gateway 的行为，直接调用 Kernel 时不会自动执行这一步。
 
-取得宿主本轮有效 Context 后，Octo Gateway 再将默认英文 mention 指令追加到 `octo.control/instructions.payload.entries`：`entries = [...hostEffectiveEntries, ...gatewayDefaultEntries]`。通过 CLI `extraset` 配置的指令属于宿主，在前保留。两个列表各自保序、保留重复项，最终只有一个 instructions item。Gateway 每轮重新组合，不修改宿主输入、不累计上一轮结果。这一步不改变宿主静态/动态替换、公共 Context 合并或其他 Extra 的行为。
+取得宿主本轮有效 Context 后，Octo Gateway 再将默认英文 mention 指令追加到 `octo.control/instructions.payload.entries`：`entries = [...hostEffectiveEntries, ...gatewayDefaultEntries]`。通过 CLI `extraset` 配置的指令属于宿主，在前保留。两个列表各自保序、保留重复项，最终只有一个 instructions item。Gateway 每个新准备的轮次重新组合，不修改宿主输入、不累计上一轮结果。同代次卡片重试完整复用冻结 Context，其中的指令已经组合，不能再次追加默认项，也不重新读取宿主数据或历史。这一步不改变宿主静态/动态替换、公共 Context 合并或其他 Extra 的行为。
 
 Gateway 默认等待加载完成最多 5 秒，同时最多允许 8 个尚未结束的加载操作，可配置到 32 个。返回值最多 32 项，序列化后最多 64 KiB。等待超时不代表底层操作已停止；该操作实际结束前仍占用并发名额。访问数据库时也要注意：仅将同步操作包进 `async` 函数，并不能避免阻塞事件循环。
 

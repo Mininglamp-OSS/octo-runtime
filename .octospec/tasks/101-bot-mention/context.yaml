@@ -22,6 +22,7 @@ validation:
   source_probes: 4 passed
   targeted_node_tests: 94 passed
   host_first_followup: gateway_build_and_90_related_tests_passed
+  frozen_card_retry_p2: reproduced_before_fix_and_314_channel_tests_passed_after_fix
   full_node_tests: 1499 passed, 35 skipped, 0 failed
   ui_tests: 35 passed
   developer_docs_tests: 4 passed
