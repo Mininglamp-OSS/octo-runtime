@@ -2,7 +2,8 @@ task: 93-sleep-wake-recovery
 phase: implementation
 issue: https://github.com/Mininglamp-OSS/octo-runtime/issues/93
 issue_updated_at: '2026-10-22T02:25:08Z'
-baseline: 3b34415ca2a2297d48a1cec0458b15d52df9ab55
+baseline: d076474673b1aac542b08940d987c5598e5a4968
+original_baseline: 3b34415ca2a2297d48a1cec0458b15d52df9ab55
 branch: plan/93-sleep-wake-recovery
 worktree: /Users/lvsijia/github.com/Mininglamp-OSS/octo-runtime-issue-93
 read_at: '2026-10-22'
@@ -105,8 +106,9 @@ authorization:
   planning_and_worktree: true
   implementation_this_turn: true
   commits: true
-  push_or_pr: false
-  merge_or_release: false
+  push_or_pr: true
+  merge: true
+  release: false
   external_messages: false
   git_identity: Preserve configured author; English GitHub and commit text; one Codex trailer only for authorized Codex-contributed commits.
 validation:
@@ -137,5 +139,7 @@ validation:
     result: PASS; upstream OKF checker accepts 297 units, 11 updated rule fingerprints and A01-A27 implementation mapping verified. Repository checker still fails solely on its pre-existing docs-directory assertion.
   - scope: M7 follow-up Kernel recovery implementation, based on 717dc5ad0a1c09c0f9930c752c09b84b71015bbc with local changes
     result: PASS; 12 focused recovery tests, full build with 35 UI and 1472 Node passes plus 32 skips, lint/names/types/docs/format. Repacked dirty 0.0.0 archive passed offline external-consumer verification against the actual parent SHA; no clean-release claim.
+  - scope: Rebase onto origin/main d076474673b1aac542b08940d987c5598e5a4968; rebased product head 40598e8
+    result: PASS; all eight stage commits rebased without conflicts. Full pnpm test passed with 35 UI and 1488 Node passes, 34 Node skips and zero failures; lint/names/types/docs/format passed. User authorized push, English PR and merge, subject to required CI Gate and one approving review; repository auto-merge is disabled.
   - scope: Real services, platform sleep/network and real Provider/IM
     result: UNEXECUTED; all S01-S14 live rows remain open. Controlled loopback evidence does not close issue 93 or establish deployed reason12 semantics.

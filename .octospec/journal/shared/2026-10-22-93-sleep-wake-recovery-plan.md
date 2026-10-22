@@ -39,3 +39,7 @@ timestamp: 2026-10-22T00:00:00Z
 用户进一步要求Kernel应像本地常驻服务一样独立于网络。确认监听层不依赖网络，进程暂停模拟后同实例仍可执行；同时定位到快速替换三次耗尽后永久exhausted的策略缺口。M7改为三次快速尝试后串行15秒冷却，普通readiness失败持续低频恢复，连续健康观测60秒才重置策略；清理或所有权失败仍阻断并保留close失败。本地Kernel进程/instance/socket不重建，正常IPC请求没有重启次数限制，旧未知执行不重放。
 
 12项定向测试通过；全量35项UI、1472项Node通过，32项跳过；lint/names/types/docs/format和当前工作树0.0.0包外验证通过。包如实为dirty本地验证构建，没有发布。详细故障注入和SHA检查结果见[实施记录M7](../../tasks/93-sleep-wake-recovery/implementation.md#m7-复核后补充修复)，原事故和真机门槛仍开放。
+
+# 同步最新 main
+
+用户授权推送、英文PR及合并。八个阶段提交无冲突rebase到 `origin/main@d076474`，完整保留 #94 的WebUI Windows会话修复；历史SHA仍表示当时证据。rebase后全量35项UI与1488项Node通过、34项跳过，lint/names/types/docs/format通过。main要求CI Gate和一位审阅者批准，自动合并关闭；按保护完成后续交付，原事故现场门槛和issue #93仍开放，见[实施记录M8](../../tasks/93-sleep-wake-recovery/implementation.md#m8-同步-main-与提交-pr)。

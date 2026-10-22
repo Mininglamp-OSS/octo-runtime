@@ -116,10 +116,18 @@ CLI模式约15.0秒、SDK模式约14.8秒通过；此计时包括主动等待两
 
 用户要求复核Kernel本地监听与断网/休眠的关系，进一步要求修复永久exhausted。复核确认本地Unix socket/Windows Pipe不以网络为前提；200次本地status后新调用完成，未发现该路径的连接积累。隔离试验禁止Kernel/worker发TCP、DNS和fetch请求，模拟Provider网络错误只失败当前Run；同时SIGSTOP两进程6.2秒再恢复，原Kernel instance与worker PID不变、旧活动调用可确认取消、新调用完成。该暂停试验不是OS真实合盖证据。
 
-本阶段合同：保留最多三次快速替换的250/1000/4000ms退避；快速额度耗尽且旧进程及所有权记录均已确认回收后，保持recovering，每次15秒冷却后只启动一个worker。冷却与启动串行，失败后重新等待15秒，不因status/invoke并发触发额外启动，休眠回调不补跑。成功启动不立即重置低频策略，须连续健康观测60秒才恢复快速额度。Kernel进程、instance和监听端点不重建，未知旧执行不重放。旧worker清理、启动回滚或所有权确认失败保留exhausted并报告close失败；close取消冷却，不允许迟到启动。
+本阶段合同：保留最多三次快速替换的250/1000/4000ms退避；三次快速尝试均失败且旧进程及所有权记录均已确认回收后，保持recovering，每次15秒冷却后只启动一个worker。冷却与启动串行，失败后重新等待15秒，不因status/invoke并发触发额外启动，休眠回调不补跑。成功启动不立即重置低频策略，须连续健康观测60秒才恢复快速重试。Kernel进程、instance和监听端点不重建，未知旧执行不重放。旧worker清理、启动回滚或所有权确认失败保留exhausted并报告close失败；close取消冷却，不允许迟到启动。
 
 实际验证：心跳/监督/持续恢复/交叉矩阵共12项通过。四次worker故障后的快速尝试耗尽不再锁死，15秒后同Kernel instance/PID的新调用完成；短暂恢复后再次故障仍使用低频策略，close在2秒内取消冷却。fixture模拟持续readiness失败，实际启动记录确认两次低频启动分别至少间隔15秒；移除故障后自动恢复，旧Run仍为lost。对测试worker进程组注入EPERM，确认进入exhausted、没有替换，close仍报告失败。
 
 2026-10-22再次执行全量 `pnpm test`：35项UI通过，Node共1504项、1472通过、32跳过、0失败；其中包含CLI与SDK加密IM恢复。lint/names、根TypeScript、docs与format通过。重新打包当前工作树的0.0.0 tgz，包外离线安装、strict类型、原生Kernel/Extra、CLI与公共恢复探针验证通过；包内build-info如实标记基于 `717dc5ad0a1c09c0f9930c752c09b84b71015bbc` 的dirty构建，本次没有宣称干净发行版本或发布。首次验证命令误填expected-commit，因SHA不匹配被拒绝；改为实际父提交SHA后通过，没有修改校验器或包内容来绕过检查。
 
-这里的快速次数限制仅防止worker启动/崩溃循环，不是IPC请求额度。普通Provider网络错误不触发worker替换；重试不关闭或重绑本地监听。M7修复一个确定的永久不可用机制，不能据此确认原事故根因；S01-S14现场门槛保持开放。
+这里的快速次数限制仅防止worker启动/崩溃循环，IPC请求不受该计数影响。普通Provider网络错误不触发worker替换；重试不关闭或重绑本地监听。M7修复一个确定的永久不可用机制，不能据此确认原事故根因；S01-S14现场门槛保持开放。
+
+## M8 同步 main 与提交 PR
+
+用户授权从最新main rebase当前分支、提交英文PR并合入main；未授权发布npm。2026-10-22获取 `origin/main@d076474673b1aac542b08940d987c5598e5a4968`，包含WebUI Windows会话保存修复 #94；八个阶段提交无冲突完成rebase，产品提交为 `40598e8`。前文SHA保留为当时的验证证据，当前基线和授权已更新到context。
+
+rebase后全量 `pnpm test` 通过：35项UI通过；Node共1522项、1488通过、34跳过、0失败。lint、名称、根TypeScript、docs和format检查通过，工作树没有生成物漂移。新增跳过项来自main中的原生Windows文件锁测试，在本机macOS没有执行。
+
+main保护要求CI Gate通过和至少一位审阅者批准，且管理员也受约束；仓库关闭自动合并。后续按保护完成推送、PR和合并，不修改保护。PR以Refs #93关联；原事故根因、部署reason12语义和S01-S14仍缺现场证据，本次不关闭P0。

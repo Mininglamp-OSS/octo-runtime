@@ -2,6 +2,8 @@
 
 ## 2026-10-22
 
+- 按用户授权将Issue 93八个阶段提交无冲突rebase到main@d076474；全量35项UI、1488项Node通过，34项跳过，静态与文档检查通过。更新推送/PR/合并授权与保护要求，原事故仍待现场验收，见[实施记录M8](tasks/93-sleep-wake-recovery/implementation.md#m8-同步-main-与提交-pr)。
+
 - 补充 Issue 93 Kernel复核修复：快速worker替换限速触发后改为串行15秒冷却恢复，清理失败仍禁止替换；本地IPC监听持续存在，普通网络错误不触发worker重启。全量35项UI与1472项Node通过、32项跳过，包外验证通过，见[实施记录M7](tasks/93-sleep-wake-recovery/implementation.md#m7-复核后补充修复)。
 
 - 按后续授权完成 Issue 93 共享层恢复修复和Extra状态日志，分阶段英文提交；状态系列保留最近三份、每份100MiB。CLI/SDK本地加密IM端到端、全量回归和离线发行包验证通过；reason12部署语义与真实合盖等现场门槛仍开放，见[实施与验证记录](tasks/93-sleep-wake-recovery/implementation.md)。
