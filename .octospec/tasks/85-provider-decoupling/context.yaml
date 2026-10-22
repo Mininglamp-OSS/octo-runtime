@@ -4,6 +4,8 @@ baseline: d064cfe78f6818d3c451ecf803a280245f4b0496
 baseline_source: git-fetch-origin-main
 branch: fix/85-provider-decoupling
 review_baseline: 318b0f22db5e45e6effe3b35c89bc7ef426127f9
+integration_baseline: 5ce0589d8c21e692dc25ad1a15b41018d710d0e0
+integration_recorded_on: 2026-10-22
 issue: https://github.com/Mininglamp-OSS/octo-runtime/issues/85
 authorization:
   new_worktree: requested

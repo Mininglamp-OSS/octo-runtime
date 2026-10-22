@@ -1,5 +1,9 @@
 # 工程知识变更记录
 
+## 2026-10-22
+
+- 按用户要求将最新 main@5ce0589 合入 PR 91 分支，解决本文件和知识索引中的新增记录冲突，保留双方记录。Context 英文格式与 Windows 顺序断言修复完整保留，Adapter/Extra 装配合同不变。类型构建、lint、格式、双语文档及完整回归通过（Node 1453 通过/32 平台跳过，UI 35 通过），见[本轮记录](journal/shared/2026-10-21-provider-decoupling-implementation.md#2026-10-22-同步最新-main)。
+
 ## 2026-10-21
 
 - 修复 [PR 91](https://github.com/Mininglamp-OSS/octo-runtime/pull/91) 审查问题：CLI/Playboard 根据所选实例实际类型准备旧 manifest 中省略 type 的 OpenClaw，覆盖 fresh Home、凭据轮换和未选模块不加载；修正具体 Provider 依赖归属指南。双轴复审及完整回归通过，见[记录](tasks/85-provider-decoupling/review.md)。
@@ -9,6 +13,10 @@
 - 按后续授权实施 [Issue 85](tasks/85-provider-decoupling/implementation.md)：框架生产依赖中立，SDK 原生 import 并在调用进程创建 Kernel/Extra，CLI 内置与 Home 双清单逐项来源解析、启动快照恢复、Extra 按需加载及旧 module 显式迁移。构建、类型、lint、名称、docs 及实际 tgz 离线安装验证通过；Node 1447 通过/10 跳过、UI 35 通过。OctoSpec checker 保留 main 已知 docs 目录冲突。未提交、推送或发布，见[实施记录](journal/shared/2026-10-21-provider-decoupling-implementation.md)。
 
 - 新建并按用户补充更新 [Issue 85 的 OctoSpec](tasks/85-provider-decoupling/brief.md)：Adapter 与 Extra 同时按需载入；SDK 原生 import、无 manifest；CLI 统一内置清单加 Home 用户扩展，两者均有 adapters/extras，逐条保留原始清单解析锚点。默认发行全量，FDE 自行复制并处理依赖，不新增 probe 握手。同步[中英文 docs](../docs/zh-CN/concepts/module-loading.md)和[整体架构约束](rules/architecture.md#cli-与-sdk-的-adapterextra-装配约束)。仅调查、方案与文档，未实现或提交，见[记录](journal/shared/2026-10-21-provider-decoupling-plan.md)。
+
+- 处理 PR #90 同步 #53 后的 Windows CI 顺序断言失败：用共享 trace 的同步事件顺序替换跨进程时间戳大小比较，增加一分钟 trace 时钟偏移以验证断言独立于时钟一致性。生产关闭行为与门禁保持。构建及本地相关测试 14 通过/22 Windows skip，远端原生结果单列，见[记录](journal/shared/2026-10-21-87-english-context-framing.md#pr-90-windows-ci-顺序断言修复)。
+
+- 完成 [Issue 87 Context 英文固定格式](tasks/87-english-context-framing/brief.md)：先规划并评估可执行性 98/100，再统一共享 renderer 的固定边界及 Guidance/Data 标签，保留多语言数据与原有注入语义；合同、README 及示例同步迁移说明。Node 1439 通过/10 跳过、UI 35 通过，类型/lint/格式/命名/文档通过。OKF 唯一错误为 main 已有 docs 目录禁用规则冲突，见[验证记录](journal/shared/2026-10-21-87-english-context-framing.md)。
 
 - 实施 Gateway 宿主会话存储：业务入口公开工厂及完整类型，逐 Bot 句柄先登记、尾写后撤权与一次释放，失败保留所有权；不新增 SQLite 依赖或适配。SDK 两篇、README、规则及无数据库包外样例同步。Node 1401 通过/10 跳过、UI 35 通过，类型/lint/格式/命名及离线 tgz 验证通过。用户授权合入 main 后执行真实 Electron/Buddy/SQLite/Provider 测试，见[实施验收](tasks/channel-host-session-store/implementation.md)与[记录](journal/shared/2026-10-21-channel-host-session-store-implementation.md)。
 
