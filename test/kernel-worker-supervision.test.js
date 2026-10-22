@@ -6,6 +6,25 @@ import { resolve } from "node:path";
 import { WorkerSupervisor } from "../packages/octo-runtime-executor-kernel/dist/supervisor.js";
 
 test(
+  "a long scheduler clock gap probes the existing worker before declaring it lost",
+  { timeout: 8000 },
+  async (t) => {
+    t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+    const supervisor = new WorkerSupervisor({
+      entrypoint: resolve("test/fixtures/heartbeat-worker.mjs")
+    });
+    await supervisor.start();
+    t.after(() => supervisor.close());
+    const original = supervisor.status;
+    t.mock.timers.setTime(Date.now() + 3_600_000);
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    assert.equal(supervisor.status.state, "ready");
+    assert.equal(supervisor.status.generation, original.generation);
+    assert.equal(supervisor.status.restart_attempt, 0);
+  }
+);
+
+test(
   "idle workers remain healthy; a blocked main loop is replaced within the heartbeat bound",
   { timeout: 18_000, skip: process.platform === "win32" },
   async (t) => {

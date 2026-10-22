@@ -6,6 +6,7 @@ import {
 } from "./process.js";
 import type { KernelStatus } from "./types.js";
 import { KernelError } from "./types.js";
+import { WorkerHeartbeat } from "./heartbeat.js";
 
 /** Kernel 独占 worker 的创建与回收；清理失败时禁止启动替代实例。 */
 export class WorkerSupervisor {
@@ -16,9 +17,8 @@ export class WorkerSupervisor {
   #closing = false;
   #recovery?: Promise<void>;
   #timer?: NodeJS.Timeout;
-  #lastPong = 0;
-  #pendingPing = false;
-  #stableSince = 0;
+  #heartbeat?: WorkerHeartbeat;
+  #activeTime = 0;
   #attempts: number[] = [];
   #abort = new AbortController();
   #cleanupFailure?: AggregateError;
@@ -71,9 +71,9 @@ export class WorkerSupervisor {
     this.#worker = worker;
     this.#generation++;
     this.#state = "ready";
-    this.#stableSince = Date.now();
-    this.#lastPong = Date.now();
-    this.#pendingPing = false;
+    const heartbeat = new WorkerHeartbeat();
+    this.#heartbeat = heartbeat;
+    let elapsed = 0;
     worker.child.on("message", (message: unknown) => {
       if (
         this.#worker === worker &&
@@ -82,20 +82,21 @@ export class WorkerSupervisor {
         "type" in message &&
         message.type === "worker.pong"
       ) {
-        this.#lastPong = Date.now();
-        this.#pendingPing = false;
+        heartbeat.pong("probe" in message ? message.probe : undefined);
       }
     });
     worker.child.once("exit", () => this.#failed(worker));
     worker.child.once("error", () => this.#failed(worker));
     this.#timer = setInterval(() => {
-      if (Date.now() - this.#lastPong >= 5000) {
+      const probe = heartbeat.tick();
+      this.#activeTime += heartbeat.activeMs - elapsed;
+      elapsed = heartbeat.activeMs;
+      if (probe.type === "expired") {
         this.#failed(worker);
         return;
       }
-      if (!this.#pendingPing && worker.child.connected) {
-        this.#pendingPing = true;
-        worker.child.send({ type: "kernel.ping" }, (error) => {
+      if (probe.type === "ping" && worker.child.connected) {
+        worker.child.send({ type: "kernel.ping", probe: probe.id }, (error) => {
           if (error) this.#failed(worker);
         });
       }
@@ -109,7 +110,7 @@ export class WorkerSupervisor {
     this.#state = "recovering";
     // 先拒绝原 RPC，让 Run 源生成唯一 lost 终态；恢复只允许新 Run。
     worker.client.close(new KernelError("WORKER_LOST"));
-    if (Date.now() - this.#stableSince >= 60_000) {
+    if ((this.#heartbeat?.healthyMs ?? 0) >= 60_000) {
       this.#attempts = [];
       this.#attempt = 0;
     }
@@ -128,10 +129,11 @@ export class WorkerSupervisor {
     this.#worker = undefined;
     for (let attempt = 0; attempt < 3; attempt++) {
       if (this.#closing) return;
-      this.#attempts = this.#attempts.filter((at) => Date.now() - at < 60_000);
+      // 休眠与时钟跳变不能把短时间内的重启预算洗掉。
+      this.#attempts = this.#attempts.filter((at) => this.#activeTime - at < 60_000);
       if (this.#attempts.length >= 3) break;
       const delay = [250, 1000, 4000][this.#attempts.length];
-      this.#attempts.push(Date.now());
+      this.#attempts.push(this.#activeTime);
       this.#attempt++;
       await new Promise<void>((resolve) => {
         const finish = () => {

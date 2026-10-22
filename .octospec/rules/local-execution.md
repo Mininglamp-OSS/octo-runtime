@@ -56,7 +56,7 @@ environment.streamLimits 在现有 Kernel wire 不支持，显式传入拒绝 KE
 
 ## worker 监督
 
-worker 加载 Adapter，并使用同一 AgentExecutor。独立 Node IPC 心跳由主循环响应，1 秒检查，5 秒失联；不能用执行输出静默程度判断存活。就绪预算 15 秒。失败先回收本次进程，再按 250/1000/4000 ms 退避，60 秒最多三次替换；稳定 60 秒后重置。耗尽后 status 可用，拒绝新执行。
+worker 加载 Adapter，并使用同一 AgentExecutor。独立 Node IPC 心跳由主循环响应，1 秒检查，单个带序号 probe 5 秒未响应判失联；不能用执行输出静默程度判断存活。检测到 wall/monotonic 长间隔或回拨时废弃旧 probe，发新 probe 并给予完整 5 秒，不因休眠直接丢失 Run；旧 pong 不能刷新新期限。就绪预算 15 秒。失败先回收本次进程，再按 250/1000/4000 ms 退避，60 秒活跃观测时间最多三次替换；稳定观测 60 秒后重置，休眠时间不洗掉预算。耗尽后 status 可用，拒绝新执行。
 
 worker 丢失令活动源产生一次 lost；已保留终态不改写。重启不恢复旧 Run、不重新 invoke。进程身份清单只用于孤儿清理，不是业务持久化。清理失败禁止替代实例。
 
