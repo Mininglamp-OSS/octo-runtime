@@ -22,10 +22,10 @@ loaded:
 rules:
   - {id: runtime-architecture, path: .octospec/rules/architecture.md, sha256: 4101d5cbd87e6b5d9f835a676d97d360ab882bc4d608eca6de0c3db78b22891d}
   - {id: runtime-protocol-design, path: .octospec/rules/protocol-design.md, sha256: 5b2abad6e825bce94701e3378ee33a4b027b6f30a3ca4a4bf4231d8f1351d578}
-  - {id: runtime-local-execution, path: .octospec/rules/local-execution.md, sha256: 047f6a6eb3cf01076eb2116c1fb6e151d735f93a3d94ff31153b6348dbfe3787}
-  - {id: runtime-lifecycle, path: .octospec/rules/runtime-lifecycle.md, sha256: 2103932f8b6839c8b952088151d590cc224ae7e87ffaaabda82aa2dc35336b91}
-  - {id: runtime-extras, path: .octospec/rules/extras.md, sha256: 2eca0b8222ab34f03b4fccba5750b62867181718653e080fef38f297196cd411}
-  - {id: runtime-channel, path: .octospec/rules/channel-integration.md, sha256: 932f592cfe589a8c9304afdff261fdc91dbef6b5771fc476ab14ea579c1ec135}
+  - {id: runtime-local-execution, path: .octospec/rules/local-execution.md, sha256: 757c84ec902202fcd2396d53b1e8ec62808435d1f43c2b2f794ec6cdffe3cc9e}
+  - {id: runtime-lifecycle, path: .octospec/rules/runtime-lifecycle.md, sha256: c71952a484a46569eed441531a0d375a0f6ec3aec95bd9814f6d3b9e7ffed93c}
+  - {id: runtime-extras, path: .octospec/rules/extras.md, sha256: c188c835c918e7ed1abff014da9f921538b8119e1bfb62c3552fa13d6c1ba6b2}
+  - {id: runtime-channel, path: .octospec/rules/channel-integration.md, sha256: ce5432241027b851d6db82c874ba34848cdc9ccf442f74648d1946cf49dc6b25}
   - {id: runtime-output-protocol, path: .octospec/rules/output-protocol.md, sha256: ea45f31935eb0b4185a26883041a613f97305453bdec00a97fa59845c1f76903}
   - {id: runtime-stateless, path: .octospec/rules/stateless-execution.md, sha256: 1bd283b6728c70529ef9680114b46925be15e4399d43f86152c9ff4c59816c1b}
   - {id: runtime-engineering, path: .octospec/rules/engineering.md, sha256: 11b676ac5e4e69b3adb6d7ef2f31f83ddc1e5d5828b33231ec8304103245e3da}
@@ -41,14 +41,26 @@ source_reads:
   - packages/octo-runtime-executor-kernel/src/client.ts
   - packages/octo-runtime-executor-kernel/src/supervisor.ts
   - packages/octo-runtime-executor-kernel/src/service.ts
+  - packages/octo-runtime-executor-kernel/src/heartbeat.ts
+  - packages/octo-runtime-executor-kernel/src/serve.ts
   - packages/octo-runtime-host-sdk/src/extra-service.ts
   - packages/octo-runtime-adapter-sdk/src/runtime-log.ts
+  - packages/octo-runtime-adapter-sdk/src/runtime-log-worker.ts
+  - packages/octo-runtime-adapter-sdk/src/hourly-log.ts
+  - packages/octo-runtime-adapter-sdk/src/service-status.ts
   - packages/octo-runtime-cross-service/src/types.ts
   - apps/cli/src/main.ts
   - apps/cli/src/service-control.ts
   - apps/cli/src/help.ts
+  - apps/cli/src/logs.ts
+  - apps/cli/src/status-output.ts
   - test/im-connection-state-machine.test.js
   - test/kernel-worker-supervision.test.js
+  - test/kernel-heartbeat.test.js
+  - test/kernel-recovery-matrix.test.js
+  - test/recovery-dual-mode.test.js
+  - test/recovery-im-fixture.js
+  - test/extra-status-logs.test.js
   - scripts/verify-release.mjs
   - package.json
 searched:
@@ -64,17 +76,21 @@ external_sources:
     paths: [pkg/protocol/frame/common.go, internal/usecase/presence/gateway.go, internal/usecase/user/token.go]
     result: ReasonConnectKick=12; route replacement and master token update emit it. Deployment match UNVERIFIED.
   - source: /Users/lvsijia/github.com/Mininglamp-OSS/octo-spec/README.md
-    result: Four-phase workflow is agent-executed; this task stops at Plan.
+    result: Four-phase workflow is agent-executed; user subsequently authorized staged implementation and commits.
+  - source: User clarification and read-only npm metadata for @mininglamp-oss/octo-runtime@1.1.0
+    result: Incident release 1.1.0; all Providers in scope. Local Extra config contains four enabled Bots targeting production IM, not an isolated test deployment. No credentials recorded or live Bot connections started.
 decisions:
   confirmed:
     - New worktree and OctoSpec P0 analysis/repair plan with executable readiness at least 95.
     - User selects retry delays 5s, 10s, 15s, then repeated 15s; server Retry-After still respected.
     - User requests channel-gateway logs for Extra service status stdout, excluding chat details.
     - CLI and native SDK recovery both required by the issue.
+    - User requires English comments for changed core logic and an English commit per stage.
+    - User requires rotation retaining the latest three files; status mirror uses the existing 100 MiB per-file cap with no overflow shards.
+    - Controlled clock-gap reproduction confirmed false worker replacement; fresh sequence probes now preserve a full response deadline after gaps.
+    - Extra status stdout and mirror are implemented separately from conversation/execution records; native SDK remains silent unless a sink is provided.
   proposed:
     - 180-second measured recovery acceptance with separately accounted server Retry-After.
-    - Bounded Extra status stdout and hourly status mirror; logs tail/follow without service operations.
-    - Probe-epoch worker heartbeat grace only if the controlled reproduction confirms that failure path.
   unresolved_gates:
     - Deployed reason12 semantics and safe ownership classification.
     - Original Kernel failure boundary and exact reporter environment.
@@ -99,5 +115,19 @@ validation:
     result: FAIL only on unchanged docs-directory assertion; no added frontmatter, index or link errors.
   - scope: Context YAML, rule fingerprints, acceptance inventory and whitespace
     result: PASS; 11 SHA-256 fingerprints, A01-A27, S01-S14, git diff --check and new-file trailing-whitespace scan.
-  - scope: Product build, tests, real services, platform sleep/network and Provider/IM
-    result: UNEXECUTED; planning-only scope.
+  - command: pnpm test
+    scope: Full workspace build and product regression at 0265807fdafa9a7f75b11bb050e631bd2a7a3bde
+    result: PASS; 35 UI tests plus 1470 Node tests passed, 32 Node tests skipped, zero failures. Includes isolated CLI and native SDK encrypted IM recovery trials.
+  - command: pnpm lint; pnpm lint:names; pnpm exec tsc -p tsconfig.json --noEmit; pnpm docs:check; pnpm format:check
+    scope: Final implementation checks after the full build completed
+    result: PASS; no naming findings; docs examples compiled and four runtime checks passed.
+  - command: node scripts/pack-release.mjs
+    scope: Local source-placeholder 0.0.0 archive only; not a published release
+    result: PASS; dist/release/mininglamp-oss-octo-runtime-0.0.0.tgz.
+  - command: node scripts/verify-release.mjs dist/release/mininglamp-oss-octo-runtime-0.0.0.tgz --expected-commit 0265807fdafa9a7f75b11bb050e631bd2a7a3bde --require-clean
+    scope: Offline installed package outside the workspace; clean M5 code commit embedded in build metadata
+    result: PASS; strict public types, native Kernel and Extras, CLI Kernel, status sink, recovery probe, assets, and uninstall preserving Home.
+  - scope: Final M6 knowledge validation
+    result: PASS; upstream OKF checker accepts 297 units, 11 updated rule fingerprints and A01-A27 implementation mapping verified. Repository checker still fails solely on its pre-existing docs-directory assertion.
+  - scope: Real services, platform sleep/network and real Provider/IM
+    result: UNEXECUTED; all S01-S14 live rows remain open. Controlled loopback evidence does not close issue 93 or establish deployed reason12 semantics.

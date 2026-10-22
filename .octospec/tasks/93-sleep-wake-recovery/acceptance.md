@@ -8,7 +8,7 @@ timestamp: 2026-10-22T00:00:00Z
 
 # 统一断言
 
-所有产品项当前 **未执行**。`PASS` 必须附 evidence 文件、mode、build 和时间；缺少环境用 `UNEXECUTED`，失败用 `FAIL`，不适用用 `N/A + 原因`。CLI 通过不能填入 SDK 栏。T1 的 180 秒是拟定验收界限；Retry-After 的延期不直接算通过。
+实施后的逐项状态见[实施与验证记录](implementation.md#验收映射)，受控回归与真机结论分别记录。`PASS` 必须附 evidence 文件、mode、build 和时间；缺少环境用 `UNEXECUTED`，失败用 `FAIL`，不适用用 `N/A + 原因`。CLI 通过不能填入 SDK 栏。T1 的 180 秒是拟定验收界限；Retry-After 的延期不直接算通过。下方 S01-S14 真机矩阵仍全部未执行。
 
 | ID | 验收动作 | 必须观察的结果 | 阶段 |
 | --- | --- | --- | --- |

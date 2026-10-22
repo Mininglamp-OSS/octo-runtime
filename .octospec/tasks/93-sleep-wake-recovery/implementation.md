@@ -20,7 +20,7 @@ timestamp: 2026-10-22T00:00:00Z
 | M3 执行链 | 受控缺陷修复完成；原事故根因仍待确认 | 修复前长时钟间隔误替换 generation 1→2；修复后保持1，10项回归通过 |
 | M4 状态日志 | 实现及定向验证完成 | Extra状态stdout、独立镜像、logs tail/follow；40项回归及build/lint/docs/format通过 |
 | M5 双模式实测 | CLI/SDK受控端到端通过；真实矩阵未完成 | loopback加密WS→Gateway→Kernel→fake Provider→IM回复，离线启动/断线/active worker loss均恢复新工作 |
-| M6 交付检查 | 待实施 | 全量回归、包外验证和剩余门槛 |
+| M6 交付检查 | 自动检查与包外验证完成；P0现场门槛未关闭 | 35项UI、1470项Node通过，32项跳过；lint/types/docs/format及离线tgz公共入口验证通过 |
 
 ## M0
 
@@ -71,3 +71,42 @@ CLI模式约15.0秒、SDK模式约14.8秒通过；此计时包括主动等待两
 发行验证扩展公共状态记录类型、原生sink回调和attach-only探针；实际tgz strict编译及运行安排在M6，不预先宣称成功。
 
 真实S01-S14矩阵仍全部缺现场证据：没有合盖、切换用户网络、重启用户系统、竞争生产Bot owner或发真实IM消息。M5受控试验覆盖S01/S05/S08/S09/S11中的部分路径，不替代一小时/隔夜、电源条件、DM/群/话题、多Bot、登录自启、真实Provider与IM部署，以及Windows/Linux证据。
+
+## M6
+
+2026-10-22，本机对代码提交 `0265807fdafa9a7f75b11bb050e631bd2a7a3bde` 执行 `pnpm test`：完整构建通过；35项UI通过，Node共1502项、1470通过、32跳过、0失败。两种模式的本地加密IM端到端包含在本次全量执行中。跳过项不计为通过。随后lint、名称检查、根TypeScript、docs和format全部通过；docs另含4项运行检查。
+
+`node scripts/pack-release.mjs` 生成本地占位版本 `dist/release/mininglamp-oss-octo-runtime-0.0.0.tgz`；没有改源版本或发布。执行 `node scripts/verify-release.mjs dist/release/mininglamp-oss-octo-runtime-0.0.0.tgz --expected-commit 0265807fdafa9a7f75b11bb050e631bd2a7a3bde --require-clean` 成功。验证器在workspace外、空npm缓存下离线安装，确认公共类型strict编译、三个内置Extra、WebUI资源、原生Kernel、独立Extra、状态sink、直接恢复探针、CLI Kernel和卸载保留Home。包内build-info指向干净M5代码提交，后续M6提交只收尾知识记录。
+
+复核改动边界：Gateway没有控制Kernel重启；SDK没有通过CLI代启服务；未知旧调用没有重放；没有新增原生依赖或聊天持久化。新增核心注释为英文。状态日志沿用既有小时轮转和容量控制，每个Extra状态系列最多3个实际文件、每个100MiB，因此系列上限300MiB；普通元数据系列独立保留，不能把此上限解释为整个Home磁盘上限。stdout及worker队列独立有界，磁盘/输出失败不等待业务恢复。
+
+最终知识校验：上游OctoSpec检查通过297个OKF单元；11条规则的新SHA-256指纹、A01-A27实施映射与diff空白检查通过。仓库自有知识lint仍仅报既有 `已退出的文档目录仍存在: docs`，不作为新增实现回归，也不声称该检查通过。
+
+### 验收映射
+
+以下“受控通过”仅针对列出的自动化边界；涉及现场的完整断言不因此自动PASS。所有证据为本仓测试源码、上述构建提交与2026-10-22运行结果；没有生产聊天或凭据附件。
+
+| 断言 | 实际证据与结论 | 剩余边界 |
+| --- | --- | --- |
+| A01/A02 | 受控通过：`im-connection-state-machine.test.js` 首次暂态失败、退避、Retry-After；`recovery-dual-mode.test.js` CLI/SDK离线503后新IM完成 | 真实网络/部署恢复计时待测 |
+| A03 | 未执行部署验收；reason12保持终态 | 核实部署IM版本、owner与Token触发语义后决定安全恢复策略 |
+| A04/A05 | 连接状态机受控通过：WS失联、迟到回调、abort和清理失败；双模式断开后新IM完成 | 真实睡眠、黑洞与网络切换待测 |
+| A06 | 部分：Gateway离线启动恢复和同对象新调用通过 | Gateway先于Kernel等完整启动顺序未覆盖 |
+| A07 | 事故现场未复现，已提供attach-only公共探针 | listener/worker/Provider/观察层的原事故边界未确认 |
+| A08/A09 | 受控通过：`kernel-heartbeat.test.js`、`kernel-worker-supervision.test.js` 时钟间隔/回拨、probe fence、真实worker阻塞/替换预算；双模式active worker loss后新IM完成 | OS实际暂停及恢复时序待测 |
+| A10/A11 | 既有invoke/订阅回归与新增 `kernel-recovery-matrix.test.js` 通过；丢ACK与订阅断线只接纳一次 | 不替代真实Provider副作用和部署消息重放合同 |
+| A12 | CLI/SDK各自四组client/session交叉、新IM完成且Kernel实例和服务PID保留；实际Provider admission唯一 | 长时/真实渠道重复循环待测 |
+| A13 | 部分：两种模式受控场景均完成direct与IM调用 | 180秒现场SLA及所有可恢复故障尚未验收 |
+| A14 | 受控通过：SDK服务PID等于宿主，公共tgz工厂、类型与探针通过 | 实际SDK宿主自启和睡眠待测 |
+| A15/A16/A17 | 现场合同未执行；单次受控去重/恢复不视为长期资源或完整补偿证据 | 登录自启、部署重放与至少十次资源循环待测 |
+| A18/A19 | `extra-status-logs.test.js`及两模式回归通过：stdout/sink、镜像、白名单、隐私；默认SDK不配输出sink | 后台原生服务实机对照待测 |
+| A20/A21/A22 | 受控通过：tail参数/坏配置/空日志/读取限额、partial line/follow/轮转/取消/符号链接、慢stdout、磁盘失败、三份保留和既有容量上限 | 非所有组合均单独注入；多平台后台输出行为待测 |
+| A23/A24 | 部分：共同状态镜像、生命周期/Kernel/连接状态及安全码实现与回归通过 | Windows/Linux后台和事故分层诊断未实测 |
+| A25/A26 | 自动门槛通过：全量build/tests、lint/names/types/docs/format和离线tgz；复核拓扑与改动范围 | 仓库知识lint仍有既有docs目录断言冲突，单独记录 |
+| A27 | 未满足，不关闭P0 | 两层原事故边界、reason12安全策略及真实矩阵仍缺证据 |
+
+### 后续现场入口
+
+由运行环境维护者在issue #93补充原IM部署版本与可隔离的测试部署；本地配置的四个Bot均指向生产地址，不能直接当成im-test。使用 `test-support/recovery-kernel-probe.mts` 保留原client，并对旧/新session分别验证；SDK宿主入口为 `test-support/recovery-native-host.mts`。按acceptance的证据字段逐行执行S01-S14，分别保存CLI与SDK结果、真实Provider admission计数和旧调用结论。macOS合盖/隔夜/电源、Windows/Linux和登录自启由具备对应环境的维护者执行；这些缺口影响恢复保证，记录缺口不等于验收通过。
+
+95分是规划可执行性的自评，不代表修复成功率、根因确定性或P0完成度。当前交付可评审的共享层修复、诊断日志和隔离证据，保留现场门槛。

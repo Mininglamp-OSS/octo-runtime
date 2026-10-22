@@ -25,3 +25,11 @@ timestamp: 2026-10-22T00:00:00Z
 上游 OctoSpec OKF 校验通过：296 个知识文件。context YAML 解析、11条已读规则的 SHA-256 指纹、A01-A27/S01-S14 编号完整性通过。`git diff --check` 和新增文件行尾空白检查通过；原 main checkout 保持干净。
 
 完整仓库知识 lint 仍失败，唯一输出为 `已退出的文档目录仍存在: docs`，与干净基线一致；未出现新增 frontmatter、规则索引或本地链接错误。不删除现行 docs 目录来绕过。产品构建、测试、平台睡眠/自启、真实 IM/Provider 全部未执行。
+
+# 后续授权实施与验证
+
+以上为规划时点记录。用户随后授权实施和分阶段英文commit，并要求核心代码英文注释、日志保留最近三份。M0-M5依次提交 `bb06a5f`、`f8f3847`、`b5e9922`、`abec846`、`994a58b`、`0265807`；每条保留配置作者和一个Codex trailer。实现首次暂态离线自动恢复、5/10/15/15秒重试、长调度间隔后的新序号worker探测，以及Extra专用状态stdout和logs命令。状态镜像使用既有三份/每份100MiB轮转，和普通日志隔离。
+
+两种模式以实际Gateway/Kernel/worker和本地加密IM fixture验证离线启动、WS断线、active worker loss后新任务完成，fake Provider实际admission唯一。2026-10-22全量构建测试通过：35项UI和1470项Node通过、32项跳过；lint/names/types/docs/format通过。干净M5代码提交生成的本地0.0.0 tgz在包外离线安装、strict公共类型与工厂/状态sink/恢复探针/CLI验证通过。完整逐项证据和现场入口见[实施记录](../../tasks/93-sleep-wake-recovery/implementation.md)。
+
+用户确认事故npm版本1.1.0、全部Provider范围。原事故Kernel失败层仍未知；本地Bot配置指向生产IM，未进行真实连接或消息试验。reason12保持终态，未核实部署语义前不抢占owner。S01-S14真实合盖/网络/自启与平台矩阵均未执行，P0仍未闭环；95分是计划可执行性自评。
