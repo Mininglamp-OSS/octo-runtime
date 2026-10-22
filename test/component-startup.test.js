@@ -5,6 +5,7 @@ import { once } from "node:events";
 import { mkdtemp, readFile, rm, access } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { inspect } from "node:util";
 import { componentEndpoint } from "@mininglamp-oss/octo-runtime-host-sdk";
 import {
   acquireEndpoint,
@@ -59,7 +60,8 @@ test(
     });
     let worker;
     t.after(async () => {
-      if (startupError && !controller.signal.aborted) t.diagnostic(startupError.stack);
+      if (startupError && !controller.signal.aborted)
+        t.diagnostic(inspect(startupError, { depth: null }));
       t.diagnostic(`Kernel startup status: ${JSON.stringify(await kernel.status())}`);
     });
     // 文件存在不代表 PID 已写完，空内容会被 Number 转成当前进程组的 0。
