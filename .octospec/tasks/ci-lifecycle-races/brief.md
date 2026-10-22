@@ -1,7 +1,7 @@
 ---
 type: Task
 title: 跨平台 CI 生命周期竞态修复
-description: 固定恢复 fixture 的启动结果，并保留启动取消用例的真实失败原因。
+description: 固定恢复结果、等待父进程登记，并让慢日志写入遵守实际关闭预算。
 tags: [testing, ci, recovery]
 timestamp: 2026-10-22T00:00:00Z
 slug: ci-lifecycle-races
@@ -19,7 +19,9 @@ upstream: https://github.com/Mininglamp-OSS/octo-runtime/actions/runs/3973286952
 ## 已确认问题
 
 - macOS Node 26：恢复 fixture 先记录启动，再读取故障文件。父进程读到第五次启动便删除故障文件时，第五个 worker 可能直接就绪，导致预期第六次启动的断言失败。须先固定本次 blocked 结果，再发布记录，保留快速重试次数和两次 15 秒慢重试的验证。
-- main 的另一轮 Windows Node 24：启动取消用例等待登记超时，原始 initialize 拒绝被吞掉，日志不足以判断是否为身份查询失败。传播原始错误和清理事实；Windows 将依赖原生身份查询的取消和清单测试放入独立串行步骤，减少进程密集测试的资源竞争，保留 10 秒查询、15 秒登记等待和 5 秒清理预算。不能据此宣称已修复未取证的生产问题。
+- main 的另一轮 Windows Node 24：启动取消用例等待登记超时，原始 initialize 拒绝被吞掉。现在观察真实 setWorker 完成后再取消，取消 PID 文件及清单的轮询；仍执行系统身份查询和清单写入，并验证清单 PID。原始错误及聚合清理失败完整输出。Windows 将取消和清单测试放入独立串行步骤，连续验证三次，任何一次失败立即退出；保留 10 秒查询、15 秒登记等待和 5 秒清理预算。
+- 后续 CI 确认 Windows 曾在取消前约 2 秒发生启动/清理聚合失败，旧日志截断了内层错误；未取得内层原因，不能宣称修复了已确认的生产身份查询缺陷。
+- Windows Node 26 慢关闭用例曾缺少一次 logging.close.finished：fixture 在日志 close 外等待 800ms 后，再调用自身最多等待 1 秒的真实 close，可能超过排空窗口。改为实际日志线程中延迟写入 800ms，受现有一秒日志预算约束，保留 3.2 秒下界、5 秒上界、尾日志和两次重启断言。
 
 ## 验收
 

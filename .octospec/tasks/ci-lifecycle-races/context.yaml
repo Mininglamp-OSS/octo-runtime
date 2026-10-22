@@ -10,6 +10,7 @@ scope:
   - test/kernel-worker-recovery.test.js
   - test/fixtures/recoverable-worker.mjs
   - test/component-startup.test.js
+  - test/fixtures/delayed-startup-worker.mjs
   - test/host-process-close.test.js
   - test-support/fake-host-close.mjs
   - .octospec/tasks/ci-lifecycle-races

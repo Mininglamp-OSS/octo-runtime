@@ -13,7 +13,8 @@ import {
   createKernelService,
   ServiceInitializationError
 } from "@mininglamp-oss/octo-runtime-executor-kernel";
-import { waitFor } from "./runtime-fixture.js";
+import { withTimeout } from "./runtime-fixture.js";
+import { InvocationManifest } from "../packages/octo-runtime-executor-kernel/dist/invocation-manifest.js";
 
 const alive = (pid) => {
   try {
@@ -42,13 +43,18 @@ test(
   async (t) => {
     const home = await mkdtemp(join(tmpdir(), "ocs-"));
     t.after(() => rm(home, { recursive: true, force: true }));
-    const pidFile = join(home, "worker-pid");
     const manifestFile = join(home, "kernel-invocations.json");
+    const registered = Promise.withResolvers();
+    const setWorker = InvocationManifest.prototype.setWorker;
+    // 只观察真实登记完成，不替代系统身份查询或持久化；同步点属于父进程的资源所有权。
+    t.mock.method(InvocationManifest.prototype, "setWorker", async function (pid, entrypoint) {
+      await setWorker.call(this, pid, entrypoint);
+      if (pid !== undefined) registered.resolve(pid);
+    });
     const options = {
       endpoint: componentEndpoint(home),
       stateDirectory: home,
-      workerEntrypoint: resolve("test/fixtures/delayed-startup-worker.mjs"),
-      env: { ...process.env, OCTO_TEST_WORKER_PID: pidFile }
+      workerEntrypoint: resolve("test/fixtures/delayed-startup-worker.mjs")
     };
     const kernel = createKernelService(options);
     t.after(() => kernel.close());
@@ -58,26 +64,22 @@ test(
     void starting.catch((error) => {
       startupError = error;
     });
-    let worker;
     t.after(async () => {
       if (startupError && !controller.signal.aborted)
         t.diagnostic(inspect(startupError, { depth: null }));
       t.diagnostic(`Kernel startup status: ${JSON.stringify(await kernel.status())}`);
     });
-    // 文件存在不代表 PID 已写完，空内容会被 Number 转成当前进程组的 0。
-    // 子进程写出 PID 也不代表父进程已完成身份登记；Windows PowerShell 查询可超过清理预算。
-    // 本用例验证登记完成后的启动取消，须等原子清单确认所有权，再要求完整回滚。
-    await waitFor(async () => {
-      // 初始化可能已失败；保留原因和清理事实，不能将其吞掉后误报成轮询超时。
-      if (startupError) throw startupError;
-      const text = await readFile(pidFile, "utf8").catch(() => "");
-      if (!/^[1-9]\d*$/.test(text)) return false;
-      worker = Number(text);
-      const manifest = await readFile(manifestFile, "utf8")
-        .then(JSON.parse)
-        .catch(() => undefined);
-      return Number.isSafeInteger(worker) && manifest?.worker?.pid === worker;
-    }, 15_000);
+    // 初始化失败立即传播完整原因，避免吞掉拒绝后只留下轮询超时。
+    const worker = await withTimeout(
+      Promise.race([
+        registered.promise,
+        starting.then(() => assert.fail("unready worker unexpectedly initialized"))
+      ]),
+      15_000,
+      "worker ownership registration timed out"
+    );
+    assert.ok(Number.isSafeInteger(worker) && worker > 0);
+    assert.equal(JSON.parse(await readFile(manifestFile, "utf8")).worker.pid, worker);
     controller.abort();
     await assert.rejects(starting, (error) => {
       assert.ok(error instanceof ServiceInitializationError);
