@@ -25,6 +25,13 @@ fixture 原来先记录启动，再检查故障文件；测试读到记录后立
 Windows CI 将身份清单与启动回滚放入独立串行步骤，连续验证三次，任一次失败即退出；真实 PowerShell 身份查询仍执行，未增加预算或跳过测试。
 上述约 2 秒聚合失败尚无完整内层证据，不将其归因为已确认的 PowerShell 生产缺陷。
 
+后续 [25bf3e2 独立验证的 Windows Node 24 日志](https://github.com/Mininglamp-OSS/octo-runtime/actions/runs/39737677158/job/119687121305) 在约 10.22 秒明确报告 cannot identify worker process，cleanup.complete=true，取消尚未执行。
+系统身份查询也存在实际失败，不能只修 testcase 或重跑刷绿。
+改为直接通过 PowerShell 调用 .NET Process.GetProcessById/StartTime，显式禁用模块自动加载，减少 Get-Process 命令发现和管理模块加载的依赖；保留 10 秒时限、不缓存 PID、仍返回原 windows:UTC-ticks 格式。
+该日志确认查询阶段失败；耗时与 10 秒预算吻合，但并未区分 PowerShell 进程启动、命令发现和系统查询各自耗时，不夸大具体耗时位置。
+原生 Windows 回归卸载管理模块并禁止自动加载后执行真实查询，要求同一 PID 的身份一致。
+API 依据：[Microsoft Process.GetProcessById](https://learn.microsoft.com/en-us/dotnet/api/system.diagnostics.process.getprocessbyid?view=netframework-4.7.2)、[PowerShell 模块自动加载配置](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_preference_variables?view=powershell-5.1#psmoduleautoloadingpreference)。
+
 PR 第一轮 Windows Node 26 在慢关闭用例缺少一次 logging.close.finished。
 fixture 原来在日志 close 之外延迟 800ms，随后真实 RuntimeLogging.close 最多还可等待 1 秒；组合耗时可超出 worker 的排空窗口。
 改用已有日志线程慢写入 fixture，将 800ms 纳入真实一秒日志预算；保留关闭时间、两次启动、进程退出及日志内容断言，移除已无调用方的外部延迟参数。
@@ -35,6 +42,7 @@ fixture 原来在日志 close 之外延迟 800ms，随后真实 RuntimeLogging.c
 - typecheck、lint、lint:names、format:check 通过。
 - 新登记同步在 Node 24/26 各 4 项启动测试通过；延迟实际 setWorker 5.5 秒的注入探针各通过（含 replacement 共约 11 秒）。失败注入约 150ms 即报告 probe registration failed 和清理事实，没有误报轮询超时。
 - 真实 EOF 排空探针在 Node 24/26 约 3.2 秒完成，logging.close.finished 和 fixture.close_tail 均存在；该证据来自 macOS，不替代原生 Windows 验证。
+- 最后并行全量回归在 Node 26 复现 Codex ignore-interrupt 用例总时长约 4.48 秒超过 4 秒断言；原计时包含进程启动/握手，而实际收尾从最终答案开始。修正计时边界并保留 4 秒上限，新增原 60ms 配置回执检查。
 - 首轮本地验证错误地将 typecheck 的清理构建与测试并行，造成 dist 缺失；该轮受影响测试与 lint 作废，在构建结束后重跑通过。
 - OKF lint 命中既有 `已退出的文档目录仍存在: docs`，本次未改变该目录策略。
 
