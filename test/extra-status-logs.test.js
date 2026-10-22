@@ -16,7 +16,8 @@ import { Writable } from "node:stream";
 import { setImmediate as immediate } from "node:timers/promises";
 import {
   RuntimeLogging,
-  extraStatusRecord
+  extraStatusRecord,
+  HourlyLogWriter
 } from "../packages/octo-runtime-adapter-sdk/dist/index.js";
 import { runCli } from "../apps/cli/dist/main.js";
 import { StatusOutput } from "../apps/cli/dist/status-output.js";
@@ -33,6 +34,25 @@ async function fixture(t) {
   await mkdir(directory, { recursive: true });
   return { home, directory };
 }
+
+test("status rotation retains the latest three files independently of ordinary logs", async (t) => {
+  const { directory } = await fixture(t);
+  let now = Date.parse("2026-10-22T00:00:00Z");
+  const writer = new HourlyLogWriter(directory, `${extra}-status`, { now: () => now });
+  t.after(() => writer.close());
+  const ordinary = `${extra}-20261021T01.log`;
+  await writeFile(join(directory, ordinary), "ordinary metadata");
+  for (let hour = 0; hour < 5; hour++) {
+    now = Date.parse(`2026-10-22T0${hour}:00:00Z`);
+    assert.equal(writer.write(line("service.ready")), true);
+    assert.ok((await readdir(directory)).filter((name) => name.includes("-status-")).length <= 3);
+  }
+  assert.deepEqual(
+    (await readdir(directory)).sort(),
+    [ordinary, ...[2, 3, 4].map((hour) => `${extra}-status-20261022T0${hour}.log`)].sort()
+  );
+  assert.equal(await readFile(join(directory, ordinary), "utf8"), "ordinary metadata");
+});
 
 test("service status has a separate immutable stdout/mirror whitelist and survives disk failure", async (t) => {
   const { home, directory } = await fixture(t);

@@ -19,7 +19,7 @@ timestamp: 2026-10-22T00:00:00Z
 | M2 Gateway | 隔离回归完成；reason12 部署门槛保留 | 首次暂态离线恢复、5/10/15/15 秒，25 项连接状态/真实 WS 测试通过 |
 | M3 执行链 | 受控缺陷修复完成；原事故根因仍待确认 | 修复前长时钟间隔误替换 generation 1→2；修复后保持1，10项回归通过 |
 | M4 状态日志 | 实现及定向验证完成 | Extra状态stdout、独立镜像、logs tail/follow；40项回归及build/lint/docs/format通过 |
-| M5 双模式实测 | 待实施 | 隔离受控验证与真实平台结果分开 |
+| M5 双模式实测 | CLI/SDK受控端到端通过；真实矩阵未完成 | loopback加密WS→Gateway→Kernel→fake Provider→IM回复，离线启动/断线/active worker loss均恢复新工作 |
 | M6 交付检查 | 待实施 | 全量回归、包外验证和剩余门槛 |
 
 ## M0
@@ -59,3 +59,15 @@ RuntimeLogging独立构建不可变Extra状态记录，sink和磁盘失败独立
 CLI新增 `<extra> logs --lines 1..10000 --follow --json`，默认200条，JSON为NDJSON；在解析Home配置、加载模块和创建管理器前路由。最多读最近三份4MiB，重建白名单、忽略非状态记录和符号链接文件，follow处理部分行、轮转和取消。空日志成功并提示stderr。中英文排障文档、CLI/SDK指南和受影响规则同步更新。
 
 验证：build、lint、format检查通过；40项定向测试通过（状态隔离/镜像、慢stdout、损坏配置下读取、follow取消/轮转、生命周期关闭、小时保留与容量）；docs检查通过（17对页面、35个Markdown、18个JSON样例、16个Mermaid和4个运行测试）。先前lint与clean/build并行造成声明暂时缺失，构建后单独重跑通过；不计为产品故障。
+
+## M5
+
+新增同一loopback加密IM fixture分别接CLI独立进程与SDK原生factory，使用实际Gateway/Kernel/worker、fake Provider。每种模式先503离线启动，恢复后收到第一条真实fixture IM回复；断开WS后自动重连，再收到新回复；active调用期间杀测试worker，监督恢复后新IM请求完成。分别确认Kernel instance/PID与Extra PID不变，四次实际Provider admission均唯一，未知旧任务不重跑；再对同Kernel交叉旧/新client与旧/新session完成四次直接IPC调用。
+
+CLI模式约15.0秒、SDK模式约14.8秒通过；此计时包括主动等待两段5秒退避和未知结果清理，不是线上SLA。CLI fixture配置改用0600后通过；最初失败是测试配置权限错误，SDK首次已通过。CLI信号注入场景在Windows跳过，不能据此宣称Windows验证通过。
+
+按用户轮转要求增加状态专用系列的五小时测试：任意时刻最多三份，最终只保留02/03/04三个小时，普通日志不被状态系列删除。现有100MiB封顶、无溢出分片、跨进程互斥测试继续适用。
+
+发行验证扩展公共状态记录类型、原生sink回调和attach-only探针；实际tgz strict编译及运行安排在M6，不预先宣称成功。
+
+真实S01-S14矩阵仍全部缺现场证据：没有合盖、切换用户网络、重启用户系统、竞争生产Bot owner或发真实IM消息。M5受控试验覆盖S01/S05/S08/S09/S11中的部分路径，不替代一小时/隔夜、电源条件、DM/群/话题、多Bot、登录自启、真实Provider与IM部署，以及Windows/Linux证据。
