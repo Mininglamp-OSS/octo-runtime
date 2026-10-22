@@ -8,6 +8,8 @@ rules_read:
 scope:
   - test/kernel-heartbeat.test.js
   - test/kernel-worker-supervision.test.js
+  - test/component-startup.test.js
+  - test/fixtures/delayed-startup-worker.mjs
   - .octospec/tasks/ci-heartbeat-timeout
   - .octospec/journal/shared/2026-10-22-ci-heartbeat-timeout.md
 authorization: 用户要求新 worktree、提交 PR 并合入最新 main；OSS 提交与 PR 使用英文。
