@@ -18,7 +18,7 @@ timestamp: 2026-10-22T00:00:00Z
 | M1 故障工具 | 隔离工具完成；真实 checkpoint 由维护者执行 | 真实 IPC relay 交叉矩阵、公共发行入口 native host 与 attach-only 探针 |
 | M2 Gateway | 隔离回归完成；reason12 部署门槛保留 | 首次暂态离线恢复、5/10/15/15 秒，25 项连接状态/真实 WS 测试通过 |
 | M3 执行链 | 受控缺陷修复完成；原事故根因仍待确认 | 修复前长时钟间隔误替换 generation 1→2；修复后保持1，10项回归通过 |
-| M4 状态日志 | 待实施 | Extra 状态 stdout、日志镜像与 CLI logs |
+| M4 状态日志 | 实现及定向验证完成 | Extra状态stdout、独立镜像、logs tail/follow；40项回归及build/lint/docs/format通过 |
 | M5 双模式实测 | 待实施 | 隔离受控验证与真实平台结果分开 |
 | M6 交付检查 | 待实施 | 全量回归、包外验证和剩余门槛 |
 
@@ -49,3 +49,13 @@ timestamp: 2026-10-22T00:00:00Z
 新增私有 WorkerHeartbeat：wall/monotonic 长间隔和回拨均触发新序号探测，保留完整5秒响应窗口；旧/迟到 pong 不能刷新期限，正常 tick 不延长在途期限。serveWorker 只回显合法私有 probe，不改业务协议，不向 worker stdout 写状态。重启预算按活跃观测时间，休眠不能重置。真正主循环阻塞仍被替换，worker丢失仍只产生唯一lost，不重跑旧执行。
 
 构建通过；10项心跳、真实worker监督和交叉矩阵测试通过，包括真实15秒阻塞、三次预算耗尽、旧Run唯一lost和新工作恢复。四个本地Bot指向生产IM；未在这些连接上自动执行集成试验，im-test部署版本仍缺失。
+
+## M4
+
+用户追加要求：本次核心逻辑使用英文注释，覆盖调度间隔、新probe期限、资源所有权、旧回调隔离、日志白名单与背压；文档仍使用中文，OSS提交英文。
+
+RuntimeLogging独立构建不可变Extra状态记录，sink和磁盘失败独立退化；callback不进入workerData。服务记录生命周期，单个在途Kernel探测完成后5秒再检查且只打印转换；Gateway输出连接和重试元数据。状态镜像与普通执行日志分开，沿用HourlyLog三份/每份100MiB。stdout最多128条/1MiB，恢复后报告丢弃数。
+
+CLI新增 `<extra> logs --lines 1..10000 --follow --json`，默认200条，JSON为NDJSON；在解析Home配置、加载模块和创建管理器前路由。最多读最近三份4MiB，重建白名单、忽略非状态记录和符号链接文件，follow处理部分行、轮转和取消。空日志成功并提示stderr。中英文排障文档、CLI/SDK指南和受影响规则同步更新。
+
+验证：build、lint、format检查通过；40项定向测试通过（状态隔离/镜像、慢stdout、损坏配置下读取、follow取消/轮转、生命周期关闭、小时保留与容量）；docs检查通过（17对页面、35个Markdown、18个JSON样例、16个Mermaid和4个运行测试）。先前lint与clean/build并行造成声明暂时缺失，构建后单独重跑通过；不计为产品故障。

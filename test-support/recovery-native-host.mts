@@ -5,7 +5,7 @@ import {
   type ExtraServiceOptions
 } from "@mininglamp-oss/octo-runtime/host";
 
-/** 测试宿主直接使用公共 factory；不调用 CLI、不重建宿主、不装入用户配置。 */
+/** Construct services through public factories; never launch the CLI or load the user's Home. */
 export async function recoveryNativeHost(
   kernelOptions: KernelServiceOptions,
   extraOptions: ExtraServiceOptions

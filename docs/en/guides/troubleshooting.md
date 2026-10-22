@@ -6,6 +6,10 @@ Record the error code and relevant `runId` and `invocationId`, then locate the p
 
 ## Cannot Connect to the Service
 
+Use `octo-runtime channel-gateway logs --lines 200 --json` for service status records, or add `--follow` to watch connection and retry transitions. Ctrl+C stops following. These are Extra lifecycle, Kernel availability and connection records, excluding conversation content, session/run/message identifiers, model output, tool arguments and credentials. The command reads only `<home>/logs/extras/<extra>-status-<UTC-hour>.log`, even with Kernel offline or a broken module configuration. It reads at most 4 MiB from the latest three files; each file is capped at 100 MiB. Empty logs succeed with a stderr notice.
+
+CLI Extras also emit these records to stdout. Native SDK hosts remain silent unless `logging.statusOutput(record)` is provided alongside an absolute `logging.directory`. File logging and bounded stdout output are best effort and cannot block recovery. Gateway retries transient offline startup and later disconnections after 5, 10, then 15 seconds, repeating at 15 seconds; Retry-After may extend the wait. Authentication failures and terminal kicks, including reason 12, require diagnosis rather than competing reconnects. IM online does not prove execution or delivery success.
+
 | Symptom / code                             | Action                                                                                                                                                                   |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `KERNEL_UNAVAILABLE` or connection failure | Confirm the endpoint, Kernel initialization, and matching OS account. Check `status().execution_ready` and worker state. `attachKernel` does not start the service.      |

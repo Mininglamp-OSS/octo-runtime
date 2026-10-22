@@ -213,7 +213,7 @@ export class ImRuntime {
       const failure = connectionFailure(error);
       this.#connectionAbort.abort();
       this.#error = failure.message;
-      // 首次离线启动与上线后断网共用同一恢复路径，资格只由错误语义决定。
+      // Offline startup and later disconnects share recovery; only error semantics decide eligibility.
       const retry = failure.retryable;
       this.#state = retry ? "retrying" : "failed";
       this.#log("channel.connection_failed", { state: this.#state, code: failure.message });
@@ -233,7 +233,7 @@ export class ImRuntime {
     const retry = failure.retryable;
     this.#state = retry ? "retrying" : "failed";
     this.#connectionAbort?.abort();
-    // 先收回旧连接资源，再计时；停止信号与迟到回调不能建立第二条连接。
+    // Reap the old connection before backoff; shutdown and stale callbacks cannot create a second owner.
     this.#disconnecting = connector.close();
     void this.#disconnecting.then(
       () => {
@@ -261,7 +261,7 @@ export class ImRuntime {
       delay_ms: delayMs,
       attempt: this.#retry
     });
-    // Node 超过 2^31-1 的 timeout 会变为 1ms；长 Retry-After 分段等待，不能绕过限流。
+    // Node clamps oversized timers to 1ms. Partition long Retry-After waits without bypassing throttling.
     const deadline = performance.now() + delayMs;
     const wake = (): void => {
       if (this.#closed || this.#draining || this.#signal.aborted || this.#state !== "retrying")

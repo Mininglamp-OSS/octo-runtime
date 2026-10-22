@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { attachKernel, type KernelClient } from "@mininglamp-oss/octo-runtime/executor-kernel";
 import type { InvokeInput } from "@mininglamp-oss/octo-runtime/protocol";
 
-/** 仅连接原 endpoint；每次创建唯一执行身份，不重试未知接纳，不输出正文或 Provider 响应。 */
+/** Attach only: use unique execution identities, never replay unknown admission or expose bodies. */
 export async function recoveryProbe(client: KernelClient, template: InvokeInput) {
   const input = { ...template, runId: randomUUID(), invocationId: randomUUID() };
   const before = await client.status();
@@ -25,7 +25,7 @@ export async function recoveryMatrix(
 ) {
   const existing = attachKernel({ endpoint });
   try {
-    // 调用方可在 baseline 后保留此 client，通过 recoveryProbe 跨人工故障 checkpoint 使用。
+    // Callers can also retain their own client and use recoveryProbe across manual checkpoints.
     const baseline = await recoveryProbe(existing, oldInput);
     const fresh = attachKernel({ endpoint });
     try {

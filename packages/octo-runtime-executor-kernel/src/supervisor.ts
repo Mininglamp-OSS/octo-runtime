@@ -8,7 +8,7 @@ import type { KernelStatus } from "./types.js";
 import { KernelError } from "./types.js";
 import { WorkerHeartbeat } from "./heartbeat.js";
 
-/** Kernel 独占 worker 的创建与回收；清理失败时禁止启动替代实例。 */
+/** Kernel exclusively owns worker replacement; incomplete cleanup prevents a second owner. */
 export class WorkerSupervisor {
   #worker?: WorkerProcess;
   #generation = 0;
@@ -88,6 +88,7 @@ export class WorkerSupervisor {
     worker.child.once("exit", () => this.#failed(worker));
     worker.child.once("error", () => this.#failed(worker));
     this.#timer = setInterval(() => {
+      if (this.#closing || this.#worker !== worker || this.#state !== "ready") return;
       const probe = heartbeat.tick();
       this.#activeTime += heartbeat.activeMs - elapsed;
       elapsed = heartbeat.activeMs;
@@ -108,7 +109,7 @@ export class WorkerSupervisor {
     if (this.#closing || this.#worker !== worker || this.#state !== "ready") return;
     clearInterval(this.#timer);
     this.#state = "recovering";
-    // 先拒绝原 RPC，让 Run 源生成唯一 lost 终态；恢复只允许新 Run。
+    // Reject the old RPC first so its source emits one lost terminal. Recovery admits new work only.
     worker.client.close(new KernelError("WORKER_LOST"));
     if ((this.#heartbeat?.healthyMs ?? 0) >= 60_000) {
       this.#attempts = [];
@@ -119,8 +120,8 @@ export class WorkerSupervisor {
     });
   }
   async #recover(worker: WorkerProcess): Promise<void> {
-    // 旧 worker 清理成功才允许替换，避免两个 Provider 实例并行持有同一执行资源。
-    // 只恢复服务可用性，不重放旧 Run；旧流已由 #failed 标为 lost。
+    // Reap the old worker before replacement to prevent concurrent Provider owners.
+    // Restore service availability only; #failed already marked old runs lost and never replays them.
     // Preserve baseline recovery for leaders that exited before close began. On Windows this
     // path cannot verify detached descendants; EOF-close checks require a live leader at entry.
     if (worker.child.exitCode !== null || worker.child.signalCode !== null) await worker.close();
@@ -129,7 +130,7 @@ export class WorkerSupervisor {
     this.#worker = undefined;
     for (let attempt = 0; attempt < 3; attempt++) {
       if (this.#closing) return;
-      // 休眠与时钟跳变不能把短时间内的重启预算洗掉。
+      // Suspend time and clock changes must not replenish a recently exhausted restart budget.
       this.#attempts = this.#attempts.filter((at) => this.#activeTime - at < 60_000);
       if (this.#attempts.length >= 3) break;
       const delay = [250, 1000, 4000][this.#attempts.length];
@@ -150,7 +151,7 @@ export class WorkerSupervisor {
         return;
       } catch (error) {
         if (error instanceof AggregateError) throw error;
-        /* 普通启动失败已回收；聚合清理错误禁止继续替换。 */
+        /* Ordinary startup failures are reaped; aggregate cleanup failures prevent replacement. */
       }
     }
     this.#state = "exhausted";
