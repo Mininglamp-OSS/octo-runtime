@@ -33,3 +33,9 @@ timestamp: 2026-10-22T00:00:00Z
 两种模式以实际Gateway/Kernel/worker和本地加密IM fixture验证离线启动、WS断线、active worker loss后新任务完成，fake Provider实际admission唯一。2026-10-22全量构建测试通过：35项UI和1470项Node通过、32项跳过；lint/names/types/docs/format通过。干净M5代码提交生成的本地0.0.0 tgz在包外离线安装、strict公共类型与工厂/状态sink/恢复探针/CLI验证通过。完整逐项证据和现场入口见[实施记录](../../tasks/93-sleep-wake-recovery/implementation.md)。
 
 用户确认事故npm版本1.1.0、全部Provider范围。原事故Kernel失败层仍未知；本地Bot配置指向生产IM，未进行真实连接或消息试验。reason12保持终态，未核实部署语义前不抢占owner。S01-S14真实合盖/网络/自启与平台矩阵均未执行，P0仍未闭环；95分是计划可执行性自评。
+
+# Kernel复核后补充
+
+用户进一步要求Kernel应像本地常驻服务一样独立于网络。确认监听层不依赖网络，进程暂停模拟后同实例仍可执行；同时定位到快速替换三次耗尽后永久exhausted的策略缺口。M7改为三次快速尝试后串行15秒冷却，普通readiness失败持续低频恢复，连续健康观测60秒才重置策略；清理或所有权失败仍阻断并保留close失败。本地Kernel进程/instance/socket不重建，正常IPC请求没有重启次数限制，旧未知执行不重放。
+
+12项定向测试通过；全量35项UI、1472项Node通过，32项跳过；lint/names/types/docs/format和当前工作树0.0.0包外验证通过。包如实为dirty本地验证构建，没有发布。详细故障注入和SHA检查结果见[实施记录M7](../../tasks/93-sleep-wake-recovery/implementation.md#m7-复核后补充修复)，原事故和真机门槛仍开放。

@@ -13,7 +13,8 @@ CLI Extras also emit these records to stdout. Native SDK hosts remain silent unl
 | Symptom / code                             | Action                                                                                                                                                                   |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `KERNEL_UNAVAILABLE` or connection failure | Confirm the endpoint, Kernel initialization, and matching OS account. Check `status().execution_ready` and worker state. `attachKernel` does not start the service.      |
-| `WORKER_RESTART_EXHAUSTED`                 | Inspect worker startup and cleanup errors. Fix the entry file or Provider environment before restoring the service. A replacement worker does not resume old executions. |
+| Worker state `recovering`                 | Kernel keeps its local listener and retries serially. After three fast attempts, each further attempt waits 15 seconds; restoring the worker environment can recover execution without a Kernel restart. |
+| `WORKER_RESTART_EXHAUSTED`                 | Cleanup or ownership is unconfirmed, so automatic replacement is blocked. Inspect the old worker and ownership records before restoring the service. A replacement worker does not resume old executions. |
 
 ## Input Rejected
 

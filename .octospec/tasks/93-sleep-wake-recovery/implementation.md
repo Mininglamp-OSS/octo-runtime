@@ -21,6 +21,7 @@ timestamp: 2026-10-22T00:00:00Z
 | M4 状态日志 | 实现及定向验证完成 | Extra状态stdout、独立镜像、logs tail/follow；40项回归及build/lint/docs/format通过 |
 | M5 双模式实测 | CLI/SDK受控端到端通过；真实矩阵未完成 | loopback加密WS→Gateway→Kernel→fake Provider→IM回复，离线启动/断线/active worker loss均恢复新工作 |
 | M6 交付检查 | 自动检查与包外验证完成；P0现场门槛未关闭 | 35项UI、1470项Node通过，32项跳过；lint/types/docs/format及离线tgz公共入口验证通过 |
+| M7 Kernel持续恢复 | 实现与自动验证完成；现场门槛保留 | 串行15秒冷却恢复、清理失败阻断；35项UI与1472项Node通过、32项跳过，包外验证通过 |
 
 ## M0
 
@@ -93,7 +94,7 @@ CLI模式约15.0秒、SDK模式约14.8秒通过；此计时包括主动等待两
 | A04/A05 | 连接状态机受控通过：WS失联、迟到回调、abort和清理失败；双模式断开后新IM完成 | 真实睡眠、黑洞与网络切换待测 |
 | A06 | 部分：Gateway离线启动恢复和同对象新调用通过 | Gateway先于Kernel等完整启动顺序未覆盖 |
 | A07 | 事故现场未复现，已提供attach-only公共探针 | listener/worker/Provider/观察层的原事故边界未确认 |
-| A08/A09 | 受控通过：`kernel-heartbeat.test.js`、`kernel-worker-supervision.test.js` 时钟间隔/回拨、probe fence、真实worker阻塞/替换预算；双模式active worker loss后新IM完成 | OS实际暂停及恢复时序待测 |
+| A08/A09 | 受控通过：`kernel-heartbeat.test.js`、`kernel-worker-supervision.test.js` 时钟间隔/回拨、probe fence、真实worker阻塞/快速替换限速；M7新增持续失败低频恢复与清理阻断；双模式active worker loss后新IM完成 | OS实际暂停及恢复时序待测 |
 | A10/A11 | 既有invoke/订阅回归与新增 `kernel-recovery-matrix.test.js` 通过；丢ACK与订阅断线只接纳一次 | 不替代真实Provider副作用和部署消息重放合同 |
 | A12 | CLI/SDK各自四组client/session交叉、新IM完成且Kernel实例和服务PID保留；实际Provider admission唯一 | 长时/真实渠道重复循环待测 |
 | A13 | 部分：两种模式受控场景均完成direct与IM调用 | 180秒现场SLA及所有可恢复故障尚未验收 |
@@ -110,3 +111,15 @@ CLI模式约15.0秒、SDK模式约14.8秒通过；此计时包括主动等待两
 由运行环境维护者在issue #93补充原IM部署版本与可隔离的测试部署；本地配置的四个Bot均指向生产地址，不能直接当成im-test。使用 `test-support/recovery-kernel-probe.mts` 保留原client，并对旧/新session分别验证；SDK宿主入口为 `test-support/recovery-native-host.mts`。按acceptance的证据字段逐行执行S01-S14，分别保存CLI与SDK结果、真实Provider admission计数和旧调用结论。macOS合盖/隔夜/电源、Windows/Linux和登录自启由具备对应环境的维护者执行；这些缺口影响恢复保证，记录缺口不等于验收通过。
 
 95分是规划可执行性的自评，不代表修复成功率、根因确定性或P0完成度。当前交付可评审的共享层修复、诊断日志和隔离证据，保留现场门槛。
+
+## M7 复核后补充修复
+
+用户要求复核Kernel本地监听与断网/休眠的关系，进一步要求修复永久exhausted。复核确认本地Unix socket/Windows Pipe不以网络为前提；200次本地status后新调用完成，未发现该路径的连接积累。隔离试验禁止Kernel/worker发TCP、DNS和fetch请求，模拟Provider网络错误只失败当前Run；同时SIGSTOP两进程6.2秒再恢复，原Kernel instance与worker PID不变、旧活动调用可确认取消、新调用完成。该暂停试验不是OS真实合盖证据。
+
+本阶段合同：保留最多三次快速替换的250/1000/4000ms退避；快速额度耗尽且旧进程及所有权记录均已确认回收后，保持recovering，每次15秒冷却后只启动一个worker。冷却与启动串行，失败后重新等待15秒，不因status/invoke并发触发额外启动，休眠回调不补跑。成功启动不立即重置低频策略，须连续健康观测60秒才恢复快速额度。Kernel进程、instance和监听端点不重建，未知旧执行不重放。旧worker清理、启动回滚或所有权确认失败保留exhausted并报告close失败；close取消冷却，不允许迟到启动。
+
+实际验证：心跳/监督/持续恢复/交叉矩阵共12项通过。四次worker故障后的快速尝试耗尽不再锁死，15秒后同Kernel instance/PID的新调用完成；短暂恢复后再次故障仍使用低频策略，close在2秒内取消冷却。fixture模拟持续readiness失败，实际启动记录确认两次低频启动分别至少间隔15秒；移除故障后自动恢复，旧Run仍为lost。对测试worker进程组注入EPERM，确认进入exhausted、没有替换，close仍报告失败。
+
+2026-10-22再次执行全量 `pnpm test`：35项UI通过，Node共1504项、1472通过、32跳过、0失败；其中包含CLI与SDK加密IM恢复。lint/names、根TypeScript、docs与format通过。重新打包当前工作树的0.0.0 tgz，包外离线安装、strict类型、原生Kernel/Extra、CLI与公共恢复探针验证通过；包内build-info如实标记基于 `717dc5ad0a1c09c0f9930c752c09b84b71015bbc` 的dirty构建，本次没有宣称干净发行版本或发布。首次验证命令误填expected-commit，因SHA不匹配被拒绝；改为实际父提交SHA后通过，没有修改校验器或包内容来绕过检查。
+
+这里的快速次数限制仅防止worker启动/崩溃循环，不是IPC请求额度。普通Provider网络错误不触发worker替换；重试不关闭或重绑本地监听。M7修复一个确定的永久不可用机制，不能据此确认原事故根因；S01-S14现场门槛保持开放。

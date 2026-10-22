@@ -20,7 +20,7 @@ timestamp: 2026-10-22T00:00:00Z
 | A06 | Gateway 先于 Kernel，离线登录启动，两种组件顺序 | Gateway 保持自身状态，Kernel 就绪后同一 client 发新请求；无服务重建、无 SDK 重连代码 | M2/M5 |
 | A07 | 故障现场同 endpoint status/list/invoke 与 OS listener 对照 | 能定位 listener、worker、Provider 或观察层；不把 socket 存在/WS online 当作执行通过 | M0/M3 |
 | A08 | 父子暂停、仅父暂停、墙钟跳变、两种 pong/tick 顺序 | 健康 worker 不因旧时间差直接误杀；真实失联仍在新探针完整预算后回收；旧 pong 无法确认新 probe | M1/M3 |
-| A09 | worker crash、阻塞、三次替换耗尽、清理失败 | 原预算真实、旧 Run 唯一 lost、无重跑；成功回收后新调用通过；清理失败不启动替身 | M3 |
+| A09 | worker crash、阻塞、快速额度耗尽、连续启动失败、清理失败 | 旧 Run 唯一 lost、无重跑；快速额度耗尽后串行15秒冷却，环境恢复后同Kernel新调用通过；close取消冷却；清理失败不启动替身 | M3/M7 |
 | A10 | invoke 已接纳但 ACK 丢失；cancel/respond ACK 丢失 | 只查原身份；Provider admission/副作用为 1；未知控制不重发，未写出请求为 0 | M3 |
 | A11 | 订阅断线、3 次/10 秒修复耗尽、gap、TTL、实例改变 | 原 ref/连续 seq 恢复或准确失败；不造终态、不续到新实例；native/canonical 都满足 | M3 |
 | A12 | 中断旧任务后发新任务，四组 client/session 交叉 | 原服务对象继续工作；新请求真实完成；旧 unknown 不自动重跑、不污染新 repair/abort/队列 | M3/M5 |

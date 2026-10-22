@@ -22,7 +22,7 @@ loaded:
 rules:
   - {id: runtime-architecture, path: .octospec/rules/architecture.md, sha256: 4101d5cbd87e6b5d9f835a676d97d360ab882bc4d608eca6de0c3db78b22891d}
   - {id: runtime-protocol-design, path: .octospec/rules/protocol-design.md, sha256: 5b2abad6e825bce94701e3378ee33a4b027b6f30a3ca4a4bf4231d8f1351d578}
-  - {id: runtime-local-execution, path: .octospec/rules/local-execution.md, sha256: 757c84ec902202fcd2396d53b1e8ec62808435d1f43c2b2f794ec6cdffe3cc9e}
+  - {id: runtime-local-execution, path: .octospec/rules/local-execution.md, sha256: 1a6cf7b11b40f20a06b0d67c33eae6b51ca5a1cd60ee64a371282a0214a0a3e9}
   - {id: runtime-lifecycle, path: .octospec/rules/runtime-lifecycle.md, sha256: c71952a484a46569eed441531a0d375a0f6ec3aec95bd9814f6d3b9e7ffed93c}
   - {id: runtime-extras, path: .octospec/rules/extras.md, sha256: c188c835c918e7ed1abff014da9f921538b8119e1bfb62c3552fa13d6c1ba6b2}
   - {id: runtime-channel, path: .octospec/rules/channel-integration.md, sha256: ce5432241027b851d6db82c874ba34848cdc9ccf442f74648d1946cf49dc6b25}
@@ -40,6 +40,9 @@ source_reads:
   - packages/octo-runtime-extra-channel-gateway/src/application/im-channel.ts
   - packages/octo-runtime-executor-kernel/src/client.ts
   - packages/octo-runtime-executor-kernel/src/supervisor.ts
+  - packages/octo-runtime-executor-kernel/src/server.ts
+  - packages/octo-runtime-executor-kernel/src/process.ts
+  - packages/octo-runtime-executor-kernel/src/endpoint.ts
   - packages/octo-runtime-executor-kernel/src/service.ts
   - packages/octo-runtime-executor-kernel/src/heartbeat.ts
   - packages/octo-runtime-executor-kernel/src/serve.ts
@@ -56,6 +59,7 @@ source_reads:
   - apps/cli/src/status-output.ts
   - test/im-connection-state-machine.test.js
   - test/kernel-worker-supervision.test.js
+  - test/kernel-worker-recovery.test.js
   - test/kernel-heartbeat.test.js
   - test/kernel-recovery-matrix.test.js
   - test/recovery-dual-mode.test.js
@@ -89,6 +93,8 @@ decisions:
     - User requires rotation retaining the latest three files; status mirror uses the existing 100 MiB per-file cap with no overflow shards.
     - Controlled clock-gap reproduction confirmed false worker replacement; fresh sequence probes now preserve a full response deadline after gaps.
     - Extra status stdout and mirror are implemented separately from conversation/execution records; native SDK remains silent unless a sink is provided.
+    - Follow-up Kernel review found permanent exhaustion after the fast retry budget. Ordinary startup failures now recover serially with a 15-second cooldown; cleanup and ownership failures still block replacement.
+    - The cooldown concerns internal worker startup only. Kernel and its local IPC listener are not restarted, and ordinary Provider network failures do not spend worker restart attempts.
   proposed:
     - 180-second measured recovery acceptance with separately accounted server Retry-After.
   unresolved_gates:
@@ -129,5 +135,7 @@ validation:
     result: PASS; strict public types, native Kernel and Extras, CLI Kernel, status sink, recovery probe, assets, and uninstall preserving Home.
   - scope: Final M6 knowledge validation
     result: PASS; upstream OKF checker accepts 297 units, 11 updated rule fingerprints and A01-A27 implementation mapping verified. Repository checker still fails solely on its pre-existing docs-directory assertion.
+  - scope: M7 follow-up Kernel recovery implementation, based on 717dc5ad0a1c09c0f9930c752c09b84b71015bbc with local changes
+    result: PASS; 12 focused recovery tests, full build with 35 UI and 1472 Node passes plus 32 skips, lint/names/types/docs/format. Repacked dirty 0.0.0 archive passed offline external-consumer verification against the actual parent SHA; no clean-release claim.
   - scope: Real services, platform sleep/network and real Provider/IM
     result: UNEXECUTED; all S01-S14 live rows remain open. Controlled loopback evidence does not close issue 93 or establish deployed reason12 semantics.

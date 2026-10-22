@@ -20,6 +20,7 @@ export class WorkerSupervisor {
   #heartbeat?: WorkerHeartbeat;
   #activeTime = 0;
   #attempts: number[] = [];
+  #slowRecovery = false;
   #abort = new AbortController();
   #cleanupFailure?: AggregateError;
   #closeUntil?: number;
@@ -65,7 +66,12 @@ export class WorkerSupervisor {
       throw error;
     }
     if (this.#closing) {
-      await closeWorker(worker, this.#closeUntil ?? Date.now() + 5000, true);
+      try {
+        await closeWorker(worker, this.#closeUntil ?? Date.now() + 5000, true);
+      } catch (error) {
+        // A late startup still owns resources; failed rollback must block every future replacement.
+        throw (this.#cleanupFailure = new AggregateError([error], "WORKER_CLEANUP_INCOMPLETE"));
+      }
       return;
     }
     this.#worker = worker;
@@ -114,9 +120,12 @@ export class WorkerSupervisor {
     if ((this.#heartbeat?.healthyMs ?? 0) >= 60_000) {
       this.#attempts = [];
       this.#attempt = 0;
+      this.#slowRecovery = false;
     }
-    this.#recovery = this.#recover(worker).catch(() => {
-      this.#state = "exhausted";
+    this.#recovery = this.#recover(worker).catch((error: unknown) => {
+      // Only unconfirmed cleanup or ownership ends recovery; ordinary startup failures stay retryable.
+      this.#cleanupFailure ??= new AggregateError([error], "WORKER_RECOVERY_BLOCKED");
+      if (!this.#closing) this.#state = "exhausted";
     });
   }
   async #recover(worker: WorkerProcess): Promise<void> {
@@ -128,14 +137,13 @@ export class WorkerSupervisor {
     else await closeWorker(worker, Date.now() + 4800, true);
     await this.recordWorker?.(undefined);
     this.#worker = undefined;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      if (this.#closing) return;
+    while (!this.#closing) {
       // Suspend time and clock changes must not replenish a recently exhausted restart budget.
       this.#attempts = this.#attempts.filter((at) => this.#activeTime - at < 60_000);
-      if (this.#attempts.length >= 3) break;
-      const delay = [250, 1000, 4000][this.#attempts.length];
-      this.#attempts.push(this.#activeTime);
-      this.#attempt++;
+      if (this.#attempts.length >= 3) this.#slowRecovery = true;
+      // Exhausting the fast budget opens a bounded-rate recovery loop, not a permanent outage.
+      // Keep slow recovery across short-lived workers until 60 seconds of health is observed.
+      const delay = this.#slowRecovery ? 15_000 : [250, 1000, 4000][this.#attempts.length];
       await new Promise<void>((resolve) => {
         const finish = () => {
           clearTimeout(timer);
@@ -146,6 +154,8 @@ export class WorkerSupervisor {
         this.#abort.signal.addEventListener("abort", finish, { once: true });
       });
       if (this.#closing) return;
+      if (!this.#slowRecovery) this.#attempts.push(this.#activeTime);
+      this.#attempt = Math.min(Number.MAX_SAFE_INTEGER, this.#attempt + 1);
       try {
         await this.#spawn();
         return;
@@ -154,7 +164,6 @@ export class WorkerSupervisor {
         /* Ordinary startup failures are reaped; aggregate cleanup failures prevent replacement. */
       }
     }
-    this.#state = "exhausted";
   }
   async close(until = Date.now() + 5000): Promise<void> {
     this.#closing = true;

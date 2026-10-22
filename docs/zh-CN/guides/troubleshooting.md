@@ -13,7 +13,8 @@ CLI Extra同时将状态写stdout。原生SDK默认静默，可在绝对路径 `
 | 现象或错误码                    | 处理步骤                                                                                                                                   |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `KERNEL_UNAVAILABLE` 或连接失败 | 确认 endpoint 正确、Kernel 已初始化、客户端使用相同 OS 账号。检查 `status().execution_ready` 和 worker 状态。`attachKernel` 不会启动服务。 |
-| `WORKER_RESTART_EXHAUSTED`      | 查看 worker 启动和清理错误，修复入口文件或 Provider 环境后恢复服务。替代 worker 不会恢复旧执行。                                           |
+| worker 状态 `recovering`       | Kernel 保持本地监听并串行重试。三次快速尝试后，每次继续等待15秒；修复worker环境后可自动恢复执行，无须重启Kernel。 |
+| `WORKER_RESTART_EXHAUSTED`      | 清理或所有权未确认，自动替换已阻断。先排查旧worker与所有权记录，再恢复服务；替代worker不会恢复旧执行。 |
 
 ## 输入被拒绝
 
