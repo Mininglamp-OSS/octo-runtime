@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import test from "node:test";
@@ -85,7 +85,8 @@ for (const [label, suffix] of [
           await rm(home, { recursive: true, force: true });
         }
       });
-      const unitPath = join(homedir(), ".config/systemd/user", `${spec.id}.service`);
+      const unitPath = (await backend.inspect(spec)).definitionPath;
+      assert.equal(typeof unitPath, "string");
       await mkdir(dirname(unitPath), { recursive: true });
       await writeFile(
         unitPath,

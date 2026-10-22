@@ -17,6 +17,7 @@ systemd 的 WorkingDirectory 和 append 日志指令不执行 argv 式去引号�
 - 普通路径、含空格、字面量 `%h`/`%n`、引号、反斜杠与 Unicode 的确定性渲染回归。
 - ExecStart 与 Environment 的引号行为不退化。
 - 重新 install 替换旧坏 unit，daemon-reload 先于 start；再次 install 不额外 reload/restart。
+- 注入 runner 的重装修复 fixture 显式传入隔离 environment，分别覆盖默认目录与绝对 XDG_CONFIG_HOME；原生 fixture 从 backend.inspect 获取真实 definitionPath，禁止硬编码默认目录。
 - Linux 原生 systemd-analyze 验证无警告；可选真实 user manager 测试确认旧 unit 修复、cwd 与两路日志实际落点。
 - 验证真实 CLI Kernel 与已配置 Extra 的 install/start，记录环境及边界，不将 fake runner 当原生证据。
 - 提交前 rebase 最新 main，双轴 code review，英文 commit 与 PR 关联 Closes #113；等待 reviewer 合并，不自行合并。

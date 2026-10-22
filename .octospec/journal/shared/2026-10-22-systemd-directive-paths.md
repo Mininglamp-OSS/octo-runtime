@@ -38,3 +38,15 @@ systemd 上游 `src/core/load-fragment.c` 的 `config_parse_working_directory` �
 奇偶修复后分别以末尾包含一个、两个字面反斜杠的 Home 重复上述 Kernel/WebUI 旧坏 unit 重装与启动，两个组件重新 ready、WebUI HTTP 200；随后卸载两组件。最终代码的原生保真回归共 49/49，通过四组尾字符的真实 cwd 与日志落点验证。
 
 原生复验入口：在已构建且具备 user manager 的隔离 Linux 中执行 `OCTO_TEST_SYSTEMD_USER=1 node --test test/cross-service.test.js test/cross-service-systemd-native.test.js`。
+
+## PR #114 外部 P2：XDG fixture 隔离
+
+2026-10-23 收到 Jerry-Xin 的 changes-requested review：fake fixture 把旧 unit 写入临时 Home，但 backend 默认继承 process.env，绝对 XDG_CONFIG_HOME 会把 install 指向另一份定义，导致 Ubuntu Node 24/26 CI 失败并可能在 fixture 清理范围外残留假 unit。另一个原生 fixture 同样硬编码默认配置目录。
+
+- 受控复现：为测试进程指定临时绝对 XDG_CONFIG_HOME，修复前在原 quoted unit 未被替换的断言处失败；探测目录已清理。
+- 修复只涉及测试：fake fixture 显式注入空 environment 或位于 fixture 临时目录内的绝对 XDG_CONFIG_HOME；参数化覆盖默认/XDG 两种目录，先断言 seeded unit 的 definitionPath 和 drift，再验证修复、reload 顺序、start 与幂等性。所有 runner 调用必须使用该显式 environment。
+- 原生 fixture 使用 backend.inspect(spec).definitionPath 作为 seed 路径，与 backend 的实际 Home/XDG 选择保持一致，不再硬编码 homedir。
+- 设置外部绝对 XDG_CONFIG_HOME 后，macOS 聚焦 45 通过、5 平台跳过，外部配置目录没有 fixture 文件残留。
+- 同样设置外部绝对 XDG_CONFIG_HOME 后运行完整 test:suites：Node 1702 项，1662 通过、40 跳过、0 失败；WebUI 35/35。修订的格式、lint、命名与文档检查通过。
+- 隔离 Linux 的真实 user manager 与测试均设置 XDG_CONFIG_HOME 为包含空格的绝对目录：50/50，无跳过；默认目录与 XDG 目录均无临时 unit 残留。
+- 生产序列化、公共 API、服务路径选择合同不变；原有原生路径保真用例全部保留。

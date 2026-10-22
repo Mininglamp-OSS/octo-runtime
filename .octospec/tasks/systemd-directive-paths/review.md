@@ -22,3 +22,17 @@
 - 原生 Linux 已覆盖实际 cwd、两路日志、旧坏 unit 重新安装与启动；真实 CLI Kernel 与已配置 WebUI Extra 完成生命周期验证。不宣称已验证 WSL2、真实 Provider 或 IM Bot 在线。
 
 合计：Standards 0 项；Spec 遗留 0 项（已修复 3 项 P2）；两轴均无阻塞问题。
+
+## PR #114 外部 P2 修订复核
+
+固定点为先前 PR head `7beb87eee82b3e286cbf461ea4894efd2f575f78`；审查范围仅 XDG fixture 修订，不重新扩大生产实现范围。
+
+### Standards
+
+硬性规范违例 0，启发式异味 0。显式测试环境、临时目录清理、英文提交及 Codex trailer 符合规范，未改变生产责任边界。
+
+### Spec
+
+实现缺失、越界及错误行为 0。默认/XDG 路径参数化与原生 backend definitionPath 修复均落实外部 P2 要求。已有外部 XDG 本地全量验证和原生 user manager 50/50；Ubuntu Node 24/26 必须以新提交 CI 结果单独闭环，不把本地通过当作远端通过。
+
+本轮合计：Standards 0；Spec 实现问题 0，远端 Ubuntu 两个 job 的重跑结果待推送后确认。

@@ -224,45 +224,58 @@ test("systemd install is idempotent and does not start a new service", async (t)
   assert.ok(runner.calls.every((call) => call.options?.env !== process.env));
 });
 
-test("systemd reinstall repairs quoted path directives and reloads before starting", async (t) => {
-  const home = await mkdtemp(join(tmpdir(), "octo-systemd-reinstall-"));
-  t.after(() => rm(home, { recursive: true, force: true }));
-  const spec = {
-    ...unixSpec,
-    workingDirectory: home,
-    stdoutPath: join(home, "stdout.log"),
-    stderrPath: join(home, "stderr.log")
-  };
-  const unitPath = join(home, ".config", "systemd", "user", `${spec.id}.service`);
-  const repaired = renderSystemdUnit(spec);
-  await mkdir(dirname(unitPath), { recursive: true });
-  await writeFile(
-    unitPath,
-    repaired.replace(/^(WorkingDirectory|StandardOutput|StandardError)=(.*)$/gm, '$1="$2"')
-  );
-  let reloaded = false;
-  let started = false;
-  const runner = new FakeRunner((_command, args) => {
-    if (args.includes("daemon-reload")) reloaded = true;
-    if (args.includes("enable") || args.includes("start")) assert.equal(reloaded, true);
-    if (args.includes("start")) started = true;
-    if (args.includes("show"))
-      return result(
-        0,
-        `LoadState=${reloaded ? "loaded" : "bad-setting"}\nUnitFileState=enabled\nActiveState=${started ? "active" : "inactive"}\nSubState=${started ? "running" : "dead"}\nMainPID=${started ? 123 : 0}\n`
-      );
-    return result();
+for (const useXdg of [false, true]) {
+  test(`systemd reinstall repairs quoted path directives in ${useXdg ? "XDG" : "default"} config and reloads before starting`, async (t) => {
+    const home = await mkdtemp(join(tmpdir(), "octo-systemd-reinstall-"));
+    t.after(() => rm(home, { recursive: true, force: true }));
+    const spec = {
+      ...unixSpec,
+      workingDirectory: home,
+      stdoutPath: join(home, "stdout.log"),
+      stderrPath: join(home, "stderr.log")
+    };
+    const configHome = join(home, useXdg ? "xdg-config" : ".config");
+    const environment = useXdg ? { XDG_CONFIG_HOME: configHome } : {};
+    const unitPath = join(configHome, "systemd", "user", `${spec.id}.service`);
+    const repaired = renderSystemdUnit(spec);
+    await mkdir(dirname(unitPath), { recursive: true });
+    await writeFile(
+      unitPath,
+      repaired.replace(/^(WorkingDirectory|StandardOutput|StandardError)=(.*)$/gm, '$1="$2"')
+    );
+    let reloaded = false;
+    let started = false;
+    const runner = new FakeRunner((_command, args) => {
+      if (args.includes("daemon-reload")) reloaded = true;
+      if (args.includes("enable") || args.includes("start")) assert.equal(reloaded, true);
+      if (args.includes("start")) started = true;
+      if (args.includes("show"))
+        return result(
+          0,
+          `LoadState=${reloaded ? "loaded" : "bad-setting"}\nUnitFileState=enabled\nActiveState=${started ? "active" : "inactive"}\nSubState=${started ? "running" : "dead"}\nMainPID=${started ? 123 : 0}\n`
+        );
+      return result();
+    });
+    const backend = new SystemdUserBackend({
+      platform: "linux",
+      runner,
+      homeDirectory: home,
+      environment
+    });
+    const previous = await backend.inspect(spec);
+    assert.equal(previous.definitionPath, unitPath);
+    assert.deepEqual(previous.drift, ["definition_content"]);
+    await backend.install(spec);
+    assert.equal(await readFile(unitPath, "utf8"), repaired);
+    assert.equal(started, false);
+    await backend.start(spec);
+    assert.equal(started, true);
+    await backend.install(spec);
+    assert.equal(runner.calls.filter((call) => call.args.includes("daemon-reload")).length, 1);
+    assert.equal(runner.calls.filter((call) => call.args.includes("restart")).length, 0);
+    assert.ok(runner.calls.every((call) => call.options?.env === environment));
   });
-  const backend = new SystemdUserBackend({ platform: "linux", runner, homeDirectory: home });
-  await backend.install(spec);
-  assert.equal(await readFile(unitPath, "utf8"), repaired);
-  assert.equal(started, false);
-  await backend.start(spec);
-  assert.equal(started, true);
-  await backend.install(spec);
-  assert.equal(runner.calls.filter((call) => call.args.includes("daemon-reload")).length, 1);
-  assert.equal(runner.calls.filter((call) => call.args.includes("restart")).length, 0);
-});
+}
 
 test("launchd install then start bootstraps the current user's LaunchAgent", async (t) => {
   const home = await mkdtemp(join(tmpdir(), "octo-cross-service-launchd-"));
