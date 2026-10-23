@@ -229,7 +229,10 @@ test("F24: OpenClaw CLI updates only two dotenv keys, last enabled OpenClaw Bot 
   );
   assert.ok(content.startsWith("# Keep this comment\n"));
   assert.equal((content.match(/OCTO_BOT_TOKEN=/g) ?? []).length, 1);
-  assert.equal((await stat(file)).mode & 0o777, 0o600);
+  const info = await stat(file);
+  assert.ok(info.isFile());
+  // Windows 不提供 POSIX 权限位；正文和普通文件断言仍在所有平台执行。
+  if (process.platform !== "win32") assert.equal(info.mode & 0o777, 0o600);
   assert.deepEqual(await syncCliOpenClawToolEnvironment(profile, configs), {
     file,
     written: false,

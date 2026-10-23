@@ -34,6 +34,8 @@ timestamp: 2026-10-23T00:00:00Z
 
 本机不能证明 Windows 真机行为；不支持 O_NOFOLLOW 的平台仍验证文件类型及 dev/ino，已在 Windows CI 增加 security-remediation、hourly-log 与 channel-tool-environment 三组回归。没有执行需要真实账号、模型、IM 或桌面写入的 live 探针。最终合并 main 的重扫、逐条 disposition 审核及 Dependabot fixed 状态是 Issue 关闭条件，当前不宣称面板已清零。
 
+首次新增 Windows Node 26 安全门禁中，security-remediation 六项适用用例和 hourly-log 全部通过，FIFO/Unix 权限两项按平台跳过；原 channel-tool-environment 的无条件 POSIX 0600 断言失败（Windows stat 返回 0666）。已将权限位断言限定为 POSIX，所有平台保留普通文件及 dotenv 内容、顺序、幂等和隔离断言；修复后重跑 CI，不移除 Windows 门禁。
+
 # 分支托管扫描与 PR
 
 修复提交 `62491940f031412dcfd38efd8157756f42fd5f2c` 的 [CodeQL run 39892494476](https://github.com/Mininglamp-OSS/octo-runtime/actions/runs/39892494476) 成功，analysis `2010235423`；CodeQL 2.27.3、javascript-queries 2.4.8（与最新 main 同一固定构建）、security-extended 103 条规则。实际结果为 28 条，比 main 少 11 条，未新增告警；所有本次修复项均不再命中，逐条结果已写回 disposition。剩余 28 条分别有误报或预期安全流程依据，尚未 dismissal，等待 PR 评审确认。
