@@ -1,5 +1,11 @@
 # 工程知识变更记录
 
+## 2026-10-23
+
+- 用户确认本机 OpenCode 已为 2.1.3 后，复核交互式 shell 和 `~/.opencode/bin/opencode` 输出一致；Agent 非交互环境仍选中 nvm 下旧 1.18.30。更新 [Issue 103 资料](tasks/103-opencode-v2/reference.md#本机路径复核)、版本矩阵与 context，后续 V2 使用明确绝对路径，旧版保留为拒绝样本；尚未进行功能实测。
+
+- 建立 [Issue 103 OpenCode 2 调研](tasks/103-opencode-v2/brief.md)：核对 npm 2.1.3 与固定源码，明确 V1 必须 error，记录 CLI 参数、进程环境、V2 配置、ACP 续聊/权限和清理缺口；[资料](tasks/103-opencode-v2/reference.md)、[验收计划](tasks/103-opencode-v2/validation-plan.md)与[本轮证据](journal/shared/2026-10-23-103-opencode-v2-research.md)区分源码确认与未实测范围。仅文档，未修改产品实现或提交。
+
 ## 2026-10-22
 
 - 按用户要求修正 [PR 104 的认证责任边界](journal/shared/2026-10-22-95-grok-build-acp.md#pr-104-认证责任修正)：harness 的登录、授权与凭据来源归使用者、宿主及 harness。删除 `grok-build` 专属认证环境变量判断，仅依广告完成 ACP 握手，拒绝不切换认证方式；同步架构规则和双语说明，补充五项回归，不改共享 ACP 行为。

@@ -1,0 +1,66 @@
+status: implementation-and-validation
+recorded_on: 2026-10-23
+baseline: 445d2bb24f6ffc27bb4414c835e6a0b365f9f25b
+baseline_source: git-fetch-origin-main
+branch: research/103-opencode-v2
+issue: https://github.com/Mininglamp-OSS/octo-runtime/issues/103
+authorization:
+  scope: implementation-real-e2e-code-review-pr-to-main
+  v1_policy: explicit-error-no-longer-supported
+  commit_push_pr: authorized
+  npm_publish: not-authorized
+  github_language: english
+rules:
+  - runtime-architecture
+  - runtime-protocol-design
+  - runtime-adapter-metadata
+  - runtime-context-input
+  - runtime-environment
+  - runtime-mcp
+  - runtime-reasoning
+  - runtime-output-protocol
+  - runtime-engineering
+  - commit
+sources:
+  - AGENTS.md
+  - .octospec/.claude/skills/octospec-workflow/SKILL.md
+  - .octospec/.claude/commands/octospec-plan.md
+  - .octospec/tasks/_brief.template.md
+  - .octospec/index.md
+  - .octospec/rules/_index.yaml
+  - .octospec/rules/architecture.md
+  - .octospec/rules/protocol-design.md
+  - .octospec/rules/adapter-metadata.md
+  - .octospec/rules/context-input.md
+  - .octospec/rules/environment.md
+  - .octospec/rules/mcp.md
+  - .octospec/rules/reasoning.md
+  - .octospec/rules/output-protocol.md
+  - .octospec/rules/engineering.md
+  - .octospec/rules/collaboration.md
+  - packages/octo-runtime-adapter-opencode/src/index.ts
+  - packages/octo-runtime-adapter-opencode/README.md
+  - packages/octo-runtime-adapter-acp/src/index.ts
+  - packages/octo-runtime-acp-client/src/index.ts
+  - packages/octo-runtime-adapter-sdk/src/index.ts
+external_sources:
+  reference: reference.md
+  npm_latest_v2: 2.1.3
+  minimum_supported: 2.1.3
+  source_tag: v2.1.3
+  source_revision: bb25a2f4a3f3f04d7c344bec0c0574ea3510b3b1
+verification:
+  issue_official_docs_registry_fixed_source: read
+  local_executable_version: 2.1.3
+  local_executable: /Users/lvsijia/.opencode/bin/opencode
+  legacy_executable_version: 1.18.30
+  legacy_executable: /Users/lvsijia/.nvm/versions/node/v24.19.0/bin/opencode
+  shell_path_difference: interactive-selects-v2-agent-noninteractive-selected-legacy
+  local_executable_platform: macOS
+  v2_binary: user-installed-functional-tests-passed
+  runtime_e2e: cli-acp-and-live-im-passed
+  model_provider_tools_permissions_cancellation: passed-deepseek-deepseek-flash
+  product_tests: in-progress
+  octospec_lint: only-three-confirmed-existing-head-frontmatter-errors
+  new_okf_frontmatter_and_context_yaml: passed
+  git_diff_check: passed
