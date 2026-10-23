@@ -200,7 +200,7 @@ try {
     const invalid = await run(`${mode}-invalid-config`, mode, "Reply OK", { invalidConfig: true });
     assert.equal(invalid.terminal, "run.failed");
     const credentials = await run(`${mode}-invalid-credentials`, mode, "Reply OK", {
-      config: { providers: { deepseek: { settings: { apiKey: "invalid-octo-e2e-key" } } } },
+      config: { providers: { deepseek: { settings: { apiKey: "invalid" } } } },
       expectFailure: true
     });
     assert.equal(credentials.terminal, "run.failed");

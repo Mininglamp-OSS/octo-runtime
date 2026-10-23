@@ -74,6 +74,20 @@ node --test test/opencode-v2.test.js test/adapters.test.js test/context-mcp.test
 - OctoSpec lint 仅报告 3 个基线已有文件缺少 frontmatter：systemd-directive-paths 的 brief.md、review.md 及对应 2026-10-22 journal；本任务无新增错误。
 - 固定实现提交 `81f316e` 的双轴审查通过，Standards 与 Spec 均无需要修复的问题，见 [review](review.md)。
 
+## PR Secret Scan 误报核验
+
+PR #116 的 Gitleaks 8.30.1 首轮扫描报告 `ad4e357a1d53e07bd12b7d1ebbd0d10d79dfb46b:scripts/verify-opencode-v2.mjs:generic-api-key:203`。该行是错误认证场景写死的 `invalid-octo-e2e-key`，来源为本任务测试代码，不是从账号或认证文件读取的值；两传输以此实际执行均返回 failed。
+
+CI 采用 depth=2 的 PR merge checkout，暂缺父历史，因此将整份文件归到浅边界 ad4e357。在保留原始历史的隔离仓库复现同一版本及范围后，实际引入指纹为 `81f316e88c324e374b613dc6a12437da130fa5ff:scripts/verify-opencode-v2.mjs:generic-api-key:203`。仅将该原始历史指纹加入 `.gitleaksignore`，同步命名检查要求的规范化 SHA256 快照。当前测试值改为更直接的 `invalid`，保留错误认证语义，避免浅边界重新归因固定样例。未豁免文件、路径或规则，未修改原始提交历史。
+
+本地工具下载归档 SHA256 为 b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5，与官方 8.30.1 darwin arm64 校验表一致。验收结果：
+
+- 保留历史隔离 clone，范围 `445d2bb..ad4e357`：加入精确例外后 0 告警，退出 0；加入前只报上述原始指纹，退出 1。
+- 新建隔离 canary 提交，在同文件原 203 行及邻近 204 行放入非功能性密钥样式；PR 范围扫描在两处均报 github-pat，退出 1。
+- 完整历史扫描在新增 canary 前有 135 个既有告警，本次样例无告警；新增后为 137，指纹集合比较确认仅增加上述两处 canary，原 135 项未被隐藏。因此这次验证证明例外范围有效，不宣称整个历史扫描通过。
+- 当前测试值简化后重新运行 16 个真实场景全部通过，最终 cleanup=complete；命名检查与 7 项命名回归通过。
+- 独立 Standards 收尾复核确认指纹、原始提交、规范化哈希和无效值修改准确，无剩余问题。远端 PR review 同时提出的唯一 P2 为本项扫描失败，本次修复覆盖该意见；托管重验以 PR 最新检查为准。
+
 ## 证据边界
 
 未在 Windows/Linux 做真实 OpenCode E2E；未测其他 2.x、其他模型、ACP 图片/表单/终端扩展或实际 Electron App。ACP effort setter 尚未实现，CLI 不传 model 时不猜测默认模型来套用 effort。合成子进程回归覆盖版本超时、异常退出及 stop 后非零退出，不能代替相应 OS 上的原生集成证据。Core 对其他未经此 Adapter 收敛的异常仍可能保守报告 incomplete，不将其解释为所有 Provider 清理问题已解决。

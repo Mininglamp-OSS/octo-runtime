@@ -8,7 +8,7 @@ timestamp: 2026-10-23T05:00:00Z
 
 # 审查范围
 
-基线为 `445d2bb24f6ffc27bb4414c835e6a0b365f9f25b`，实现提交为 `81f316e88c324e374b613dc6a12437da130fa5ff`；差异使用 `git diff 445d2bb24f6ffc27bb4414c835e6a0b365f9f25b...81f316e`。两个独立审查分别对照仓库规则与 Issue #103 / 最终任务简报。其后仅补齐本任务的验收及审查记录。
+基线为 `445d2bb24f6ffc27bb4414c835e6a0b365f9f25b`，实现提交为 `81f316e88c324e374b613dc6a12437da130fa5ff`；差异使用 `git diff 445d2bb24f6ffc27bb4414c835e6a0b365f9f25b...81f316e`。两个独立审查分别对照仓库规则与 Issue #103 / 最终任务简报。其后补齐验收记录，并对 PR Secret Scan 的固定无效凭据样例误报完成修复和独立收尾复核。
 
 ## Standards
 
@@ -25,3 +25,7 @@ timestamp: 2026-10-23T05:00:00Z
 真实集成仅覆盖 macOS arm64 / OpenCode 2.1.3 / deepseek/deepseek-flash；Windows/Linux、其他 2.x 和其他模型未实测。ACP effort setter 未实现；CLI 缺少显式 model 时不猜测模型引用。审查未将这些已公开的范围边界认定为本次阻断问题。
 
 Standards：0 个发现；Spec：0 个发现；两个轴均无待修复问题。
+
+## PR 收尾复核
+
+远端 review 在 ad4e357 提出唯一 P2：固定无效 apiKey 样例造成 Secret Scan 失败。已将现行值简化为 `invalid`，为真实原始历史指纹添加单条例外，同步命名检查的规范化 SHA256；错误认证语义保留，16 个真实场景再次通过。独立 Standards 审查还发现需同步该哈希，已修正并通过命名检查与 7 项回归，最后复核无剩余问题。完整历史及 PR canary 证明原行和邻行的新模式仍被拦截，具体证据及既有历史告警边界见 [validation](validation.md#pr-secret-scan-误报核验)。托管 CI 和远端重新审查状态以 PR 最新结果为准。
