@@ -56,3 +56,15 @@ Jerry-Xin 对 `6655058` 的 [review 5623626814](https://github.com/Mininglamp-OS
 - P3：去掉 `/api` 后，CLI 只删除 href 的一条尾斜杠，实际 dotenv 把 `/tenant///api/` 写成 `/tenant/`，与 Gateway 及旧行为的 `/tenant` 不一致。新增实际 dotenv 与 Gateway 的 8 组对照用例，原实现首例失败。改为第二次线性扫描完整 href 后缀，保留内部重复分隔符及非最终 api 路径；CLI 继续不导入业务 Extra。
 
 修复后，security-remediation、channel-tool-environment、hourly-log 共 21 项在 022 和 077 两种独立命令环境下各自全部通过；build/typecheck、lint、lint:names、修改文件 Prettier、docs:check 通过。全量 `pnpm test:suites`：Node 1711 项、1671 通过、40 跳过、0 失败，UI 35 项全部通过。后续托管检查、复审与 main 验收继续在 PR 跟踪；CHANGES_REQUESTED 需要 reviewer 复审，不能由作者代为清除。
+
+# Windows 发行验收失败跟进
+
+`eee611a` 的 CodeQL analysis 2010450091 成功，103 条规则、28 个原始结果、分支 open 为 0。Jerry-Xin 已复审该提交并 Approve。[CI 39897739552](https://github.com/Mininglamp-OSS/octo-runtime/actions/runs/39897739552) 首次在 Windows Node 24 身份查询中被现有 30 秒期限终止；该查询及启动测试与基线一致，具体系统超时原因未确定。只重跑失败任务后，此检查通过，但最终离线发行验收报 `EBUSY rmdir orc-*`，其余五组矩阵通过。
+
+检查发行脚本确认两个缺陷：`finally rm` 会覆盖原始验收错误；Windows `child.kill(SIGTERM)` 强杀 CLI leader 后，finally 因 leader 已退出跳过 taskkill，可能遗留 worker。另有命令 execFile timeout 只终止 leader 的同类所有权问题。发行验收改为 spawn 创建明确所属的进程组/树，超时先回收树，Windows 前台 CLI 在 leader 存活时 taskkill /T /F；保留原始错误与清理错误，并为各实际验收阶段输出名称。删除目录仅做有界句柄释放重试，不吞掉失败。
+
+用户随后明确要求 Windows 直接采用 40 秒：生产身份查询总期限从 30 秒改为 40 秒，仍查询真实系统 UTC ticks，不缓存或退回 PID。外层 Windows 运行验收为身份查询 40 秒、后续 RPC 就绪 15 秒及关闭预留共 60 秒；编译期限不变。mock 回归同时断言传给系统命令的 40 秒期限，并继续验证身份查询失败禁止 worker 登记。
+
+新增真实后代进程持有 cwd 的超时/停止回归，确认后代退出后目录可删；原始错误、stdout/stderr、退出码及 EBUSY 聚合各有断言。相关 30 项本地通过，离线发行安装与公共 SDK/CLI 验收通过；Windows Node 24/26 显式执行新增回归及完整发行验收，实际结果继续在 PR 记录。本机 macOS 的结果不代替 Windows 证据。
+
+加入发行清理回归后的完整本地 suite 为 Node 1676 通过、40 跳过、0 失败，UI 35 通过。40 秒变更后 build/typecheck、lint、格式与 diff 检查通过；身份登记、启动回滚及发行相关 38 项为 37 通过、1 个 Windows 实机用例在本机跳过。进程树回归最终再跑 5 项全部通过。Windows 真实行为须以本次提交的 CI 为准。
