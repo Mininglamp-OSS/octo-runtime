@@ -12,7 +12,7 @@ timestamp: 2026-10-23T00:00:00Z
 - 最新 main：`445d2bb24f6ffc27bb4414c835e6a0b365f9f25b`，analysis `2010142591`，CodeQL `2.27.3`，`javascript-queries 2.4.8+a1575b98a8cc19bcfa7bb6cb41be688cb3dae65c`，39 条。
 - 两次均为 `security-extended`、103 条规则。最新[托管扫描](https://github.com/Mininglamp-OSS/octo-runtime/actions/runs/39889943281)成功；这只证明本次整改前 main 的现状。
 - 原 #2/#11/#13 托管状态变为 fixed，但其中相同逻辑分别迁移为 #36/#40/#42；必须整改迁移后的实现。
-- 下表“修复”表示本工作树已实施；最终分支及合并 main 托管状态另行登记。误报为逐条审阅结论，不表示已操作 GitHub dismissal。
+- 下表“修复”表示本工作树已实施；分支托管结果及逐条 dismissal 状态在末节登记，合并 main 状态需另行核对。
 - 表内包名省略 `packages/octo-runtime-` 前缀，app/script/test 路径相对仓库根目录。原 35 条及新增 7 条完整保留，未削弱查询、排除目录或隐藏数据流。
 
 # 原告警
@@ -26,7 +26,7 @@ timestamp: 2026-10-23T00:00:00Z
 | [5](https://github.com/Mininglamp-OSS/octo-runtime/security/code-scanning/5) | scripts/verify-channel-connection-renderer-live.mjs `screen` | 误报：`JSON.stringify(id)` 作为独立 JS 字符串字面量插入 CDP 源码；引号和反斜杠由 JSON 序列化处理，不是仅替换某个危险字符。DOM 选择器的输入可能导致选择器失败，但不能突破 JS 字面量执行代码。 | 仅本机 CDP；来源为本脚本创建渠道返回的 ID；下文序列化负向验证 |
 | [6](https://github.com/Mininglamp-OSS/octo-runtime/security/code-scanning/6) | scripts/verify-channel-features-live.mjs `createTestGroup` | 误报：固定键的群名、成员 UID 对象经 `JSON.stringify` 成为 JS 对象字面量，所有可变字符串均为值；CDP 执行前再次确认测试服务。不是 HTML `<script>` 嵌入，不存在关闭 script 标签的上下文。 | 仅读取显式 QA 账号；API 地址断言与身份核验；序列化负向验证 |
 | [7](https://github.com/Mininglamp-OSS/octo-runtime/security/code-scanning/7) | scripts/verify-im-context-live.mjs `--human-callback` | 误报：卡片 ID/频道/回答作为固定形状对象的 JSON 值传给本机 CDP；JSON 编码保持数据字面量。仅显式真人回调模式调用，执行前验证测试服务。 | 序列化负向验证；未执行真实卡片操作，不冒充真人联调 |
-| [8](https://github.com/Mininglamp-OSS/octo-runtime/security/code-scanning/8) | extra-webui/src/index.ts `Set-Cookie` | 按既有本地信任合同判定为安全的预期流程：服务随机生成 256-bit 本次启动会话令牌，以 HttpOnly、SameSite=Strict、无持久期限 cookie 交给本地浏览器；不是宿主长期凭据落盘。仅监听 127.0.0.1，核验 Host、跨站请求、写请求 Origin 和 token；同 OS 账号互信。不得因此增加通用账户密码或改变宿主凭据存储。 | webui-extra 本地浏览器边界回归；architecture 本地信任合同。未把非 TLS 远程部署视为支持场景 |
+| [8](https://github.com/Mininglamp-OSS/octo-runtime/security/code-scanning/8) | extra-webui/src/index.ts `Set-Cookie` | 按 WebUI 仅本地调试、非生产的合同判定为预期流程：服务随机生成 256-bit 本次启动会话令牌，以 HttpOnly、SameSite=Strict、无持久期限 cookie 交给本地浏览器；不是宿主长期凭据落盘。仅监听 127.0.0.1，核验 Host、跨站请求、写请求 Origin 和 token。本地 TCP 本身不提供 OS 账号隔离，不能将 IPC 的同账号合同外推为此处的账号鉴权。 | webui-extra 浏览器边界回归；architecture Extra 状态表明确仅本地调试、非生产，包 README 记录固定 loopback；远程或多账号隔离部署须重新设计 |
 | [9](https://github.com/Mininglamp-OSS/octo-runtime/security/code-scanning/9) | extra-webui/web/src/lib/api.ts ← App.tsx hash 路由 | 误报：两个 hash 来源均先经过完整锚定 `^#/sessions/([a-f0-9-]+)$`，仅将捕获 ID 放进固定同源 `/api/sessions/` 路径。不能包含斜杠、点、查询、编码、外域或其他动作；网络目标不受 hash 控制。 | 源码双入口核验；下文 hash 路由负向验证；webui-extra 鉴权和 revision 回归 |
 | [10](https://github.com/Mininglamp-OSS/octo-runtime/security/code-scanning/10) | scripts/verify-channel-connection-renderer-live.mjs 截图 | 真缺陷：共享 `/tmp` 固定截图目录。改为每次 `mkdtemp` 私有目录、0600、wx 文件及随机文件名，重复 online 状态不覆盖。截图保留用于人工验收。 | 本地无 CDP 的目录/文件创建验证；未执行真实桌面故障注入 |
 | [11](https://github.com/Mininglamp-OSS/octo-runtime/security/code-scanning/11) | 已删除 apps/daemon；迁移为 apps/cli/src/openclaw.ts | 旧位置托管 fixed，相同 dotenv 检查读取迁移为 #40，已同步整改。 | 最新托管扫描 + #40 回归 |
@@ -34,7 +34,7 @@ timestamp: 2026-10-23T00:00:00Z
 | [13](https://github.com/Mininglamp-OSS/octo-runtime/security/code-scanning/13) | 已删除 daemon extra-config；迁移为 host-sdk/src/extra-config.ts | 旧位置托管 fixed，相同配置权限检查读取迁移为 #42，已同步整改。 | 最新托管扫描 + #42 回归 |
 | [14](https://github.com/Mininglamp-OSS/octo-runtime/security/code-scanning/14) | extra-channel-wecom/scripts/probe-wecom.mjs | 真缺陷：stat(path) 后按路径重读。改为 open/fstat/readFile(fd)/finally close，拒绝链接及非普通文件，不输出正文或 Secret。 | security-remediation：公开权限文件拒绝、错误码输出、不泄漏样本值 |
 | [15](https://github.com/Mininglamp-OSS/octo-runtime/security/code-scanning/15) | test/channel-tool-environment.test.js | 误报：stat 是写后 POSIX 0600 测试断言，不是决定是否读取的授权 guard；目标位于该测试独占 mkdtemp 内，无竞争写者。保留权限断言。 | channel-tool-environment 原回归；逐行核对 test setup/cleanup/断言 |
-| [16](https://github.com/Mininglamp-OSS/octo-runtime/security/code-scanning/16) | test/channel-tool-environment.test.js | 同类独立误报：后续 read 用于断言仅配置 Codex 时不会改动原 dotenv；前面 stat 仍是测试断言，且从未授权跨测试写同一目录。 | channel-tool-environment 原回归；独占测试目录 |
+| [16](https://github.com/Mininglamp-OSS/octo-runtime/security/code-scanning/16) | test/channel-tool-environment.test.js | 同类独立误报：后续 read 用于断言配置另一 OpenClaw home 不会改动第一个 dotenv；前面 stat 仍是测试断言，所有操作顺序等待且没有并发写者。 | channel-tool-environment 原回归；独占测试目录 |
 | [17](https://github.com/Mininglamp-OSS/octo-runtime/security/code-scanning/17) | test/context-mcp.test.js | 误报：stat(file) 的 0600 断言校验测试刚创建的 Claude MCP 临时文件，随后 read 验证 payload，finally cleanup；没有基于检查的生产权限决策或并发写者。 | context-mcp：权限、payload 与 cleanup 后 ENOENT |
 | [18](https://github.com/Mininglamp-OSS/octo-runtime/security/code-scanning/18) | test/fixtures/restart-hanging-adapter-host.js | 真缺陷：exists/read/write 计数跨进程可丢更新。按序号独占 wx 创建认领尝试次数；无共享 RMW，非 EEXIST 错误传播，遍历有界。 | security-remediation：8 并发进程序号唯一、缺失父目录失败；保留第二次启动挂起合同 |
 | [19](https://github.com/Mininglamp-OSS/octo-runtime/security/code-scanning/19) | adapter-openclaw/src/gateway.ts ← local-gateway.ts | 误报：宿主显式配置的 gateway_url/凭据用于该 Gateway 的原生认证连接。只接受 ws/wss；明文 ws 限回环；禁止 URL 用户信息/查询/hash；credential_ref 为固定目录/格式。没有读取任意文件并上报第三方。 | openclaw-runtime-connection：独立 profile、凭据引用、远程 ws 拒绝、连接刷新 |
@@ -84,6 +84,12 @@ timestamp: 2026-10-23T00:00:00Z
 | --- | --- |
 | #1、#3、#10、#12、#14、#18、#36、#38、#39、#40、#42 | 本次修复后不再命中，共 11 条 |
 | #2、#11、#13 | 原路径已删除，latest main 与本分支均不再命中；迁移缺陷分别按 #36/#40/#42 验证 |
-| #4、#5、#6、#7、#8、#9、#15、#16、#17、#19、#20、#21、#22、#23、#24、#25、#26、#27、#28、#29、#30、#31、#32、#33、#34、#35、#37、#41 | 仍命中，共 28 条；逐条误报/预期安全流程依据已提交 PR 评审，尚未 dismissal |
+| #4、#5、#6、#7、#8、#9、#15、#16、#17、#19、#20、#21、#22、#23、#24、#25、#26、#27、#28、#29、#30、#31、#32、#33、#34、#35、#37、#41 | SARIF 仍命中，共 28 条；按各自信任边界和证据分别标记 false positive，均附独立英文理由与本记录引用；并非新增目录排除或查询抑制 |
 
-工作树验证写入 [journal](../../journal/shared/2026-10-23-81-security-remediation.md)。[PR #115](https://github.com/Mininglamp-OSS/octo-runtime/pull/115) 已创建，用户确认合并。补充 Windows 安全回归门禁及本记录后，将再扫最终分支提交，实际结果见 PR。合并 main 的托管扫描、逐条 disposition 审核及 Dependabot fixed 状态尚未完成，不能关闭 Issue #81。
+实现与测试提交 `9f537b0f93748fc1394f0ea048567c871b4c0684` 的[最终分支扫描](https://github.com/Mininglamp-OSS/octo-runtime/actions/runs/39893266678)成功，analysis `2010264327`；工具/查询包版本和 103 条规则保持一致，SARIF 28 项且无新增项。对应[六平台 CI](https://github.com/Mininglamp-OSS/octo-runtime/actions/runs/39893259209)全部通过，包括 Windows Node 24/26 的文件安全回归与发行验证。
+
+# 逐条处置与合并门禁
+
+#15/#16 已分别登记测试误报；用户后续明确认可真实问题修复、其余按证据逐条确认的流程，并授权合并 main。随后逐项核对剩余 26 个告警的规则 ID、当前 open 状态和本表依据，分别登记 false positive，每条独立填写英文理由，没有隐藏数据流或设置全局抑制。#8 限定仅 loopback 的本地调试、非生产场景，不宣称 TCP 提供账号隔离；#41 依赖独占恢复租约、PID ESRCH 和 nonce 校验；若未来扩大信任边界，必须重审。
+
+工作树验证写入 [journal](../../journal/shared/2026-10-23-81-security-remediation.md)。[PR #115](https://github.com/Mininglamp-OSS/octo-runtime/pull/115) 已具备源代码修复和逐条处置证据，合并授权已取得。GitHub main 分支保护要求 `CI Gate`、最新基线及至少 1 位 reviewer 批准，管理员同样受保护；当前尚无批准，仓库未启用 auto-merge。不得自批或绕过保护合并。补充本记录后再核对最终提交检查；只有实际合并 main 并重扫、确认 Dependabot fixed 后，才能关闭 Issue #81。

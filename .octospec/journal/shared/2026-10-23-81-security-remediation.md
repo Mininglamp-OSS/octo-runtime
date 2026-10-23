@@ -8,7 +8,7 @@ timestamp: 2026-10-23T00:00:00Z
 
 # 基线与交付边界
 
-本轮从干净 main 快进至 `origin/main@445d2bb`，建立 `codex/fix-81-security-backlog`。用户授权提交、推送和创建英文 PR，合并由用户确认，未授权合并。未修改 Git author 配置；提交保留 Codex attribution trailer。
+本轮从干净 main 快进至 `origin/main@445d2bb`，建立 `codex/fix-81-security-backlog`。用户初始授权提交、推送和创建英文 PR，后续明确授权按逐条处置流程合并 main。未修改 Git author 配置；提交保留 Codex attribution trailer。
 
 原分析为 CodeQL 2.27.2/security-extended 103 条规则、35 条告警；最新 main [托管重扫](https://github.com/Mininglamp-OSS/octo-runtime/actions/runs/39889943281)成功，CodeQL 2.27.3、同一 suite/103 条规则、39 条 open：原 #2/#11/#13 旧路径 fixed，新增 #36 至 #42，迁移后的相同缺陷仍修复。全部 42 条及两个 Dependabot 告警的根因、信任边界、处置与依据见 [disposition](../../tasks/81-security-remediation/disposition.md)。没有降低查询集、全局排除路径或批量 dismissal。
 
@@ -40,4 +40,10 @@ timestamp: 2026-10-23T00:00:00Z
 
 修复提交 `62491940f031412dcfd38efd8157756f42fd5f2c` 的 [CodeQL run 39892494476](https://github.com/Mininglamp-OSS/octo-runtime/actions/runs/39892494476) 成功，analysis `2010235423`；CodeQL 2.27.3、javascript-queries 2.4.8（与最新 main 同一固定构建）、security-extended 103 条规则。实际结果为 28 条，比 main 少 11 条，未新增告警；所有本次修复项均不再命中，逐条结果已写回 disposition。剩余 28 条分别有误报或预期安全流程依据，尚未 dismissal，等待 PR 评审确认。
 
-[英文 PR #115](https://github.com/Mininglamp-OSS/octo-runtime/pull/115) 已创建，未合并。新增 Windows 门禁与本记录后再扫描最终分支提交，结果附 PR。用户授权不包含合并，本轮不得代替用户操作。
+[英文 PR #115](https://github.com/Mininglamp-OSS/octo-runtime/pull/115) 已创建。实现与测试提交 `9f537b0f93748fc1394f0ea048567c871b4c0684` 的[最终扫描](https://github.com/Mininglamp-OSS/octo-runtime/actions/runs/39893266678)成功，analysis `2010264327`，同工具/查询包、103 条规则、28 个原有结果且无新增；[六平台 CI](https://github.com/Mininglamp-OSS/octo-runtime/actions/runs/39893259209)全部通过。
+
+# 后续处置与合并授权
+
+#15/#16 先分别登记测试误报。用户后续认可已说明的流程并明确授权合并 main；按 disposition 中各自的数据流和证据，逐个核验其余 26 条告警的规则/状态后分别标记 false positive，每条独立英文理由可在 GitHub 告警页追溯。原始 SARIF 仍保留 28 个结果，处置状态与扫描发现数量分别统计。未修改查询集、配置目录排除或隐藏合法数据流。
+
+GitHub main 分支保护要求至少 1 位 reviewer 批准、strict CI Gate，且 enforce_admins 为 true；仓库 autoMergeAllowed 为 false。PR 当前无批准，现有 reviewer 请求为 Jerry-Xin、yujiawei、mochashanyao；当前账号也是 PR 作者，不能自批。用户的合并授权已取得，但 GitHub 的独立审批门禁仍需满足，不修改分支保护或伪造审批。最终合并及 main 重扫结果仍待实际完成，未关闭 Issue #81。

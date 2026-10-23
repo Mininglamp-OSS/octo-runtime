@@ -17,5 +17,13 @@ user_override:
   - 未授权时不创建提交。
 authorization:
   commit_push_pr: true
-  merge: false
-  source: 用户明确授权提交、推送和创建 PR，合并由用户确认。
+  merge: true
+  alert_disposition: true
+  source: 用户后续明确要求按已说明的逐条处置流程提交 PR 并合并 main。
+merge_gate:
+  required_approving_review_count: 1
+  required_status_checks: [CI Gate]
+  strict: true
+  enforce_admins: true
+  auto_merge_allowed: false
+  checked_pr: 115
