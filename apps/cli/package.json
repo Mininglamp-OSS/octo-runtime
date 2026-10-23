@@ -28,6 +28,7 @@
     "@mininglamp-oss/octo-runtime-adapter-hermes": "workspace:*",
     "@mininglamp-oss/octo-runtime-adapter-grok-build": "workspace:*",
     "@mininglamp-oss/octo-runtime-adapter-kimi-code": "workspace:*",
+    "@mininglamp-oss/octo-runtime-adapter-mimo-code": "workspace:*",
     "@mininglamp-oss/octo-runtime-adapter-mcode": "workspace:*",
     "@mininglamp-oss/octo-runtime-adapter-opencode": "workspace:*",
     "@mininglamp-oss/octo-runtime-adapter-qodercli": "workspace:*",

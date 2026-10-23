@@ -8,21 +8,23 @@ For installation, account configuration, Codex Computer Use, and CodeBuddy/WorkB
 
 The table describes the checked-in Adapters. Confirm that your actual Provider version and account configuration work; registering an Adapter alone does not make it ready to execute.
 
-| Adapter type                                                    | Native transport   | Public output modes | Per-invocation MCP                             |
-| --------------------------------------------------------------- | ------------------ | ------------------- | ---------------------------------------------- |
-| `codex`                                                         | app-server         | native + canonical  | stdio + HTTP                                   |
-| `claude-code`                                                   | stream-json        | native + canonical  | stdio + HTTP                                   |
-| `acp`, `hermes`, `kimi-code`, `mcode`, `qodercli`, `qoderclicn` | ACP                | canonical           | stdio; HTTP when native capability is declared |
-| `opencode`                                                      | OpenCode CLI       | canonical           | local stdio + remote HTTP                      |
-| `codebuddy`                                                     | Provider CLI       | canonical           | Unsupported                                    |
-| `openclaw`                                                      | Gateway            | canonical           | Unsupported                                    |
-| `zcode-gui`                                                     | GUI runtime client | canonical           | Unsupported                                    |
-| `antigravity`                                                   | Provider CLI       | canonical           | Unsupported                                    |
-| `grok-build` | Grok CLI ACP stdio | canonical | stdio; HTTP when advertised; final `${` literals rejected |
+| Adapter type                                                                 | Native transport   | Public output modes | Per-invocation MCP                                        |
+| ---------------------------------------------------------------------------- | ------------------ | ------------------- | --------------------------------------------------------- |
+| `codex`                                                                      | app-server         | native + canonical  | stdio + HTTP                                              |
+| `claude-code`                                                                | stream-json        | native + canonical  | stdio + HTTP                                              |
+| `acp`, `hermes`, `kimi-code`, `mimo-code`, `mcode`, `qodercli`, `qoderclicn` | ACP                | canonical           | stdio; HTTP when native capability is declared            |
+| `opencode`                                                                   | OpenCode CLI       | canonical           | local stdio + remote HTTP                                 |
+| `codebuddy`                                                                  | Provider CLI       | canonical           | Unsupported                                               |
+| `openclaw`                                                                   | Gateway            | canonical           | Unsupported                                               |
+| `zcode-gui`                                                                  | GUI runtime client | canonical           | Unsupported                                               |
+| `antigravity`                                                                | Provider CLI       | canonical           | Unsupported                                               |
+| `grok-build`                                                                 | Grok CLI ACP stdio | canonical           | stdio; HTTP when advertised; final `${` literals rejected |
 
 Grok Build uses the shared ACP client and starts a CLI process per invocation. Version 1.0.67 has been checked for text streaming and cross-process session continuation on macOS arm64. See the [Grok adapter](../../../packages/octo-runtime-adapter-grok-build/README.md) for authentication, configuration, and validation limits.
 
 The MCP column describes connections configured through `octo.execution/mcp` on each invocation. A Provider's own MCP configuration is a separate source of settings. See the [MCP guide](../guides/mcp.md) for optional fields and restrictions.
+
+MiMo Code uses `mimo-code` for both Context adapter selection and Gateway `bots[].adapter.adapter_type`; the executable is `mimo`, launched as `mimo acp`. `mimoi` is not an alias. The [MiMo adapter guide](../../../packages/octo-runtime-adapter-mimo-code/README.md) records setup, executable paths, SDK/CLI examples and acceptance limits. Final acceptance is pending the upstream fix for [MiMo Code #2709](https://github.com/XiaomiMiMo/MiMo-Code/issues/2709): version 0.1.15 returns completion before forwarding trailing text from the same response. Rerun SDK, CLI and Gateway acceptance after the fix; an executable probe does not establish compatibility.
 
 ## Native Interaction Support
 

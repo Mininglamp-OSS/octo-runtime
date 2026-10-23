@@ -27,6 +27,10 @@ Generic `acp` is a reusable Adapter factory for another ACP-compatible Harness, 
 
 After installation, follow [CLI Installation and Invocation](../getting-started/cli.md) to probe the selected Adapter and send a small request. Shell aliases are not executable programs for the worker; background services also need the correct `PATH`, home directory, and account configuration. Restart the service after changing its environment.
 
+## MiMo Code
+
+Select `mimo-code` in Context or Gateway `bots[].adapter.adapter_type`; Runtime starts `mimo acp`. Install MiMo Code using the [official setup](https://github.com/XiaomiMiMo/MiMo-Code#quick-start) if needed, then run `mimo` as the Runtime user to configure its provider and authentication. An existing installation must be on the worker's PATH or supplied through the adapter factory's command override. See the [adapter guide](../../../packages/octo-runtime-adapter-mimo-code/README.md) for path setup and SDK/CLI examples. On 2026-10-23, the installed CLI returned 0.1.15 and displayed ACP help successfully; model execution remains unvalidated.
+
 ## Enable Codex Computer Use
 
 1. In the supported desktop app, open Codex, then **Plugins → Computer Use**; install or enable the plugin and turn on its server and skill.

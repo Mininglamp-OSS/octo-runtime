@@ -27,6 +27,10 @@ Harness 是 Adapter 背后实际运行 Agent 的程序，负责模型调用、�
 
 安装完成后，按 [CLI 安装与调用](../getting-started/cli.md)检查所选 Adapter，并发送一个小任务。worker 不能直接执行 shell alias；后台服务也需要正确的 `PATH`、用户目录和账号配置，修改服务环境后需重启服务。
 
+## MiMo Code
+
+Context 类型及 Gateway 的 `bots[].adapter.adapter_type` 均填 `mimo-code`，Runtime 启动 `mimo acp`。尚未安装时按[官方说明](https://github.com/XiaomiMiMo/MiMo-Code#quick-start)安装；使用 Runtime 的操作系统账号运行 `mimo` 完成 Provider 与认证配置。已有安装需在 worker 的 PATH 中可见，或通过 Adapter 工厂 command 指定路径。环境设置及 SDK/CLI 示例见 [adapter 指南](../../../packages/octo-runtime-adapter-mimo-code/README.zh-CN.md)。2026-10-23 已检查本机 CLI 版本 0.1.15 和 ACP 帮助，模型执行尚未验收。
+
 ## 开启 Codex Computer Use
 
 1. 在受支持的桌面应用中打开 Codex，进入 **Plugins → Computer Use**，安装或启用插件，并打开 server 和 skill 开关。

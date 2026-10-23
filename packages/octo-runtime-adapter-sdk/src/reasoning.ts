@@ -31,6 +31,7 @@ export const DEFAULT_REASONING_LEVEL_MAPS: Readonly<Record<string, ReasoningLeve
     codebuddy: null,
     hermes: null,
     "kimi-code": null,
+    "mimo-code": null,
     mcode: null,
     qodercli: null,
     qoderclicn: null,

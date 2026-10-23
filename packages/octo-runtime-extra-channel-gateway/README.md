@@ -136,13 +136,15 @@ JSON
 
 | `adapter` 子字段 | 必选 / 可选 | 默认值与约束 |
 | --- | --- | --- |
-| `adapter_type` | 可选 | 默认 `codex`，如需 OpenClaw 必须显式填 `openclaw` |
+| `adapter_type` | 可选 | 默认 `codex`；MiMo Code 填 `mimo-code`，OpenClaw 填 `openclaw` |
 | `workdir` | 本地引擎可选；OpenClaw 禁止 | 本地引擎省略时使用下述固定目录；填写时必须为绝对路径 |
 | `model` | 可选 | 对应 Provider 可用的模型 ID；省略时使用 Provider 默认值 |
 | `effort` | 可选 | `low / medium / high / xhigh`；省略不传强度参数，实际应用及降档按 Adapter 合同 |
 | `provider_agent_id` | OpenClaw 可选；其他引擎禁止 | 默认 `main`；目标 Agent 必须已存在 |
 
 本地引擎省略 `adapter.workdir` 时，插件使用并创建 `~/octo-runtime/channels/{bot_id}`。OpenClaw 不填 `workdir`，可选 `provider_agent_id` 默认 `main`；连接配置由宿主通过 Adapter 配置入口准备。未知扩展字段保留并忽略，不代表已经应用；已识别字段继续校验。
+
+MiMo Code 的 `bots[].adapter.adapter_type` 使用 `mimo-code`，对应 `mimo acp`；安装与路径设置见 [MiMo Code 指南](../octo-runtime-adapter-mimo-code/README.zh-CN.md)。
 
 ### OpenClaw 配置示例
 
