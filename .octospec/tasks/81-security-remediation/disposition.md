@@ -93,3 +93,7 @@ timestamp: 2026-10-23T00:00:00Z
 #15/#16 已分别登记测试误报；用户后续明确认可真实问题修复、其余按证据逐条确认的流程，并授权合并 main。随后逐项核对剩余 26 个告警的规则 ID、当前 open 状态和本表依据，分别登记 false positive，每条独立填写英文理由，没有隐藏数据流或设置全局抑制。#8 限定仅 loopback 的本地调试、非生产场景，不宣称 TCP 提供账号隔离；#41 依赖独占恢复租约、PID ESRCH 和 nonce 校验；若未来扩大信任边界，必须重审。
 
 工作树验证写入 [journal](../../journal/shared/2026-10-23-81-security-remediation.md)。[PR #115](https://github.com/Mininglamp-OSS/octo-runtime/pull/115) 已具备源代码修复和逐条处置证据，合并授权已取得。GitHub main 分支保护要求 `CI Gate`、最新基线及至少 1 位 reviewer 批准，管理员同样受保护；当前尚无批准，仓库未启用 auto-merge。不得自批或绕过保护合并。补充本记录后再核对最终提交检查；只有实际合并 main 并重扫、确认 Dependabot fixed 后，才能关闭 Issue #81。
+
+# PR review 后续发现
+
+[Review 5623626814](https://github.com/Mininglamp-OSS/octo-runtime/pull/115#pullrequestreview-5623626814) 的 P2/P3 均为需修复的回归，不归入上述 CodeQL 误报：P2 显式 chmod 测试独占的公开权限文件，确保 077 umask 下仍测试权限拒绝；P3 在移除末尾 /api 后线性裁去全部尾斜杠，恢复 CLI 与 Gateway 一致的 dotenv URL。两项均先复现失败再验证修复，具体测试证据见 journal；等待 reviewer 复审及最新提交门禁，不以旧提交的通过结果代替验收。

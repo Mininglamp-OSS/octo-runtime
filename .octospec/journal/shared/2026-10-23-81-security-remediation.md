@@ -47,3 +47,12 @@ timestamp: 2026-10-23T00:00:00Z
 #15/#16 先分别登记测试误报。用户后续认可已说明的流程并明确授权合并 main；按 disposition 中各自的数据流和证据，逐个核验其余 26 条告警的规则/状态后分别标记 false positive，每条独立英文理由可在 GitHub 告警页追溯。原始 SARIF 仍保留 28 个结果，处置状态与扫描发现数量分别统计。未修改查询集、配置目录排除或隐藏合法数据流。
 
 GitHub main 分支保护要求至少 1 位 reviewer 批准、strict CI Gate，且 enforce_admins 为 true；仓库 autoMergeAllowed 为 false。PR 当前无批准，现有 reviewer 请求为 Jerry-Xin、yujiawei、mochashanyao；当前账号也是 PR 作者，不能自批。用户的合并授权已取得，但 GitHub 的独立审批门禁仍需满足，不修改分支保护或伪造审批。最终合并及 main 重扫结果仍待实际完成，未关闭 Issue #81。
+
+# PR P2/P3 复现与修复
+
+Jerry-Xin 对 `6655058` 的 [review 5623626814](https://github.com/Mininglamp-OSS/octo-runtime/pull/115#pullrequestreview-5623626814) 提出两项真实问题，状态为 CHANGES_REQUESTED，均应在合并前修复：
+
+- P2：`writeFile(mode:0644)` 会被宿主 umask 收紧。隔离命令以 077 启动原安全测试，确认为 7 通过、1 失败，WeCom 正确返回凭据缺失而非权限错误。现对本测试独占的虚构文件显式 chmod 0644，不改测试进程的全局 umask，也不放宽生产权限 guard。
+- P3：去掉 `/api` 后，CLI 只删除 href 的一条尾斜杠，实际 dotenv 把 `/tenant///api/` 写成 `/tenant/`，与 Gateway 及旧行为的 `/tenant` 不一致。新增实际 dotenv 与 Gateway 的 8 组对照用例，原实现首例失败。改为第二次线性扫描完整 href 后缀，保留内部重复分隔符及非最终 api 路径；CLI 继续不导入业务 Extra。
+
+修复后，security-remediation、channel-tool-environment、hourly-log 共 21 项在 022 和 077 两种独立命令环境下各自全部通过；build/typecheck、lint、lint:names、修改文件 Prettier、docs:check 通过。全量 `pnpm test:suites`：Node 1711 项、1671 通过、40 跳过、0 失败，UI 35 项全部通过。后续托管检查、复审与 main 验收继续在 PR 跟踪；CHANGES_REQUESTED 需要 reviewer 复审，不能由作者代为清除。

@@ -12,6 +12,7 @@ rules_read:
   - .octospec/_global/security.md
 additional_scope:
   - Windows CI 显式执行新增安全回归和日志、dotenv 用例，覆盖不支持 O_NOFOLLOW 的描述符校验。
+  - PR review 5623626814 的 P2 umask fixture 与 P3 CLI/Gateway 重复斜杠规范化一致性回归。
 user_override:
   - GitHub issue/PR 与提交说明使用英文。
   - 未授权时不创建提交。

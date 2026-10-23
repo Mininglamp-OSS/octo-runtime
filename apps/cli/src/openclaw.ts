@@ -168,9 +168,13 @@ export async function syncCliOpenClawToolEnvironment(
     let end = url.pathname.length;
     while (end > 0 && url.pathname[end - 1] === "/") end--;
     url.pathname = url.pathname.slice(0, end).replace(/\/api$/, "");
+    // 去掉 /api 后可能露出多重尾斜杠，仍需全部移除，并保留路径内部的分隔符。
+    const href = url.href;
+    end = href.length;
+    while (end > 0 && href[end - 1] === "/") end--;
     values = {
       OCTO_BOT_TOKEN: token,
-      OCTO_API_BASE_URL: url.href.endsWith("/") ? url.href.slice(0, -1) : url.href
+      OCTO_API_BASE_URL: href.slice(0, end)
     };
   }
   if (!values) return { written: false, restartRequired: false };

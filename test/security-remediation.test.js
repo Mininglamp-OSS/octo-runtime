@@ -223,6 +223,8 @@ test(
     const root = await directory(t),
       file = join(root, "credentials.json");
     await writeFile(file, '{"appSecret":"fixture-must-not-appear"}', { mode: 0o644 });
+    // 创建 mode 会被宿主 umask 收紧；只对本测试文件显式设置被测的公开权限。
+    await chmod(file, 0o644);
     await assert.rejects(
       execute(
         process.execPath,
