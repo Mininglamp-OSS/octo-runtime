@@ -21,6 +21,7 @@ timestamp: 2026-10-23T00:00:00Z
 - `pnpm typecheck`、`pnpm lint`、`pnpm lint:names` 通过。
 - 最终全量 `pnpm test:suites`：UI 35 通过；Node 1710 项，1670 通过、40 跳过、0 失败。
 - 最终针对性回归 28 项通过，包括新增 8 项安全回归、hourly-log、adapter-failures、channel-tool-environment。覆盖超长恶意输入限时、打开后路径替换、链接/FIFO/权限/容量失败和 8 并发进程序号认领。
+- appId 用例追加 20 万连字符后跟普通字符的失败后缀，核对既有 48 字符截断结果；旧正则在隔离子进程触发 1.5 秒 timeout，修复后 8 项安全回归全部通过。
 - `pnpm docs:check` 通过；发行 tgz 打包成功，包含新 URL helper，未发布 npm。
 - `pnpm audit --json`：所有严重级别均为 0；`git diff --check` 通过。
 - 修改文件 Prettier 检查通过。`uv run --with pyyaml python .octospec/scripts/lint.py` 仅报告 main 已有的三项 frontmatter 缺失：tasks/systemd-directive-paths 的 brief.md、review.md 及 journal/shared/2026-10-22-systemd-directive-paths.md；本次未修改这些文件。

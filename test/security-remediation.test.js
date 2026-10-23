@@ -51,6 +51,7 @@ test("adversarial PEM, app IDs and API suffixes finish within a bounded child pr
     const suffix = '-'.repeat(200000);
     assert.equal(resolveHostHome('My App'+suffix), resolveHostHome('My App'));
     assert.equal(profileNameFor('My App'+suffix, 'tenant'), profileNameFor('My App', 'tenant'));
+    assert.equal(profileNameFor('My App'+suffix+'x', 'tenant').slice(0, 48), 'my-app'+'-'.repeat(42));
     assert.equal(profileNameFor('---My App---', 'tenant'), profileNameFor('My App', 'tenant'));
     globalThis.fetch = async (url) => {
       assert.equal(url, 'https://example.invalid/api/status');
