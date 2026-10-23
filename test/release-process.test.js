@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import childProcess from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { once } from "node:events";
+import { syncBuiltinESMExports } from "node:module";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -13,6 +16,84 @@ import {
 } from "../scripts/release-process.mjs";
 
 const fixture = resolve("test/fixtures/release-command-tree.mjs");
+
+test("release command preserves the symbolic spawn errno", async () => {
+  const missing = join(tmpdir(), `octo-missing-${randomUUID()}`);
+  await assert.rejects(runReleaseCommand(missing, [], { timeout: 5_000 }), (error) => {
+    assert.equal(error.code, "ENOENT");
+    assert.equal(error.path, missing);
+    assert.equal(typeof error.exitCode, "number");
+    return true;
+  });
+});
+
+for (const fallback of ["refused", "throws"]) {
+  test(`failed tree cleanup settles when fallback kill ${fallback}`, async (t) => {
+    // 真实子进程属于本测试；仅注入系统清理拒绝，不能用模拟 close 冒充进程退出。
+    const child = spawn(process.execPath, ["--eval", "setInterval(() => {}, 1000)"], {
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+    const stopped = once(child, "close");
+    const kill = child.kill.bind(child);
+    const execFile = childProcess.execFile;
+    const platform = Object.getOwnPropertyDescriptor(process, "platform");
+    const denied = Object.assign(new Error("fixture taskkill denied"), { code: "EACCES" });
+    const fallbackError = Object.assign(new Error("fixture kill denied"), { code: "EPERM" });
+    let killAttempts = 0;
+    try {
+      Object.defineProperty(process, "platform", { ...platform, value: "win32" });
+      t.mock.method(childProcess, "spawn", () => child);
+      // 使用普通函数，避免 mock 继承原 execFile 的 promisify.custom 并绕过注入。
+      childProcess.execFile = (file, args, _options, callback) => {
+        assert.equal(file, "taskkill");
+        assert.deepEqual(args, ["/PID", String(child.pid), "/T", "/F"]);
+        callback(denied, "", "");
+      };
+      t.mock.method(child, "kill", () => {
+        killAttempts++;
+        if (fallback === "throws") throw fallbackError;
+        return false;
+      });
+      syncBuiltinESMExports();
+      const { runReleaseCommand: runFaulted } = await import(
+        `../scripts/release-process.mjs?fault=${randomUUID()}`
+      );
+      const operation = runFaulted("fixture-owned-child", [], { timeout: 50 }).then(
+        () => ({ success: true }),
+        (error) => ({ error })
+      );
+      const outcome = await Promise.race([
+        operation,
+        delay(2_000, undefined, { ref: false }).then(() => ({ pending: true }))
+      ]);
+      assert.equal(
+        outcome.pending,
+        undefined,
+        "cleanup failure must not wait indefinitely for close"
+      );
+      assert.ok(outcome.error instanceof AggregateError);
+      assert.match(outcome.error.errors[0].message, /Release command timed out/);
+      assert.ok(outcome.error.errors.includes(denied));
+      if (fallback === "throws") assert.ok(outcome.error.errors.includes(fallbackError));
+      assert.equal(outcome.error.cleanup.complete, false);
+      assert.equal(outcome.error.cleanup.closed, false);
+      assert.equal(outcome.error.cleanup.pid, child.pid);
+      assert.ok(killAttempts > 0);
+      assert.equal(child.exitCode, null);
+      assert.equal(child.signalCode, null);
+      assert.doesNotThrow(() => process.kill(child.pid, 0));
+    } finally {
+      t.mock.restoreAll();
+      childProcess.execFile = execFile;
+      Object.defineProperty(process, "platform", platform);
+      syncBuiltinESMExports();
+      // 封装已报告 incomplete；本测试仍持有真实 PID，负责最终回收以免污染后续用例。
+      child.ref();
+      kill("SIGKILL");
+      await stopped;
+    }
+  });
+}
 
 async function waitForPid(file) {
   const until = Date.now() + 10_000;

@@ -68,3 +68,11 @@ Jerry-Xin 对 `6655058` 的 [review 5623626814](https://github.com/Mininglamp-OS
 新增真实后代进程持有 cwd 的超时/停止回归，确认后代退出后目录可删；原始错误、stdout/stderr、退出码及 EBUSY 聚合各有断言。相关 30 项本地通过，离线发行安装与公共 SDK/CLI 验收通过；Windows Node 24/26 显式执行新增回归及完整发行验收，实际结果继续在 PR 记录。本机 macOS 的结果不代替 Windows 证据。
 
 加入发行清理回归后的完整本地 suite 为 Node 1676 通过、40 跳过、0 失败，UI 35 通过。40 秒变更后 build/typecheck、lint、格式与 diff 检查通过；身份登记、启动回滚及发行相关 38 项为 37 通过、1 个 Windows 实机用例在本机跳过。进程树回归最终再跑 5 项全部通过。Windows 真实行为须以本次提交的 CI 为准。
+
+# 发行封装 P2/P3 失败路径修复
+
+[review 5623908244](https://github.com/Mininglamp-OSS/octo-runtime/pull/115#pullrequestreview-5623908244) 对 `bb4b3fd` 指出两项新问题，均成立：树回收失败、fallback kill 未生效时，主流程一直等 close，无法到达聚合错误；spawn 的 ENOENT 被数字 close 状态覆盖。原有 umask 与 URL 修复仍有效，但该提交的绿色 CI 不覆盖这两项新失败路径。
+
+先加入回归，旧实现两项失败：缺失命令实际 code 为 -2；回收失败与 fallback 拒绝时两秒观察窗仍 pending。现为终止后单独保留最多一秒 close 确认窗口；未确认退出返回原始超时与系统回收错误的 AggregateError，显式携带 cleanup.complete=false、closed=false 和真实 PID，unref 未回收进程不等于终止成功。fallback 返回 false 或直接抛错分别覆盖，测试仍以原始 kill 最终回收本测试独占的真实子进程。本地 Windows 分支故障注入不代替原生 Windows 证据。
+
+保留原始 errno code，数字状态另存 exitCode；命令非零退出仍保留原有数字 code 兼容。相关发行/诊断测试 33 项通过，最终故障回归 3 项通过；lint、格式和 diff 检查通过。完整本地尝试中 UI 35 项通过，Node 未改动的 ACP 用例在五秒触发超时；同期系统 load average 达 89，离线 npm install 达六十秒期限。本次完整 Node 验证已中断并保留日志，不宣称本地全量或离线验收成功；新提交的托管全矩阵与离线验收结果在 PR 跟踪。

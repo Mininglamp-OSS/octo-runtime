@@ -34,28 +34,65 @@ export async function runReleaseCommand(file, args, { timeout = 0, label, ...opt
   });
   let failure;
   let cleanup;
-  let cleanupError;
+  const cleanupErrors = [];
+  const terminated = Promise.withResolvers();
+  let closeObserved = false;
+  const closed = new Promise((resolveClose) =>
+    child.once("close", (code, signal) => {
+      closeObserved = true;
+      resolveClose({ code, signal });
+    })
+  );
   let stdout = "";
   let stderr = "";
   const terminate = (error) => {
     if (cleanup) return;
     failure = error;
-    cleanup = stopReleaseProcess(child)
-      .catch((error) => {
-        cleanupError = error;
-        child.kill("SIGKILL");
-      })
-      .finally(() => {
-        // 退出的 leader 仍可能留下继承管道的后代；超时结果不能无限等待这些句柄。
+    cleanup = (async () => {
+      try {
+        await stopReleaseProcess(child);
+      } catch (error) {
+        cleanupErrors.push(error);
+        try {
+          if (!child.kill("SIGKILL"))
+            cleanupErrors.push(new Error("Release fallback termination was not delivered"));
+        } catch (error) {
+          cleanupErrors.push(error);
+        }
+      } finally {
         child.stdout.destroy();
         child.stderr.destroy();
-      });
+      }
+      // 销毁管道不等于进程退出。终止失败时仍须有界结束等待，并明确保留未回收的 PID。
+      let confirmationTimer;
+      try {
+        const confirmed = await Promise.race([
+          closed,
+          new Promise((resolveConfirmation) => {
+            confirmationTimer = setTimeout(() => resolveConfirmation(undefined), 1_000);
+          })
+        ]);
+        if (confirmed) return confirmed;
+        cleanupErrors.push(
+          Object.assign(new Error("Release process close was not confirmed"), {
+            code: "PROCESS_CLEANUP_INCOMPLETE",
+            pid: child.pid
+          })
+        );
+        child.unref();
+        return { code: null, signal: null };
+      } finally {
+        clearTimeout(confirmationTimer);
+      }
+    })().catch((error) => {
+      cleanupErrors.push(error);
+      child.unref();
+      return { code: null, signal: null };
+    });
+    void cleanup.then(terminated.resolve);
   };
-  const closed = new Promise((resolveClose) =>
-    child.once("close", (code, signal) => resolveClose({ code, signal }))
-  );
   child.once("error", (error) => {
-    failure = error;
+    failure ??= error;
   });
   child.stdout.setEncoding("utf8");
   child.stderr.setEncoding("utf8");
@@ -81,16 +118,22 @@ export async function runReleaseCommand(file, args, { timeout = 0, label, ...opt
       )
     : undefined;
   try {
-    const { code, signal } = await closed;
+    const { code, signal } = await Promise.race([closed, terminated.promise]);
     await cleanup;
     if (!failure && (code !== 0 || signal))
       failure = new Error(`Release command failed: ${label ?? file} (${signal ?? code})`);
     if (failure) {
-      Object.assign(failure, { code: code ?? failure.code, signal, stdout, stderr });
-      if (cleanupError)
-        throw new AggregateError(
-          [failure, cleanupError],
-          "Release command and tree cleanup failed"
+      // 保留 ENOENT/EACCES 等原始 errno；数字退出状态另存，不覆盖系统诊断。
+      failure.code ??= code;
+      Object.assign(failure, { exitCode: code, signal, stdout, stderr });
+      if (cleanupErrors.length)
+        throw Object.assign(
+          new AggregateError(
+            [failure, ...cleanupErrors],
+            "Release command and tree cleanup failed",
+            { cause: failure }
+          ),
+          { cleanup: { complete: false, closed: closeObserved, pid: child.pid } }
         );
       throw failure;
     }

@@ -21,6 +21,7 @@ additional_scope:
   - PR review 5623626814 的 P2 umask fixture 与 P3 CLI/Gateway 重复斜杠规范化一致性回归。
   - Windows CI 39897739552 的超时与 EBUSY：修复发行验收进程树所有权和原始失败诊断。
   - 用户明确要求 Windows 身份查询期限调整为 40 秒；同步外层验收预算，身份验证失败仍关闭启动。
+  - PR review 5623908244：终止失败后的 close 等待须有界，保留 spawn 原始 errno。
 user_override:
   - GitHub issue/PR 与提交说明使用英文。
   - 未授权时不创建提交。
