@@ -9,7 +9,7 @@ timestamp: 2026-10-23T05:00:00Z
 # 环境与基线
 
 - Runtime 基线：origin/main@445d2bb24f6ffc27bb4414c835e6a0b365f9f25b，分支 research/103-opencode-v2；最终实现由同 PR 的提交确定。
-- macOS / darwin arm64，Node 24.19.0，pnpm 11.19.0。
+- macOS 26.6.2 / darwin arm64，Node 24.19.0，pnpm 11.19.0。
 - 用户安装的 `/Users/lvsijia/.opencode/bin/opencode`：`opencode v2.1.3`。验收时 npm `@opencode/cli` latest 亦为 2.1.3。
 - 用户已有模型配置：provider deepseek，model deepseek/deepseek-flash。认证由宿主已有配置提供；不修改、不输出认证文件。
 - 测试 IM：im-test.deepminer.com.cn；orbtex-opencode 接收，orbtex-codex 发送。原始账号文件只通过环境指定，不复制到仓库。
@@ -65,7 +65,14 @@ node scripts/verify-opencode-im-live.mjs
 node --test test/opencode-v2.test.js test/adapters.test.js test/context-mcp.test.js
 ```
 
-回归与 review 的最终结果在同任务 review.md 补齐。首轮默认高并发全量：1713 项，1671 通过、40 跳过、2 项 Kernel 恢复计时超时；正在低并发复核，不隐瞒首轮失败。
+## 回归与工程检查
+
+- 最终 Node 全量使用 `node --test --test-concurrency=4 test/*.test.js packages/octo-runtime-protocol/test/*.test.js`：1714 项，1674 通过、40 跳过、0 失败。UI 35 项通过。
+- OpenCode、ACP 清理、流量限制、MCP 和 effort 相关回归：84 项全部通过。
+- `pnpm typecheck`、`pnpm lint`、`pnpm lint:names`、`pnpm docs:check`、`pnpm format:check` 及 `git diff --check` 通过。
+- 首轮默认高并发全量为 1713 项，1671 通过、40 跳过、2 项 Kernel 恢复计时超时；两个失败文件独立复测 6 项全部通过。随后新增 ACP 清理异常回归，再运行上述低并发全量通过，不将首轮失败隐去。
+- OctoSpec lint 仅报告 3 个基线已有文件缺少 frontmatter：systemd-directive-paths 的 brief.md、review.md 及对应 2026-10-22 journal；本任务无新增错误。
+- 固定实现提交 `81f316e` 的双轴审查通过，Standards 与 Spec 均无需要修复的问题，见 [review](review.md)。
 
 ## 证据边界
 

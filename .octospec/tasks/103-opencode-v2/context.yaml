@@ -1,4 +1,4 @@
-status: implementation-and-validation
+status: validated-ready-for-pr
 recorded_on: 2026-10-23
 baseline: 445d2bb24f6ffc27bb4414c835e6a0b365f9f25b
 baseline_source: git-fetch-origin-main
@@ -55,12 +55,16 @@ verification:
   local_executable: /Users/lvsijia/.opencode/bin/opencode
   legacy_executable_version: 1.18.30
   legacy_executable: /Users/lvsijia/.nvm/versions/node/v24.19.0/bin/opencode
+  legacy_global_installation: uninstalled-as-requested
   shell_path_difference: interactive-selects-v2-agent-noninteractive-selected-legacy
   local_executable_platform: macOS
   v2_binary: user-installed-functional-tests-passed
   runtime_e2e: cli-acp-and-live-im-passed
   model_provider_tools_permissions_cancellation: passed-deepseek-deepseek-flash
-  product_tests: in-progress
+  product_tests: node-1674-passed-40-skipped-ui-35-passed-focused-84-passed
+  engineering_checks: typecheck-lint-names-docs-format-passed
+  review: standards-zero-findings-spec-zero-findings
+  reviewed_implementation: 81f316e88c324e374b613dc6a12437da130fa5ff
   octospec_lint: only-three-confirmed-existing-head-frontmatter-errors
   new_okf_frontmatter_and_context_yaml: passed
   git_diff_check: passed

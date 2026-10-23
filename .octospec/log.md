@@ -2,6 +2,8 @@
 
 ## 2026-10-23
 
+- 完成 [Issue 103 OpenCode 2 适配](tasks/103-opencode-v2/brief.md)：最低 2.1.3，V1 明确拒绝，修正 CLI/ACP 原生配置、环境及清理。16 个真实 DeepSeek 场景、真实测试 IM 与 V1 二进制拒绝通过；Node 1674 通过/40 跳过、UI 35 通过及工程检查通过，双轴审查无待修复问题，详见[验收](tasks/103-opencode-v2/validation.md)与[审查](tasks/103-opencode-v2/review.md)。旧 nvm 全局 V1 已按用户要求卸载，V2 安装未改动。
+
 - 用户确认本机 OpenCode 已为 2.1.3 后，复核交互式 shell 和 `~/.opencode/bin/opencode` 输出一致；Agent 非交互环境仍选中 nvm 下旧 1.18.30。更新 [Issue 103 资料](tasks/103-opencode-v2/reference.md#本机路径复核)、版本矩阵与 context，后续 V2 使用明确绝对路径，旧版保留为拒绝样本；尚未进行功能实测。
 
 - 建立 [Issue 103 OpenCode 2 调研](tasks/103-opencode-v2/brief.md)：核对 npm 2.1.3 与固定源码，明确 V1 必须 error，记录 CLI 参数、进程环境、V2 配置、ACP 续聊/权限和清理缺口；[资料](tasks/103-opencode-v2/reference.md)、[验收计划](tasks/103-opencode-v2/validation-plan.md)与[本轮证据](journal/shared/2026-10-23-103-opencode-v2-research.md)区分源码确认与未实测范围。仅文档，未修改产品实现或提交。
