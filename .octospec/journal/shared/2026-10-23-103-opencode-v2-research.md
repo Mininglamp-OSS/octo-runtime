@@ -10,6 +10,8 @@ timestamp: 2026-10-23T00:00:00Z
 
 后续实施已完成：最低支持版本确定为 2.1.3，旧 nvm 全局 V1 已按用户要求卸载。CLI/ACP 的 16 个真实 DeepSeek 场景、真实测试 IM 往返及独立 V1 二进制拒绝均通过；最终回归与双轴审查见 [验收记录](../../tasks/103-opencode-v2/validation.md)及 [review](../../tasks/103-opencode-v2/review.md)。下文保留最初调研时的状态，候选版本与待验表述不代表最终支持合同。
 
+用户进一步明确凭据禁止入库：本任务先前写入固定无效认证样例的做法已撤回，错误认证及本地 MCP 认证值改为运行期在内存随机生成；真实认证仍由宿主已有配置提供。禁止提交任何凭据值及固定测试占位值的要求已回写 [架构约束](../../rules/architecture.md#凭据值严禁进入代码仓库)和工程规则，来源、纠正及验证见 [验收记录](../../tasks/103-opencode-v2/validation.md#凭据禁止入库约束纠正)。
+
 从最新 `origin/main@445d2bb` 建立 `research/103-opencode-v2` 独立 worktree。按用户要求先调研，创建 [任务简报](../../tasks/103-opencode-v2/brief.md)、[官方资料与源码对照](../../tasks/103-opencode-v2/reference.md)、[实施与验收矩阵](../../tasks/103-opencode-v2/validation-plan.md)。
 
 用户确认 OpenCode 1 应直接报 error，不再支持。probe 与直接 invoke、ask/full_access、自定义 executable 都纳入版本门禁计划。未知版本或检测失败不能当作支持。

@@ -76,9 +76,9 @@ node --test test/opencode-v2.test.js test/adapters.test.js test/context-mcp.test
 
 ## PR Secret Scan 误报核验
 
-PR #116 的 Gitleaks 8.30.1 首轮扫描报告 `ad4e357a1d53e07bd12b7d1ebbd0d10d79dfb46b:scripts/verify-opencode-v2.mjs:generic-api-key:203`。该行是错误认证场景写死的 `invalid-octo-e2e-key`，来源为本任务测试代码，不是从账号或认证文件读取的值；两传输以此实际执行均返回 failed。
+PR #116 的 Gitleaks 8.30.1 首轮扫描报告 `ad4e357a1d53e07bd12b7d1ebbd0d10d79dfb46b:scripts/verify-opencode-v2.mjs:generic-api-key:203`。该行是错误认证场景写死的无效测试值，来源为本任务测试代码，不是从账号或认证文件读取的值；两传输以此实际执行均返回 failed。该做法已按下文用户明确的禁止入库约束撤回，不保留固定值。
 
-CI 采用 depth=2 的 PR merge checkout，暂缺父历史，因此将整份文件归到浅边界 ad4e357。在保留原始历史的隔离仓库复现同一版本及范围后，实际引入指纹为 `81f316e88c324e374b613dc6a12437da130fa5ff:scripts/verify-opencode-v2.mjs:generic-api-key:203`。仅将该原始历史指纹加入 `.gitleaksignore`，同步命名检查要求的规范化 SHA256 快照。当前测试值改为更直接的 `invalid`，保留错误认证语义，避免浅边界重新归因固定样例。未豁免文件、路径或规则，未修改原始提交历史。
+CI 采用 depth=2 的 PR merge checkout，暂缺父历史，因此将整份文件归到浅边界 ad4e357。在保留原始历史的隔离仓库复现同一版本及范围后，实际引入指纹为 `81f316e88c324e374b613dc6a12437da130fa5ff:scripts/verify-opencode-v2.mjs:generic-api-key:203`。仅将该原始历史指纹加入 `.gitleaksignore`，同步命名检查要求的规范化 SHA256 快照。首次收尾曾将测试值简化为更短的固定值；用户进一步要求禁止提交凭据占位值后，改为运行期生成。未豁免文件、路径或规则，未修改原始提交历史。
 
 本地工具下载归档 SHA256 为 b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5，与官方 8.30.1 darwin arm64 校验表一致。验收结果：
 
@@ -87,6 +87,14 @@ CI 采用 depth=2 的 PR merge checkout，暂缺父历史，因此将整份文�
 - 完整历史扫描在新增 canary 前有 135 个既有告警，本次样例无告警；新增后为 137，指纹集合比较确认仅增加上述两处 canary，原 135 项未被隐藏。因此这次验证证明例外范围有效，不宣称整个历史扫描通过。
 - 当前测试值简化后重新运行 16 个真实场景全部通过，最终 cleanup=complete；命名检查与 7 项命名回归通过。
 - 独立 Standards 收尾复核确认指纹、原始提交、规范化哈希和无效值修改准确，无剩余问题。远端 PR review 同时提出的唯一 P2 为本项扫描失败，本次修复覆盖该意见；托管重验以 PR 最新检查为准。
+
+## 凭据禁止入库约束纠正
+
+用户明确禁止在仓库提交 API Key，并要求写入架构设计约束。此前无效值是本任务写入的固定测试样例，不是读取用户配置或测试账号得到的凭据；仍不应以其非真实或扫描通过作为保留硬编码的理由。
+
+已将禁止提交凭据值（含固定测试占位值）的合同写入 [architecture](../../rules/architecture.md#凭据值严禁进入代码仓库)。验收脚本的错误认证值改为每轮在内存调用 randomUUID() 生成；MCP 模拟服务的 Authorization 值同样仅在运行期生成，服务端仍严格比较本轮收到的值。实际认证沿用宿主已有配置，脚本不新增实际凭据读取或持久化，不输出这些测试值。历史扫描例外只对应原始非秘密固定样例，不作为提交实际凭据的许可。
+
+运行期随机值版本重新执行 16 个真实场景全部通过，shutdown.cleanup=complete。脚本 AST 检查确认 apiKey 与 Authorization 两个字段均无字面量值，Gitleaks 8.30.1 对当前脚本 stdin 扫描退出 0；格式与 diff 检查通过。OctoSpec lint 仍仅有前述 3 个基线 frontmatter 错误。
 
 ## 证据边界
 

@@ -7,6 +7,7 @@
 | 主题 | 入口 |
 | --- | --- |
 | SDK 主要接入、CLI 特殊宿主、产品意图、Context v3 与模块责任归属 | [基础架构](rules/architecture.md) |
+| 严禁提交凭据值；测试占位值仅运行期生成，真实认证由宿主从仓库外注入 | [凭据禁止入库](rules/architecture.md#凭据值严禁进入代码仓库) |
 | CLI 面向普通用户：start 自动安装、install 默认自启、独立启动、用途帮助与文本优先 | [CLI 产品默认值](rules/architecture.md#cli-面向普通用户的产品默认值) |
 | 产品默认推荐 KernelClient；与进程内 AgentExecutor 共用输入但生命周期不同 | [两种接入方式](rules/architecture.md#kernelclient-与-agentexecutor-的选型合同) |
 | 业务团队共同维护的 Go 工具 octo-cli、Octo API 能力与 IM 预置价值 | [octo-cli 定位](rules/architecture.md#octo-cli-的业务定位与产品价值) |

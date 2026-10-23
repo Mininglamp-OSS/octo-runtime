@@ -150,6 +150,7 @@ try {
     assert.equal(cancelled.terminal, "run.cancelled");
   }
   const http = await startMcpHttpServer();
+  const mcpAuthorization = `Bearer ${randomUUID()}`;
   try {
     for (const mode of ["full_access", "ask"]) {
       const before = http.receipts.length;
@@ -162,7 +163,7 @@ try {
             live: {
               type: "streamable_http",
               url: http.url,
-              headers: { Authorization: "Bearer synthetic-opencode-token" }
+              headers: { Authorization: mcpAuthorization }
             }
           }
         }
@@ -172,10 +173,7 @@ try {
       assert.ok(
         http.receipts
           .slice(before)
-          .some(
-            (r) =>
-              r.method === "tools/call" && r.authorization === "Bearer synthetic-opencode-token"
-          )
+          .some((r) => r.method === "tools/call" && r.authorization === mcpAuthorization)
       );
     }
   } finally {
@@ -200,7 +198,7 @@ try {
     const invalid = await run(`${mode}-invalid-config`, mode, "Reply OK", { invalidConfig: true });
     assert.equal(invalid.terminal, "run.failed");
     const credentials = await run(`${mode}-invalid-credentials`, mode, "Reply OK", {
-      config: { providers: { deepseek: { settings: { apiKey: "invalid" } } } },
+      config: { providers: { deepseek: { settings: { apiKey: randomUUID() } } } },
       expectFailure: true
     });
     assert.equal(credentials.terminal, "run.failed");
