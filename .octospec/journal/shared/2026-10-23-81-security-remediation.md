@@ -31,4 +31,10 @@ timestamp: 2026-10-23T00:00:00Z
 
 逐条核对真实数据流；HTML 注释删除只产生可见性布尔值、JSON 字面量只承载数据、QA 配置的认证请求及私有测试断言各有独立依据，不通过改写合法流程隐瞒告警。可复用规则回写 engineering 的安全告警与文件操作复核一节。
 
-本机不能证明 Windows 真机行为；不支持 O_NOFOLLOW 的平台仍验证文件类型及 dev/ino，相关分支由跨平台 CI 继续核对。没有执行需要真实账号、模型、IM 或桌面写入的 live 探针。分支托管 CodeQL 结果将补入交付记录；最终合并 main 的重扫、逐条 disposition 审核及 Dependabot fixed 状态是 Issue 关闭条件，当前不宣称面板已清零。
+本机不能证明 Windows 真机行为；不支持 O_NOFOLLOW 的平台仍验证文件类型及 dev/ino，已在 Windows CI 增加 security-remediation、hourly-log 与 channel-tool-environment 三组回归。没有执行需要真实账号、模型、IM 或桌面写入的 live 探针。最终合并 main 的重扫、逐条 disposition 审核及 Dependabot fixed 状态是 Issue 关闭条件，当前不宣称面板已清零。
+
+# 分支托管扫描与 PR
+
+修复提交 `62491940f031412dcfd38efd8157756f42fd5f2c` 的 [CodeQL run 39892494476](https://github.com/Mininglamp-OSS/octo-runtime/actions/runs/39892494476) 成功，analysis `2010235423`；CodeQL 2.27.3、javascript-queries 2.4.8（与最新 main 同一固定构建）、security-extended 103 条规则。实际结果为 28 条，比 main 少 11 条，未新增告警；所有本次修复项均不再命中，逐条结果已写回 disposition。剩余 28 条分别有误报或预期安全流程依据，尚未 dismissal，等待 PR 评审确认。
+
+[英文 PR #115](https://github.com/Mininglamp-OSS/octo-runtime/pull/115) 已创建，未合并。新增 Windows 门禁与本记录后再扫描最终分支提交，结果附 PR。用户授权不包含合并，本轮不得代替用户操作。

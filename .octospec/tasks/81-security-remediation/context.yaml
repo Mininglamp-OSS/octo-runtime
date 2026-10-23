@@ -10,6 +10,8 @@ rules_read:
   - .octospec/rules/extras.md
   - .octospec/rules/openclaw.md
   - .octospec/_global/security.md
+additional_scope:
+  - Windows CI 显式执行新增安全回归和日志、dotenv 用例，覆盖不支持 O_NOFOLLOW 的描述符校验。
 user_override:
   - GitHub issue/PR 与提交说明使用英文。
   - 未授权时不创建提交。

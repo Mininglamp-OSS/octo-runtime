@@ -78,4 +78,12 @@ timestamp: 2026-10-23T00:00:00Z
 
 # 最终验证状态
 
-工作树验证写入 [journal](../../journal/shared/2026-10-23-81-security-remediation.md)。用户已授权提交、推送及创建英文 PR，合并由用户确认。分支托管扫描正在交付流程中核对；合并 main 的托管扫描、逐条 dismissal 和 Dependabot fixed 状态尚未完成，不能关闭 Issue #81。
+修复提交 `62491940f031412dcfd38efd8157756f42fd5f2c` 的[托管扫描](https://github.com/Mininglamp-OSS/octo-runtime/actions/runs/39892494476)成功，analysis `2010235423`；CodeQL 2.27.3、javascript-queries `2.4.8+a1575b98a8cc19bcfa7bb6cb41be688cb3dae65c`、security-extended 103 条规则均与最新 main 基线一致。结果从 39 降至 28，未新增告警。下列结果针对修复分支，不代表默认 main 的全局状态：
+
+| 告警编号（逐条详见上表） | 分支实际托管结果 |
+| --- | --- |
+| #1、#3、#10、#12、#14、#18、#36、#38、#39、#40、#42 | 本次修复后不再命中，共 11 条 |
+| #2、#11、#13 | 原路径已删除，latest main 与本分支均不再命中；迁移缺陷分别按 #36/#40/#42 验证 |
+| #4、#5、#6、#7、#8、#9、#15、#16、#17、#19、#20、#21、#22、#23、#24、#25、#26、#27、#28、#29、#30、#31、#32、#33、#34、#35、#37、#41 | 仍命中，共 28 条；逐条误报/预期安全流程依据已提交 PR 评审，尚未 dismissal |
+
+工作树验证写入 [journal](../../journal/shared/2026-10-23-81-security-remediation.md)。[PR #115](https://github.com/Mininglamp-OSS/octo-runtime/pull/115) 已创建，用户确认合并。补充 Windows 安全回归门禁及本记录后，将再扫最终分支提交，实际结果见 PR。合并 main 的托管扫描、逐条 disposition 审核及 Dependabot fixed 状态尚未完成，不能关闭 Issue #81。
