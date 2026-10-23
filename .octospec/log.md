@@ -2,6 +2,8 @@
 
 ## 2026-10-23
 
+- 按用户要求将 [PR #116](https://github.com/Mininglamp-OSS/octo-runtime/pull/116) rebase 到最新 main@cc49c8b；知识目录冲突保留双方条目，OpenCode 实现、测试和真实验收脚本不变，历史扫描指纹及命名摘要同步新提交。更新后 Node 1691 通过/40 跳过、UI 35 通过，构建、类型、lint、格式、文档与 PR 范围扫描通过，见[验证](tasks/103-opencode-v2/validation.md#rebase-到最新-main)。
+
 - 按用户明确要求增加[凭据禁止入库架构约束](rules/architecture.md#凭据值严禁进入代码仓库)：API Key 等凭据值及固定测试占位值不得提交，真实认证由宿主从仓库外注入，非功能性测试值仅运行期在内存生成。Issue 103 验收脚本移除固定错误认证值及固定 Authorization 值；不以扫描未告警替代来源审查。
 
 - 完成 [Issue 103 OpenCode 2 适配](tasks/103-opencode-v2/brief.md)：最低 2.1.3，V1 明确拒绝，修正 CLI/ACP 原生配置、环境及清理。16 个真实 DeepSeek 场景、真实测试 IM 与 V1 二进制拒绝通过；Node 1674 通过/40 跳过、UI 35 通过及工程检查通过，双轴审查无待修复问题，详见[验收](tasks/103-opencode-v2/validation.md)与[审查](tasks/103-opencode-v2/review.md)。旧 nvm 全局 V1 已按用户要求卸载，V2 安装未改动。

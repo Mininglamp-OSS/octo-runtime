@@ -12,6 +12,8 @@ timestamp: 2026-10-23T00:00:00Z
 
 基线为重新 `git fetch origin main` 后的 `445d2bb24f6ffc27bb4414c835e6a0b365f9f25b`。独立 worktree 为 `octo-runtime-issue-103`，分支 `research/103-opencode-v2`。主 checkout 中 #81 的未提交改动不属于本任务。
 
+2026-10-23 按用户要求 rebase 到最新 `origin/main@cc49c8b4ce2d04fd2389585d00ffcf8806b4af72`，纳入已合并的 #115 安全整改。原始基线和真实验收证据保留，更新后的检查见 [validation](validation.md#rebase-到最新-main)。
+
 ## 产品意图与归属
 
 - 业务目标：已安装 OpenCode 2 的宿主能够通过 Runtime 正确执行、续聊、响应审批和取消；不让 V1 因可执行文件存在而被误判为支持。

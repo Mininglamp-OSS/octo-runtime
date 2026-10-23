@@ -8,7 +8,7 @@ timestamp: 2026-10-23T05:00:00Z
 
 # 环境与基线
 
-- Runtime 基线：origin/main@445d2bb24f6ffc27bb4414c835e6a0b365f9f25b，分支 research/103-opencode-v2；最终实现由同 PR 的提交确定。
+- Runtime 初始基线：origin/main@445d2bb24f6ffc27bb4414c835e6a0b365f9f25b；已按用户要求 rebase 到 cc49c8b4ce2d04fd2389585d00ffcf8806b4af72，分支 research/103-opencode-v2；最终实现由同 PR 的提交确定。
 - macOS 26.6.2 / darwin arm64，Node 24.19.0，pnpm 11.19.0。
 - 用户安装的 `/Users/lvsijia/.opencode/bin/opencode`：`opencode v2.1.3`。验收时 npm `@opencode/cli` latest 亦为 2.1.3。
 - 用户已有模型配置：provider deepseek，model deepseek/deepseek-flash。认证由宿主已有配置提供；不修改、不输出认证文件。
@@ -95,6 +95,20 @@ CI 采用 depth=2 的 PR merge checkout，暂缺父历史，因此将整份文�
 已将禁止提交凭据值（含固定测试占位值）的合同写入 [architecture](../../rules/architecture.md#凭据值严禁进入代码仓库)。验收脚本的错误认证值改为每轮在内存调用 randomUUID() 生成；MCP 模拟服务的 Authorization 值同样仅在运行期生成，服务端仍严格比较本轮收到的值。实际认证沿用宿主已有配置，脚本不新增实际凭据读取或持久化，不输出这些测试值。历史扫描例外只对应原始非秘密固定样例，不作为提交实际凭据的许可。
 
 运行期随机值版本重新执行 16 个真实场景全部通过，shutdown.cleanup=complete。脚本 AST 检查确认 apiKey 与 Authorization 两个字段均无字面量值，Gitleaks 8.30.1 对当前脚本 stdin 扫描退出 0；格式与 diff 检查通过。OctoSpec lint 仍仅有前述 3 个基线 frontmatter 错误。
+
+## Rebase 到最新 main
+
+2026-10-23 按用户要求从 `6700e16` rebase 到最新 `origin/main@cc49c8b4ce2d04fd2389585d00ffcf8806b4af72`。知识目录新增条目冲突保留双方内容，main 的安全整改及本任务凭据禁止入库约束均保留。`git range-diff` 确认原四个提交的差异仅为目录上下文；逐文件比较确认 OpenCode、共享 ACP/SDK 入口、本任务回归及三个真实验收脚本与 rebase 前一致。本轮不重复未改变的真实模型/IM 测试，原证据仍按原始提交记录。
+
+原实现提交 `81f316e` 对应 rebase 后 `12abf7ae87b5162731d7ee6631ce050ce929619e`。保留真实引入历史的 PR 范围扫描确认唯一告警仍是同一已核验的固定无效历史样例；精确例外仅同步该提交 SHA，命名检查规范化哈希同步为 91c998b5156daffb8479d70b4a5ab785f94eeb3e7fae2a18c2a24f81d9f2abd8。当前源代码仍只在运行期生成非功能性测试值，没有重新引入固定凭据值。
+
+更新基线后的验证结果：
+
+- `pnpm install --frozen-lockfile` 通过并完成全 workspace 构建，保留 main 的锁文件及 Vitest 4.1.12 升级；根 TypeScript noEmit 检查通过。
+- Node 全量使用 concurrency=4：1731 项，1691 通过、40 跳过、0 失败；包括 main 新增的安全及发行进程回归。UI 35 项全部通过。
+- `pnpm lint`、`pnpm lint:names`、`pnpm format:check`、`pnpm docs:check` 通过；命名回归包含在 Node 全量内。
+- Gitleaks 8.30.1 对 `cc49c8b..HEAD` 的 PR 范围扫描退出 0；`git diff --check` 通过。没有修改检测规则或扩大例外范围。
+- 四个重放提交均保留原配置作者及唯一 Codex trailer；远端更新使用明确旧 head 的 force-with-lease，避免覆盖并发更新。
 
 ## 证据边界
 
