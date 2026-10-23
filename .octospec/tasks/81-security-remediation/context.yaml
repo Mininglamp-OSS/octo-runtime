@@ -1,0 +1,19 @@
+baseline: 445d2bb
+rules_read:
+  - .octospec/index.md
+  - .octospec/rules/_index.yaml
+  - .octospec/rules/architecture.md
+  - .octospec/rules/engineering.md
+  - .octospec/rules/collaboration.md
+  - .octospec/rules/channel-integration.md
+  - .octospec/rules/runtime-lifecycle.md
+  - .octospec/rules/extras.md
+  - .octospec/rules/openclaw.md
+  - .octospec/_global/security.md
+user_override:
+  - GitHub issue/PR 与提交说明使用英文。
+  - 未授权时不创建提交。
+authorization:
+  commit_push_pr: true
+  merge: false
+  source: 用户明确授权提交、推送和创建 PR，合并由用户确认。
