@@ -90,6 +90,7 @@ decisions:
   - User corrected demo location to this worktree's native directory; Go/Python have package-local demo_playboard source files.
   - Python models use TypedDict; Windows overlapped completion uses bounded event polling rather than an executor thread.
   - User explicitly requires one Python transport.py with internal Unix/Windows async branches; remove the separate Windows module and keep one SDK package/import.
+  - User requires the same Go boundary: transport.go selects Unix/Windows internally; only the Windows-only API shim is compiled per platform under internal/pipe. Consumers import one SDK package and never copy or select transport variants.
   - Fix the four reproduced verified-review defects, add local regressions and Chinese comments at SDK ownership/cancellation/codec boundaries; do not add native CI or generated outputs.
   - Fix all four rereview findings; preserve in-flight OVERLAPPED resources even if cancellation fails, detach observer waiting from cancel ACK, reject malformed Extra Unicode, and validate URL ports/hostname.
   - macOS minimum/current and real Codex text smoke passed; Linux/Windows and full boundary/stress acceptance remain open.

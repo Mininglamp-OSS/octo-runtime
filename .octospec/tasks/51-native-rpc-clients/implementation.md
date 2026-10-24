@@ -8,6 +8,10 @@ timestamp: 2026-10-24T00:00:00Z
 
 # 当前交付范围
 
+Go 平台选择已统一到 `transport.go` 的内部分支，删除包根目录的 `transport_unix.go` / `transport_windows.go`。Unix 直接使用 net.Dialer；Windows 专用 API 仅由 `internal/pipe` 薄适配层编译隔离。两平台消费者都只导入同一个 SDK 包，不选择或手工复制平台文件。
+
+本次调整后 Go race 与完整本地 45 项测试通过，含 354 条协议样例、仓外 module zip 消费及包内 demo；Linux/Windows amd64 全模块交叉编译通过，仅为编译证据。生成产物未改变，完整性检查通过。
+
 2026-10-24 用户最新决定：仅交付完整 Go/Python SDK，移除 Rust SDK、demo、emitter、生成源码、Cargo 锁和工具链要求。生成仅需 Node/gofmt，检查仅需 Node；manifest 当前包含 5 个生成源码。两套示例就是各自语言包中的普通文件：Go 的 `examples/demo_playboard.go`、Python 的 `demo_playboard.py`，不另建 demo 工程。Native 不接入 GitHub CI。当前验收范围见 [brief](brief.md) 和 [plan](plan.md)。
 
 下文三语言、Rust 工具链和旧 CI 结果保留为历史。历史结果不意味着当前 Rust 支持或完整跨平台验收已完成。

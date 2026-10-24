@@ -6,11 +6,14 @@ import (
 	"errors"
 	"io"
 	"net"
+	"runtime"
 	"sync"
 	"time"
+
+	"github.com/Mininglamp-OSS/octo-runtime/native/go/internal/pipe"
 )
 
-// 传输只负责有界字节 IO；method、身份和重试均由生成客户端控制。
+// 传输统一负责连接选择与有界字节 IO；method、身份和重试由客户端控制。
 type transport struct {
 	endpoint string
 	mu       sync.Mutex
@@ -25,6 +28,15 @@ type channel struct {
 	once    sync.Once
 	pending []byte
 	chunk   []byte
+}
+
+// 平台选择属于 SDK 内部；调用方始终只提供 endpoint，无需选择或复制平台文件。
+func dial(ctx context.Context, endpoint string) (net.Conn, error) {
+	if runtime.GOOS == "windows" {
+		return pipe.DialContext(ctx, endpoint)
+	}
+	var d net.Dialer
+	return d.DialContext(ctx, "unix", endpoint)
 }
 
 func (t *transport) open(ctx context.Context) (*channel, error) {

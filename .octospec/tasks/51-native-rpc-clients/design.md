@@ -37,7 +37,7 @@ packages/octo-runtime-protocol/schema/
 native/
   README.md
   codegen/{generate.mjs,normalize.mjs,emit-*.mjs}
-  go/{go.mod,go.sum,client.go,lifecycle.go,generated_*.go,transport_*.go,examples/demo_playboard.go,cmd/interop-driver/}
+  go/{go.mod,go.sum,client.go,lifecycle.go,generated_*.go,transport.go,internal/pipe/,examples/demo_playboard.go,cmd/interop-driver/}
   python/{pyproject.toml,uv.lock,src/octo_runtime/{client.py,generated_*.py,transport.py},demo_playboard.py}
   tests/{run.mjs,serve-kernel.mjs,driver-protocol.md,codegen.test.mjs,interop.test.mjs}
 ```
@@ -128,7 +128,7 @@ Go/Python 两语言都提供 `status/list/submit/get/subscribe/cancel/respond/re
 
 | 语言 | 高层 API 目标 | 观察与取消 | 传输和依赖 |
 | --- | --- | --- | --- |
-| Go | `client.Invoke(ctx, input, options) *Invocation`；`Next() bool / Event() InvokeEvent / Err() error / Close() error` | ctx 取消控制 Run，Close 只关观察；InvokeEvent 暴露模式对应 typed view；实例可从 client registry 查 ref | Unix net.Dialer；Windows microsoft/go-winio DialPipeContext；build tag 隔离 |
+| Go | `client.Invoke(ctx, input, options) *Invocation`；`Next() bool / Event() InvokeEvent / Err() error / Close() error` | ctx 取消控制 Run，Close 只关观察；InvokeEvent 暴露模式对应 typed view；实例可从 client registry 查 ref | 同一 transport.go 内部选择 Unix net.Dialer / Windows pipe；internal/pipe 仅编译隔离 Windows API，对外一个 SDK 包 |
 | Python | `client.invoke(input, *, cancel=None, deadline=None) -> Invocation`；async iterator，`async with`/`aclose()` | 显式 CancelToken/deadline 控制 Run；Task.cancel/CancelledError/aclose 关闭观察；单独有界控制任务维护已写请求结果 | Unix asyncio socket；Windows pywin32 overlapped I/O + 有界 event 轮询，默认/Selector loop 均不依赖 asyncio 私有 pipe API |
 
 Python Windows 使用 CreateFile(FILE_FLAG_OVERLAPPED)、ReadFile/WriteFile、event、GetOverlappedResult；取消 I/O 用 CancelIoEx，并确认 completion 后释放 OVERLAPPED/buffer/handle。在事件循环内有界轮询 completion，每连接同一方向一个在途 I/O，连接额度上限 32；不新增线程 executor。不能用 `asyncio.to_thread` 取消了 Future 就声称阻塞 I/O 已回收。所有平台 write 必须处理 partial write。

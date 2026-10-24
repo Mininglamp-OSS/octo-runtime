@@ -29,6 +29,8 @@ Issue 明确授权的 `native/` 客户端是 Kernel 的外部消费者，不把 
 
 ## 关键合同
 
+Go/Python 对外均为一个 SDK 包。Go 的 `transport.go` 内部分支选择 Unix/Windows，只有 Windows 专用 API 编译隔离在 `internal/pipe`；Python 在一个 `transport.py` 内部分支。使用方不得承担平台文件选择或复制。
+
 1. 数据权威源只在 `packages/octo-runtime-protocol/schema/`。开发时生成 wire 类型、校验规则、行为常量和八个 RPC wrapper。生成文件入库；客户端、invoke/恢复/取消/登记和平台 I/O 在各语言包单份手写维护。
 2. 保持 IPC v1、Run 7、Context v3、Adapter transport 2。补齐描述不等于变更 wire。若发现必须改变现有合法行为，先登记差异、影响和迁移条件，再更新设计，不能静默升级或放宽权限。
 3. `invoke` 在首次消费时登记、补齐原身份并 submit/subscribe。提交后 ACK 丢失只查询原五元组和 instance，原 invoke 写出次数始终为 1。
