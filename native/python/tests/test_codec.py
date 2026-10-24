@@ -3,7 +3,7 @@ import unittest
 from decimal import Decimal
 from unittest.mock import AsyncMock, patch
 from octo_runtime import Client, KernelError, UNSET, encode, loads, dumps
-from octo_runtime.client import identify
+from octo_runtime import identify
 
 
 class CodecTests(unittest.IsolatedAsyncioTestCase):
@@ -32,7 +32,7 @@ class CodecTests(unittest.IsolatedAsyncioTestCase):
         request = identify(value)
         self.assertIsInstance(request["runId"], str)
         self.assertNotIn("missing", copy.deepcopy(request)["future"])
-        self.assertIs(value["runId"], UNSET)  # 规范化不得修改调用方输入。
+        self.assertIs(value["runId"], UNSET)  # Normalization must not mutate the caller's input.
         with self.assertRaises(KernelError):
             encode("InvokeInputWire", {**value, "runId": None})
         with self.assertRaises(KernelError):

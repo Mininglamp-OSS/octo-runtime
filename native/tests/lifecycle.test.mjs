@@ -8,7 +8,7 @@ import { kernelFixture, kernelInput } from "../../test/kernel-fixture.js";
 import { kernelRelay } from "../../test/kernel-relay.js";
 import { build, call } from "./driver.mjs";
 const language = process.env.OCTO_NATIVE_LANGUAGE ?? "go";
-// ACK barrier 验证真实接纳与关闭先后；关闭完成后才放行 ACK，不能靠延时碰运气。
+// Use an ACK barrier to order admission and observer closure deterministically.
 test(`${language} observation closure during admission`, async (t) => {
   build(language);
   for (const scenario of ["close", "cancel-same-tick", "cancel-watcher-started"]) {
@@ -66,7 +66,7 @@ test(`${language} observation closure during admission`, async (t) => {
   }
 });
 
-// 四个 cancel 已到 Kernel 但 ACK 被阻塞，第五个在 SDK 排队；drain 返回后才放行 ACK。
+// Block four cancel ACKs while a fifth control queues; release the ACKs only after drain returns.
 test(`${language} drain bounds previously queued cancellation`, async (t) => {
   build(language);
   const f = await kernelFixture(t, { manifest: resolve("native/tests/adapters.json") });

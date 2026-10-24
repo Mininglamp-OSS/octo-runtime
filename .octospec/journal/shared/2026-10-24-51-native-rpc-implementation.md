@@ -8,11 +8,11 @@ timestamp: 2026-10-24T00:00:00Z
 
 # 最新范围与复验
 
-Go 平台选择统一到 `transport.go`，专用 Windows API 仅隔离在 `internal/pipe`，使用方始终一个包/import，无需选择或复制平台版本。调整后 Go race 与完整 45 项本地套件通过，含仓外安装和 demo；Linux/Windows amd64 交叉编译通过，不作为实机 IPC 证据。
+最终按“一份生成源码 + 一份手写实现”合并 SDK。Python 仅 `generated.py` / `__init__.py`；Go 仅 `generated.go` / `client.go`，另有 8 行 `pipe_windows.go` 自动绑定平台 API。Transport、codec 和生命周期均是手写实现内部细节，消费者一个包/import；删除独立 rules 等模块。SDK、demo 和相关代码注释使用英文。合并后两语言各完整重跑 45 项本地套件通过，含仓外安装和 demo；Go race、Python 七项单测、生成器两项回归和 Linux/Windows amd64 交叉编译通过，交叉编译不作为实机 IPC 证据。
 
 用户移除 Rust，仅保留完整 Go/Python SDK；示例统一为语言包内的 `demo_playboard.go` / `demo_playboard.py`。生成文件头部携带 octo-runtime Schema commit 与输入/生成器摘要，完整 manifest 记录来源。Native 不接入 GitHub CI。两语言各 45 项/354 协议样例通过，Go race、Python 七项单测及生成/包外/demo 验证通过。
 
-无 rg 的命名测试缺陷已复现并修复：TMPDIR 在 checkout 内时，非 Git fixture 先移出所有真实 Git 祖先。默认与仓内 TMPDIR 两环境各 9 项通过，子进程 PATH 清空。完整 Node 1706 通过/40 既有 skip、UI 35 通过。生成源码现为 5 文件/1972 行，约 1.23 万 PR 新增行。详见[当前实施记录](../../tasks/51-native-rpc-clients/implementation.md)。下文保留原三语言实施历史。
+无 rg 的命名测试缺陷已复现并修复：TMPDIR 在 checkout 内时，非 Git fixture 先移出所有真实 Git 祖先。默认与仓内 TMPDIR 两环境各 9 项通过，子进程 PATH 清空。源码合并前完整 Node 1706 通过/40 既有 skip、UI 35 通过。当前生成源码为 2 文件/1959 行，手写运行时代码为 3192 行。详见[当前实施记录](../../tasks/51-native-rpc-clients/implementation.md)。下文保留原三语言实施历史。
 
 # 历史结果
 

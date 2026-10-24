@@ -9,6 +9,8 @@ Go、Python 各自实现原生 SDK 和 CLI demo，直接连接已有 Executor Ke
 
 两套 demo 的命令和输出相同。完整命令见 [playboard 使用说明](examples/README.md)。代码位于本仓库 `native/`，没有外部 demo 仓库依赖。
 
+SDK 运行时按“一份生成代码 + 一份手写代码”组织：Python 为 `generated.py` + `__init__.py`；Go 为 `generated.go` + `client.go`，另有 8 行的 `pipe_windows.go` 绑定 Windows 专用 API，由编译器自动选择。Transport 是手写实现的内部细节，调用方始终使用一个 SDK 包。测试、demo 和包元数据另计；源码注释使用英文。
+
 ## 构建和运行
 
 从仓库根目录执行；先由宿主安装并启动 Kernel，取得实际 endpoint。macOS/Linux 默认 Runtime Home 的地址通常是 `$HOME/.octo-runtime/sockets/octo-runtime-executor-kernel.sock`，自定义 Home 请使用对应地址。Windows 使用宿主提供的完整 pipe 名，不拼接猜测 hash。
@@ -48,6 +50,8 @@ node --test native/tests/codegen.test.mjs
 重新生成需要 Node、gofmt；`--check` 只需要 Node，核对 Schema、生成器、产物清单及每个文件的 SHA-256 摘要，修改、缺失或遗留产物都会报错。它不重新运行语言 formatter；完整重新生成的字节一致性由 `codegen.test.mjs` 验证。安装/运行已生成 SDK 不需要生成工具。
 
 修改 Schema 或 emitter 后重新生成，禁止只改生成文件。未知关键字在写文件前失败。模型保留公共根及其类型依赖；两种语言的校验规则使用去重后的节点图。
+
+`rules` 是 codec 使用的 Schema 校验表，用于字段、类型和跨字段检查，不是单独的规则系统或用户配置。它与模型、行为常量和 RPC 方法一起保存在各语言唯一的生成源码中，运行时不读取 Schema 文件。
 
 ### 生成来源
 

@@ -16,7 +16,7 @@ func TestOversizedLineDoesNotWaitForNewlineOrEOF(t *testing.T) {
 	c := &channel{Conn: reader, reader: bufio.NewReaderSize(reader, limitReadChunkBytes)}
 	done := make(chan error, 1)
 	go func() { _, err := c.line(); done <- err }()
-	// 保持 peer 打开；恰好多一个字节也必须主动拒绝，不能等下一块或 EOF。
+	// Keep the peer open; one excess byte must be rejected without waiting for another chunk or EOF.
 	if _, err := writer.Write(bytes.Repeat([]byte{'x'}, limitLineBytes+1)); err != nil {
 		t.Fatal(err)
 	}

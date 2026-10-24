@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 
-// 先校验整个输入，再产生输出；未知断言不能悄悄变成宽松类型。
+// Validate all inputs before emitting files; unknown assertions must not become permissive types.
 const annotations = new Set([
   "$id",
   "$schema",
@@ -121,7 +121,7 @@ export async function normalize(schemaDir) {
         roots[(m.result.$ref.startsWith("#") ? "Ipc" : "") + m.result.$ref.split("/").at(-1)];
     else m.resultId = visit(m.result, `Ipc${m.name}Result`, ipc);
   }
-  // 新增 result 可带引用；统一解析最后创建的 inline 节点。
+  // Resolve newly added inline result nodes, which may contain references.
   for (const n of nodes)
     if (n.ref === undefined && n.schema.$ref)
       n.ref =
@@ -145,7 +145,7 @@ export function snake(s) {
     .replace(/[^a-zA-Z0-9]+/g, "_")
     .toLowerCase();
 }
-// 校验 IR 去重后独立于公开类型，类型名和 Schema 描述不进入运行时规则表。
+// Deduplicate validation IR independently of public types; omit type names and schema descriptions.
 export function ruleNodes(nodes) {
   return nodes.map((n) => {
     const s = n.schema;
@@ -178,7 +178,7 @@ export function ruleNodes(nodes) {
   });
 }
 
-// 按规则而非类型名合并等价节点；逐轮细分也适用于递归 $ref。
+// Merge equivalent rules rather than type names; partition refinement also handles recursive refs.
 export function compactValidation(ir) {
   const remap = (n, ids) => ({
     ...n,
@@ -229,7 +229,7 @@ export function compactValidation(ir) {
   };
 }
 
-// 公共根和字段需要的类型才进入模型；验证专用子节点仍留在规则表中。
+// Emit types reachable from public roots; validation-only nodes remain in the rules table.
 export function modelNodes({ nodes, roots, methods }) {
   const needed = new Set();
   const seen = new Set();

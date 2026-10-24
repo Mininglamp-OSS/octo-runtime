@@ -32,6 +32,8 @@ Schema 定义 ProviderSession、AgentConfig、Context、执行计划、Host 帧�
 
 当前 Kernel、worker 入口及 Host SDK 是 TypeScript 实现。`native/` 提供 Go、Python 附着客户端及各自的 playboard demo；模型、校验规则、行为常量和 RPC 方法从 Schema 及 `kernel-client.behavior.json` 生成，客户端/生命周期在各语言包内单份维护。原生客户端只连接已有服务，不代启 Node/CLI，不拥有 Kernel。
 
+Native SDK 按一份生成源码和一份手写源码组织：Python 为 `generated.py` / `__init__.py`，Go 为 `generated.go` / `client.go`，Go 另有极薄的 `pipe_windows.go` 绑定 Windows 专用 API。Transport 和 codec 属于手写实现内部，不再单独拆文件；平台选择由 SDK 完成。按用户最新要求，native SDK、demo 及相关代码注释使用英文；核心入口仍须解释所有权、取消和失败边界。
+
 生成入口为 `node native/codegen/generate.mjs`，`--check` 校验完整产物及输入/生成器 hash。Native 不接入 GitHub CI；生成器与 native 测试按需本地运行，SDK 安装和根 Runtime `build`/`prepare` 不调用 native 工具链。平台实测范围见 [Issue 51 实施记录](../tasks/51-native-rpc-clients/implementation.md)，目录中存在 Windows transport 不等于已通过实机验证。
 
 ## 修改流程

@@ -1,4 +1,4 @@
-// 显式运行的真实 Provider smoke，不加入自动化测试。只 attach，不管理现有 Kernel。
+// Opt-in real Provider smoke; attach without managing the existing Kernel.
 import { spawn } from "node:child_process";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
@@ -127,7 +127,7 @@ try {
         passed: false
       };
       evidence.results.push(row);
-      // 原始 Provider 载荷、输入和 stderr 不进入证据文件。
+      // Do not store raw Provider payloads, inputs or stderr in evidence.
       assert.equal(result.code, 0, `${language}/${mode} failed; exit ${result.code}`);
       assert.equal(terminal, mode === "native" ? "completed" : "run.completed");
       row.ref = JSON.parse(await readFile(receipt, "utf8"));

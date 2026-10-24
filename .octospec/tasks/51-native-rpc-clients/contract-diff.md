@@ -21,7 +21,7 @@ timestamp: 2026-10-24T00:00:00Z
 | agent_run.respond | RPCRespond/respond/respond_interaction | canonical 交互、ACK 丢失、第二 CLI 回答 |
 | agent_run.native.respond | RPCNativeRespond/respond_native | 原生交互、Codex request/pending 去重、ACK 丢失 |
 
-命名大小写遵循各语言；实际生成名称见对应 `generated_rpc`。subscribe 的 ACK 之后没有默认 idle deadline；副作用 ACK 不确定不能自动重发。
+命名大小写遵循各语言；实际生成名称见 `generated.go` / `generated.py`。subscribe 的 ACK 之后没有默认 idle deadline；副作用 ACK 不确定不能自动重发。
 
 # InvokeInput 字段
 

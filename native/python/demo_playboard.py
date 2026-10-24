@@ -1,4 +1,4 @@
-"""从原生 Python SDK 调用已有 Kernel；stdout 只输出 NDJSON。"""
+"""Call an existing Kernel through the Python SDK; emit only NDJSON on stdout."""
 
 from __future__ import annotations
 import argparse
@@ -289,7 +289,7 @@ async def run(args):
                             if native
                             else event["payload"]["interactionId"]
                         )
-                        # 原生 request 和 control.pending 描述同一请求；不重复提交回答。
+                        # Native request and control.pending describe the same request; do not submit the answer twice.
                         answer_key = (native, dumps(target))
                         if answer_key in answered:
                             continue

@@ -1,4 +1,4 @@
-// 测试工具：创建标准 Go module proxy 归档，不作为 SDK 运行依赖。
+// Test helper: create a standard Go module proxy archive; not an SDK runtime dependency.
 package main
 
 import (

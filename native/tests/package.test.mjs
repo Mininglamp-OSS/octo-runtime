@@ -23,7 +23,7 @@ function execute(command, args, options = {}) {
   return result.stdout;
 }
 function consume(command, args, { input, ...options }) {
-  // Kernel 位于测试宿主事件循环，客户端运行期间不能 spawnSync 阻塞它。
+  // The Kernel runs on the test event loop; do not block it with spawnSync while clients run.
   return new Promise((yes, no) => {
     const child = spawn(command, args, { ...options, stdio: ["pipe", "pipe", "pipe"] });
     let stdout = "",
@@ -50,7 +50,7 @@ function consume(command, args, { input, ...options }) {
 test(`${language} archive consumer runs outside the repository without Node on PATH`, async (t) => {
   const directory = await mkdtemp(join(tmpdir(), "octo-native-package-"));
   t.after(async () => {
-    // Go module cache 解压目录是只读的，用 Go 自己的清理入口释放本次临时 cache。
+    // Go module-cache directories are read-only; let Go clean this test's isolated cache.
     if (language === "go")
       execute("go", ["clean", "-modcache"], {
         env: { ...process.env, GOMODCACHE: join(directory, "module-cache") }
@@ -105,7 +105,7 @@ test(`${language} archive consumer runs outside the repository without Node on P
     const location = execute(binary, [
       "-I",
       "-c",
-      "import octo_runtime, octo_runtime.transport as transport;from pathlib import Path;assert not Path(transport.__file__).with_name('transport_windows.py').exists();print(octo_runtime.__file__)"
+      "import octo_runtime;from pathlib import Path;assert sorted(p.name for p in Path(octo_runtime.__file__).parent.glob('*.py')) == ['__init__.py', 'generated.py'];print(octo_runtime.__file__)"
     ]).trim();
     assert.ok(location.startsWith(venv), location);
   } else throw Error("Unknown language");

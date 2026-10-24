@@ -1,23 +1,17 @@
 {
   "revision": 2,
   "sourceHash": "e87aaad925b8d6b43906ed7f2508440f3f619534757f1865c5db5b531f88727f",
-  "generatorHash": "16ff4de9a1210b0c2c1bbcb189131c0ab8e384c44f924193eceafbacaaeb46eb",
+  "generatorHash": "48834f2540fe6d50a12cd2a5d1418b129a0f0fccd04e08fc6c5c03003dd7a4c0",
   "provenance": {
     "schemaCommit": "879163b86a63604622e4bfdf0e962f4bca420d2d",
-    "generatorCommit": "6125da695852f3c387e4d66c656828253b1e0e40"
+    "generatorCommit": null
   },
   "files": [
-    "native/go/generated_models.go",
-    "native/go/generated_rpc.go",
-    "native/python/src/octo_runtime/generated_models.py",
-    "native/python/src/octo_runtime/generated_rpc.py",
-    "native/python/src/octo_runtime/generated_rules.py"
+    "native/go/generated.go",
+    "native/python/src/octo_runtime/generated.py"
   ],
   "fileHashes": {
-    "native/go/generated_models.go": "7b81bf2ad9cbd29a7a2397bd3f95358c38fc96cd5930c8484fc159a3635c5346",
-    "native/go/generated_rpc.go": "4ced2aea47b45c7a21585574841cfc08fd085db3629c2919222f37facbb20abe",
-    "native/python/src/octo_runtime/generated_models.py": "092dd07960f13dc6fa3bf1659933628086965fa58d38e18c02a940d99a1b80aa",
-    "native/python/src/octo_runtime/generated_rpc.py": "d92a6344f4f536396248aaa304fedbd618f76400f57fd9a46ef434549523ed78",
-    "native/python/src/octo_runtime/generated_rules.py": "21c682dfdd0ce6a9d35f5ee00375313c78bc29c17e15edc0f378806d666de1db"
+    "native/go/generated.go": "1fe282ab17735765bfdc1c8fee61ed6e2312140b2ca07d56b93befeb47d72f7f",
+    "native/python/src/octo_runtime/generated.py": "28c038537ad811d358609c3e93f1248ef6fadfd710d51d959b6cdfb244a9a354"
   }
 }

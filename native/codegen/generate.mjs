@@ -38,7 +38,7 @@ try {
   );
 } catch {}
 function committedRevision(path) {
-  // 只有目录与已提交版本完全一致时才标注 commit；未提交输入由内容摘要精确标识。
+  // Record a commit only for clean inputs; content hashes identify uncommitted bytes exactly.
   const status = spawnSync("git", ["status", "--porcelain", "--untracked-files=all", "--", path], {
     cwd: root,
     encoding: "utf8"
@@ -57,7 +57,7 @@ const manifest = {
   sourceHash: sourceHash.digest("hex"),
   generatorHash: generatorHash.digest("hex"),
   provenance: {
-    // --check 在无 Git/语言工具链时仍验证内容摘要，commit 只是已记录的来源标签。
+    // Checks verify content without Git or language tools; commits are recorded provenance labels.
     schemaCommit: check
       ? (previous?.provenance?.schemaCommit ?? null)
       : schema.href === defaultSchema.href
@@ -92,7 +92,9 @@ async function findStale(dir) {
       if (!["target", ".venv", "__pycache__"].includes(entry.name))
         found.push(...(await findStale(path)));
     } else if (
-      entry.name.startsWith("generated_") &&
+      (entry.name.startsWith("generated_") ||
+        entry.name === "generated.go" ||
+        entry.name === "generated.py") &&
       path !== "native/generated-manifest.json" &&
       !Object.hasOwn(outputs, path)
     )
@@ -110,7 +112,7 @@ if (stale.some((p) => !p.startsWith("native/") || p.includes("..")))
   throw Error("Unsafe generated manifest path");
 
 if (check) {
-  // 摘要同时覆盖 Schema、生成器、输出清单和各产物字节；检查不调用语言工具链。
+  // Verify schema, generator, output list and file hashes without invoking language tools.
   const drift = [...stale];
   if (
     Object.entries(manifest).some(

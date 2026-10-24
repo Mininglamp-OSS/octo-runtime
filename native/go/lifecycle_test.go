@@ -74,7 +74,7 @@ func TestCloseObservationUnblocksPendingCancelAcknowledgement(t *testing.T) {
 			}
 			observed := &observedContext{Context: ctx, checked: make(chan struct{})}
 			stream := client.Invoke(observed, InvokeInputWire{}, KernelInvokeEnvironmentWire{})
-			// 已交付终帧，但独立控制请求尚未收到 ACK。
+			// The terminal frame was delivered, but the separate control request still awaits its ACK.
 			r := &record{cancelDone: make(chan struct{})}
 			stream.started, stream.record = true, r
 			stream.subscription = client.Subscribe(stream.observation, KernelRunRef{}, 0)

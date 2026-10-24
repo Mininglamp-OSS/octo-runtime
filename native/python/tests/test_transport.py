@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 from octo_runtime import Client, KernelError
-from octo_runtime.transport import Channel, BEHAVIOR
+from octo_runtime import _Channel as Channel, BEHAVIOR
 
 
 def windows_transport(win32file, pywintypes, win32event=None):
@@ -17,11 +17,11 @@ def windows_transport(win32file, pywintypes, win32event=None):
         "win32event": win32event or types.ModuleType("win32event"),
         "win32con": types.SimpleNamespace(WAIT_TIMEOUT=258),
     }
-    path = Path(__file__).parents[1] / "src/octo_runtime/transport.py"
-    # 加载同一 SDK 模块的 Windows 分支，不需要 Windows 专属脚本或发行包。
+    path = Path(__file__).parents[1] / "src/octo_runtime/__init__.py"
+    # Load the same SDK's Windows branch without a platform-specific script or distribution.
     with patch.dict(sys.modules, modules), patch.object(sys, "platform", "win32"):
         spec = importlib.util.spec_from_file_location(
-            "octo_runtime._test_windows_transport", path
+            "octo_runtime._test_windows_transport", path, submodule_search_locations=None
         )
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
@@ -49,7 +49,7 @@ class MeasuredBuffer(bytearray):
 
 class TransportTests(unittest.IsolatedAsyncioTestCase):
     async def test_nonreading_peer_does_not_block_timeout_or_client_close(self):
-        import octo_runtime.transport as transport_module
+        import octo_runtime as transport_module
 
         peers = []
         server = await asyncio.start_server(
@@ -143,7 +143,7 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
                     await Channel(Stream(data, 2), None).line()
 
     async def test_windows_close_survives_repeated_cancellation(self):
-        # 在非 Windows 主机只验证关闭任务控制流，不能替代真实 named-pipe 测试。
+        # Non-Windows stubs verify cleanup flow only, not real named-pipe behavior.
         calls = []
         win32file = types.ModuleType("win32file")
         win32file.CancelIoEx = lambda *args: None
@@ -159,7 +159,7 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(0.005)
         closing.cancel()
         await asyncio.sleep(0.005)
-        self.assertEqual(calls, [])  # completion 前不能释放底层 handle。
+        self.assertEqual(calls, [])  # Do not release the handle before completion.
         self.assertFalse(closing.done())
         pipe.pending.clear()
         with self.assertRaises(asyncio.CancelledError):
@@ -232,7 +232,7 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
                 )
 
     async def test_platform_selection_uses_one_transport(self):
-        from octo_runtime.transport import Transport
+        from octo_runtime import _Transport as Transport
 
         reader = types.SimpleNamespace(read=None)
         writer = types.SimpleNamespace(
@@ -260,7 +260,7 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
         stream = types.SimpleNamespace(close=wait_closed)
         with patch.object(module, "_open_windows_pipe", return_value=stream) as opened:
             with patch.object(sys, "platform", "win32"):
-                transport = module.Transport("kernel-pipe")
+                transport = module._Transport("kernel-pipe")
                 channel = await transport.open()
             opened.assert_awaited_once_with("kernel-pipe")
             self.assertIs(channel.stream, stream)

@@ -17,7 +17,7 @@ func TestEncodeRejectsNativeInvalidUTF8BeforeJSONReplacement(t *testing.T) {
 }
 
 func TestOpaqueNumbersAndPresenceSurviveRoundTrip(t *testing.T) {
-	// 未知扩展中的大整数和显式 null 不得投影到 float64 或缺省。
+	// Preserve large integers and explicit null in extensions without float conversion or omission.
 	value, err := Decode[ProviderSession]("ProviderSession", []byte(`{"sessionId":"s","future":{"integer":900719925474099312345,"nullable":null}}`))
 	if err != nil {
 		t.Fatal(err)

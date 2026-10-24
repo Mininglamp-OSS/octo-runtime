@@ -240,7 +240,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			}
 		}
 	}
-	// signal 触发执行取消；超出 grace 仅释放观察，不把未知结果当成功。
+	// Signals request execution cancellation; grace expiry only closes observation and cannot imply success.
 	finished := make(chan struct{})
 	defer close(finished)
 	go func() {
@@ -340,7 +340,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 					target = value.Payload["id"]
 				}
 			}
-			// 同一个原生请求可同时出现 request 与 control.pending，只回答一次。
+			// A native request can appear as request and control.pending; answer it only once.
 			answerKey := fmt.Sprintf("%t:%s", native, target)
 			if answered[answerKey] {
 				continue
@@ -393,7 +393,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		}
 	}
 	client.StopAdmission()
-	// CLI 是本次调用的 owner，退出时明确取消自己的未完成执行；SDK Close 自身不取消 Run。
+	// The CLI owns this invocation and cancels its unfinished run on exit; SDK Close itself does not cancel runs.
 	if len(client.Invocations()) > 0 {
 		result := client.Drain(context.Background(), time.Now().Add(*grace), "playboard_exit")
 		if !result.Complete {

@@ -8,19 +8,19 @@ timestamp: 2026-10-24T00:00:00Z
 
 # 当前交付范围
 
-Go 平台选择已统一到 `transport.go` 的内部分支，删除包根目录的 `transport_unix.go` / `transport_windows.go`。Unix 直接使用 net.Dialer；Windows 专用 API 仅由 `internal/pipe` 薄适配层编译隔离。两平台消费者都只导入同一个 SDK 包，不选择或手工复制平台文件。
+按用户最新要求，每语言只保留一份生成源码和一份手写实现，codec、生命周期及 transport 全部合并。Python 为 `generated.py` + `__init__.py`，transport 类私有；Go 为 `generated.go` + `client.go`，另有 8 行 `pipe_windows.go` 自动绑定 Windows 专用 API。删除独立 rules、transport、codec、lifecycle 等源码文件；使用方始终只导入一个 SDK 包。SDK、demo 和相关代码注释改为英文，保留核心所有权及取消竞态说明。
 
-本次调整后 Go race 与完整本地 45 项测试通过，含 354 条协议样例、仓外 module zip 消费及包内 demo；Linux/Windows amd64 全模块交叉编译通过，仅为编译证据。生成产物未改变，完整性检查通过。
+合并后两语言各完整重跑 45 项测试通过，含每语言 354 条协议样例、仓外安装及包内 demo；Python wheel 断言安装包仅有两个源码文件。Go race、Python 七项单测和生成器两项回归通过。Linux/Windows amd64 全模块交叉编译通过，仅为编译证据。生成源码合并为 2 文件、1959 行；手写实现 Go 1966 行、Python 1218 行，Go 平台适配另 8 行。
 
-2026-10-24 用户最新决定：仅交付完整 Go/Python SDK，移除 Rust SDK、demo、emitter、生成源码、Cargo 锁和工具链要求。生成仅需 Node/gofmt，检查仅需 Node；manifest 当前包含 5 个生成源码。两套示例就是各自语言包中的普通文件：Go 的 `examples/demo_playboard.go`、Python 的 `demo_playboard.py`，不另建 demo 工程。Native 不接入 GitHub CI。当前验收范围见 [brief](brief.md) 和 [plan](plan.md)。
+2026-10-24 用户最新决定：仅交付完整 Go/Python SDK，移除 Rust SDK、demo、emitter、生成源码、Cargo 锁和工具链要求。生成仅需 Node/gofmt，检查仅需 Node；manifest 当前包含 2 个生成源码。两套示例就是各自语言包中的普通文件：Go 的 `examples/demo_playboard.go`、Python 的 `demo_playboard.py`，不另建 demo 工程。Native 不接入 GitHub CI。当前验收范围见 [brief](brief.md) 和 [plan](plan.md)。
 
 下文三语言、Rust 工具链和旧 CI 结果保留为历史。历史结果不意味着当前 Rust 支持或完整跨平台验收已完成。
 
-本轮 Go/Python 完整本地套件各 **45 项通过、0 失败、0 skip**，每语言 **354 条协议样例**，覆盖改名后的包内 demo 及仓外消费。Go race、Python 七项单测、生成器两项回归、六个生成产物的完整性检查和开发文档检查通过。生成源码头部直接记录 octo-runtime Schema commit、Schema/生成器 SHA-256；manifest 另外记录生成器 commit，未提交目录不冒充已固定版本。
+本轮 Go/Python 完整本地套件各 **45 项通过、0 失败、0 skip**，每语言 **354 条协议样例**，覆盖改名后的包内 demo 及仓外消费。Go race、Python 七项单测、生成器两项回归及生成产物完整性检查通过。生成源码头部直接记录 octo-runtime Schema commit、Schema/生成器 SHA-256；manifest 另外记录生成器 commit，未提交目录不冒充已固定版本。
 
 yujiawei 报告的无 rg 测试失败已修复：非 Git fixture 先解析真实临时目录，再移出所有 Git 祖先，兼容 TMPDIR 在 checkout 内和 .git 文件式 worktree。默认环境与 TMPDIR/TMP/TEMP 均置于真实 worktree 内分别 **9/9 通过**，子进程 PATH/Path 清空；新增回归覆盖嵌套临时目录。生产扫描的 Git ignore 保护保留，CI 已安装并文档声明 ripgrep。
 
-随后完整 `pnpm test:suites` 通过：Node 1746 项中 1706 通过、40 个既有 skip、0 失败；UI 35 项通过。相对最新 `origin/main@8214292`，本 PR 约新增 1.23 万行，当前生成源码 **5 文件、1972 行**；Rust 移除及文档收敛净减约 6500 行。完整 OKF 仍仅有下述四处既有 frontmatter 错误。
+命名测试修复后、源码合并前，完整 `pnpm test:suites` 通过：Node 1746 项中 1706 通过、40 个既有 skip、0 失败；UI 35 项通过。源码合并不修改 TS 实现；上文原生套件为合并后的重跑结果。完整 OKF 仍仅有下述四处既有 frontmatter 错误。
 
 # 历史：移除 Rust 前的交付
 

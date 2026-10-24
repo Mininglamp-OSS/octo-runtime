@@ -1,4 +1,4 @@
-// 从仓库根目录启动；测试宿主拥有临时 Kernel，原生客户端只 attach。
+// Run from the repository root; the test host owns the temporary Kernel and clients only attach.
 import { spawn } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve, dirname } from "node:path";

@@ -12,7 +12,7 @@ const read = async (name) =>
     )
   );
 const cases = [];
-// Context 预算按未额外转义 U+2028/U+2029 的紧凑 UTF-8 计数；字面反斜线不等价于标量。
+// Context budgets count compact UTF-8 without extra U+2028/U+2029 escaping; literal backslashes differ.
 for (const [name, text, valid] of [
   ["line separator", "\u2028".repeat(12000), true],
   ["paragraph separator", "\u2029".repeat(12000), true],
@@ -69,7 +69,7 @@ for (const c of await read("native-invoke-fixtures.json")) {
   assert.equal(valid, c.valid, `TS InvokeInput reference: ${c.name}`);
   cases.push({ ...c, definition: "InvokeInputWire" });
 }
-// 同时经过 TS 权威边界与 Go/Python codec，避免只验证某个 URL parser 的宽松行为。
+// Check both the authoritative TS boundary and Go/Python codecs, not just a permissive URL parser.
 for (const [url, valid] of [
   ["http://example.com:bad/path", false],
   ["http://exa mple.com/path", false],
