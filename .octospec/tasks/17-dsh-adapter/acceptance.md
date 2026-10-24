@@ -47,7 +47,7 @@ SDK-hosted 与 CLI-hosted 两条真实路径均 PASS：群 @ 回复落入原会�
 
 # Verified Review
 
-采用 verified-review 串行流程：基线工作区干净，审查时仅本任务未提交改动；37 个变更文件、2507 行增加/删除，逐文件检查 36 个手写文件，跳过 pnpm-lock.yaml 的语义审查（锁文件只核对 workspace 依赖）。生成物和 dist 不在提交范围。依据 AGENTS、OctoSpec 和既有边界审查，覆盖新包全部源码、公开导出、包/manifest、共同失败分类与日志接线、测试/fixture、实时验证脚本及文档。没有使用平行子 Agent。
+采用 verified-review 串行流程：基线工作区干净，审查时仅本任务改动；38 个变更文件，逐文件检查 37 个手写文件，跳过 pnpm-lock.yaml 的语义审查（锁文件只核对 workspace 依赖）。生成物和 dist 不在提交范围。依据 AGENTS、OctoSpec 和既有边界审查，覆盖新包全部源码、公开导出、包/manifest、共同失败分类与日志接线、测试/fixture、实时验证脚本及文档。没有使用平行子 Agent。
 
 已修复且复验的缺陷：
 
@@ -61,5 +61,6 @@ SDK-hosted 与 CLI-hosted 两条真实路径均 PASS：群 @ 回复落入原会�
 | 清理期晚到取消掩盖先前失败 | reproduced | 保留首个失败；晚到 abort 回归 PASS |
 | 恢复后沿用旧 cwd | read-confirmed | resume 成功后显式设置并校验本轮 cwd；续聊 fixture/真实 PASS |
 | 默认结构化日志丢原生诊断 | reproduced | invocation context 复用已有 RuntimeLog；落盘保留阶段/request/native/PID，凭据 canary 不出现 |
+| 发行验证硬编码旧 Adapter 数量 | reproduced | 仓外 verifier 实际报 14 != 13；更新清单数量，并增加 DSH 公共导出/metadata 校验 |
 
 在已覆盖的固定版本/macOS 范围内，没有遗留中等或更高严重性代码发现。DM、Windows、客户端视觉检查仍为上述明确证据缺口。PR 使用 Addresses #17，保持 Issue 开放，不将部分端到端结果标记为全部验收完成。

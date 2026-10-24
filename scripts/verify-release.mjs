@@ -107,7 +107,12 @@ export async function verifyRelease(archiveInput, { expectedCommit, requireClean
     const moduleManifest = JSON.parse(
       await readFile(join(installed, "apps/cli/dist/manifest.json"), "utf8")
     );
-    assert.equal(moduleManifest.adapters.length, 13);
+    assert.equal(moduleManifest.adapters.length, 14);
+    const dshEntry = moduleManifest.adapters.find((entry) => entry.type === "dsh");
+    assert.equal(dshEntry?.module, "@mininglamp-oss/octo-runtime-adapter-dsh");
+    const dshModule = await import(`${pathToFileURL(installed).href}/dist/public/dsh.js`);
+    assert.equal(dshModule[dshEntry.export].metadata.type, "dsh");
+    assert.deepEqual(dshModule[dshEntry.export].metadata.protocolSupport.modes, ["canonical"]);
     const grokEntry = moduleManifest.adapters.find((entry) => entry.type === "grok-build");
     assert.equal(grokEntry?.module, "@mininglamp-oss/octo-runtime-adapter-grok-build");
     const grokModule = await import(
