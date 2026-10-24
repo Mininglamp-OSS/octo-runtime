@@ -26,3 +26,7 @@ SDK 在内部 worker 原生 import 并注册 Adapter；CLI 通过自身默认 ma
 - 本 PR 评审依据为标准 ACP 封装、CLI/SDK 装配、依赖与打包、回归覆盖和准确的兼容性说明。MiMo 版本的生产兼容性仍未通过；要求完整输出的场景不得使用 0.1.15。上游修复后须针对具体修复版本重新验收 SDK、CLI 和 Gateway 可见精确正文，不以 probe 成功或 issue 关闭代替通过。本轮文档更新不自动合并 PR，也不替代 GitHub 审批和 CI。
 
 不通过新增认证检查、能力目录、业务历史缓存或权限兜底来补造上游行为。Provider 真实兼容性及内部 HTTP 服务收尾须由真实版本验证，不由 fixture 推断。
+
+## 评审跟进：命名检查
+
+用户于 2026-10-24 授权一并修复 yujiawei 指出的 P2：`scripts/lint-names.mjs` 不应因 PATH 中没有可执行的 `rg` 而使非 Git 临时目录测试失败。保留正常 rg 扫描；ENOENT 时以 Git 枚举仓库文件并应用忽略规则，非 Git 目录使用 Node 遍历，继续排除依赖、构建、独立 worktree、凭据文件及链接。其他 rg 故障仍报错。本项仅修改开发检查与测试，不改变 Runtime 的执行、产品准入或上游 ACP 行为。
