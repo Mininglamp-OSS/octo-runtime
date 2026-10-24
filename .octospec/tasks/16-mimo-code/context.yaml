@@ -13,6 +13,7 @@ rules_read:
   - .octospec/rules/engineering.md
   - .octospec/rules/collaboration.md
 references:
+  - https://github.com/Mininglamp-OSS/octo-runtime/pull/127#pullrequestreview-5636934296
   - https://github.com/Mininglamp-OSS/octo-runtime/pull/127#pullrequestreview-5635748275
   - https://github.com/Mininglamp-OSS/octo-runtime/issues/16
   - https://github.com/XiaomiMiMo/MiMo-Code/releases/tag/v0.1.15

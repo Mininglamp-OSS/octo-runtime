@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { execFile, spawn, execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { EventEmitter, once } from "node:events";
-import { chmod, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { appendFile, chmod, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { performance } from "node:perf_hooks";
@@ -10,12 +10,32 @@ import test from "node:test";
 import { promisify } from "node:util";
 import {
   readQaAccounts,
+  readVerificationTrace,
   stopCliComponent,
   verificationFailure,
   withVerificationCleanup
 } from "../scripts/mimo-code-verification.mjs";
 
 const execute = promisify(execFile);
+
+test("MiMo trace polling waits for newline-complete records without hiding corruption", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "mimo-trace-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const file = join(root, "trace.jsonl");
+  assert.deepEqual(await readVerificationTrace(file), []);
+  await writeFile(file, '{"type":"session.update"}\n{"type":"run.comp');
+  assert.deepEqual(await readVerificationTrace(file), [{ type: "session.update" }]);
+  await appendFile(file, 'leted"}');
+  assert.deepEqual(await readVerificationTrace(file), [{ type: "session.update" }]);
+  await appendFile(file, "\n");
+  assert.deepEqual(await readVerificationTrace(file), [
+    { type: "session.update" },
+    { type: "run.completed" }
+  ]);
+  await appendFile(file, "invalid-json\n");
+  await assert.rejects(readVerificationTrace(file), SyntaxError);
+  await assert.rejects(readVerificationTrace(root), { code: "EISDIR" });
+});
 
 test("MiMo QA accounts require a bounded private regular file", async () => {
   const root = await mkdtemp(join(tmpdir(), "mimo-qa-file-"));

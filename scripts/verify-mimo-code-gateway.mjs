@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawn, execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { once } from "node:events";
-import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,6 +10,7 @@ import { promisify } from "node:util";
 import { mimoCodeAdapter } from "@mininglamp-oss/octo-runtime-adapter-mimo-code";
 import {
   readQaAccounts,
+  readVerificationTrace,
   stopCliComponent as stop,
   verificationFailure,
   withVerificationCleanup
@@ -124,17 +125,7 @@ async function main() {
           ]
         })
       );
-      const trace = async () =>
-        (
-          await readFile(join(home, "mimo-trace.jsonl"), "utf8").catch((error) => {
-            if (error.code === "ENOENT") return "";
-            throw error;
-          })
-        )
-          .trim()
-          .split("\n")
-          .filter(Boolean)
-          .map((line) => JSON.parse(line));
+      const trace = () => readVerificationTrace(join(home, "mimo-trace.jsonl"));
       const config = {
         bot_id: receiver.id,
         bf_token: receiver.token,

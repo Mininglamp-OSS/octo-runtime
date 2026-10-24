@@ -1,5 +1,16 @@
 import { constants } from "node:fs";
-import { lstat, open } from "node:fs/promises";
+import { lstat, open, readFile } from "node:fs/promises";
+
+/** 轮询仅消费换行完整的 trace 记录；完整行损坏仍报错，尾部半行等待下次读取。 */
+export async function readVerificationTrace(file) {
+  const text = await readFile(file, "utf8").catch((error) => {
+    if (error.code === "ENOENT") return "";
+    throw error;
+  });
+  const lines = text.split("\n");
+  lines.pop();
+  return lines.filter(Boolean).map((line) => JSON.parse(line));
+}
 
 /** 手动验收读取宿主指定的 QA 文件；校验与有界读取绑定同一描述符。 */
 export async function readQaAccounts(file) {

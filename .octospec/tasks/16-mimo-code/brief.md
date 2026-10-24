@@ -30,3 +30,5 @@ SDK 在内部 worker 原生 import 并注册 Adapter；CLI 通过自身默认 ma
 ## 评审跟进：命名检查
 
 用户于 2026-10-24 授权一并修复 yujiawei 指出的 P2：`scripts/lint-names.mjs` 不应因 PATH 中没有可执行的 `rg` 而使非 Git 临时目录测试失败。保留正常 rg 扫描；ENOENT 时以 Git 枚举仓库文件并应用忽略规则，非 Git 目录使用 Node 遍历，继续排除依赖、构建、独立 worktree、凭据文件及链接。其他 rg 故障仍报错。本项仅修改开发检查与测试，不改变 Runtime 的执行、产品准入或上游 ACP 行为。
+
+Jerry-Xin 后续指出 Gateway 验收 trace 读取器会解析尚未以换行结束的尾行。轮询改为仅解析完整行，半行等待下次读取；完整行 JSON 损坏及非文件缺失的读取故障仍须传播。此修复限于手动验收脚本，不改变 ACP 完成边界，也不代表上游兼容性已通过或 reviewer 已批准。
