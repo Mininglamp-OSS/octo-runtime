@@ -9,6 +9,7 @@ import (
 	octo "github.com/Mininglamp-OSS/octo-runtime/native/go"
 	"io"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -68,6 +69,40 @@ func run(m map[string]json.RawMessage) (map[string]any, error) {
 	input, e := octo.Decode[octo.InvokeInputWire]("InvokeInputWire", m["input"])
 	if e != nil {
 		return nil, e
+	}
+	if op == "drain-queued-cancels" {
+		var wg sync.WaitGroup
+		for n := 0; n < 5; n++ {
+			request := input
+			id := fmt.Sprintf("%s-%d", input.InvocationId.Value, n)
+			request.InvocationId = octo.Some(id)
+			request.RunId = octo.Some(id)
+			stream := c.Invoke(ctx, request, octo.KernelInvokeEnvironmentWire{})
+			if _, e := stream.Next(); e != nil {
+				stream.Close()
+				return nil, e
+			}
+			stream.Close()
+			wg.Add(1)
+			go func() { defer wg.Done(); _, _ = c.CancelInvocation(ctx, id, "test_cancel") }()
+		}
+		gate := str("gate")
+		for {
+			if _, e := os.Stat(gate + ".ready"); e == nil {
+				break
+			}
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
+			time.Sleep(time.Millisecond)
+		}
+		out["drain"] = c.Drain(ctx, time.Now().Add(100*time.Millisecond), "test_drain")
+		out["repeated"] = c.Drain(ctx, time.Now().Add(5*time.Second), "again")
+		if e := os.WriteFile(gate+".drained", []byte("drained"), 0600); e != nil {
+			return nil, e
+		}
+		wg.Wait()
+		return out, nil
 	}
 	if op == "close-admitting" || op == "cancel-close-admitting" {
 		stream := c.Invoke(ctx, input, octo.KernelInvokeEnvironmentWire{})

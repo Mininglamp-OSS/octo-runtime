@@ -8,6 +8,16 @@ timestamp: 2026-10-24T00:00:00Z
 
 # 本轮交付
 
+2026-10-24 verified-review 四项修复：三语言首次 drain 的期限约束此前控制任务及排队取消，不在截止后新增 cancel，未确认执行仍保留 unresolved；Go 接收器按实际字节检测无 LF 超限并复用读缓冲，Context 预算扣除 Go 对 U+2028/U+2029 的额外转义；Python 在 codec、identity、RPC、执行环境和订阅入口统一省略 UNSET，显式 null/零值及 opaque 数字保持原义。SDK 核心入口和取消/超时分支补充中文所有权、返回值及失败边界注释。本轮没有修改生成产物或新增 native CI。
+
+新增确定性回归：真实 Kernel/fake Provider 下占满四个取消额度，drain 返回后才放行 ACK，三语言均只发出四次 cancel，第五次在队列中过期；重复 drain 复用首次结果。Go net.Pipe 验证 `lineBytes+1` 且无 LF/EOF 时立即返回 HOST_FRAME_TOO_LARGE，并覆盖边界及尾行；共享协议验证两种 Unicode 标量、字面转义和 65,536 字节 ±1 边界。Python 单测覆盖公开 encode/rpc、identity、环境参数和不修改原输入。
+
+本轮本机 macOS arm64 三语言完整本地套件各 **45 项通过，0 失败、0 skip**，每语言 **354 条协议样例**，包含 demo 与仓外安装消费。Go 1.25.0/1.26.1 race、Rust 1.85.0 全 target 单测及 1.98.1 Clippy、Python 3.11.16 七项单测、生成器两项回归及九个产物 hash 检查通过。Linux/Windows 实机、真实 Provider 和全量 TS 套件未在本轮重跑。
+
+另核对 yujiawei 在 [PR 最新评审](https://github.com/Mininglamp-OSS/octo-runtime/pull/129#pullrequestreview-5638240688) 的四项意见：命名检查及测试与 main 基线相同，八项测试和本机命名检查通过，现有 CI 已声明安装 ripgrep；Gemini 调用失败是评审覆盖限制；Rust 本地编译/测试证据如上，遵守用户要求不恢复 native CI；生成流程及 manifest 已固定输入/生成器/产物 hash。本轮生成代码增量为零，不能将整份 PR 的约 1.84 万新增行全算成生成代码。
+
+OKF 全量检查未通过：四处既有文件缺 YAML frontmatter，分别为 systemd-directive-paths 的 brief/review/journal 和 `2026-10-24-124-sass-build-fix.md`。本轮修改的任务记录无新增错误；未改动这些无关文件。
+
 第二轮精简：三语言共用去重规则图，等价校验节点由 1,067 减至 597；Rust union 的分支绑定改为单份宏实现，保留全部公开类型、变体及整数/opaque 数字语义。当前 native:check 只需 Node，manifest v2 对输入、生成器及各产物字节做完整性检查；重新生成仍明确要求 gofmt/rustfmt，完整生成一致性另由测试验证。新增空 PATH 检查、不同数值约束和递归引用去重回归；未接入 native GitHub CI。
 
 2026-10-24 最新范围：保留完整三语言 SDK 和 demo；删除复制客户端的模板，客户端/生命周期在各语言包只维护一份源码。模型只生成公共根及类型依赖，验证专用节点保留在规则表；Rust 校验器使用与 Python 共用的规则 IR，替代逐节点展开函数。Native 的 GitHub Actions job、CI Gate 接入、Gate 负例测试和根格式检查接入全部删除；只保留按需本地验证。下文的模板/CI 结果是此前实施历史，不构成当前交付要求。

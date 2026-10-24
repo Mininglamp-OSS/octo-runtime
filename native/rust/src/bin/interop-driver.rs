@@ -27,6 +27,50 @@ async fn run(m: Value) -> Result<Value, Error> {
     let mut result = json!({"instance":status.kernel_instance_id,"adapters":adapters.len()});
     let input: models::InvokeInputWire =
         octo_runtime_client::codec::from_value(m["input"].clone())?;
+    if m["op"] == "drain-queued-cancels" {
+        let mut tasks = Vec::new();
+        for n in 0..5 {
+            let mut request = m["input"].clone();
+            let id = format!("{}-{n}", request["invocationId"].as_str().unwrap());
+            request["invocationId"] = json!(id);
+            request["runId"] = json!(id);
+            {
+                let stream = c.invoke(octo_runtime_client::codec::from_value(request)?, None, None);
+                futures_util::pin_mut!(stream);
+                stream.next().await.unwrap()?;
+            }
+            let client = c.clone();
+            tasks.push(tokio::spawn(async move {
+                client.cancel_invocation(&id, "test_cancel").await
+            }));
+        }
+        let gate = m["gate"].as_str().unwrap();
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            while !std::path::Path::new(&format!("{gate}.ready")).exists() {
+                tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+            }
+        })
+        .await
+        .map_err(|_| Error::new("TEST_BARRIER_TIMEOUT"))?;
+        result["drain"] = c
+            .drain(
+                tokio::time::Instant::now() + std::time::Duration::from_millis(100),
+                "test_drain",
+            )
+            .await;
+        result["repeated"] = c
+            .drain(
+                tokio::time::Instant::now() + std::time::Duration::from_secs(5),
+                "again",
+            )
+            .await;
+        std::fs::write(format!("{gate}.drained"), "drained")?;
+        for task in tasks {
+            let _ = task.await;
+        }
+        c.close().await;
+        return Ok(result);
+    }
     if ["close-admitting", "cancel-close-admitting"].contains(&m["op"].as_str().unwrap()) {
         let token = CancelToken::new();
         let observing = c.clone();

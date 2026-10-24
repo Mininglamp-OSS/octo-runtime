@@ -1,7 +1,6 @@
 package octo
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -21,9 +20,11 @@ type transport struct {
 }
 type channel struct {
 	net.Conn
-	reader *bufio.Reader
-	owner  *transport
-	once   sync.Once
+	reader  io.Reader
+	owner   *transport
+	once    sync.Once
+	pending []byte
+	chunk   []byte
 }
 
 func (t *transport) open(ctx context.Context) (*channel, error) {
@@ -50,7 +51,7 @@ func (t *transport) open(ctx context.Context) (*channel, error) {
 		return nil, &Error{Code: "CLIENT_CLOSED"}
 	}
 	t.sockets[conn] = true
-	return &channel{Conn: conn, reader: bufio.NewReaderSize(conn, limitReadChunkBytes), owner: t}, nil
+	return &channel{Conn: conn, reader: conn, owner: t}, nil
 }
 func (t *transport) close() {
 	t.mu.Lock()
@@ -65,23 +66,40 @@ func (c *channel) Close() error {
 	c.once.Do(func() { e = c.Conn.Close(); c.owner.mu.Lock(); delete(c.owner.sockets, c.Conn); c.owner.mu.Unlock() })
 	return e
 }
+
+// 按实际字节在解析前限流；LF 不计入帧预算，CR 保留，下一行尾部归下一次调用所有。
 func (c *channel) line() ([]byte, error) {
 	var out []byte
+	if c.chunk == nil {
+		c.chunk = make([]byte, limitReadChunkBytes)
+	}
+	part := c.pending
+	c.pending = nil
+	var e error
 	for {
-		part, e := c.reader.ReadSlice('\n')
-		if len(out)+len(part) > limitLineBytes+1 {
+		end := bytes.IndexByte(part, '\n')
+		size := len(part)
+		if end >= 0 {
+			size = end
+		}
+		if len(out)+size > limitLineBytes {
 			return nil, &Error{Code: "HOST_FRAME_TOO_LARGE"}
 		}
-		out = append(out, part...)
-		if e == nil {
-			return bytes.TrimSuffix(out, []byte{'\n'}), nil
+		out = append(out, part[:size]...)
+		if end >= 0 {
+			c.pending = part[end+1:]
+			return out, nil
 		}
-		if e != bufio.ErrBufferFull {
+		if e != nil {
 			if ne, ok := e.(net.Error); ok && ne.Timeout() {
 				return nil, &Error{Code: "KERNEL_TIMEOUT", Cause: e}
 			}
 			return nil, &Error{Code: "CONNECTION_CLOSED", Cause: e}
 		}
+		// Read 返回实际收到的字节；ReadSlice 会把不足一块且没有 LF 的超限尾部藏在内部等待。
+		var n int
+		n, e = c.reader.Read(c.chunk)
+		part = c.chunk[:n]
 	}
 }
 func (c *channel) write(b []byte) error {

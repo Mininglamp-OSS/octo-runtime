@@ -16,6 +16,33 @@ async def run(m):
         status = await c.status()
         adapters = await c.list()
         result = {"instance": status["kernel_instance_id"], "adapters": len(adapters)}
+        if m["op"] == "drain-queued-cancels":
+            tasks = []
+            try:
+                for n in range(5):
+                    id = f"{m['input']['invocationId']}-{n}"
+                    stream = c.invoke({**m["input"], "invocationId": id, "runId": id})
+                    await anext(stream)
+                    await stream.aclose()
+                    tasks.append(
+                        asyncio.create_task(c.cancel_invocation(id, "test_cancel"))
+                    )
+                async with asyncio.timeout(5):
+                    while not Path(m["gate"] + ".ready").exists():
+                        await asyncio.sleep(0.001)
+                result["drain"] = await c.drain(
+                    deadline=asyncio.get_running_loop().time() + 0.1
+                )
+                result["repeated"] = await c.drain(
+                    deadline=asyncio.get_running_loop().time() + 5
+                )
+                Path(m["gate"] + ".drained").write_text("drained")
+                await asyncio.gather(*tasks, return_exceptions=True)
+                return result
+            finally:
+                for task in tasks:
+                    task.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
         if m["op"] in ("close-admitting", "cancel-close-admitting"):
             token = CancelToken()
             stream = c.invoke(m["input"], cancel_token=token)

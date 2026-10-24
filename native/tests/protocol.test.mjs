@@ -12,6 +12,53 @@ const read = async (name) =>
     )
   );
 const cases = [];
+// Context 预算按未额外转义 U+2028/U+2029 的紧凑 UTF-8 计数；字面反斜线不等价于标量。
+for (const [name, text, valid] of [
+  ["line separator", "\u2028".repeat(12000), true],
+  ["paragraph separator", "\u2029".repeat(12000), true],
+  ["separator over budget", "\u2028".repeat(22000), false],
+  ["literal escape over budget", "\\u2028".repeat(12000), false]
+]) {
+  const value = {
+    inputs: [{ type: "text", text: "test" }],
+    contexts: {
+      schema: "octo.context-envelope/v3",
+      items: [{ namespace: "example", name: "data", payload: { text } }]
+    }
+  };
+  let tsValid = true;
+  try {
+    InvokeInput.check(value);
+  } catch {
+    tsValid = false;
+  }
+  assert.equal(tsValid, valid, `TS Context byte budget: ${name}`);
+  cases.push({ name, definition: "InvokeInputWire", value, valid });
+}
+for (const delta of [-1, 0, 1]) {
+  const contexts = {
+    schema: "octo.context-envelope/v3",
+    items: [{ namespace: "example", name: "data", payload: { "\u2028": "\u2029".repeat(21000) } }]
+  };
+  contexts.items[0].payload["\u2028"] += "x".repeat(
+    65536 + delta - Buffer.byteLength(JSON.stringify(contexts))
+  );
+  const value = { inputs: [{ type: "text", text: "test" }], contexts };
+  const valid = delta <= 0;
+  let tsValid = true;
+  try {
+    InvokeInput.check(value);
+  } catch {
+    tsValid = false;
+  }
+  assert.equal(tsValid, valid, `TS Context exact budget ${delta}`);
+  cases.push({
+    name: `Context exact budget ${delta}`,
+    definition: "InvokeInputWire",
+    value,
+    valid
+  });
+}
 for (const c of await read("native-invoke-fixtures.json")) {
   let valid = true;
   try {

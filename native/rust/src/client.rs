@@ -112,6 +112,7 @@ fn response(v: Value, id: &str) -> Result<Value, Error> {
     Ok(v["result"].clone())
 }
 #[derive(Clone)]
+/// 附着已有 Kernel；克隆共享调用登记及首次 drain，均不拥有服务进程。
 pub struct Client {
     inner: Arc<Inner>,
 }
@@ -121,6 +122,8 @@ struct Inner {
     records: Mutex<HashMap<String, Arc<Record>>>,
     controls: Arc<Semaphore>,
     drain: Mutex<Option<tokio::sync::watch::Receiver<Option<Value>>>>,
+    control_deadline: Mutex<Option<tokio::time::Instant>>,
+    controls_closed: CancellationToken,
 }
 struct Record {
     state: Mutex<State>,
@@ -143,6 +146,7 @@ struct State {
     cancel_result: Option<Result<Value, Error>>,
 }
 impl Client {
+    /// 只记录服务端点；owner 负责先 drain，再 close 本 client 的传输资源。
     pub fn attach(endpoint: impl Into<String>) -> Self {
         Self {
             inner: Arc::new(Inner {
@@ -151,11 +155,14 @@ impl Client {
                 records: Mutex::new(HashMap::new()),
                 controls: Arc::new(Semaphore::new(LIMIT_CONTROL_CONCURRENCY)),
                 drain: Mutex::new(None),
+                control_deadline: Mutex::new(None),
+                controls_closed: CancellationToken::new(),
             }),
         }
     }
     pub async fn close(&self) {
         self.stop_admission();
+        self.inner.controls_closed.cancel();
         self.inner.transport.close().await;
     }
     pub fn stop_admission(&self) {
@@ -217,6 +224,8 @@ impl Client {
             self.rpc("adapter.list", json!({}), None).await?,
         )?)
     }
+    /// 高级原语：返回原 RunRef，不进入 invoke 登记；调用方负责订阅、取消及执行收尾。
+    /// 丢弃等待 Future 不撤回已写出的接纳，内部任务仍按原身份完成有界修复。
     pub async fn submit(
         &self,
         input: models::InvokeInputWire,
@@ -297,6 +306,7 @@ impl Client {
                 if !sent.load(Ordering::SeqCst) || e.remote {
                     return Err(e);
                 }
+                // 接纳 ACK 不明只查询原身份；预算耗尽保留 unknown，禁止重放 invoke。
                 let recovered = tokio::time::timeout(millis(TIMEOUT_RECOVERY), async {
                     for delay in REPAIR_DELAYS_MS {
                         tokio::time::sleep(millis(*delay)).await;
@@ -361,6 +371,7 @@ impl Client {
         )
         .await
     }
+    /// 高级原语：使用原完整 ref；ACK 只表示受理，结果未知时禁止自动重发副作用。
     pub async fn cancel(
         &self,
         reference: models::KernelRunRef,
@@ -397,6 +408,7 @@ impl Client {
         .await?;
         Ok(())
     }
+    /// 从最后连续序号按需拉取；丢弃 Stream 只关闭观察，断流沿原 ref/cursor 有界恢复。
     pub fn subscribe(
         &self,
         reference: models::KernelRunRef,
@@ -425,6 +437,9 @@ impl Client {
          }
         }
     }
+    /// 首次 poll 才登记并提交；native 产出 HostFrame，canonical 产出其事件。
+    /// 显式 token 请求执行取消并继续观察尾流；丢弃 Stream 只停止观察。
+    /// 接纳与已触发控制归 client 所有，未知执行留在登记中，由 owner drain 收尾。
     pub fn invoke(
         &self,
         input: models::InvokeInputWire,
@@ -437,7 +452,7 @@ impl Client {
          let task=tokio::spawn(async move{let result=admitting.submit_value(request,env,token,Some(r.clone())).await;{let mut s=r.state.lock().unwrap();s.settled=true;match &result{Ok(reference)=>{s.reference=Some(reference.clone());s.phase=if s.observing{"accepted"}else{"unobserved"}},Err(e)=>{s.phase="acceptance_unknown";s.admission_error=Some(e.clone());s.observation_error=Some(e.code.clone());if !s.submitted||(e.remote&&!["RUN_IDENTITY_MISMATCH","KERNEL_INSTANCE_CHANGED"].contains(&e.code.as_str())){admitting.inner.records.lock().unwrap().remove(s.key["invocation_id"].as_str().unwrap());}}}};r.admitted.notify_waiters();result});
          // 观察关闭只结束尚未触发的 watcher；已触发的取消独立等接纳并完成控制。
          let observation_closed=CancelToken::new();let _watch=StopWatching(observation_closed.clone());
-         if let Some(token)=cancel.clone(){let c=client.clone();let r=record.clone();tokio::spawn(async move{tokio::select!{biased; _=token.cancelled()=>{let _=c.cancel_record(r,"caller_aborted",None).await;},_=observation_closed.cancelled()=>{}}});}
+         if let Some(token)=cancel.clone(){let c=client.clone();let r=record.clone();tokio::spawn(async move{tokio::select!{biased; _=token.cancelled()=>{let _=c.cancel_record(r,"caller_aborted").await;},_=observation_closed.cancelled()=>{}}});}
          let reference=task.await.map_err(|_|error("ACCEPTANCE_UNKNOWN"))??;let source=client.subscribe_value(reference.clone(),0);futures_util::pin_mut!(source);
          while let Some(item)=source.next().await{let frame=item?;if native{yield frame.clone()}else if frame["kind"]=="canonical"{yield frame["event"].clone()}else if frame["kind"]=="control"{let control=&frame["control"];if control["type"]=="gap"{Err(error("STREAM_GAP"))?};if control["type"]=="error"{let key=record.state.lock().unwrap().key.clone();if let Ok(snapshot)=client.get_value(key,reference["kernel_instance_id"].as_str().map(str::to_owned)).await{if terminal(&snapshot["terminal"])==Some("lost"){Err(error("RUN_OUTCOME_UNKNOWN"))?}};Err(Error{code:control["code"].as_str().unwrap().into(),data:Some(control.clone()),remote:false})?}}
           if terminal(&frame)==Some("lost"){Err(error("RUN_OUTCOME_UNKNOWN"))?}
@@ -555,7 +570,7 @@ impl Client {
             .ok_or_else(|| error("INVOCATION_NOT_TRACKED"))
     }
     pub async fn cancel_invocation(&self, id: &str, reason: &str) -> Result<Value, Error> {
-        self.cancel_record(self.record(id)?, reason, None).await
+        self.cancel_record(self.record(id)?, reason).await
     }
     pub async fn respond_interaction(
         &self,
@@ -608,47 +623,13 @@ impl Client {
             changed.await
         }
     }
-    async fn cancel_record(
-        &self,
-        r: Arc<Record>,
-        reason: &str,
-        deadline: Option<tokio::time::Instant>,
-    ) -> Result<Value, Error> {
-        loop {
-            let changed = r.admitted.notified();
-            let settled = {
-                let mut s = r.state.lock().unwrap();
-                if s.cancellation == "none" {
-                    s.cancellation = "requested"
-                };
-                s.settled
-            };
-            if settled {
-                break;
-            };
-            changed.await
-        }
-        let reference;
+    async fn cancel_record(&self, r: Arc<Record>, reason: &str) -> Result<Value, Error> {
         let start;
         {
             let mut s = r.state.lock().unwrap();
-            reference = s.reference.clone().ok_or_else(|| {
-                s.admission_error
-                    .clone()
-                    .unwrap_or_else(|| error("ACCEPTANCE_UNKNOWN"))
-            })?;
-            if s.observation_error.as_deref() == Some("RUN_OUTCOME_UNKNOWN") {
-                return Err(error("RUN_OUTCOME_UNKNOWN"));
-            };
-            if !self
-                .inner
-                .records
-                .lock()
-                .unwrap()
-                .contains_key(reference["invocation_id"].as_str().unwrap())
-            {
-                return Ok(json!({"accepted":false}));
-            };
+            if s.cancellation == "none" {
+                s.cancellation = "requested";
+            }
             start = !s.cancel_started;
             s.cancel_started = true;
         }
@@ -656,25 +637,62 @@ impl Client {
             let client = self.clone();
             let r = r.clone();
             let reason = reason.to_owned();
+            // 控制由 client 持有，丢弃观察不撤销它；接纳等待、额度排队和在途请求共用排空边界。
             tokio::spawn(async move {
                 let work = async {
+                    loop {
+                        let changed = r.admitted.notified();
+                        if r.state.lock().unwrap().settled {
+                            break;
+                        }
+                        changed.await;
+                    }
+                    let reference = {
+                        let s = r.state.lock().unwrap();
+                        if s.observation_error.as_deref() == Some("RUN_OUTCOME_UNKNOWN") {
+                            return Err(error("RUN_OUTCOME_UNKNOWN"));
+                        }
+                        s.reference.clone().ok_or_else(|| {
+                            s.admission_error
+                                .clone()
+                                .unwrap_or_else(|| error("ACCEPTANCE_UNKNOWN"))
+                        })?
+                    };
+                    if !client
+                        .inner
+                        .records
+                        .lock()
+                        .unwrap()
+                        .contains_key(reference["invocation_id"].as_str().unwrap())
+                    {
+                        return Ok(json!({"accepted":false}));
+                    }
                     let _permit = client
                         .inner
                         .controls
                         .acquire()
                         .await
                         .map_err(|_| error("CLIENT_CLOSED"))?;
+                    // 额度与期限可能同时就绪，必须在实际启动控制 IO 前再次判断。
+                    if client
+                        .inner
+                        .control_deadline
+                        .lock()
+                        .unwrap()
+                        .is_some_and(|d| tokio::time::Instant::now() >= d)
+                    {
+                        return Err(error("DRAIN_DEADLINE_EXCEEDED"));
+                    }
                     client.cancel_value(reference, &reason).await
                 };
-                let result = if let Some(deadline) = deadline {
-                    tokio::time::timeout_at(deadline, work)
-                        .await
-                        .unwrap_or_else(|_| Err(error("DRAIN_DEADLINE_EXCEEDED")))
-                } else {
-                    work.await
+                let result = tokio::select! {
+                    biased;
+                    _ = client.inner.controls_closed.cancelled() => Err(error("DRAIN_DEADLINE_EXCEEDED")),
+                    result = work => result,
                 };
                 {
                     let mut s = r.state.lock().unwrap();
+                    // 取消 ACK 不是执行终态；未确认结果继续保留登记，禁止自动重发副作用。
                     s.cancellation = if result.is_ok() {
                         "acknowledged"
                     } else {
@@ -687,7 +705,8 @@ impl Client {
         };
         self.wait_cancel(&r).await
     }
-    // 第一次 drain 固定绝对截止时间；调用方丢弃 Future 不会重启或延长清理。
+    /// 使用 Tokio 绝对 deadline 排空；重复调用或丢弃 Future 不会重启或延长首次清理。
+    /// 约束已有控制任务且不新增订阅；仅确认终态可释放登记，其余返回 unresolved。
     pub async fn drain(&self, deadline: tokio::time::Instant, reason: &str) -> Value {
         self.stop_admission();
         let mut receiver = {
@@ -697,6 +716,15 @@ impl Client {
             } else {
                 let (sender, receiver) = tokio::sync::watch::channel(None);
                 *cached = Some(receiver.clone());
+                *self.inner.control_deadline.lock().unwrap() = Some(deadline);
+                let closed = self.inner.controls_closed.clone();
+                tokio::spawn(async move {
+                    tokio::select! {
+                        _ = tokio::time::sleep_until(deadline) => {},
+                        _ = closed.cancelled() => return,
+                    }
+                    closed.cancel();
+                });
                 let client = self.clone();
                 let reason = reason.to_owned();
                 tokio::spawn(async move {
@@ -743,7 +771,7 @@ impl Client {
                             if let Some(instance) = instance {
                                 if let Ok(snapshot) = c.get_value(key, Some(instance)).await {
                                     if terminal(&snapshot["terminal"]).is_none() {
-                                        let _ = c.cancel_record(r, &reason, Some(deadline)).await;
+                                        let _ = c.cancel_record(r, &reason).await;
                                     }
                                 }
                             }
@@ -754,6 +782,7 @@ impl Client {
             }
         };
         let _ = tokio::time::timeout_at(deadline, work).await;
+        self.inner.controls_closed.cancel();
         let records = self.invocations();
         json!({"complete":records.as_array().unwrap().is_empty(),"unresolved":records})
     }

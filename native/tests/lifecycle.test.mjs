@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { resolve, join } from "node:path";
 import { access, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { setTimeout as delay } from "node:timers/promises";
 import { kernelFixture, kernelInput } from "../../test/kernel-fixture.js";
 import { kernelRelay } from "../../test/kernel-relay.js";
@@ -63,4 +64,44 @@ test(`${language} observation closure during admission`, async (t) => {
       }
     });
   }
+});
+
+// 四个 cancel 已到 Kernel 但 ACK 被阻塞，第五个在 SDK 排队；drain 返回后才放行 ACK。
+test(`${language} drain bounds previously queued cancellation`, async (t) => {
+  build(language);
+  const f = await kernelFixture(t, { manifest: resolve("native/tests/adapters.json") });
+  const gate = join(f.directory, "controls");
+  let received = 0,
+    held = 0,
+    afterDrain = 0;
+  const relay = await kernelRelay(t, f, {
+    request(value, connection) {
+      if (value.method === "agent_run.cancel") {
+        connection.cancelIndex = ++received;
+        if (existsSync(gate + ".drained")) afterDrain++;
+      }
+    },
+    async response(value, connection) {
+      if (!connection.cancelIndex || connection.cancelIndex > 4) return;
+      if (++held === 4) await writeFile(gate + ".ready", "ready");
+      const until = Date.now() + 5000;
+      while (!existsSync(gate + ".drained")) {
+        if (Date.now() >= until) throw Error("drain did not finish before cancel ACK release");
+        await delay(1);
+      }
+    }
+  });
+  const result = await call(language, {
+    op: "drain-queued-cancels",
+    endpoint: relay.endpoint,
+    gate,
+    input: { ...kernelInput("wait-for-cancel"), protocol_mode: "native" }
+  });
+  assert.equal(result.error, undefined, JSON.stringify(result));
+  assert.equal(held, 4);
+  assert.equal(afterDrain, 0, "queued cancel must not start after drain returns");
+  assert.equal(received, 4, "the fifth cancel must expire while queued");
+  assert.equal(result.drain.complete, false);
+  assert.equal(result.drain.unresolved.length, 1);
+  assert.deepEqual(result.repeated, result.drain, "repeat drain retains the first deadline/result");
 });

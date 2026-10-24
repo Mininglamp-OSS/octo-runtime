@@ -16,19 +16,26 @@ import (
 
 // Client 附着到已有 Kernel；Close 只释放本 client 的观察与控制 IO。
 type Client struct {
-	transport   *transport
-	mu          sync.Mutex
-	stopped     bool
-	records     map[string]*record
-	controls    chan struct{}
-	drainDone   chan struct{}
-	drainResult DrainResult
+	transport       *transport
+	mu              sync.Mutex
+	stopped         bool
+	records         map[string]*record
+	controls        chan struct{}
+	drainDone       chan struct{}
+	drainResult     DrainResult
+	controlCtx      context.Context
+	controlCancel   context.CancelFunc
+	controlDeadline time.Time
 }
 
+// Attach 仅连接 endpoint 指向的既有服务；调用方负责 Drain/Close，不启动或拥有 Kernel。
 func Attach(endpoint string) *Client {
-	return &Client{transport: &transport{endpoint: endpoint, sockets: make(map[net.Conn]bool)}, records: make(map[string]*record), controls: make(chan struct{}, limitControlConcurrency)}
+	ctx, cancel := context.WithCancel(context.Background())
+	return &Client{transport: &transport{endpoint: endpoint, sockets: make(map[net.Conn]bool)}, records: make(map[string]*record), controls: make(chan struct{}, limitControlConcurrency), controlCtx: ctx, controlCancel: cancel}
 }
-func (c *Client) Close() { c.StopAdmission(); c.transport.close() }
+
+// Close 释放本 client 的观察、排队控制和连接；停止 IO 不代表远端执行已取消。
+func (c *Client) Close() { c.StopAdmission(); c.controlCancel(); c.transport.close() }
 func uuid() string {
 	var b [16]byte
 	if _, e := rand.Read(b[:]); e != nil {
@@ -314,6 +321,8 @@ func (c *Client) Get(ctx context.Context, key KernelLookupKey, instance string) 
 	c.reconcile(s)
 	return s, nil
 }
+
+// Cancel 是高级控制原语，必须使用原完整 ref；返回 ACK 不表示执行已进入终态，错误未知时禁止重发。
 func (c *Client) Cancel(ctx context.Context, ref KernelRunRef, reason string) (IpcCancelResult, error) {
 	p := IpcCancelParams{Ref: ref}
 	if reason != "" {

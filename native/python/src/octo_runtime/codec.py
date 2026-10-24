@@ -18,6 +18,22 @@ class KernelError(Exception):
 UNSET = object()
 
 
+def normalize(value):
+    """复制 JSON 容器并移除 UNSET 字段；显式 null、零值及 opaque 数字保持原义。"""
+
+    def visit(v):
+        if isinstance(v, dict):
+            return {k: visit(x) for k, x in v.items() if x is not UNSET}
+        if isinstance(v, list):
+            return [visit(x) for x in v]
+        return v
+
+    try:
+        return visit(value)
+    except RecursionError as e:
+        raise KernelError("INVALID_JSON") from e
+
+
 def dumps(value) -> bytes:
     def encode(v):
         if v is None:
@@ -75,6 +91,8 @@ def loads(data: bytes):
 
 
 def validate(definition: str, value):
+    # 返回独立 JSON 容器，让 identity 默认值和后续 deepcopy 都只处理真正存在的字段。
+    value = normalize(value)
     dumps(value)
     check(DEFINITIONS[definition], value)
     return value

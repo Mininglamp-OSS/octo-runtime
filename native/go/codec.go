@@ -556,7 +556,7 @@ func refinement(ext string, limit int, v any, path string) error {
 	case "x-octo-unicode-scalar-strings": // decodeJSON has already validated the entire tree.
 	case "x-octo-max-json-bytes":
 		b, _ := marshalJSON(v)
-		if len(b) > limit {
+		if len(b)-separatorEscapeBytes(v) > limit {
 			return bad()
 		}
 	case "x-octo-max-json-depth":
@@ -675,6 +675,27 @@ func refinement(ext string, limit int, v any, path string) error {
 		return fmt.Errorf("unsupported compiled refinement %s", ext)
 	}
 	return nil
+}
+
+// Context 预算按紧凑 UTF-8 JSON 计数；Go 即使关闭 HTML 转义也会额外转义这两个标量。
+func separatorEscapeBytes(v any) int {
+	switch v := v.(type) {
+	case string:
+		return 3 * (strings.Count(v, "\u2028") + strings.Count(v, "\u2029"))
+	case []any:
+		n := 0
+		for _, item := range v {
+			n += separatorEscapeBytes(item)
+		}
+		return n
+	case map[string]any:
+		n := 0
+		for key, item := range v {
+			n += separatorEscapeBytes(key) + separatorEscapeBytes(item)
+		}
+		return n
+	}
+	return 0
 }
 func depth(v any) int {
 	n := 0

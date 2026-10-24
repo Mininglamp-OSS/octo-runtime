@@ -148,7 +148,14 @@ func (c *Client) CancelInvocation(ctx context.Context, id, reason string) (IpcCa
 	}
 	return c.cancelRecord(ctx, r, reason)
 }
+
+// 同一登记只启动一次控制；原调用期限与 client 的首次排空期限共同约束接纳等待和 IO。
+// 截止后即使拿到额度也不得重发；ACK 未确认保留 unknown，不能据此释放执行登记。
 func (c *Client) cancelRecord(ctx context.Context, r *record, reason string) (IpcCancelResult, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	stop := context.AfterFunc(c.controlCtx, cancel)
+	defer stop()
+	defer cancel()
 	c.mu.Lock()
 	if r.reason == "" {
 		r.reason = reason
@@ -196,7 +203,20 @@ func (c *Client) cancelRecord(ctx context.Context, r *record, reason string) (Ip
 	var e error
 	select {
 	case c.controls <- struct{}{}:
-		result, e = c.Cancel(ctx, ref, reason)
+		// 首次 drain 同时收紧既有排队任务；拿到额度后仍检查期限，避免取消与额度同时就绪时发出 IO。
+		c.mu.Lock()
+		until := c.controlDeadline
+		c.mu.Unlock()
+		if c.controlCtx.Err() != nil || (!until.IsZero() && !time.Now().Before(until)) {
+			e = &Error{Code: "DRAIN_DEADLINE_EXCEEDED"}
+		} else {
+			if !until.IsZero() {
+				var release context.CancelFunc
+				ctx, release = context.WithDeadline(ctx, until)
+				defer release()
+			}
+			result, e = c.Cancel(ctx, ref, reason)
+		}
 		<-c.controls
 	case <-ctx.Done():
 		e = ctx.Err()
@@ -256,7 +276,8 @@ func (c *Client) trackedRef(id string) (KernelRunRef, error) {
 	return *r.Ref, nil
 }
 
-// Drain 复用首次总期限，不新增订阅；只有确认终态才释放登记。
+// Drain 使用绝对 until 与 ctx 的较早期限，并约束此前已排队的取消；重复调用共享首次结果。
+// 不新增订阅，只有确认终态才释放登记；Complete=false 时由 owner 处理 Unresolved。
 func (c *Client) Drain(ctx context.Context, until time.Time, reason string) DrainResult {
 	c.mu.Lock()
 	if c.drainDone != nil {
@@ -269,9 +290,13 @@ func (c *Client) Drain(ctx context.Context, until time.Time, reason string) Drai
 	}
 	c.stopped = true
 	c.drainDone = make(chan struct{})
+	c.controlDeadline = until
 	c.mu.Unlock()
 	budget, cancel := context.WithDeadline(ctx, until)
 	defer cancel()
+	stop := context.AfterFunc(budget, c.controlCancel)
+	defer stop()
+	defer c.controlCancel()
 	for budget.Err() == nil {
 		records := c.Invocations()
 		if len(records) == 0 {

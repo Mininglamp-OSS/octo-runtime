@@ -3,7 +3,7 @@ import asyncio
 import copy
 import uuid
 from contextlib import suppress
-from .codec import KernelError, dumps, loads, validate, check
+from .codec import KernelError, dumps, loads, validate, check, normalize
 from .generated_rules import BEHAVIOR as B, METHODS
 from .generated_rpc import RPCMethods
 from .transport import Transport
@@ -54,7 +54,7 @@ def terminal(frame):
 
 
 def identify(input):
-    request = copy.deepcopy(validate("InvokeInputWire", input))
+    request = validate("InvokeInputWire", input)
     for k in ("runId", "invocationId", "sessionId"):
         request.setdefault(k, str(uuid.uuid4()))
     for k, v in B["defaults"].items():
@@ -87,6 +87,8 @@ def response(value, id):
 
 
 class Client(RPCMethods):
+    """附着已有 Kernel。调用方先停止接纳并 drain，最后 close 本 client 的资源。"""
+
     topology = "kernel-ipc"
     ownership = "attached"
 
@@ -97,6 +99,8 @@ class Client(RPCMethods):
         self.controls = asyncio.Semaphore(B["limits"]["controlConcurrency"])
         self.background = set()
         self._draining = None
+        self._drain_deadline = None
+        self._control_timeouts = set()
 
     async def __aenter__(self):
         return self
@@ -117,6 +121,7 @@ class Client(RPCMethods):
         return task
 
     async def close(self):
+        """停止本 client 的观察和控制 IO；不会向 Kernel 新发执行取消，也不确认远端终态。"""
         self.stop_admission()
         await self.transport.close()
         # 关闭观察或控制请求，不向 Kernel 发送新的取消动作。
@@ -125,7 +130,9 @@ class Client(RPCMethods):
         await asyncio.gather(*list(self.background), return_exceptions=True)
 
     async def _rpc(self, method, params, before_write=None, timeout=None):
+        # 先统一缺省字段，再校验与编码；写出后副作用结果不明时禁止自动重发。
         rule = METHODS[method]
+        params = normalize(params)
         check(rule["params"], params)
         id = str(uuid.uuid4())
         line = (
@@ -207,6 +214,7 @@ class Client(RPCMethods):
             raise KernelError("RUN_IDENTITY_MISMATCH")
 
     async def cancel(self, ref, reason=None):
+        """高级原语：按原完整 ref 取消；ACK 仅表示受理，结果未知时不得自动重发。"""
         return await self.rpc_cancel(
             {"ref": ref, **({"reason": reason} if reason is not None else {})}
         )
@@ -218,6 +226,7 @@ class Client(RPCMethods):
         return await self.rpc_respond_native({"ref": ref, "response": response})
 
     async def submit(self, input, environment=None, *, cancel_token=None):
+        """高级原语：返回原 RunRef，不进入 invoke 登记；调用方负责订阅、取消及后续收尾。"""
         task = self._task(self._submit(input, environment or {}, cancel_token, None))
         # 用户 Task.cancel 不撤回已写出的接纳；内部 admission 仍有界地落到 accepted/unknown。
         return await asyncio.shield(task)
@@ -225,6 +234,7 @@ class Client(RPCMethods):
     async def _submit(self, input, environment, token, record):
         if token:
             token.check()
+        environment = normalize(environment)
         if "streamLimits" in environment:
             raise KernelError("KERNEL_STREAM_LIMITS_UNSUPPORTED")
         validate("KernelInvokeEnvironmentWire", environment)
@@ -270,6 +280,7 @@ class Client(RPCMethods):
                 raise
             ref = None
             try:
+                # ACK 丢失后只查询同一身份；修复耗尽保留 unknown，绝不能重新 invoke。
                 async with asyncio.timeout(B["timeoutsMs"]["recovery"] / 1000):
                     for delay in B["repairDelaysMs"]:
                         await asyncio.sleep(delay / 1000)
@@ -291,7 +302,8 @@ class Client(RPCMethods):
         return ref
 
     async def subscribe(self, ref, after_seq=0):
-        validate("KernelRunRef", ref)
+        """从最后连续序号拉取原执行；关闭迭代仅停止观察，断流修复不创建新的执行。"""
+        ref = validate("KernelRunRef", ref)
         after = after_seq
         repair = 0
         until = None
@@ -387,6 +399,11 @@ class Client(RPCMethods):
     async def invoke(
         self, input, environment=None, *, cancel_token=None, deadline=None
     ):
+        """首次迭代登记并接纳；native 返回 HostFrame，canonical 返回其事件。
+
+        显式 token/绝对 deadline 请求执行取消并保留尾流；aclose/Task.cancel 只停止观察。
+        接纳和已触发控制由 client 持有，未知执行保留登记，owner 通过 drain 完成收尾。
+        """
         if cancel_token:
             cancel_token.check()
         request = identify(input)
@@ -572,28 +589,41 @@ class Client(RPCMethods):
     async def respond_native_interaction(self, id, response):
         return await self.respond_native(self._ref(id), response)
 
-    async def _cancel_record(self, r, reason, deadline=None):
+    async def _cancel_record(self, r, reason):
         if r["reason"] is None:
             r["reason"] = reason
         if r["cancellation"] == "none":
             r["cancellation"] = "requested"
-        await r["admitted"].wait()
-        if r["ref"] is None:
-            raise r["admission_error"] or KernelError("ACCEPTANCE_UNKNOWN")
-        if r.get("observationError") == "RUN_OUTCOME_UNKNOWN":
-            raise KernelError("RUN_OUTCOME_UNKNOWN")
-        if r["key"]["invocation_id"] not in self.records:
-            return {"accepted": False}
 
         async def control():
             try:
-                # drain 的绝对截止时间也限制排队控制，不能在 drain 返回后启动新 cancel。
-                async with asyncio.timeout_at(deadline):
-                    async with self.controls:
-                        result = await self.cancel(r["ref"], r["reason"])
+                # 任务归 client 所有；观察关闭不撤销它。首次 drain 同时约束接纳等待、排队及在途 IO。
+                async with asyncio.timeout_at(self._drain_deadline) as budget:
+                    self._control_timeouts.add(budget)
+                    try:
+                        await r["admitted"].wait()
+                        if r["ref"] is None:
+                            raise r["admission_error"] or KernelError(
+                                "ACCEPTANCE_UNKNOWN"
+                            )
+                        if r.get("observationError") == "RUN_OUTCOME_UNKNOWN":
+                            raise KernelError("RUN_OUTCOME_UNKNOWN")
+                        if r["key"]["invocation_id"] not in self.records:
+                            return {"accepted": False}
+                        async with self.controls:
+                            if (
+                                self._drain_deadline is not None
+                                and asyncio.get_running_loop().time()
+                                >= self._drain_deadline
+                            ):
+                                raise TimeoutError
+                            result = await self.cancel(r["ref"], r["reason"])
+                    finally:
+                        self._control_timeouts.discard(budget)
                 r["cancellation"] = "acknowledged"
                 return result
             except TimeoutError as e:
+                # 取消 ACK 未确认不等于执行已取消；保留登记供调用方处理 unresolved。
                 r["cancellation"] = "unknown"
                 raise KernelError("DRAIN_DEADLINE_EXCEEDED") from e
             except BaseException:
@@ -605,6 +635,7 @@ class Client(RPCMethods):
         return await asyncio.shield(r["cancel_task"])
 
     async def drain(self, *, deadline, reason="owner_shutdown"):
+        """用事件循环的绝对时间排空；重复调用共享首次结果，只有确认终态才释放登记。"""
         self.stop_admission()
 
         async def run():
@@ -617,7 +648,7 @@ class Client(RPCMethods):
                     try:
                         snapshot = await self.get(r["key"], r["instance"])
                         if not terminal(snapshot.get("terminal")):
-                            await self._cancel_record(r, reason, deadline)
+                            await self._cancel_record(r, reason)
                     except KernelError:
                         pass
 
@@ -634,5 +665,9 @@ class Client(RPCMethods):
             return {"complete": not self.records, "unresolved": self.invocations()}
 
         if self._draining is None:
+            self._drain_deadline = deadline
+            # 收紧此前已启动的控制任务，不能只给 drain 新建任务设置 timeout。
+            for budget in self._control_timeouts:
+                budget.reschedule(deadline)
             self._draining = self._task(run())
         return await asyncio.shield(self._draining)
