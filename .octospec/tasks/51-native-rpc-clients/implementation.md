@@ -8,6 +8,12 @@ timestamp: 2026-10-24T00:00:00Z
 
 # 本轮交付
 
+2026-10-24 最新范围：保留完整三语言 SDK 和 demo；删除复制客户端的模板，客户端/生命周期在各语言包只维护一份源码。模型只生成公共根及类型依赖，验证专用节点保留在规则表；Rust 校验器使用与 Python 共用的规则 IR，替代逐节点展开函数。Native 的 GitHub Actions job、CI Gate 接入、Gate 负例测试和根格式检查接入全部删除；只保留按需本地验证。下文的模板/CI 结果是此前实施历史，不构成当前交付要求。
+
+PR 复审的两项缺陷已修复：Python Unix 关闭会中止未发送缓冲，避免超时或 client.close 无限等待；Rust union 在绑定前按 schema 选择分支，完整保留 message/tool/interaction subject 的 id。新增真实非读端缓冲阻塞测试，以及 ActivitySubject、嵌套 activity、三类 HostFrame、MCP 和不透明数字的类型往返测试。
+
+精简后本机 Go race、Rust 全 target 单测、Python 6 项 transport 单测、生成器确定性/漂移回归通过；三语言真实 Kernel/fake Provider、demo、包外消费完整套件各 44 项通过，每语言 347 条协议样例，零失败/跳过。Linux/Windows 不据本机结果宣称通过。此前托管矩阵的结果仅属于旧版提交。
+
 Go、Rust、Python 三套原生客户端和 playboard demo 均位于当前 worktree 的 `native/`，按用户最后的要求不使用外部 demo 仓库。统一支持 status/list、输入 JSON 或 prompt、native/canonical 流、原回执、get/subscribe、取消、两类回复、等待人工回答和显式回答文件。
 
 代码入口：[Go](../../../native/go/examples/playboard-demo/main.go)、[Rust](../../../native/rust/examples/playboard-demo.rs)、[Python](../../../native/python/examples/playboard_demo.py)。统一操作见 [demo README](../../../native/examples/README.md)；生成和 SDK 所有权见 [native README](../../../native/README.md)。

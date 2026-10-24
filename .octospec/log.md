@@ -338,3 +338,4 @@
 - 验证记录见 [接入与架构迁移](journal/shared/2026-10-15-okf-onboarding.md)。
 - 按当前源码与 Git 演进审查全部 31 份旧材料，整理为规则、指南和历史摘要，移除根与协议包的 docs 目录。
 - 修正过时接口与未实现拓扑，补充规则索引和本仓知识/链接校验；结果见 [全量整理验收](journal/shared/2026-10-15-knowledge-consolidation.md)。
+- Issue 51 按用户要求保留完整 SDK 并精简：删除客户端模板复制、只生成公共根及类型依赖、Rust 改用通用规则表校验；删除 native GitHub CI job/Gate 接入，仅本地验证。同步修复 Python 非读端关闭阻塞和 Rust union 字段丢失；三语言本地完整套件各 44 项通过，见[最新实施记录](tasks/51-native-rpc-clients/implementation.md)。

@@ -77,7 +77,8 @@ external_sources:
 decisions:
   - User explicitly authorized implementation after the planning review.
   - Three complete native SDK clients under native; data authority remains Protocol schema directory.
-  - Generate models/codecs/errors/methods/high-level Invoke/registry from schema and maintained language templates/common behavior.
+  - Generate protocol models, validation rules, behavior constants and RPC methods only; maintain one handwritten client/lifecycle implementation per language.
+  - User requires all native GitHub CI jobs and gate integration removed; validation is local and optional for the core Runtime.
   - Preserve IPC 1, Run 7, Context v3, default worker isolation and TS Runtime installation dependencies.
   - Match TS identity/acceptance/stream/cancel semantics; never implicitly resubmit or own Kernel.
   - M0-M7 implementation plan and A01-A40 evidence assertions; 96/100 is a planning self-assessment only.
@@ -130,7 +131,7 @@ validation:
     result: PASS.
   - command: go test -race ./...; cargo clippy --locked --all-targets -- -D warnings; cargo fmt -- --check
     result: PASS on macOS; Go race tests also passed on 1.25.0.
-  - command: node native/codegen/generate.mjs --check; node --test native/tests/codegen.test.mjs native/tests/ci.test.mjs
-    result: PASS; reproducibility, drift, unsupported assertions and CI gate negative cases.
+  - command: node native/codegen/generate.mjs --check; node --test native/tests/codegen.test.mjs
+    result: PASS; reproducibility, drift and unsupported assertions. Previous native CI gate tests were removed at the user's request.
   - scope: Required cross-platform, stress, full field parity and typed binding acceptance
-    result: INCOMPLETE; see implementation.md and contract-diff.md. CI matrix is configured but not executed remotely.
+    result: INCOMPLETE; see implementation.md and contract-diff.md. Native has no GitHub CI matrix; additional platform validation must be run explicitly.

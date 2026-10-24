@@ -147,6 +147,9 @@ class UnixChannel:
         await self.writer.drain()
 
     async def close(self):
+        # 回收连接时丢弃待发送缓冲，避免对端停读使 RPC 超时后仍无限等待。
+        # 已写入内核的请求仍可能执行，业务结果不确定性的处理由 RPC 层保留。
+        self.writer.transport.abort()
         self.writer.close()
         try:
             await self.writer.wait_closed()

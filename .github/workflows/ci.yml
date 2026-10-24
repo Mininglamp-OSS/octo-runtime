@@ -200,107 +200,11 @@ jobs:
           EXPECTED_COMMIT=$(git rev-parse HEAD)
           node scripts/verify-windows-release.mjs "$ARCHIVE" "$EXPECTED_COMMIT"
 
-  native-generated:
-    name: Native generated contract
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
-        with:
-          ref: ${{ inputs.ref || github.sha }}
-          persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: "24.19.0"
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version: "1.26.1"
-          cache: false
-      - name: Pin generator formatter
-        run: rustup toolchain install 1.98.1 --profile minimal --component rustfmt
-      - name: Check all generated files and generator failures
-        env:
-          RUSTUP_TOOLCHAIN: "1.98.1"
-        run: |
-          node native/codegen/generate.mjs --check
-          node --test native/tests/codegen.test.mjs
-          node --test native/tests/ci.test.mjs
-
-  native:
-    name: Native SDK (${{ matrix.os }}, ${{ matrix.language }}, ${{ matrix.toolchain }})
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        language: [go, rust, python]
-        toolchain: [minimum, current]
-    steps:
-      - name: Preserve generated LF on Windows
-        if: runner.os == 'Windows'
-        run: git config --global core.autocrlf false
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
-        with:
-          ref: ${{ inputs.ref || github.sha }}
-          persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: "24.19.0"
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        if: matrix.language == 'go'
-        with:
-          go-version: ${{ matrix.toolchain == 'minimum' && '1.25.0' || '1.26.1' }}
-          cache: false
-      - name: Install Rust toolchain
-        if: matrix.language == 'rust'
-        shell: bash
-        env:
-          NATIVE_RUST_VERSION: ${{ matrix.toolchain == 'minimum' && '1.85.0' || '1.98.1' }}
-        run: |
-          rustup toolchain install "$NATIVE_RUST_VERSION" --profile minimal --component clippy
-          echo "RUSTUP_TOOLCHAIN=$NATIVE_RUST_VERSION" >> "$GITHUB_ENV"
-      - name: Install Python SDK
-        if: matrix.language == 'python'
-        shell: bash
-        env:
-          NATIVE_PYTHON_VERSION: ${{ matrix.toolchain == 'minimum' && '3.11.16' || '3.14.7' }}
-        run: |
-          python -m pip install uv==0.12.13
-          uv sync --project native/python --frozen --python "$NATIVE_PYTHON_VERSION"
-      - name: Build test Kernel and worker
-        run: pnpm install --frozen-lockfile
-      - name: Go race checks
-        if: matrix.language == 'go'
-        working-directory: native/go
-        run: go test -race ./...
-      - name: Rust checks and package verification
-        if: matrix.language == 'rust'
-        run: |
-          cargo test --locked --manifest-path native/rust/Cargo.toml --all-targets
-          cargo clippy --locked --manifest-path native/rust/Cargo.toml --all-targets -- -D warnings
-          cargo package --locked --manifest-path native/rust/Cargo.toml
-      - name: Python source and wheel build
-        if: matrix.language == 'python'
-        run: |
-          uv run --project native/python --frozen python -m unittest discover -s native/python/tests -p "test_*.py"
-          uv build --project native/python --out-dir .tmp/native-packages
-      - name: Protocol, real IPC, faults and native playboard demos
-        run: node native/tests/run.mjs --language ${{ matrix.language }} --evidence .tmp/native-evidence.json
-      - name: Upload native evidence
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: native-${{ matrix.os }}-${{ matrix.language }}-${{ matrix.toolchain }}
-          path: .tmp/native-evidence.json
-          if-no-files-found: warn
-
   gate:
     # Stable required-check name: matrix failures and skipped builds must fail it.
     # See .octospec/tasks/company-development-checks/brief.md.
     name: CI Gate
-    needs: [check, verify-windows-release, native-generated, native]
+    needs: [check, verify-windows-release]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -310,10 +214,8 @@ jobs:
         env:
           CHECK_RESULT: ${{ needs.check.result }}
           WINDOWS_RELEASE_RESULT: ${{ needs.verify-windows-release.result }}
-          NATIVE_GENERATED_RESULT: ${{ needs.native-generated.result }}
-          NATIVE_RESULT: ${{ needs.native.result }}
         run: |
-          if [ "$CHECK_RESULT" != "success" ] || [ "$WINDOWS_RELEASE_RESULT" != "success" ] || [ "$NATIVE_GENERATED_RESULT" != "success" ] || [ "$NATIVE_RESULT" != "success" ]; then
-            echo "::error::CI did not succeed: matrix=$CHECK_RESULT windows-release=$WINDOWS_RELEASE_RESULT native-generated=$NATIVE_GENERATED_RESULT native=$NATIVE_RESULT"
+          if [ "$CHECK_RESULT" != "success" ] || [ "$WINDOWS_RELEASE_RESULT" != "success" ]; then
+            echo "::error::CI did not succeed: matrix=$CHECK_RESULT windows-release=$WINDOWS_RELEASE_RESULT"
             exit 1
           fi

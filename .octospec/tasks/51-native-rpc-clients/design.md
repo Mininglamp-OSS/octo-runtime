@@ -36,10 +36,10 @@ packages/octo-runtime-protocol/schema/
   kernel-client-scenarios.json         # 目标：四客户端复用场景清单和断言
 native/
   README.md
-  codegen/{generate.mjs,normalize.mjs,emit-*.mjs,templates/{go,rust,python}/}
-  go/{go.mod,go.sum,generated_*.go,transport_*.go,examples/,cmd/interop-driver/}
-  rust/{Cargo.toml,Cargo.lock,src/{generated/,transport/},examples/}
-  python/{pyproject.toml,uv.lock,src/octo_runtime/{generated/,transport/},examples/}
+  codegen/{generate.mjs,normalize.mjs,emit-*.mjs}
+  go/{go.mod,go.sum,client.go,lifecycle.go,generated_*.go,transport_*.go,examples/,cmd/interop-driver/}
+  rust/{Cargo.toml,Cargo.lock,src/{client.rs,generated/,transport.rs},examples/}
+  python/{pyproject.toml,uv.lock,src/octo_runtime/{client.py,generated_*.py,transport.py},examples/}
   tests/{run.mjs,serve-kernel.mjs,driver-protocol.md,codegen.test.mjs,interop.test.mjs}
 ```
 
@@ -47,7 +47,7 @@ native/
 
 `x-octo-methods` 每项包含 wire name、语言公共名称、params/result `$ref`、unary/stream 分类、通知映射、sideEffect 和 recovery 分类；`kernel-client.behavior.json` 引用这些 method key，定义下表预算与状态迁移。生成器必须校验每个公开方法恰好有一个映射；缺失、重复、未知引用或未实现的 Schema 关键字在写出任何产物前失败。
 
-生成步骤固定为：标准 JSON 解析 → 解析 `$ref` 和可达闭包 → 规范化 IR → 类型/codec/validator/method/error emitter → 高层语言模板 → manifest/hash。IR 覆盖可达定义实际使用的 object/required/additionalProperties/propertyNames/minProperties/maxProperties、数组 items/contains/uniqueItems/数量限制、enum/const、nullable、oneOf/anyOf/allOf/not/if/then/else、数值、pattern/format/字符串长度和判别字段。Request 外壳通过方法映射拆成独立请求定义，其他对象的条件约束继续生成校验，不能忽略。
+生成步骤固定为：标准 JSON 解析 → 解析 `$ref` 和可达闭包 → 规范化 IR → 类型/validator/method emitter → manifest/hash。高层客户端由各语言维护唯一源码。IR 覆盖可达定义实际使用的 object/required/additionalProperties/propertyNames/minProperties/maxProperties、数组 items/contains/uniqueItems/数量限制、enum/const、nullable、oneOf/anyOf/allOf/not/if/then/else、数值、pattern/format/字符串长度和判别字段。Request 外壳通过方法映射拆成独立请求定义，其他对象的条件约束继续生成校验，不能忽略。
 
 现有 Schema 还含 `x-octo-*` 的 Unicode、深度、字节、UTF-16 长度、URL、唯一 key/ref/header 和 selection 不变量。M0 为每个可达关键字记录源校验器和生成 helper 映射；形状及声明的本地不变量编译为模板 helper 调用，授权/有效 pending/执行配置一致性继续由原服务边界验证。仅供 TS 类型提示的 `tsType` 和 default 是注解，不在 native 注入默认值。未知 assertion 失败，未知普通描述性注解可保留。M1 用完整可达闭包及其反例验证，不能只演示简单 struct；fixture 必须注明 codec 拒绝还是服务语义拒绝，不能把二者混作一个检查。
 
@@ -55,10 +55,10 @@ native/
 | --- | --- | --- |
 | wire model/unknown extensions | 属性、union、presence、原始 JSON 载荷、序列化与校验 | 通用原始 JSON/UTF-8 适配工具；不重复字段表 |
 | RPC | 8 方法参数/结果、通知解码、错误类/码、sideEffect 分类 | connect/read/write/close、时钟、随机 ID、异步取消原语 |
-| 高层 Invoke | lazy admission、submit/get/subscribe、ACK 查询、续流、模式投影、取消、交互、元数据登记与 drain | Go goroutine/context、Tokio task/token、Python task/event 的通用适配 |
+| 高层 Invoke | 共享行为参数与 RPC 接口 | lazy admission、ACK 查询、续流、模式投影、取消、交互、元数据登记与 drain；各语言只维护一份 |
 | 协议边界 | 上限常量、已知值校验和错误映射、控制状态判定 | 分块 reader/writer 的平台机制 |
 
-模板是维护源，输出是生成代码。高层动作顺序由公共状态/动作表驱动，模板只表达语言机制；修改状态或错误分类必须同时更新共享场景。手写 transport 中不得出现 `agent_run.*` 方法选择、InvokeInput 字段清单、恢复分支或权限逻辑。CI 对该所有权边界做检查并审查 diff，避免“模型生成、方法和 invoke 仍各自手写”。
+2026-10-24 用户确认保留完整 SDK 并去重：删除客户端模板及其复制产物，客户端/生命周期在语言包内单份维护。修改状态或错误分类必须同时运行共享场景。手写 transport 中不得出现 `agent_run.*` 方法选择、InvokeInput 字段清单、恢复分支或权限逻辑。Rust/Python 共用生成规则 IR；Rust 用通用校验器解释规则表，union 绑定先按同一规则选分支，避免丢失 discriminator 关联字段。Native 不接入 GitHub CI，所有校验按需本地执行。
 
 生成命令目标为 `node native/codegen/generate.mjs`；检查命令为 `node native/codegen/generate.mjs --check`。检查在临时目录生成并比较完整预期文件集合，包含新增/缺失/遗留文件，不只运行 git diff。输出使用 UTF-8 LF、固定排序、固定格式模板和内容 hash，不写绝对路径、时间戳或随机值，不依赖本机 gofmt/rustfmt。两次生成和三个 OS 生成必须字节一致。语言 formatter check 另行验证模板输出。TS build 仍只需 Node/pnpm。
 

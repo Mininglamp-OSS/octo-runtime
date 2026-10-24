@@ -1,18 +1,13 @@
 {
   "revision": 1,
   "sourceHash": "e87aaad925b8d6b43906ed7f2508440f3f619534757f1865c5db5b531f88727f",
-  "generatorHash": "2f63fceaecf33f3fecd1fafe3c31a220eae0f265531a80f576ca50e2249dd961",
+  "generatorHash": "55465adeb229c115498a3d3974f916bb951e0f98501d7ddcd03df93c85ffb18c",
   "files": [
-    "native/go/generated_client.go",
-    "native/go/generated_error.go",
-    "native/go/generated_lifecycle.go",
     "native/go/generated_models.go",
     "native/go/generated_rpc.go",
-    "native/python/src/octo_runtime/generated_client.py",
     "native/python/src/octo_runtime/generated_models.py",
     "native/python/src/octo_runtime/generated_rpc.py",
     "native/python/src/octo_runtime/generated_rules.py",
-    "native/rust/src/generated/generated_client.rs",
     "native/rust/src/generated/models.rs",
     "native/rust/src/generated/rpc.rs",
     "native/rust/src/generated/rules.rs"

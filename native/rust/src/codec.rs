@@ -124,6 +124,127 @@ pub fn encode<T: Serialize>(name: &str, v: &T) -> Result<Vec<u8>, Error> {
     crate::generated::rules::validate(name, &v)?;
     Ok(serde_json::to_vec(&v)?)
 }
+// 只解释生成器已校验的规则表；不接受用户提供的 Schema。
+pub(crate) fn check_rule(rules: &[Value], index: usize, v: &Value) -> Result<(), Error> {
+    let r = &rules[index];
+    let check = |id: &Value, value: &Value| check_rule(rules, id.as_u64().unwrap() as usize, value);
+    if let Some(id) = r.get("ref") {
+        return check(id, v);
+    }
+    if let Some(t) = r.get("type") {
+        let names: Vec<&str> = match t.as_array() {
+            Some(a) => a.iter().map(|x| x.as_str().unwrap()).collect(),
+            None => vec![t.as_str().unwrap()],
+        };
+        types(v, &names)?;
+    }
+    if r.get("const").is_some_and(|c| !json_equal(v, c))
+        || r.get("enum")
+            .is_some_and(|a| !a.as_array().unwrap().iter().any(|c| json_equal(v, c)))
+    {
+        return Err(bad());
+    }
+    for key in [
+        "minimum",
+        "maximum",
+        "minLength",
+        "maxLength",
+        "minItems",
+        "maxItems",
+        "minProperties",
+        "maxProperties",
+    ] {
+        if let Some(bound) = r.get(key) {
+            constraint(v, key, bound.as_i64().unwrap())?;
+        }
+    }
+    if let Some(p) = r.get("pattern") {
+        pattern(v, p.as_str().unwrap())?;
+    }
+    if let Some(keys) = r.get("required") {
+        required(
+            v,
+            &keys
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|x| x.as_str().unwrap())
+                .collect::<Vec<_>>(),
+        )?;
+    }
+    if let Some(object) = v.as_object() {
+        for (key, value) in object {
+            if let Some(id) = r.get("propertyNames") {
+                check(id, &Value::String(key.clone()))?;
+            }
+            if let Some(id) = r.get("properties").and_then(|p| p.get(key)) {
+                check(id, value)?;
+            } else if r["strict"] == true {
+                return Err(bad());
+            } else if let Some(id) = r.get("additionalProperties") {
+                check(id, value)?;
+            }
+        }
+    }
+    if let Some(array) = v.as_array() {
+        if let Some(id) = r.get("items") {
+            for value in array {
+                check(id, value)?;
+            }
+        }
+        if r["uniqueItems"] == true {
+            unique(v)?;
+        }
+        if let Some(id) = r.get("contains") {
+            if !array.iter().any(|x| check(id, x).is_ok()) {
+                return Err(bad());
+            }
+        }
+    }
+    if let Some(ids) = r.get("allOf") {
+        for id in ids.as_array().unwrap() {
+            check(id, v)?;
+        }
+    }
+    for key in ["oneOf", "anyOf"] {
+        if let Some(ids) = r.get(key) {
+            let count = ids
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|id| check(id, v).is_ok())
+                .count();
+            if (key == "oneOf" && count != 1) || count == 0 {
+                return Err(bad());
+            }
+        }
+    }
+    if let Some(id) = r.get("not") {
+        if check(id, v).is_ok() {
+            return Err(bad());
+        }
+    }
+    if let Some(id) = r.get("if") {
+        if let Some(branch) = r.get(if check(id, v).is_ok() { "then" } else { "else" }) {
+            check(branch, v)?;
+        }
+    }
+    if let Some(extensions) = r.get("extensions") {
+        for (extension, limit) in extensions.as_object().unwrap() {
+            refinement(
+                v,
+                extension,
+                if limit == true {
+                    1
+                } else {
+                    limit.as_u64().unwrap() as usize
+                },
+            )?;
+        }
+    }
+    Ok(())
+}
+
 fn bad() -> Error {
     Error::new("VALIDATION_ERROR")
 }

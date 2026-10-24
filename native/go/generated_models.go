@@ -10,11 +10,6 @@ type KernelLookupKey struct {
 	SessionGeneration int64        `json:"session_generation"`
 	ProtocolMode      ProtocolMode `json:"protocol_mode"`
 }
-type KernelLookupKeyRunId = string
-type KernelLookupKeyInvocationId = string
-type KernelLookupKeyAgentSessionId = string
-type KernelLookupKeySessionGeneration = int64
-type KernelLookupKeyProtocolMode = ProtocolMode
 type KernelRunRef struct {
 	KernelInstanceId  string       `json:"kernel_instance_id"`
 	RunId             string       `json:"run_id"`
@@ -25,24 +20,12 @@ type KernelRunRef struct {
 	ProtocolMode      ProtocolMode `json:"protocol_mode"`
 	Protocol          string       `json:"protocol"`
 }
-type KernelRunRefKernelInstanceId = string
-type KernelRunRefRunId = string
-type KernelRunRefInvocationId = string
-type KernelRunRefStreamId = string
-type KernelRunRefAgentSessionId = string
-type KernelRunRefSessionGeneration = int64
-type KernelRunRefProtocolMode = ProtocolMode
-type KernelRunRefProtocol = string
 type KernelRunSnapshot struct {
 	Ref       KernelRunRef        `json:"ref"`
 	OldestSeq int64               `json:"oldest_seq"`
 	LatestSeq int64               `json:"latest_seq"`
 	Terminal  Optional[HostFrame] `json:"terminal,omitzero"`
 }
-type KernelRunSnapshotRef = KernelRunRef
-type KernelRunSnapshotOldestSeq = int64
-type KernelRunSnapshotLatestSeq = int64
-type KernelRunSnapshotTerminal = HostFrame
 type KernelStatus struct {
 	IpcVersion       json.Number        `json:"ipc_version"`
 	KernelInstanceId string             `json:"kernel_instance_id"`
@@ -50,20 +33,12 @@ type KernelStatus struct {
 	ExecutionReady   bool               `json:"execution_ready"`
 	Worker           KernelStatusWorker `json:"worker"`
 }
-type KernelStatusIpcVersion = json.Number
-type KernelStatusKernelInstanceId = string
-type KernelStatusPid = int64
-type KernelStatusExecutionReady = bool
 type KernelStatusWorker struct {
 	Pid            Optional[int64] `json:"pid,omitzero"`
 	Generation     int64           `json:"generation"`
 	RestartAttempt int64           `json:"restart_attempt"`
 	State          string          `json:"state"`
 }
-type KernelStatusWorkerPid = int64
-type KernelStatusWorkerGeneration = int64
-type KernelStatusWorkerRestartAttempt = int64
-type KernelStatusWorkerState = string
 type RunProtocolErrorCode = string
 type ProtocolMode = string
 type CanonicalEventWire struct {
@@ -71,15 +46,10 @@ type CanonicalEventWire struct {
 	Type            string                `json:"type"`
 	Payload         CanonicalEventPayload `json:"payload"`
 }
-type CanonicalEventWireProtocolVersion = json.Number
-type CanonicalEventWireType = string
-type CanonicalEventWirePayload = CanonicalEventPayload
 type HostInvokeOptions struct {
 	ProtocolMode Optional[ProtocolMode] `json:"protocolMode,omitzero"`
 	Protocol     Optional[string]       `json:"protocol,omitzero"`
 }
-type HostInvokeOptionsProtocolMode = ProtocolMode
-type HostInvokeOptionsProtocol = string
 type HostRunReceipt struct {
 	RunId             string       `json:"run_id"`
 	InvocationId      string       `json:"invocation_id"`
@@ -89,153 +59,51 @@ type HostRunReceipt struct {
 	ProtocolMode      ProtocolMode `json:"protocol_mode"`
 	Protocol          string       `json:"protocol"`
 }
-type HostRunReceiptRunId = string
-type HostRunReceiptInvocationId = string
-type HostRunReceiptStreamId = string
-type HostRunReceiptAgentSessionId = string
-type HostRunReceiptSessionGeneration = int64
-type HostRunReceiptProtocolMode = ProtocolMode
-type HostRunReceiptProtocol = string
 type AdapterProtocolSupport struct {
 	Protocol      string         `json:"protocol"`
 	Modes         []ProtocolMode `json:"modes"`
 	NativeMethods []string       `json:"nativeMethods"`
 }
-type AdapterProtocolSupportProtocol = string
-type AdapterProtocolSupportModes = []ProtocolMode
-type AdapterProtocolSupportModesItems = ProtocolMode
-type AdapterProtocolSupportNativeMethods = []string
-type AdapterProtocolSupportNativeMethodsItems = string
-type AdapterProtocolSupportIf struct {
-	Modes Optional[json.RawMessage]  `json:"modes,omitzero"`
-	Extra map[string]json.RawMessage `json:"-"`
-}
-
-func (v AdapterProtocolSupportIf) MarshalJSON() ([]byte, error) {
-	type plain AdapterProtocolSupportIf
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *AdapterProtocolSupportIf) UnmarshalJSON(data []byte) error {
-	type plain AdapterProtocolSupportIf
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = AdapterProtocolSupportIf(p)
-	return nil
-}
-
-type AdapterProtocolSupportIfModes = json.RawMessage
-type AdapterProtocolSupportIfModesNot = json.RawMessage
-type AdapterProtocolSupportIfModesNotContains = string
-type AdapterProtocolSupportThen struct {
-	NativeMethods Optional[json.RawMessage]  `json:"nativeMethods,omitzero"`
-	Extra         map[string]json.RawMessage `json:"-"`
-}
-
-func (v AdapterProtocolSupportThen) MarshalJSON() ([]byte, error) {
-	type plain AdapterProtocolSupportThen
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *AdapterProtocolSupportThen) UnmarshalJSON(data []byte) error {
-	type plain AdapterProtocolSupportThen
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = AdapterProtocolSupportThen(p)
-	return nil
-}
-
-type AdapterProtocolSupportThenNativeMethods = json.RawMessage
 type NativeInteractionResponse struct {
 	RequestId NativeInteractionResponseRequestId `json:"requestId"`
 	Payload   map[string]json.RawMessage         `json:"payload"`
 }
 type NativeInteractionResponseRequestId = json.RawMessage
-type NativeInteractionResponseRequestIdOneOf0 = string
-type NativeInteractionResponseRequestIdOneOf1 = int64
-type NativeInteractionResponsePayload = map[string]json.RawMessage
 type HostControl = json.RawMessage
 type HostControlOneOf0 struct {
 	Type    string            `json:"type"`
 	Name    string            `json:"name"`
 	Payload ExecutionEvidence `json:"payload"`
 }
-type HostControlOneOf0Type = string
-type HostControlOneOf0Name = string
-type HostControlOneOf0Payload = ExecutionEvidence
 type HostControlOneOf1 struct {
 	Type    string                     `json:"type"`
 	Name    string                     `json:"name"`
 	Payload map[string]json.RawMessage `json:"payload"`
 }
-type HostControlOneOf1Type = string
-type HostControlOneOf1Name = string
-type HostControlOneOf1Payload = map[string]json.RawMessage
 type HostControlOneOf2 struct {
 	Type  string `json:"type"`
 	State string `json:"state"`
 }
-type HostControlOneOf2Type = string
-type HostControlOneOf2State = string
 type HostControlOneOf3 struct {
 	Type    string                    `json:"type"`
 	Code    RunProtocolErrorCode      `json:"code"`
 	Message string                    `json:"message"`
 	Failure Optional[FailureEnvelope] `json:"failure,omitzero"`
 }
-type HostControlOneOf3Type = string
-type HostControlOneOf3Code = RunProtocolErrorCode
-type HostControlOneOf3Message = string
-type HostControlOneOf3Failure = FailureEnvelope
 type HostControlOneOf4 struct {
 	Type      string                     `json:"type"`
 	RequestId HostControlOneOf4RequestId `json:"requestId"`
 	Status    string                     `json:"status"`
 	ExpiresAt Optional[int64]            `json:"expiresAt,omitzero"`
 }
-type HostControlOneOf4Type = string
 type HostControlOneOf4RequestId = json.RawMessage
-type HostControlOneOf4RequestIdOneOf0 = string
-type HostControlOneOf4RequestIdOneOf1 = int64
-type HostControlOneOf4Status = string
-type HostControlOneOf4ExpiresAt = int64
-type HostControlOneOf4If struct {
-	Status Optional[string]           `json:"status,omitzero"`
-	Extra  map[string]json.RawMessage `json:"-"`
-}
-
-func (v HostControlOneOf4If) MarshalJSON() ([]byte, error) {
-	type plain HostControlOneOf4If
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *HostControlOneOf4If) UnmarshalJSON(data []byte) error {
-	type plain HostControlOneOf4If
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = HostControlOneOf4If(p)
-	return nil
-}
-
-type HostControlOneOf4IfStatus = string
-type HostControlOneOf4Then = json.RawMessage
 type HostControlOneOf5 struct {
 	Type              string `json:"type"`
 	RequestedAfterSeq int64  `json:"requested_after_seq"`
 	OldestSeq         int64  `json:"oldest_seq"`
 	LatestSeq         int64  `json:"latest_seq"`
 }
-type HostControlOneOf5Type = string
-type HostControlOneOf5RequestedAfterSeq = int64
-type HostControlOneOf5OldestSeq = int64
-type HostControlOneOf5LatestSeq = int64
 type HostFrame = json.RawMessage
-type HostFrameOneOf0 = NativeHostFrame
-type HostFrameOneOf1 = CanonicalHostFrame
-type HostFrameOneOf2 = ControlHostFrame
 type NativeHostFrame struct {
 	RunId             string                     `json:"run_id"`
 	InvocationId      string                     `json:"invocation_id"`
@@ -249,17 +117,6 @@ type NativeHostFrame struct {
 	MessageKind       string                     `json:"messageKind"`
 	Payload           map[string]json.RawMessage `json:"payload"`
 }
-type NativeHostFrameRunId = string
-type NativeHostFrameInvocationId = string
-type NativeHostFrameStreamId = string
-type NativeHostFrameAgentSessionId = string
-type NativeHostFrameSessionGeneration = int64
-type NativeHostFrameSeq = int64
-type NativeHostFrameProtocolMode = string
-type NativeHostFrameProtocol = string
-type NativeHostFrameKind = string
-type NativeHostFrameMessageKind = string
-type NativeHostFramePayload = map[string]json.RawMessage
 type CanonicalHostFrame struct {
 	RunId             string             `json:"run_id"`
 	InvocationId      string             `json:"invocation_id"`
@@ -272,16 +129,6 @@ type CanonicalHostFrame struct {
 	Kind              string             `json:"kind"`
 	Event             CanonicalEventWire `json:"event"`
 }
-type CanonicalHostFrameRunId = string
-type CanonicalHostFrameInvocationId = string
-type CanonicalHostFrameStreamId = string
-type CanonicalHostFrameAgentSessionId = string
-type CanonicalHostFrameSessionGeneration = int64
-type CanonicalHostFrameSeq = int64
-type CanonicalHostFrameProtocolMode = string
-type CanonicalHostFrameProtocol = string
-type CanonicalHostFrameKind = string
-type CanonicalHostFrameEvent = CanonicalEventWire
 type ControlHostFrame struct {
 	RunId             string       `json:"run_id"`
 	InvocationId      string       `json:"invocation_id"`
@@ -294,16 +141,6 @@ type ControlHostFrame struct {
 	Kind              string       `json:"kind"`
 	Control           HostControl  `json:"control"`
 }
-type ControlHostFrameRunId = string
-type ControlHostFrameInvocationId = string
-type ControlHostFrameStreamId = string
-type ControlHostFrameAgentSessionId = string
-type ControlHostFrameSessionGeneration = int64
-type ControlHostFrameSeq = int64
-type ControlHostFrameProtocolMode = ProtocolMode
-type ControlHostFrameProtocol = string
-type ControlHostFrameKind = string
-type ControlHostFrameControl = HostControl
 type NotificationMessage struct {
 	Schema                  string                                       `json:"schema"`
 	EventId                 string                                       `json:"eventId"`
@@ -320,15 +157,6 @@ type NotificationMessage struct {
 	TimelineTruncated       Optional[bool]                               `json:"timelineTruncated,omitzero"`
 	TimelineThroughSequence Optional[int64]                              `json:"timelineThroughSequence,omitzero"`
 }
-type NotificationMessageSchema = string
-type NotificationMessageEventId = string
-type NotificationMessageEvent = string
-type NotificationMessageOccurredAt = string
-type NotificationMessageProjectId = string
-type NotificationMessageSourceId = string
-type NotificationMessageTitle = string
-type NotificationMessageText = string
-type NotificationMessageEvtType = int64
 type NotificationMessageTask struct {
 	Id               string                     `json:"id"`
 	Title            string                     `json:"title"`
@@ -338,13 +166,6 @@ type NotificationMessageTask struct {
 	ResponsibleParty Optional[*json.RawMessage] `json:"responsible_party,omitzero"`
 	CurrentHandler   Optional[*json.RawMessage] `json:"current_handler,omitzero"`
 }
-type NotificationMessageTaskId = string
-type NotificationMessageTaskTitle = string
-type NotificationMessageTaskStatus = string
-type NotificationMessageTaskRowVersion = int64
-type NotificationMessageTaskHandlerEpoch = int64
-type NotificationMessageTaskResponsibleParty = *json.RawMessage
-type NotificationMessageTaskCurrentHandler = *json.RawMessage
 type NotificationMessageTaskEvent struct {
 	Id                 string                     `json:"id"`
 	Sequence           int64                      `json:"sequence"`
@@ -355,57 +176,12 @@ type NotificationMessageTaskEvent struct {
 	Summary            string                     `json:"summary"`
 	Payload            map[string]json.RawMessage `json:"payload"`
 }
-type NotificationMessageTaskEventId = string
-type NotificationMessageTaskEventSequence = int64
-type NotificationMessageTaskEventEvtType = int64
-type NotificationMessageTaskEventActor = map[string]json.RawMessage
-type NotificationMessageTaskEventTaskConversationId = string
-type NotificationMessageTaskEventSourceRunId = string
-type NotificationMessageTaskEventSummary = string
-type NotificationMessageTaskEventPayload = map[string]json.RawMessage
-type NotificationMessageTimeline = []NotificationMessageTimelineItems
 type NotificationMessageTimelineItems struct {
 	EventId  string `json:"eventId"`
 	Sequence int64  `json:"sequence"`
 	EvtType  int64  `json:"evt_type"`
 	Summary  string `json:"summary"`
 }
-type NotificationMessageTimelineItemsEventId = string
-type NotificationMessageTimelineItemsSequence = int64
-type NotificationMessageTimelineItemsEvtType = int64
-type NotificationMessageTimelineItemsSummary = string
-type NotificationMessageTimelineTruncated = bool
-type NotificationMessageTimelineThroughSequence = int64
-type NotificationMessageAllOf0 = json.RawMessage
-type NotificationMessageAllOf0If struct {
-	Event Optional[string]           `json:"event,omitzero"`
-	Extra map[string]json.RawMessage `json:"-"`
-}
-
-func (v NotificationMessageAllOf0If) MarshalJSON() ([]byte, error) {
-	type plain NotificationMessageAllOf0If
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *NotificationMessageAllOf0If) UnmarshalJSON(data []byte) error {
-	type plain NotificationMessageAllOf0If
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = NotificationMessageAllOf0If(p)
-	return nil
-}
-
-type NotificationMessageAllOf0IfEvent = string
-type NotificationMessageAllOf0Then = json.RawMessage
-type NotificationMessageAllOf0Else = json.RawMessage
-type NotificationMessageAllOf0ElseNot = json.RawMessage
-type NotificationMessageAllOf0ElseNotAnyOf0 = json.RawMessage
-type NotificationMessageAllOf0ElseNotAnyOf1 = json.RawMessage
-type NotificationMessageAllOf0ElseNotAnyOf2 = json.RawMessage
-type NotificationMessageAllOf0ElseNotAnyOf3 = json.RawMessage
-type NotificationMessageAllOf0ElseNotAnyOf4 = json.RawMessage
-type NotificationMessageAllOf0ElseNotAnyOf5 = json.RawMessage
 type ApprovalMode = string
 type ContextItem struct {
 	Namespace string                     `json:"namespace"`
@@ -413,624 +189,14 @@ type ContextItem struct {
 	Payload   map[string]json.RawMessage `json:"payload"`
 	Guidance  Optional[string]           `json:"guidance,omitzero"`
 }
-type ContextItemNamespace = string
-type ContextItemName = string
-type ContextItemPayload = map[string]json.RawMessage
-type ContextItemGuidance = string
-type ContextItemNot struct {
-	Namespace string                     `json:"namespace"`
-	Extra     map[string]json.RawMessage `json:"-"`
-}
-
-func (v ContextItemNot) MarshalJSON() ([]byte, error) {
-	type plain ContextItemNot
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextItemNot) UnmarshalJSON(data []byte) error {
-	type plain ContextItemNot
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextItemNot(p)
-	return nil
-}
-
-type ContextItemNotNamespace = string
-type ContextItemAllOf0 = json.RawMessage
-type ContextItemAllOf0If struct {
-	Namespace Optional[string]           `json:"namespace,omitzero"`
-	Name      Optional[string]           `json:"name,omitzero"`
-	Extra     map[string]json.RawMessage `json:"-"`
-}
-
-func (v ContextItemAllOf0If) MarshalJSON() ([]byte, error) {
-	type plain ContextItemAllOf0If
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextItemAllOf0If) UnmarshalJSON(data []byte) error {
-	type plain ContextItemAllOf0If
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextItemAllOf0If(p)
-	return nil
-}
-
-type ContextItemAllOf0IfNamespace = string
-type ContextItemAllOf0IfName = string
-type ContextItemAllOf0Then struct {
-	Payload Optional[ContextActmodePayload] `json:"payload,omitzero"`
-	Extra   map[string]json.RawMessage      `json:"-"`
-}
-
-func (v ContextItemAllOf0Then) MarshalJSON() ([]byte, error) {
-	type plain ContextItemAllOf0Then
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextItemAllOf0Then) UnmarshalJSON(data []byte) error {
-	type plain ContextItemAllOf0Then
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextItemAllOf0Then(p)
-	return nil
-}
-
-type ContextItemAllOf0ThenPayload = ContextActmodePayload
-type ContextItemAllOf1 = json.RawMessage
-type ContextItemAllOf1If struct {
-	Namespace Optional[string]           `json:"namespace,omitzero"`
-	Name      Optional[string]           `json:"name,omitzero"`
-	Extra     map[string]json.RawMessage `json:"-"`
-}
-
-func (v ContextItemAllOf1If) MarshalJSON() ([]byte, error) {
-	type plain ContextItemAllOf1If
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextItemAllOf1If) UnmarshalJSON(data []byte) error {
-	type plain ContextItemAllOf1If
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextItemAllOf1If(p)
-	return nil
-}
-
-type ContextItemAllOf1IfNamespace = string
-type ContextItemAllOf1IfName = string
-type ContextItemAllOf1Then struct {
-	Payload Optional[ContextModelPayload] `json:"payload,omitzero"`
-	Extra   map[string]json.RawMessage    `json:"-"`
-}
-
-func (v ContextItemAllOf1Then) MarshalJSON() ([]byte, error) {
-	type plain ContextItemAllOf1Then
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextItemAllOf1Then) UnmarshalJSON(data []byte) error {
-	type plain ContextItemAllOf1Then
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextItemAllOf1Then(p)
-	return nil
-}
-
-type ContextItemAllOf1ThenPayload = ContextModelPayload
-type ContextItemAllOf2 = json.RawMessage
-type ContextItemAllOf2If struct {
-	Namespace Optional[string]           `json:"namespace,omitzero"`
-	Name      Optional[string]           `json:"name,omitzero"`
-	Extra     map[string]json.RawMessage `json:"-"`
-}
-
-func (v ContextItemAllOf2If) MarshalJSON() ([]byte, error) {
-	type plain ContextItemAllOf2If
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextItemAllOf2If) UnmarshalJSON(data []byte) error {
-	type plain ContextItemAllOf2If
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextItemAllOf2If(p)
-	return nil
-}
-
-type ContextItemAllOf2IfNamespace = string
-type ContextItemAllOf2IfName = string
-type ContextItemAllOf2Then struct {
-	Payload Optional[ContextAdapterPayload] `json:"payload,omitzero"`
-	Extra   map[string]json.RawMessage      `json:"-"`
-}
-
-func (v ContextItemAllOf2Then) MarshalJSON() ([]byte, error) {
-	type plain ContextItemAllOf2Then
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextItemAllOf2Then) UnmarshalJSON(data []byte) error {
-	type plain ContextItemAllOf2Then
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextItemAllOf2Then(p)
-	return nil
-}
-
-type ContextItemAllOf2ThenPayload = ContextAdapterPayload
-type ContextItemAllOf3 = json.RawMessage
-type ContextItemAllOf3If struct {
-	Namespace Optional[string]           `json:"namespace,omitzero"`
-	Name      Optional[string]           `json:"name,omitzero"`
-	Extra     map[string]json.RawMessage `json:"-"`
-}
-
-func (v ContextItemAllOf3If) MarshalJSON() ([]byte, error) {
-	type plain ContextItemAllOf3If
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextItemAllOf3If) UnmarshalJSON(data []byte) error {
-	type plain ContextItemAllOf3If
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextItemAllOf3If(p)
-	return nil
-}
-
-type ContextItemAllOf3IfNamespace = string
-type ContextItemAllOf3IfName = string
-type ContextItemAllOf3Then struct {
-	Payload Optional[ContextWorkspacePayload] `json:"payload,omitzero"`
-	Extra   map[string]json.RawMessage        `json:"-"`
-}
-
-func (v ContextItemAllOf3Then) MarshalJSON() ([]byte, error) {
-	type plain ContextItemAllOf3Then
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextItemAllOf3Then) UnmarshalJSON(data []byte) error {
-	type plain ContextItemAllOf3Then
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextItemAllOf3Then(p)
-	return nil
-}
-
-type ContextItemAllOf3ThenPayload = ContextWorkspacePayload
-type ContextItemAllOf4 = json.RawMessage
-type ContextItemAllOf4If struct {
-	Namespace Optional[string]           `json:"namespace,omitzero"`
-	Name      Optional[string]           `json:"name,omitzero"`
-	Extra     map[string]json.RawMessage `json:"-"`
-}
-
-func (v ContextItemAllOf4If) MarshalJSON() ([]byte, error) {
-	type plain ContextItemAllOf4If
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextItemAllOf4If) UnmarshalJSON(data []byte) error {
-	type plain ContextItemAllOf4If
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextItemAllOf4If(p)
-	return nil
-}
-
-type ContextItemAllOf4IfNamespace = string
-type ContextItemAllOf4IfName = string
-type ContextItemAllOf4Then struct {
-	Payload Optional[ContextLimitsPayload] `json:"payload,omitzero"`
-	Extra   map[string]json.RawMessage     `json:"-"`
-}
-
-func (v ContextItemAllOf4Then) MarshalJSON() ([]byte, error) {
-	type plain ContextItemAllOf4Then
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextItemAllOf4Then) UnmarshalJSON(data []byte) error {
-	type plain ContextItemAllOf4Then
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextItemAllOf4Then(p)
-	return nil
-}
-
-type ContextItemAllOf4ThenPayload = ContextLimitsPayload
-type ContextItemAllOf5 = json.RawMessage
-type ContextItemAllOf5If struct {
-	Namespace Optional[string]           `json:"namespace,omitzero"`
-	Name      Optional[string]           `json:"name,omitzero"`
-	Extra     map[string]json.RawMessage `json:"-"`
-}
-
-func (v ContextItemAllOf5If) MarshalJSON() ([]byte, error) {
-	type plain ContextItemAllOf5If
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextItemAllOf5If) UnmarshalJSON(data []byte) error {
-	type plain ContextItemAllOf5If
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextItemAllOf5If(p)
-	return nil
-}
-
-type ContextItemAllOf5IfNamespace = string
-type ContextItemAllOf5IfName = string
-type ContextItemAllOf5Then struct {
-	Payload Optional[ContextRuntimeSelectionPayload] `json:"payload,omitzero"`
-	Extra   map[string]json.RawMessage               `json:"-"`
-}
-
-func (v ContextItemAllOf5Then) MarshalJSON() ([]byte, error) {
-	type plain ContextItemAllOf5Then
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextItemAllOf5Then) UnmarshalJSON(data []byte) error {
-	type plain ContextItemAllOf5Then
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextItemAllOf5Then(p)
-	return nil
-}
-
-type ContextItemAllOf5ThenPayload = ContextRuntimeSelectionPayload
-type ContextItemAllOf6 = json.RawMessage
-type ContextItemAllOf6If struct {
-	Namespace Optional[string]           `json:"namespace,omitzero"`
-	Name      Optional[string]           `json:"name,omitzero"`
-	Extra     map[string]json.RawMessage `json:"-"`
-}
-
-func (v ContextItemAllOf6If) MarshalJSON() ([]byte, error) {
-	type plain ContextItemAllOf6If
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextItemAllOf6If) UnmarshalJSON(data []byte) error {
-	type plain ContextItemAllOf6If
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextItemAllOf6If(p)
-	return nil
-}
-
-type ContextItemAllOf6IfNamespace = string
-type ContextItemAllOf6IfName = string
-type ContextItemAllOf6Then struct {
-	Payload Optional[ContextApprovalPolicyPayload] `json:"payload,omitzero"`
-	Extra   map[string]json.RawMessage             `json:"-"`
-}
-
-func (v ContextItemAllOf6Then) MarshalJSON() ([]byte, error) {
-	type plain ContextItemAllOf6Then
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextItemAllOf6Then) UnmarshalJSON(data []byte) error {
-	type plain ContextItemAllOf6Then
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextItemAllOf6Then(p)
-	return nil
-}
-
-type ContextItemAllOf6ThenPayload = ContextApprovalPolicyPayload
-type ContextItemAllOf7 = json.RawMessage
-type ContextItemAllOf7If struct {
-	Namespace Optional[string]           `json:"namespace,omitzero"`
-	Name      Optional[string]           `json:"name,omitzero"`
-	Extra     map[string]json.RawMessage `json:"-"`
-}
-
-func (v ContextItemAllOf7If) MarshalJSON() ([]byte, error) {
-	type plain ContextItemAllOf7If
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextItemAllOf7If) UnmarshalJSON(data []byte) error {
-	type plain ContextItemAllOf7If
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextItemAllOf7If(p)
-	return nil
-}
-
-type ContextItemAllOf7IfNamespace = string
-type ContextItemAllOf7IfName = string
-type ContextItemAllOf7Then struct {
-	Payload Optional[ContextInlinePayload] `json:"payload,omitzero"`
-	Extra   map[string]json.RawMessage     `json:"-"`
-}
-
-func (v ContextItemAllOf7Then) MarshalJSON() ([]byte, error) {
-	type plain ContextItemAllOf7Then
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextItemAllOf7Then) UnmarshalJSON(data []byte) error {
-	type plain ContextItemAllOf7Then
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextItemAllOf7Then(p)
-	return nil
-}
-
-type ContextItemAllOf7ThenPayload = ContextInlinePayload
-type ContextItemAllOf8 = json.RawMessage
-type ContextItemAllOf8If struct {
-	Namespace Optional[string]           `json:"namespace,omitzero"`
-	Name      Optional[string]           `json:"name,omitzero"`
-	Extra     map[string]json.RawMessage `json:"-"`
-}
-
-func (v ContextItemAllOf8If) MarshalJSON() ([]byte, error) {
-	type plain ContextItemAllOf8If
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextItemAllOf8If) UnmarshalJSON(data []byte) error {
-	type plain ContextItemAllOf8If
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextItemAllOf8If(p)
-	return nil
-}
-
-type ContextItemAllOf8IfNamespace = string
-type ContextItemAllOf8IfName = string
-type ContextItemAllOf8Then struct {
-	Payload Optional[ContextReferencesPayload] `json:"payload,omitzero"`
-	Extra   map[string]json.RawMessage         `json:"-"`
-}
-
-func (v ContextItemAllOf8Then) MarshalJSON() ([]byte, error) {
-	type plain ContextItemAllOf8Then
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextItemAllOf8Then) UnmarshalJSON(data []byte) error {
-	type plain ContextItemAllOf8Then
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextItemAllOf8Then(p)
-	return nil
-}
-
-type ContextItemAllOf8ThenPayload = ContextReferencesPayload
-type ContextItemAllOf9 = json.RawMessage
-type ContextItemAllOf9If struct {
-	Namespace Optional[string]           `json:"namespace,omitzero"`
-	Name      Optional[string]           `json:"name,omitzero"`
-	Extra     map[string]json.RawMessage `json:"-"`
-}
-
-func (v ContextItemAllOf9If) MarshalJSON() ([]byte, error) {
-	type plain ContextItemAllOf9If
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextItemAllOf9If) UnmarshalJSON(data []byte) error {
-	type plain ContextItemAllOf9If
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextItemAllOf9If(p)
-	return nil
-}
-
-type ContextItemAllOf9IfNamespace = string
-type ContextItemAllOf9IfName = string
-type ContextItemAllOf9Then struct {
-	Payload Optional[ContextInstructionsPayload] `json:"payload,omitzero"`
-	Extra   map[string]json.RawMessage           `json:"-"`
-}
-
-func (v ContextItemAllOf9Then) MarshalJSON() ([]byte, error) {
-	type plain ContextItemAllOf9Then
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextItemAllOf9Then) UnmarshalJSON(data []byte) error {
-	type plain ContextItemAllOf9Then
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextItemAllOf9Then(p)
-	return nil
-}
-
-type ContextItemAllOf9ThenPayload = ContextInstructionsPayload
-type ContextItemAllOf10 = json.RawMessage
-type ContextItemAllOf10If struct {
-	Namespace Optional[string]           `json:"namespace,omitzero"`
-	Name      Optional[string]           `json:"name,omitzero"`
-	Extra     map[string]json.RawMessage `json:"-"`
-}
-
-func (v ContextItemAllOf10If) MarshalJSON() ([]byte, error) {
-	type plain ContextItemAllOf10If
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextItemAllOf10If) UnmarshalJSON(data []byte) error {
-	type plain ContextItemAllOf10If
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextItemAllOf10If(p)
-	return nil
-}
-
-type ContextItemAllOf10IfNamespace = string
-type ContextItemAllOf10IfName = string
-type ContextItemAllOf10Then struct {
-	Payload Optional[ContextEnvsPayload] `json:"payload,omitzero"`
-	Extra   map[string]json.RawMessage   `json:"-"`
-}
-
-func (v ContextItemAllOf10Then) MarshalJSON() ([]byte, error) {
-	type plain ContextItemAllOf10Then
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextItemAllOf10Then) UnmarshalJSON(data []byte) error {
-	type plain ContextItemAllOf10Then
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextItemAllOf10Then(p)
-	return nil
-}
-
-type ContextItemAllOf10ThenPayload = ContextEnvsPayload
-type ContextItemAllOf11 = json.RawMessage
-type ContextItemAllOf11If struct {
-	Namespace Optional[string]           `json:"namespace,omitzero"`
-	Extra     map[string]json.RawMessage `json:"-"`
-}
-
-func (v ContextItemAllOf11If) MarshalJSON() ([]byte, error) {
-	type plain ContextItemAllOf11If
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextItemAllOf11If) UnmarshalJSON(data []byte) error {
-	type plain ContextItemAllOf11If
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextItemAllOf11If(p)
-	return nil
-}
-
-type ContextItemAllOf11IfNamespace = string
-type ContextItemAllOf11Then = json.RawMessage
-type ContextItemAllOf11ThenNot = json.RawMessage
-type ContextItemAllOf12 = json.RawMessage
-type ContextItemAllOf12If struct {
-	Namespace Optional[string]           `json:"namespace,omitzero"`
-	Name      Optional[string]           `json:"name,omitzero"`
-	Extra     map[string]json.RawMessage `json:"-"`
-}
-
-func (v ContextItemAllOf12If) MarshalJSON() ([]byte, error) {
-	type plain ContextItemAllOf12If
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextItemAllOf12If) UnmarshalJSON(data []byte) error {
-	type plain ContextItemAllOf12If
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextItemAllOf12If(p)
-	return nil
-}
-
-type ContextItemAllOf12IfNamespace = string
-type ContextItemAllOf12IfName = string
-type ContextItemAllOf12Then struct {
-	Payload Optional[ContextMcpPayload] `json:"payload,omitzero"`
-	Extra   map[string]json.RawMessage  `json:"-"`
-}
-
-func (v ContextItemAllOf12Then) MarshalJSON() ([]byte, error) {
-	type plain ContextItemAllOf12Then
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextItemAllOf12Then) UnmarshalJSON(data []byte) error {
-	type plain ContextItemAllOf12Then
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextItemAllOf12Then(p)
-	return nil
-}
-
-type ContextItemAllOf12ThenPayload = ContextMcpPayload
 type ContextEnvelope struct {
 	Schema string        `json:"schema"`
 	Items  []ContextItem `json:"items"`
 }
-type ContextEnvelopeSchema = string
-type ContextEnvelopeItems = []ContextItem
-type ContextEnvelopeItemsItems = ContextItem
 type ContextConfiguration struct {
 	Defaults  json.RawMessage           `json:"defaults"`
 	Mandatory PersistentContextEnvelope `json:"mandatory"`
 }
-type ContextConfigurationDefaults = json.RawMessage
-type ContextConfigurationDefaultsAllOf0 = PersistentContextEnvelope
-type ContextConfigurationDefaultsAllOf1 struct {
-	Items Optional[json.RawMessage]  `json:"items,omitzero"`
-	Extra map[string]json.RawMessage `json:"-"`
-}
-
-func (v ContextConfigurationDefaultsAllOf1) MarshalJSON() ([]byte, error) {
-	type plain ContextConfigurationDefaultsAllOf1
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextConfigurationDefaultsAllOf1) UnmarshalJSON(data []byte) error {
-	type plain ContextConfigurationDefaultsAllOf1
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextConfigurationDefaultsAllOf1(p)
-	return nil
-}
-
-type ContextConfigurationDefaultsAllOf1Items = json.RawMessage
-type ContextConfigurationDefaultsAllOf1ItemsItems = json.RawMessage
-type ContextConfigurationDefaultsAllOf1ItemsItemsNot struct {
-	Namespace Optional[string]           `json:"namespace,omitzero"`
-	Extra     map[string]json.RawMessage `json:"-"`
-}
-
-func (v ContextConfigurationDefaultsAllOf1ItemsItemsNot) MarshalJSON() ([]byte, error) {
-	type plain ContextConfigurationDefaultsAllOf1ItemsItemsNot
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextConfigurationDefaultsAllOf1ItemsItemsNot) UnmarshalJSON(data []byte) error {
-	type plain ContextConfigurationDefaultsAllOf1ItemsItemsNot
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextConfigurationDefaultsAllOf1ItemsItemsNot(p)
-	return nil
-}
-
-type ContextConfigurationDefaultsAllOf1ItemsItemsNotNamespace = string
-type ContextConfigurationMandatory = PersistentContextEnvelope
 type RunContextProjection struct {
 	RunId                     string                           `json:"run_id"`
 	ContextHash               string                           `json:"context_hash"`
@@ -1043,16 +209,6 @@ type RunContextProjection struct {
 	ObjectMaterials           Optional[[]PublicObjectMaterial] `json:"object_materials,omitzero"`
 	Execution                 RunContextProjectionExecution    `json:"execution"`
 }
-type RunContextProjectionRunId = string
-type RunContextProjectionContextHash = string
-type RunContextProjectionActualRuntimeId = string
-type RunContextProjectionPreparationStatus = string
-type RunContextProjectionApplicationStatus = string
-type RunContextProjectionInvocationStatus = string
-type RunContextProjectionModelUsesProviderDefault = bool
-type RunContextProjectionEffortUsesProviderDefault = bool
-type RunContextProjectionObjectMaterials = []PublicObjectMaterial
-type RunContextProjectionObjectMaterialsItems = PublicObjectMaterial
 type RunContextProjectionExecution struct {
 	AdapterType   string           `json:"adapter_type"`
 	Model         Optional[string] `json:"model,omitzero"`
@@ -1060,11 +216,6 @@ type RunContextProjectionExecution struct {
 	ApprovalMode  string           `json:"approval_mode"`
 	WorkspaceMode string           `json:"workspace_mode"`
 }
-type RunContextProjectionExecutionAdapterType = string
-type RunContextProjectionExecutionModel = string
-type RunContextProjectionExecutionEffort = string
-type RunContextProjectionExecutionApprovalMode = string
-type RunContextProjectionExecutionWorkspaceMode = string
 type PublicObjectMaterial struct {
 	ResourceRef string                                    `json:"resource_ref"`
 	ObjectType  string                                    `json:"object_type"`
@@ -1076,51 +227,15 @@ type PublicObjectMaterial struct {
 	ObjectScope Optional[PublicObjectMaterialObjectScope] `json:"object_scope,omitzero"`
 	Selector    Optional[PublicObjectMaterialSelector]    `json:"selector,omitzero"`
 }
-type PublicObjectMaterialResourceRef = string
-type PublicObjectMaterialObjectType = string
-type PublicObjectMaterialObjectId = string
-type PublicObjectMaterialOrigin = string
-type PublicObjectMaterialRevision = string
-type PublicObjectMaterialByteSize = int64
-type PublicObjectMaterialDigest = string
 type PublicObjectMaterialObjectScope struct {
 	Type string `json:"type"`
 	Id   string `json:"id"`
 }
-type PublicObjectMaterialObjectScopeType = string
-type PublicObjectMaterialObjectScopeId = string
 type PublicObjectMaterialSelector struct {
 	Mode  string          `json:"mode"`
 	Start Optional[int64] `json:"start,omitzero"`
 	End   Optional[int64] `json:"end,omitzero"`
 }
-type PublicObjectMaterialSelectorMode = string
-type PublicObjectMaterialSelectorStart = int64
-type PublicObjectMaterialSelectorEnd = int64
-type PublicObjectMaterialAllOf0 = json.RawMessage
-type PublicObjectMaterialAllOf0If struct {
-	ObjectType Optional[string]           `json:"object_type,omitzero"`
-	Extra      map[string]json.RawMessage `json:"-"`
-}
-
-func (v PublicObjectMaterialAllOf0If) MarshalJSON() ([]byte, error) {
-	type plain PublicObjectMaterialAllOf0If
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *PublicObjectMaterialAllOf0If) UnmarshalJSON(data []byte) error {
-	type plain PublicObjectMaterialAllOf0If
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = PublicObjectMaterialAllOf0If(p)
-	return nil
-}
-
-type PublicObjectMaterialAllOf0IfObjectType = string
-type PublicObjectMaterialAllOf0Then = json.RawMessage
-type PublicObjectMaterialAllOf0ThenNot = json.RawMessage
-type PublicObjectMaterialAllOf0Else = json.RawMessage
 type ContextPreparationReceipt struct {
 	ContextHash      string   `json:"context_hash"`
 	RunId            string   `json:"run_id"`
@@ -1131,293 +246,14 @@ type ContextPreparationReceipt struct {
 	ProviderStateDir string   `json:"provider_state_dir"`
 	Warnings         []string `json:"warnings"`
 }
-type ContextPreparationReceiptContextHash = string
-type ContextPreparationReceiptRunId = string
-type ContextPreparationReceiptLeaseId = string
-type ContextPreparationReceiptFencingToken = int64
-type ContextPreparationReceiptWorkspaceMode = string
-type ContextPreparationReceiptWorkspacePath = string
-type ContextPreparationReceiptProviderStateDir = string
-type ContextPreparationReceiptWarnings = []string
-type ContextPreparationReceiptWarningsItems = string
 type PersistentContextEnvelope = json.RawMessage
-type PersistentContextEnvelopeAllOf0 = ContextEnvelope
-type PersistentContextEnvelopeAllOf1 struct {
-	Items Optional[json.RawMessage]  `json:"items,omitzero"`
-	Extra map[string]json.RawMessage `json:"-"`
-}
-
-func (v PersistentContextEnvelopeAllOf1) MarshalJSON() ([]byte, error) {
-	type plain PersistentContextEnvelopeAllOf1
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *PersistentContextEnvelopeAllOf1) UnmarshalJSON(data []byte) error {
-	type plain PersistentContextEnvelopeAllOf1
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = PersistentContextEnvelopeAllOf1(p)
-	return nil
-}
-
-type PersistentContextEnvelopeAllOf1Items = json.RawMessage
-type PersistentContextEnvelopeAllOf1ItemsItems = json.RawMessage
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf0 = json.RawMessage
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf0Not struct {
-	Namespace Optional[string]           `json:"namespace,omitzero"`
-	Name      Optional[string]           `json:"name,omitzero"`
-	Extra     map[string]json.RawMessage `json:"-"`
-}
-
-func (v PersistentContextEnvelopeAllOf1ItemsItemsAllOf0Not) MarshalJSON() ([]byte, error) {
-	type plain PersistentContextEnvelopeAllOf1ItemsItemsAllOf0Not
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *PersistentContextEnvelopeAllOf1ItemsItemsAllOf0Not) UnmarshalJSON(data []byte) error {
-	type plain PersistentContextEnvelopeAllOf1ItemsItemsAllOf0Not
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = PersistentContextEnvelopeAllOf1ItemsItemsAllOf0Not(p)
-	return nil
-}
-
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf0NotNamespace = string
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf0NotName = string
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1 = json.RawMessage
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf0 struct {
-	Namespace Optional[string]           `json:"namespace,omitzero"`
-	Name      Optional[string]           `json:"name,omitzero"`
-	Extra     map[string]json.RawMessage `json:"-"`
-}
-
-func (v PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf0) MarshalJSON() ([]byte, error) {
-	type plain PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf0
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf0) UnmarshalJSON(data []byte) error {
-	type plain PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf0
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf0(p)
-	return nil
-}
-
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf0Namespace = string
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf0Name = string
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf1 struct {
-	Namespace Optional[string]           `json:"namespace,omitzero"`
-	Name      Optional[string]           `json:"name,omitzero"`
-	Extra     map[string]json.RawMessage `json:"-"`
-}
-
-func (v PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf1) MarshalJSON() ([]byte, error) {
-	type plain PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf1
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf1) UnmarshalJSON(data []byte) error {
-	type plain PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf1
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf1(p)
-	return nil
-}
-
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf1Namespace = string
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf1Name = string
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf2 struct {
-	Namespace Optional[string]           `json:"namespace,omitzero"`
-	Name      Optional[string]           `json:"name,omitzero"`
-	Extra     map[string]json.RawMessage `json:"-"`
-}
-
-func (v PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf2) MarshalJSON() ([]byte, error) {
-	type plain PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf2
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf2) UnmarshalJSON(data []byte) error {
-	type plain PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf2
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf2(p)
-	return nil
-}
-
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf2Namespace = string
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf2Name = string
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf3 struct {
-	Namespace Optional[string]           `json:"namespace,omitzero"`
-	Name      Optional[string]           `json:"name,omitzero"`
-	Extra     map[string]json.RawMessage `json:"-"`
-}
-
-func (v PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf3) MarshalJSON() ([]byte, error) {
-	type plain PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf3
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf3) UnmarshalJSON(data []byte) error {
-	type plain PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf3
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf3(p)
-	return nil
-}
-
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf3Namespace = string
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf3Name = string
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf4 struct {
-	Namespace Optional[string]           `json:"namespace,omitzero"`
-	Name      Optional[string]           `json:"name,omitzero"`
-	Extra     map[string]json.RawMessage `json:"-"`
-}
-
-func (v PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf4) MarshalJSON() ([]byte, error) {
-	type plain PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf4
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf4) UnmarshalJSON(data []byte) error {
-	type plain PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf4
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf4(p)
-	return nil
-}
-
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf4Namespace = string
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf4Name = string
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf5 struct {
-	Namespace Optional[string]           `json:"namespace,omitzero"`
-	Name      Optional[string]           `json:"name,omitzero"`
-	Extra     map[string]json.RawMessage `json:"-"`
-}
-
-func (v PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf5) MarshalJSON() ([]byte, error) {
-	type plain PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf5
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf5) UnmarshalJSON(data []byte) error {
-	type plain PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf5
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf5(p)
-	return nil
-}
-
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf5Namespace = string
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf5Name = string
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf6 struct {
-	Namespace Optional[string]           `json:"namespace,omitzero"`
-	Name      Optional[string]           `json:"name,omitzero"`
-	Extra     map[string]json.RawMessage `json:"-"`
-}
-
-func (v PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf6) MarshalJSON() ([]byte, error) {
-	type plain PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf6
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf6) UnmarshalJSON(data []byte) error {
-	type plain PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf6
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf6(p)
-	return nil
-}
-
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf6Namespace = string
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf6Name = string
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf7 struct {
-	Namespace Optional[string]           `json:"namespace,omitzero"`
-	Name      Optional[string]           `json:"name,omitzero"`
-	Extra     map[string]json.RawMessage `json:"-"`
-}
-
-func (v PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf7) MarshalJSON() ([]byte, error) {
-	type plain PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf7
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf7) UnmarshalJSON(data []byte) error {
-	type plain PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf7
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf7(p)
-	return nil
-}
-
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf7Namespace = string
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf7Name = string
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf8 struct {
-	Namespace Optional[string]           `json:"namespace,omitzero"`
-	Name      Optional[string]           `json:"name,omitzero"`
-	Extra     map[string]json.RawMessage `json:"-"`
-}
-
-func (v PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf8) MarshalJSON() ([]byte, error) {
-	type plain PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf8
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf8) UnmarshalJSON(data []byte) error {
-	type plain PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf8
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf8(p)
-	return nil
-}
-
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf8Namespace = string
-type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf8Name = string
 type ContextAdapterPayload struct {
 	Type            string           `json:"type"`
 	ProviderAgentId Optional[string] `json:"provider_agent_id,omitzero"`
 }
-type ContextAdapterPayloadType = string
-type ContextAdapterPayloadProviderAgentId = string
-type ContextAdapterPayloadIf struct {
-	Type  Optional[string]           `json:"type,omitzero"`
-	Extra map[string]json.RawMessage `json:"-"`
-}
-
-func (v ContextAdapterPayloadIf) MarshalJSON() ([]byte, error) {
-	type plain ContextAdapterPayloadIf
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextAdapterPayloadIf) UnmarshalJSON(data []byte) error {
-	type plain ContextAdapterPayloadIf
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextAdapterPayloadIf(p)
-	return nil
-}
-
-type ContextAdapterPayloadIfType = string
-type ContextAdapterPayloadThen = json.RawMessage
-type ContextAdapterPayloadElse = json.RawMessage
-type ContextAdapterPayloadElseNot = json.RawMessage
 type ContextActmodePayload struct {
 	Mode string `json:"mode"`
 }
-type ContextActmodePayloadMode = string
 type ExecutionEvidence struct {
 	Actmode ExecutionEvidenceActmode `json:"actmode"`
 }
@@ -1428,42 +264,25 @@ type ExecutionEvidenceActmode struct {
 	NativeMode Optional[string] `json:"nativeMode,omitzero"`
 	Reason     Optional[string] `json:"reason,omitzero"`
 }
-type ExecutionEvidenceActmodeRequested = string
-type ExecutionEvidenceActmodeEffective = string
-type ExecutionEvidenceActmodeStatus = string
-type ExecutionEvidenceActmodeNativeMode = string
-type ExecutionEvidenceActmodeReason = string
 type ContextModelPayload struct {
 	Selection Optional[ContextModelSelectionPayload] `json:"selection,omitzero"`
 	Reasoning Optional[ContextReasoningPayload]      `json:"reasoning,omitzero"`
 }
-type ContextModelPayloadSelection = ContextModelSelectionPayload
-type ContextModelPayloadReasoning = ContextReasoningPayload
 type ContextReasoningPayload struct {
 	Effort             Optional[string] `json:"effort,omitzero"`
 	UseProviderDefault Optional[bool]   `json:"use_provider_default,omitzero"`
 }
-type ContextReasoningPayloadEffort = string
-type ContextReasoningPayloadUseProviderDefault = bool
-type ContextReasoningPayloadOneOf0 = json.RawMessage
-type ContextReasoningPayloadOneOf0Not = json.RawMessage
-type ContextReasoningPayloadOneOf1 = json.RawMessage
-type ContextReasoningPayloadOneOf1Not = json.RawMessage
 type ContextWorkspacePayload = json.RawMessage
 type ContextWorkspacePayloadOneOf0 struct {
 	Mode string `json:"mode"`
 	Path string `json:"path"`
 }
-type ContextWorkspacePayloadOneOf0Mode = string
-type ContextWorkspacePayloadOneOf0Path = string
 type ContextWorkspacePayloadOneOf1 struct {
 	Mode string `json:"mode"`
 }
-type ContextWorkspacePayloadOneOf1Mode = string
 type ContextWorkspacePayloadOneOf2 struct {
 	Mode string `json:"mode"`
 }
-type ContextWorkspacePayloadOneOf2Mode = string
 type ContextLimitsPayload struct {
 	FirstFrameTimeoutMs Optional[int64]  `json:"first_frame_timeout_ms,omitzero"`
 	ModelIdleTimeoutMs  Optional[int64]  `json:"model_idle_timeout_ms,omitzero"`
@@ -1475,40 +294,6 @@ type ContextLimitsPayload struct {
 	CancelGraceMs       Optional[int64]  `json:"cancel_grace_ms,omitzero"`
 	Enforcement         Optional[string] `json:"enforcement,omitzero"`
 }
-type ContextLimitsPayloadFirstFrameTimeoutMs = int64
-type ContextLimitsPayloadModelIdleTimeoutMs = int64
-type ContextLimitsPayloadModelIdleWarningMs = int64
-type ContextLimitsPayloadModelIdlePolicy = string
-type ContextLimitsPayloadToolTimeoutMs = int64
-type ContextLimitsPayloadToolWallTimeoutMs = int64
-type ContextLimitsPayloadRunTimeoutMs = int64
-type ContextLimitsPayloadCancelGraceMs = int64
-type ContextLimitsPayloadEnforcement = string
-type ContextLimitsPayloadIf struct {
-	Enforcement string                     `json:"enforcement"`
-	Extra       map[string]json.RawMessage `json:"-"`
-}
-
-func (v ContextLimitsPayloadIf) MarshalJSON() ([]byte, error) {
-	type plain ContextLimitsPayloadIf
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextLimitsPayloadIf) UnmarshalJSON(data []byte) error {
-	type plain ContextLimitsPayloadIf
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextLimitsPayloadIf(p)
-	return nil
-}
-
-type ContextLimitsPayloadIfEnforcement = string
-type ContextLimitsPayloadThen = json.RawMessage
-type ContextLimitsPayloadThenNot = json.RawMessage
-type ContextLimitsPayloadThenNotAnyOf0 = json.RawMessage
-type ContextLimitsPayloadThenNotAnyOf1 = json.RawMessage
-type ContextLimitsPayloadThenNotAnyOf2 = json.RawMessage
 type ContextRuntimeSelectionPayload struct {
 	Mode            string             `json:"mode"`
 	RuntimeId       Optional[string]   `json:"runtime_id,omitzero"`
@@ -1517,71 +302,15 @@ type ContextRuntimeSelectionPayload struct {
 	OfflineBehavior Optional[string]   `json:"offline_behavior,omitzero"`
 	Failover        Optional[string]   `json:"failover,omitzero"`
 }
-type ContextRuntimeSelectionPayloadMode = string
-type ContextRuntimeSelectionPayloadRuntimeId = string
-type ContextRuntimeSelectionPayloadRuntimeIds = []string
-type ContextRuntimeSelectionPayloadRuntimeIdsItems = string
-type ContextRuntimeSelectionPayloadStrategy = string
-type ContextRuntimeSelectionPayloadOfflineBehavior = string
-type ContextRuntimeSelectionPayloadFailover = string
-type ContextRuntimeSelectionPayloadOneOf0 struct {
-	Mode  Optional[string]           `json:"mode,omitzero"`
-	Extra map[string]json.RawMessage `json:"-"`
-}
-
-func (v ContextRuntimeSelectionPayloadOneOf0) MarshalJSON() ([]byte, error) {
-	type plain ContextRuntimeSelectionPayloadOneOf0
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextRuntimeSelectionPayloadOneOf0) UnmarshalJSON(data []byte) error {
-	type plain ContextRuntimeSelectionPayloadOneOf0
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextRuntimeSelectionPayloadOneOf0(p)
-	return nil
-}
-
-type ContextRuntimeSelectionPayloadOneOf0Mode = string
-type ContextRuntimeSelectionPayloadOneOf0Not = json.RawMessage
-type ContextRuntimeSelectionPayloadOneOf1 struct {
-	Mode  Optional[string]           `json:"mode,omitzero"`
-	Extra map[string]json.RawMessage `json:"-"`
-}
-
-func (v ContextRuntimeSelectionPayloadOneOf1) MarshalJSON() ([]byte, error) {
-	type plain ContextRuntimeSelectionPayloadOneOf1
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextRuntimeSelectionPayloadOneOf1) UnmarshalJSON(data []byte) error {
-	type plain ContextRuntimeSelectionPayloadOneOf1
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextRuntimeSelectionPayloadOneOf1(p)
-	return nil
-}
-
-type ContextRuntimeSelectionPayloadOneOf1Mode = string
-type ContextRuntimeSelectionPayloadOneOf1Not = json.RawMessage
-type ContextRuntimeSelectionPayloadOneOf1NotAnyOf0 = json.RawMessage
-type ContextRuntimeSelectionPayloadOneOf1NotAnyOf1 = json.RawMessage
 type ContextApprovalPolicyPayload struct {
 	Mode ApprovalMode `json:"mode"`
 }
-type ContextApprovalPolicyPayloadMode = ApprovalMode
 type ContextSelectionEntry struct {
 	Text        string                    `json:"text"`
 	ResourceRef Optional[string]          `json:"resource_ref,omitzero"`
 	Source      Optional[json.RawMessage] `json:"source,omitzero"`
 	Summary     Optional[string]          `json:"summary,omitzero"`
 }
-type ContextSelectionEntryText = string
-type ContextSelectionEntryResourceRef = string
-type ContextSelectionEntrySource = json.RawMessage
-type ContextSelectionEntrySummary = string
 type ContextResourceEntry struct {
 	ResourceRef      string                               `json:"resource_ref"`
 	Resolver         string                               `json:"resolver"`
@@ -1590,94 +319,17 @@ type ContextResourceEntry struct {
 	AuthorizationRef Optional[string]                     `json:"authorization_ref,omitzero"`
 	Revision         Optional[string]                     `json:"revision,omitzero"`
 }
-type ContextResourceEntryResourceRef = string
-type ContextResourceEntryResolver = string
-type ContextResourceEntryLocator = map[string]json.RawMessage
-type ContextResourceEntryParams = map[string]json.RawMessage
-type ContextResourceEntryAuthorizationRef = string
-type ContextResourceEntryRevision = string
-type ContextResourceEntryAllOf0 struct {
-	Locator Optional[ContextMcpLocator] `json:"locator,omitzero"`
-	Extra   map[string]json.RawMessage  `json:"-"`
-}
-
-func (v ContextResourceEntryAllOf0) MarshalJSON() ([]byte, error) {
-	type plain ContextResourceEntryAllOf0
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextResourceEntryAllOf0) UnmarshalJSON(data []byte) error {
-	type plain ContextResourceEntryAllOf0
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextResourceEntryAllOf0(p)
-	return nil
-}
-
-type ContextResourceEntryAllOf0Locator = ContextMcpLocator
 type ContextMcpLocator struct {
 	ServerRef string `json:"server_ref"`
 	Tool      string `json:"tool"`
 }
-type ContextMcpLocatorServerRef = string
-type ContextMcpLocatorTool = string
 type ContextInstructionEntry struct {
 	Text string `json:"text"`
 }
-type ContextInstructionEntryText = string
 type ContextInstructionsPayload struct {
 	Entries []ContextInstructionEntry `json:"entries"`
 }
-type ContextInstructionsPayloadEntries = []ContextInstructionEntry
-type ContextInstructionsPayloadEntriesItems = ContextInstructionEntry
 type ContextContinuityPayload = json.RawMessage
-type ContextContinuityPayloadAllOf0 = ChannelContextDescriptor
-type ContextContinuityPayloadAllOf1 struct {
-	SessionGeneration Optional[json.RawMessage]                           `json:"session_generation,omitzero"`
-	TriggerSeq        Optional[json.RawMessage]                           `json:"trigger_seq,omitzero"`
-	TriggerFact       Optional[ContextContinuityPayloadAllOf1TriggerFact] `json:"trigger_fact,omitzero"`
-	Extra             map[string]json.RawMessage                          `json:"-"`
-}
-
-func (v ContextContinuityPayloadAllOf1) MarshalJSON() ([]byte, error) {
-	type plain ContextContinuityPayloadAllOf1
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextContinuityPayloadAllOf1) UnmarshalJSON(data []byte) error {
-	type plain ContextContinuityPayloadAllOf1
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextContinuityPayloadAllOf1(p)
-	return nil
-}
-
-type ContextContinuityPayloadAllOf1SessionGeneration = json.RawMessage
-type ContextContinuityPayloadAllOf1TriggerSeq = json.RawMessage
-type ContextContinuityPayloadAllOf1TriggerFact struct {
-	MessageSeq   Optional[json.RawMessage]  `json:"message_seq,omitzero"`
-	OccurredAtMs Optional[json.RawMessage]  `json:"occurred_at_ms,omitzero"`
-	Extra        map[string]json.RawMessage `json:"-"`
-}
-
-func (v ContextContinuityPayloadAllOf1TriggerFact) MarshalJSON() ([]byte, error) {
-	type plain ContextContinuityPayloadAllOf1TriggerFact
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextContinuityPayloadAllOf1TriggerFact) UnmarshalJSON(data []byte) error {
-	type plain ContextContinuityPayloadAllOf1TriggerFact
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextContinuityPayloadAllOf1TriggerFact(p)
-	return nil
-}
-
-type ContextContinuityPayloadAllOf1TriggerFactMessageSeq = json.RawMessage
-type ContextContinuityPayloadAllOf1TriggerFactOccurredAtMs = json.RawMessage
 type ResolvedRuntimeSelection struct {
 	Schema               string                                              `json:"schema"`
 	SelectionMode        string                                              `json:"selection_mode"`
@@ -1686,67 +338,12 @@ type ResolvedRuntimeSelection struct {
 	OfflineBehavior      string                                              `json:"offline_behavior"`
 	Failover             string                                              `json:"failover"`
 }
-type ResolvedRuntimeSelectionSchema = string
-type ResolvedRuntimeSelectionSelectionMode = string
-type ResolvedRuntimeSelectionExplicitRuntimeId = string
-type ResolvedRuntimeSelectionAuthorizedCandidates = []ResolvedRuntimeSelectionAuthorizedCandidatesItems
 type ResolvedRuntimeSelectionAuthorizedCandidatesItems struct {
 	RuntimeId        string `json:"runtime_id"`
 	Priority         int64  `json:"priority"`
 	OwnerSubjectType string `json:"owner_subject_type"`
 	OwnerSubjectId   string `json:"owner_subject_id"`
 }
-type ResolvedRuntimeSelectionAuthorizedCandidatesItemsRuntimeId = string
-type ResolvedRuntimeSelectionAuthorizedCandidatesItemsPriority = int64
-type ResolvedRuntimeSelectionAuthorizedCandidatesItemsOwnerSubjectType = string
-type ResolvedRuntimeSelectionAuthorizedCandidatesItemsOwnerSubjectId = string
-type ResolvedRuntimeSelectionOfflineBehavior = string
-type ResolvedRuntimeSelectionFailover = string
-type ResolvedRuntimeSelectionAllOf0 = json.RawMessage
-type ResolvedRuntimeSelectionAllOf0If struct {
-	SelectionMode Optional[string]           `json:"selection_mode,omitzero"`
-	Extra         map[string]json.RawMessage `json:"-"`
-}
-
-func (v ResolvedRuntimeSelectionAllOf0If) MarshalJSON() ([]byte, error) {
-	type plain ResolvedRuntimeSelectionAllOf0If
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ResolvedRuntimeSelectionAllOf0If) UnmarshalJSON(data []byte) error {
-	type plain ResolvedRuntimeSelectionAllOf0If
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ResolvedRuntimeSelectionAllOf0If(p)
-	return nil
-}
-
-type ResolvedRuntimeSelectionAllOf0IfSelectionMode = string
-type ResolvedRuntimeSelectionAllOf0Then struct {
-	AuthorizedCandidates Optional[json.RawMessage]  `json:"authorized_candidates,omitzero"`
-	Failover             Optional[string]           `json:"failover,omitzero"`
-	Extra                map[string]json.RawMessage `json:"-"`
-}
-
-func (v ResolvedRuntimeSelectionAllOf0Then) MarshalJSON() ([]byte, error) {
-	type plain ResolvedRuntimeSelectionAllOf0Then
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ResolvedRuntimeSelectionAllOf0Then) UnmarshalJSON(data []byte) error {
-	type plain ResolvedRuntimeSelectionAllOf0Then
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ResolvedRuntimeSelectionAllOf0Then(p)
-	return nil
-}
-
-type ResolvedRuntimeSelectionAllOf0ThenAuthorizedCandidates = json.RawMessage
-type ResolvedRuntimeSelectionAllOf0ThenFailover = string
-type ResolvedRuntimeSelectionAllOf0Else = json.RawMessage
-type ResolvedRuntimeSelectionAllOf0ElseNot = json.RawMessage
 type ResolvedExecutionPlan struct {
 	Actmode         Optional[string]                  `json:"actmode,omitzero"`
 	AdapterType     string                            `json:"adapter_type"`
@@ -1761,151 +358,24 @@ type ResolvedExecutionPlan struct {
 	Envs            Optional[ContextEnvsPayload]      `json:"envs,omitzero"`
 	Mcp             Optional[ContextMcpPayload]       `json:"mcp,omitzero"`
 }
-type ResolvedExecutionPlanActmode = string
-type ResolvedExecutionPlanAdapterType = string
-type ResolvedExecutionPlanWorkdir = string
-type ResolvedExecutionPlanWorkspace = ContextWorkspacePayload
-type ResolvedExecutionPlanModel = string
-type ResolvedExecutionPlanEffort = string
-type ResolvedExecutionPlanApprovalMode = ApprovalMode
-type ResolvedExecutionPlanRuntimeLimits = ContextLimitsPayload
-type ResolvedExecutionPlanProviderAgentId = string
-type ResolvedExecutionPlanAgentSource = AgentSource
-type ResolvedExecutionPlanEnvs = ContextEnvsPayload
-type ResolvedExecutionPlanMcp = ContextMcpPayload
-type ResolvedExecutionPlanIf struct {
-	AgentSource string                     `json:"agent_source"`
-	Workdir     string                     `json:"workdir"`
-	Extra       map[string]json.RawMessage `json:"-"`
-}
-
-func (v ResolvedExecutionPlanIf) MarshalJSON() ([]byte, error) {
-	type plain ResolvedExecutionPlanIf
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ResolvedExecutionPlanIf) UnmarshalJSON(data []byte) error {
-	type plain ResolvedExecutionPlanIf
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ResolvedExecutionPlanIf(p)
-	return nil
-}
-
-type ResolvedExecutionPlanIfAgentSource = string
-type ResolvedExecutionPlanIfWorkdir = string
-type ResolvedExecutionPlanThen struct {
-	Workspace ResolvedExecutionPlanThenWorkspace `json:"workspace"`
-	Extra     map[string]json.RawMessage         `json:"-"`
-}
-
-func (v ResolvedExecutionPlanThen) MarshalJSON() ([]byte, error) {
-	type plain ResolvedExecutionPlanThen
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ResolvedExecutionPlanThen) UnmarshalJSON(data []byte) error {
-	type plain ResolvedExecutionPlanThen
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ResolvedExecutionPlanThen(p)
-	return nil
-}
-
-type ResolvedExecutionPlanThenWorkspace struct {
-	Mode  Optional[string]           `json:"mode,omitzero"`
-	Extra map[string]json.RawMessage `json:"-"`
-}
-
-func (v ResolvedExecutionPlanThenWorkspace) MarshalJSON() ([]byte, error) {
-	type plain ResolvedExecutionPlanThenWorkspace
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ResolvedExecutionPlanThenWorkspace) UnmarshalJSON(data []byte) error {
-	type plain ResolvedExecutionPlanThenWorkspace
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ResolvedExecutionPlanThenWorkspace(p)
-	return nil
-}
-
-type ResolvedExecutionPlanThenWorkspaceMode = string
-type ResolvedExecutionPlanAllOf0 = json.RawMessage
-type ResolvedExecutionPlanAllOf0If struct {
-	AdapterType Optional[string]           `json:"adapter_type,omitzero"`
-	Extra       map[string]json.RawMessage `json:"-"`
-}
-
-func (v ResolvedExecutionPlanAllOf0If) MarshalJSON() ([]byte, error) {
-	type plain ResolvedExecutionPlanAllOf0If
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ResolvedExecutionPlanAllOf0If) UnmarshalJSON(data []byte) error {
-	type plain ResolvedExecutionPlanAllOf0If
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ResolvedExecutionPlanAllOf0If(p)
-	return nil
-}
-
-type ResolvedExecutionPlanAllOf0IfAdapterType = string
-type ResolvedExecutionPlanAllOf0Then = json.RawMessage
-type ResolvedExecutionPlanAllOf0Else = json.RawMessage
-type ResolvedExecutionPlanAllOf0ElseNot = json.RawMessage
-type ResolvedExecutionPlanAllOf1 = json.RawMessage
-type ResolvedExecutionPlanAllOf1If struct {
-	AgentSource string                     `json:"agent_source"`
-	Extra       map[string]json.RawMessage `json:"-"`
-}
-
-func (v ResolvedExecutionPlanAllOf1If) MarshalJSON() ([]byte, error) {
-	type plain ResolvedExecutionPlanAllOf1If
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ResolvedExecutionPlanAllOf1If) UnmarshalJSON(data []byte) error {
-	type plain ResolvedExecutionPlanAllOf1If
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ResolvedExecutionPlanAllOf1If(p)
-	return nil
-}
-
-type ResolvedExecutionPlanAllOf1IfAgentSource = string
-type ResolvedExecutionPlanAllOf1Then = json.RawMessage
 type MessageChannel = string
 type MessageExposure = string
 type MessageProvenance struct {
 	Provider    string `json:"provider"`
 	NativeEvent string `json:"nativeEvent"`
 }
-type MessageProvenanceProvider = string
-type MessageProvenanceNativeEvent = string
 type FailureAction struct {
 	Type     string `json:"type"`
 	LabelKey string `json:"labelKey"`
 }
-type FailureActionType = string
-type FailureActionLabelKey = string
 type FailureSource struct {
 	Component string           `json:"component"`
 	Adapter   Optional[string] `json:"adapter,omitzero"`
 }
-type FailureSourceComponent = string
-type FailureSourceAdapter = string
 type FailureCause struct {
 	ReasonCode string          `json:"reasonCode"`
 	HttpStatus Optional[int64] `json:"httpStatus,omitzero"`
 }
-type FailureCauseReasonCode = string
-type FailureCauseHttpStatus = int64
 type FailureEnvelope struct {
 	SchemaVersion int64                      `json:"schemaVersion"`
 	Code          string                     `json:"code"`
@@ -1922,21 +392,6 @@ type FailureEnvelope struct {
 	Cause         Optional[FailureCause]     `json:"cause,omitzero"`
 	OccurredAt    string                     `json:"occurredAt"`
 }
-type FailureEnvelopeSchemaVersion = int64
-type FailureEnvelopeCode = string
-type FailureEnvelopeReasonCode = string
-type FailureEnvelopeCategory = string
-type FailureEnvelopeStage = string
-type FailureEnvelopeMessageKey = string
-type FailureEnvelopeParams = map[string]json.RawMessage
-type FailureEnvelopeParamsAdditional = json.RawMessage
-type FailureEnvelopeRetryable = bool
-type FailureEnvelopeRetryAfterMs = int64
-type FailureEnvelopeAction = FailureAction
-type FailureEnvelopeDiagnosticId = string
-type FailureEnvelopeSource = FailureSource
-type FailureEnvelopeCause = FailureCause
-type FailureEnvelopeOccurredAt = string
 type ProviderSession struct {
 	SessionId           string                     `json:"sessionId"`
 	Resumable           Optional[bool]             `json:"resumable,omitzero"`
@@ -1960,11 +415,6 @@ func (v *ProviderSession) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type ProviderSessionSessionId = string
-type ProviderSessionResumable = bool
-type ProviderSessionResumeOutcome = string
-type ProviderSessionResumeFallback = string
-type ProviderSessionContextInputVariant = string
 type RuntimeLimits struct {
 	FirstFrameTimeoutMs Optional[int64]  `json:"firstFrameTimeoutMs,omitzero"`
 	ModelIdleTimeoutMs  Optional[int64]  `json:"modelIdleTimeoutMs,omitzero"`
@@ -1976,15 +426,6 @@ type RuntimeLimits struct {
 	CancelGraceMs       Optional[int64]  `json:"cancelGraceMs,omitzero"`
 	Enforcement         Optional[string] `json:"enforcement,omitzero"`
 }
-type RuntimeLimitsFirstFrameTimeoutMs = int64
-type RuntimeLimitsModelIdleTimeoutMs = int64
-type RuntimeLimitsModelIdleWarningMs = int64
-type RuntimeLimitsModelIdlePolicy = string
-type RuntimeLimitsToolTimeoutMs = int64
-type RuntimeLimitsToolWallTimeoutMs = int64
-type RuntimeLimitsRunTimeoutMs = int64
-type RuntimeLimitsCancelGraceMs = int64
-type RuntimeLimitsEnforcement = string
 type AgentConfig struct {
 	Workdir            Optional[string]                     `json:"workdir,omitzero"`
 	Model              Optional[string]                     `json:"model,omitzero"`
@@ -2012,20 +453,6 @@ func (v *AgentConfig) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type AgentConfigWorkdir = string
-type AgentConfigModel = string
-type AgentConfigSandbox = string
-type AgentConfigProviderAgentId = string
-type AgentConfigEffort = string
-type AgentConfigTimeoutSeconds = json.Number
-type AgentConfigOpenclawConfigPath = string
-type AgentConfigOpenclawStateDir = string
-type AgentConfigProviderOptions = map[string]json.RawMessage
-type AgentConfigNot = json.RawMessage
-type AgentConfigNotAnyOf0 = json.RawMessage
-type AgentConfigNotAnyOf1 = json.RawMessage
-type AgentConfigNotAnyOf2 = json.RawMessage
-type AgentConfigNotAnyOf3 = json.RawMessage
 type CanonicalEventPayload struct {
 	ProviderSession Optional[ProviderSession]   `json:"providerSession,omitzero"`
 	Channel         Optional[MessageChannel]    `json:"channel,omitzero"`
@@ -2056,18 +483,6 @@ func (v *CanonicalEventPayload) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type CanonicalEventPayloadProviderSession = ProviderSession
-type CanonicalEventPayloadChannel = MessageChannel
-type CanonicalEventPayloadExposure = MessageExposure
-type CanonicalEventPayloadProvenance = MessageProvenance
-type CanonicalEventPayloadMessageId = string
-type CanonicalEventPayloadStepId = string
-type CanonicalEventPayloadRole = string
-type CanonicalEventPayloadStatus = string
-type CanonicalEventPayloadText = string
-type CanonicalEventPayloadReason = string
-type CanonicalEventPayloadMessage = string
-type CanonicalEventPayloadFailure = FailureEnvelope
 type InteractionRequestedPayload struct {
 	ExecutionInstanceId string                     `json:"executionInstanceId"`
 	ExpiresAt           string                     `json:"expiresAt"`
@@ -2075,51 +490,6 @@ type InteractionRequestedPayload struct {
 	Kind                string                     `json:"kind"`
 	Request             map[string]json.RawMessage `json:"request"`
 }
-type InteractionRequestedPayloadExecutionInstanceId = string
-type InteractionRequestedPayloadExpiresAt = string
-type InteractionRequestedPayloadInteractionId = string
-type InteractionRequestedPayloadKind = string
-type InteractionRequestedPayloadRequest = map[string]json.RawMessage
-type InteractionRequestedPayloadIf struct {
-	Kind  string                     `json:"kind"`
-	Extra map[string]json.RawMessage `json:"-"`
-}
-
-func (v InteractionRequestedPayloadIf) MarshalJSON() ([]byte, error) {
-	type plain InteractionRequestedPayloadIf
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *InteractionRequestedPayloadIf) UnmarshalJSON(data []byte) error {
-	type plain InteractionRequestedPayloadIf
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = InteractionRequestedPayloadIf(p)
-	return nil
-}
-
-type InteractionRequestedPayloadIfKind = string
-type InteractionRequestedPayloadThen struct {
-	Request Optional[ApprovalRequest]  `json:"request,omitzero"`
-	Extra   map[string]json.RawMessage `json:"-"`
-}
-
-func (v InteractionRequestedPayloadThen) MarshalJSON() ([]byte, error) {
-	type plain InteractionRequestedPayloadThen
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *InteractionRequestedPayloadThen) UnmarshalJSON(data []byte) error {
-	type plain InteractionRequestedPayloadThen
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = InteractionRequestedPayloadThen(p)
-	return nil
-}
-
-type InteractionRequestedPayloadThenRequest = ApprovalRequest
 type ApprovalRequest struct {
 	Schema               string                           `json:"schema"`
 	Policy               ApprovalRequestPolicy            `json:"policy"`
@@ -2130,32 +500,16 @@ type ApprovalRequest struct {
 	GrantScope           string                           `json:"grantScope"`
 	ProviderDetails      Optional[ApprovalDisplayDetails] `json:"providerDetails,omitzero"`
 }
-type ApprovalRequestSchema = string
 type ApprovalRequestPolicy struct {
 	Mode ApprovalMode `json:"mode"`
 	Hash string       `json:"hash"`
 }
-type ApprovalRequestPolicyMode = ApprovalMode
-type ApprovalRequestPolicyHash = string
-type ApprovalRequestOperation = ApprovalOperation
-type ApprovalRequestRequestedPermissions = []json.RawMessage
-type ApprovalRequestRequestedPermissionsItems = json.RawMessage
-type ApprovalRequestRequestedPermissionsItemsNot = json.RawMessage
-type ApprovalRequestReason = string
-type ApprovalRequestAllowedOutcomes = []string
-type ApprovalRequestAllowedOutcomesItems = string
-type ApprovalRequestGrantScope = string
-type ApprovalRequestProviderDetails = ApprovalDisplayDetails
 type ApprovalOperation struct {
 	Kind       string                           `json:"kind"`
 	Summary    string                           `json:"summary"`
 	ToolCallId Optional[string]                 `json:"toolCallId,omitzero"`
 	Details    Optional[ApprovalDisplayDetails] `json:"details,omitzero"`
 }
-type ApprovalOperationKind = string
-type ApprovalOperationSummary = string
-type ApprovalOperationToolCallId = string
-type ApprovalOperationDetails = ApprovalDisplayDetails
 type ApprovalDisplayDetails struct {
 	Provider    Optional[json.RawMessage] `json:"provider,omitzero"`
 	Method      Optional[json.RawMessage] `json:"method,omitzero"`
@@ -2171,19 +525,6 @@ type ApprovalDisplayDetails struct {
 	Description Optional[json.RawMessage] `json:"description,omitzero"`
 	Options     Optional[json.RawMessage] `json:"options,omitzero"`
 }
-type ApprovalDisplayDetailsProvider = json.RawMessage
-type ApprovalDisplayDetailsMethod = json.RawMessage
-type ApprovalDisplayDetailsItemId = json.RawMessage
-type ApprovalDisplayDetailsApprovalId = json.RawMessage
-type ApprovalDisplayDetailsReason = json.RawMessage
-type ApprovalDisplayDetailsCommand = json.RawMessage
-type ApprovalDisplayDetailsCwd = json.RawMessage
-type ApprovalDisplayDetailsGrantRoot = json.RawMessage
-type ApprovalDisplayDetailsFiles = json.RawMessage
-type ApprovalDisplayDetailsToolCallId = json.RawMessage
-type ApprovalDisplayDetailsTitle = json.RawMessage
-type ApprovalDisplayDetailsDescription = json.RawMessage
-type ApprovalDisplayDetailsOptions = json.RawMessage
 type InteractionResolvedPayload struct {
 	InteractionId       string           `json:"interactionId"`
 	ExecutionInstanceId string           `json:"executionInstanceId"`
@@ -2191,33 +532,6 @@ type InteractionResolvedPayload struct {
 	Outcome             Optional[string] `json:"outcome,omitzero"`
 	ReasonCode          Optional[string] `json:"reasonCode,omitzero"`
 }
-type InteractionResolvedPayloadInteractionId = string
-type InteractionResolvedPayloadExecutionInstanceId = string
-type InteractionResolvedPayloadStatus = string
-type InteractionResolvedPayloadOutcome = string
-type InteractionResolvedPayloadReasonCode = string
-type InteractionResolvedPayloadIf struct {
-	Status string                     `json:"status"`
-	Extra  map[string]json.RawMessage `json:"-"`
-}
-
-func (v InteractionResolvedPayloadIf) MarshalJSON() ([]byte, error) {
-	type plain InteractionResolvedPayloadIf
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *InteractionResolvedPayloadIf) UnmarshalJSON(data []byte) error {
-	type plain InteractionResolvedPayloadIf
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = InteractionResolvedPayloadIf(p)
-	return nil
-}
-
-type InteractionResolvedPayloadIfStatus = string
-type InteractionResolvedPayloadThen = json.RawMessage
-type InteractionResolvedPayloadElse = json.RawMessage
 type ModelStepStartedPayload struct {
 	StepId      string                     `json:"stepId"`
 	StartedAtMs Optional[int64]            `json:"startedAtMs,omitzero"`
@@ -2238,8 +552,6 @@ func (v *ModelStepStartedPayload) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type ModelStepStartedPayloadStepId = string
-type ModelStepStartedPayloadStartedAtMs = int64
 type ModelStepFinishedPayload struct {
 	StepId       string                     `json:"stepId"`
 	Status       string                     `json:"status"`
@@ -2262,10 +574,6 @@ func (v *ModelStepFinishedPayload) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type ModelStepFinishedPayloadStepId = string
-type ModelStepFinishedPayloadStatus = string
-type ModelStepFinishedPayloadFinishReason = string
-type ModelStepFinishedPayloadEndedAtMs = int64
 type ToolCallCreatePayload struct {
 	Id     string                     `json:"id"`
 	Name   string                     `json:"name"`
@@ -2288,10 +596,6 @@ func (v *ToolCallCreatePayload) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type ToolCallCreatePayloadId = string
-type ToolCallCreatePayloadName = string
-type ToolCallCreatePayloadArgs = map[string]json.RawMessage
-type ToolCallCreatePayloadStatus = string
 type ToolCallDeltaPayload struct {
 	Id             string                     `json:"id"`
 	ArgsDelta      Optional[string]           `json:"argsDelta,omitzero"`
@@ -2314,10 +618,6 @@ func (v *ToolCallDeltaPayload) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type ToolCallDeltaPayloadId = string
-type ToolCallDeltaPayloadArgsDelta = string
-type ToolCallDeltaPayloadOutputDelta = string
-type ToolCallDeltaPayloadOutputSnapshot = string
 type ToolCallUpdatePayload struct {
 	Id         string                               `json:"id"`
 	Status     string                               `json:"status"`
@@ -2342,18 +642,10 @@ func (v *ToolCallUpdatePayload) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type ToolCallUpdatePayloadId = string
-type ToolCallUpdatePayloadStatus = string
-type ToolCallUpdatePayloadOutput = json.RawMessage
-type ToolCallUpdatePayloadError = map[string]json.RawMessage
-type ToolCallUpdatePayloadExitCode = int64
-type ToolCallUpdatePayloadDurationMs = int64
 type RunIdentity struct {
 	Id             string `json:"id"`
 	AgentSessionId string `json:"agentSessionId"`
 }
-type RunIdentityId = string
-type RunIdentityAgentSessionId = string
 type ChannelScope struct {
 	TenantId       string            `json:"tenant_id"`
 	EndpointId     string            `json:"endpoint_id"`
@@ -2363,13 +655,6 @@ type ChannelScope struct {
 	ConversationId string            `json:"conversation_id"`
 	ThreadId       Optional[*string] `json:"thread_id,omitzero"`
 }
-type ChannelScopeTenantId = string
-type ChannelScopeEndpointId = string
-type ChannelScopeChannel = string
-type ChannelScopeAccountId = *string
-type ChannelScopeBotId = string
-type ChannelScopeConversationId = string
-type ChannelScopeThreadId = *string
 type ChannelMessagePart struct {
 	Type  string                     `json:"type"`
 	Text  Optional[string]           `json:"text,omitzero"`
@@ -2390,22 +675,15 @@ func (v *ChannelMessagePart) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type ChannelMessagePartType = string
-type ChannelMessagePartText = string
 type ChannelMessageSender struct {
 	Id    string           `json:"id"`
 	Label Optional[string] `json:"label,omitzero"`
 	Kind  string           `json:"kind"`
 }
-type ChannelMessageSenderId = string
-type ChannelMessageSenderLabel = string
-type ChannelMessageSenderKind = string
 type ChannelMessageFlags struct {
 	Self    Optional[bool] `json:"self,omitzero"`
 	Control Optional[bool] `json:"control,omitzero"`
 }
-type ChannelMessageFlagsSelf = bool
-type ChannelMessageFlagsControl = bool
 type ChannelMessageFact struct {
 	MessageId    string                        `json:"message_id"`
 	MessageSeq   Optional[int64]               `json:"message_seq,omitzero"`
@@ -2414,24 +692,12 @@ type ChannelMessageFact struct {
 	Parts        []ChannelMessagePart          `json:"parts"`
 	Flags        Optional[ChannelMessageFlags] `json:"flags,omitzero"`
 }
-type ChannelMessageFactMessageId = string
-type ChannelMessageFactMessageSeq = int64
-type ChannelMessageFactSender = ChannelMessageSender
-type ChannelMessageFactOccurredAtMs = int64
-type ChannelMessageFactParts = []ChannelMessagePart
-type ChannelMessageFactPartsItems = ChannelMessagePart
-type ChannelMessageFactFlags = ChannelMessageFlags
 type ChannelContextAppend struct {
 	AgentId     string               `json:"agent_id"`
 	Scope       ChannelScope         `json:"scope"`
 	Facts       []ChannelMessageFact `json:"facts"`
 	GapAfterSeq Optional[int64]      `json:"gap_after_seq,omitzero"`
 }
-type ChannelContextAppendAgentId = string
-type ChannelContextAppendScope = ChannelScope
-type ChannelContextAppendFacts = []ChannelMessageFact
-type ChannelContextAppendFactsItems = ChannelMessageFact
-type ChannelContextAppendGapAfterSeq = int64
 type ContextSyncRequest struct {
 	RequestId        string          `json:"request_id"`
 	RunId            string          `json:"run_id"`
@@ -2441,13 +707,6 @@ type ContextSyncRequest struct {
 	AfterSeq         Optional[int64] `json:"after_seq,omitzero"`
 	Limit            int64           `json:"limit"`
 }
-type ContextSyncRequestRequestId = string
-type ContextSyncRequestRunId = string
-type ContextSyncRequestScope = ChannelScope
-type ContextSyncRequestTriggerMessageId = string
-type ContextSyncRequestTriggerSeq = int64
-type ContextSyncRequestAfterSeq = int64
-type ContextSyncRequestLimit = int64
 type ContextSyncResult struct {
 	RequestId    string               `json:"request_id"`
 	Scope        ChannelScope         `json:"scope"`
@@ -2455,53 +714,6 @@ type ContextSyncResult struct {
 	Completeness string               `json:"completeness"`
 	ThroughSeq   Optional[int64]      `json:"through_seq,omitzero"`
 }
-type ContextSyncResultRequestId = string
-type ContextSyncResultScope = ChannelScope
-type ContextSyncResultFacts = []ChannelMessageFact
-type ContextSyncResultFactsItems = ChannelMessageFact
-type ContextSyncResultCompleteness = string
-type ContextSyncResultThroughSeq = int64
-type ContextSyncResultAllOf0 = json.RawMessage
-type ContextSyncResultAllOf0If struct {
-	Completeness Optional[string]           `json:"completeness,omitzero"`
-	Extra        map[string]json.RawMessage `json:"-"`
-}
-
-func (v ContextSyncResultAllOf0If) MarshalJSON() ([]byte, error) {
-	type plain ContextSyncResultAllOf0If
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextSyncResultAllOf0If) UnmarshalJSON(data []byte) error {
-	type plain ContextSyncResultAllOf0If
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextSyncResultAllOf0If(p)
-	return nil
-}
-
-type ContextSyncResultAllOf0IfCompleteness = string
-type ContextSyncResultAllOf0Then struct {
-	Facts Optional[json.RawMessage]  `json:"facts,omitzero"`
-	Extra map[string]json.RawMessage `json:"-"`
-}
-
-func (v ContextSyncResultAllOf0Then) MarshalJSON() ([]byte, error) {
-	type plain ContextSyncResultAllOf0Then
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextSyncResultAllOf0Then) UnmarshalJSON(data []byte) error {
-	type plain ContextSyncResultAllOf0Then
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextSyncResultAllOf0Then(p)
-	return nil
-}
-
-type ContextSyncResultAllOf0ThenFacts = json.RawMessage
 type ChannelContextDescriptor struct {
 	Scope             ChannelScope       `json:"scope"`
 	ConsumerKey       string             `json:"consumer_key"`
@@ -2510,20 +722,11 @@ type ChannelContextDescriptor struct {
 	TriggerSeq        Optional[int64]    `json:"trigger_seq,omitzero"`
 	TriggerFact       ChannelMessageFact `json:"trigger_fact"`
 }
-type ChannelContextDescriptorScope = ChannelScope
-type ChannelContextDescriptorConsumerKey = string
-type ChannelContextDescriptorSessionGeneration = int64
-type ChannelContextDescriptorTriggerMessageId = string
-type ChannelContextDescriptorTriggerSeq = int64
-type ChannelContextDescriptorTriggerFact = ChannelMessageFact
 type ContextCommitResult struct {
 	SnapshotId string           `json:"snapshot_id"`
 	Committed  bool             `json:"committed"`
 	Reason     Optional[string] `json:"reason,omitzero"`
 }
-type ContextCommitResultSnapshotId = string
-type ContextCommitResultCommitted = bool
-type ContextCommitResultReason = string
 type McpStdioServer struct {
 	Type             string                               `json:"type"`
 	Command          string                               `json:"command"`
@@ -2534,17 +737,6 @@ type McpStdioServer struct {
 	StartupTimeoutMs Optional[int64]                      `json:"startupTimeoutMs,omitzero"`
 	ToolTimeoutMs    Optional[int64]                      `json:"toolTimeoutMs,omitzero"`
 }
-type McpStdioServerType = string
-type McpStdioServerCommand = string
-type McpStdioServerArgs = []string
-type McpStdioServerArgsItems = string
-type McpStdioServerEnv = map[string]json.RawMessage
-type McpStdioServerEnvPropertyNames = json.RawMessage
-type McpStdioServerEnvAdditional = string
-type McpStdioServerCwd = string
-type McpStdioServerRequired = bool
-type McpStdioServerStartupTimeoutMs = int64
-type McpStdioServerToolTimeoutMs = int64
 type McpStreamableHttpServer struct {
 	Type             string                               `json:"type"`
 	Url              McpStreamableHttpServerUrl           `json:"url"`
@@ -2553,31 +745,15 @@ type McpStreamableHttpServer struct {
 	StartupTimeoutMs Optional[int64]                      `json:"startupTimeoutMs,omitzero"`
 	ToolTimeoutMs    Optional[int64]                      `json:"toolTimeoutMs,omitzero"`
 }
-type McpStreamableHttpServerType = string
 type McpStreamableHttpServerUrl = json.RawMessage
-type McpStreamableHttpServerUrlAnyOf0 = json.RawMessage
-type McpStreamableHttpServerUrlAnyOf1 = json.RawMessage
-type McpStreamableHttpServerHeaders = map[string]json.RawMessage
-type McpStreamableHttpServerHeadersPropertyNames = json.RawMessage
-type McpStreamableHttpServerHeadersAdditional = string
-type McpStreamableHttpServerRequired = bool
-type McpStreamableHttpServerStartupTimeoutMs = int64
-type McpStreamableHttpServerToolTimeoutMs = int64
 type McpServer = json.RawMessage
-type McpServerOneOf0 = McpStdioServer
-type McpServerOneOf1 = McpStreamableHttpServer
 type McpServers = map[string]json.RawMessage
-type McpServersPropertyNames = json.RawMessage
-type McpServersAdditional = McpServer
 type ModelInputPart = json.RawMessage
 type ModelInputPartOneOf0 struct {
 	Id   Optional[string] `json:"id,omitzero"`
 	Type string           `json:"type"`
 	Text string           `json:"text"`
 }
-type ModelInputPartOneOf0Id = string
-type ModelInputPartOneOf0Type = string
-type ModelInputPartOneOf0Text = string
 type ModelInputPartOneOf1 struct {
 	Id       Optional[string] `json:"id,omitzero"`
 	Type     string           `json:"type"`
@@ -2586,12 +762,6 @@ type ModelInputPartOneOf1 struct {
 	ByteSize int64            `json:"byteSize"`
 	Sha256   string           `json:"sha256"`
 }
-type ModelInputPartOneOf1Id = string
-type ModelInputPartOneOf1Type = string
-type ModelInputPartOneOf1MimeType = string
-type ModelInputPartOneOf1Data = string
-type ModelInputPartOneOf1ByteSize = int64
-type ModelInputPartOneOf1Sha256 = string
 type InvokeRequestWire struct {
 	ExecutionEnvOverrides          Optional[ContextEnvsPayload]         `json:"executionEnvOverrides,omitzero"`
 	InvocationId                   string                               `json:"invocationId"`
@@ -2617,65 +787,28 @@ type InvokeRequestWire struct {
 	ProtocolVersion                json.Number                          `json:"protocolVersion"`
 	AgentSource                    AgentSource                          `json:"agentSource"`
 }
-type InvokeRequestWireExecutionEnvOverrides = ContextEnvsPayload
-type InvokeRequestWireInvocationId = string
-type InvokeRequestWireAgentSessionId = string
-type InvokeRequestWireRunId = string
-type InvokeRequestWireSessionGeneration = int64
-type InvokeRequestWireProviderEpoch = int64
-type InvokeRequestWireContinuityMode = string
-type InvokeRequestWirePrompt = string
-type InvokeRequestWireModelInput = string
-type InvokeRequestWireModelInputParts = []ModelInputPart
-type InvokeRequestWireModelInputPartsItems = ModelInputPart
-type InvokeRequestWireFreshFallbackModelInputParts = []ModelInputPart
-type InvokeRequestWireFreshFallbackModelInputPartsItems = ModelInputPart
-type InvokeRequestWireFreshFallbackImagesUnavailable = bool
-type InvokeRequestWireFreshFallbackModelInput = string
-type InvokeRequestWireWorkdir = string
-type InvokeRequestWireControlInstructions = string
-type InvokeRequestWireContext = ContextEnvelope
-type InvokeRequestWireRunMetadata = map[string]json.RawMessage
-type InvokeRequestWireApprovalMode = ApprovalMode
-type InvokeRequestWireProviderSession = ProviderSession
-type InvokeRequestWireRuntimeLimits = RuntimeLimits
-type InvokeRequestWireAgentConfig = AgentConfig
-type InvokeRequestWireProtocolVersion = json.Number
-type InvokeRequestWireAgentSource = AgentSource
 type ActivityInfo struct {
 	MessageKey   Optional[string]                     `json:"messageKey,omitzero"`
 	Params       Optional[map[string]json.RawMessage] `json:"params,omitzero"`
 	Attempt      Optional[int64]                      `json:"attempt,omitzero"`
 	RetryAfterMs Optional[int64]                      `json:"retryAfterMs,omitzero"`
 }
-type ActivityInfoMessageKey = string
-type ActivityInfoParams = map[string]json.RawMessage
-type ActivityInfoParamsAdditional = json.RawMessage
-type ActivityInfoAttempt = int64
-type ActivityInfoRetryAfterMs = int64
 type ActivitySubject = json.RawMessage
 type ActivitySubjectOneOf0 struct {
 	Type string `json:"type"`
 }
-type ActivitySubjectOneOf0Type = string
 type ActivitySubjectOneOf1 struct {
 	Type string `json:"type"`
 	Id   string `json:"id"`
 }
-type ActivitySubjectOneOf1Type = string
-type ActivitySubjectOneOf1Id = string
 type ActivitySubjectOneOf2 struct {
 	Type string `json:"type"`
 	Id   string `json:"id"`
 }
-type ActivitySubjectOneOf2Type = string
-type ActivitySubjectOneOf2Id = string
 type ActivitySubjectOneOf3 struct {
 	Type string `json:"type"`
 	Id   string `json:"id"`
 }
-type ActivitySubjectOneOf3Type = string
-type ActivitySubjectOneOf3Id = string
 type ActivityStartedPayload struct {
 	ActivityId  string          `json:"activityId"`
 	Kind        string          `json:"kind"`
@@ -2684,57 +817,35 @@ type ActivityStartedPayload struct {
 	Info        ActivityInfo    `json:"info"`
 	StartedAtMs Optional[int64] `json:"startedAtMs,omitzero"`
 }
-type ActivityStartedPayloadActivityId = string
-type ActivityStartedPayloadKind = string
-type ActivityStartedPayloadSubject = ActivitySubject
-type ActivityStartedPayloadSource = string
-type ActivityStartedPayloadInfo = ActivityInfo
-type ActivityStartedPayloadStartedAtMs = int64
 type ActivityUpdatedPayload struct {
 	ActivityId string       `json:"activityId"`
 	Info       ActivityInfo `json:"info"`
 }
-type ActivityUpdatedPayloadActivityId = string
-type ActivityUpdatedPayloadInfo = ActivityInfo
 type ActivityFinishedPayload struct {
 	ActivityId string          `json:"activityId"`
 	Status     string          `json:"status"`
 	EndedAtMs  Optional[int64] `json:"endedAtMs,omitzero"`
 }
-type ActivityFinishedPayloadActivityId = string
-type ActivityFinishedPayloadStatus = string
-type ActivityFinishedPayloadEndedAtMs = int64
 type PlanUpdatedPayload struct {
 	PlanId      string                         `json:"planId"`
 	Revision    int64                          `json:"revision"`
 	Explanation *string                        `json:"explanation"`
 	Steps       []PlanUpdatedPayloadStepsItems `json:"steps"`
 }
-type PlanUpdatedPayloadPlanId = string
-type PlanUpdatedPayloadRevision = int64
-type PlanUpdatedPayloadExplanation = *string
-type PlanUpdatedPayloadSteps = []PlanUpdatedPayloadStepsItems
 type PlanUpdatedPayloadStepsItems struct {
 	Text   string `json:"text"`
 	Status string `json:"status"`
 }
-type PlanUpdatedPayloadStepsItemsText = string
-type PlanUpdatedPayloadStepsItemsStatus = string
 type ToolProgressPayload struct {
 	Id       string                      `json:"id"`
 	Progress ToolProgressPayloadProgress `json:"progress"`
 }
-type ToolProgressPayloadId = string
 type ToolProgressPayloadProgress struct {
 	Message   Optional[string] `json:"message,omitzero"`
 	Completed Optional[int64]  `json:"completed,omitzero"`
 	Total     Optional[int64]  `json:"total,omitzero"`
 	Unit      Optional[string] `json:"unit,omitzero"`
 }
-type ToolProgressPayloadProgressMessage = string
-type ToolProgressPayloadProgressCompleted = int64
-type ToolProgressPayloadProgressTotal = int64
-type ToolProgressPayloadProgressUnit = string
 type RunNoticePayload struct {
 	NoticeId          string                     `json:"noticeId"`
 	Code              string                     `json:"code"`
@@ -2743,34 +854,17 @@ type RunNoticePayload struct {
 	RelatedActivityId Optional[string]           `json:"relatedActivityId,omitzero"`
 	RelatedItemId     Optional[string]           `json:"relatedItemId,omitzero"`
 }
-type RunNoticePayloadNoticeId = string
-type RunNoticePayloadCode = string
-type RunNoticePayloadSeverity = string
-type RunNoticePayloadParams = map[string]json.RawMessage
-type RunNoticePayloadParamsAdditional = json.RawMessage
-type RunNoticePayloadRelatedActivityId = string
-type RunNoticePayloadRelatedItemId = string
 type AgentSource = string
 type ContextModelSelectionPayload struct {
 	Id                 Optional[string] `json:"id,omitzero"`
 	UseProviderDefault Optional[bool]   `json:"use_provider_default,omitzero"`
 }
-type ContextModelSelectionPayloadId = string
-type ContextModelSelectionPayloadUseProviderDefault = bool
-type ContextModelSelectionPayloadOneOf0 = json.RawMessage
-type ContextModelSelectionPayloadOneOf0Not = json.RawMessage
-type ContextModelSelectionPayloadOneOf1 = json.RawMessage
-type ContextModelSelectionPayloadOneOf1Not = json.RawMessage
 type ContextInlineEntry struct {
 	Text        string                    `json:"text"`
 	ResourceRef Optional[string]          `json:"resource_ref,omitzero"`
 	Source      Optional[json.RawMessage] `json:"source,omitzero"`
 	Summary     Optional[string]          `json:"summary,omitzero"`
 }
-type ContextInlineEntryText = string
-type ContextInlineEntryResourceRef = string
-type ContextInlineEntrySource = json.RawMessage
-type ContextInlineEntrySummary = string
 type ContextReferenceEntry struct {
 	ResourceRef      string                               `json:"resource_ref"`
 	Resolver         string                               `json:"resolver"`
@@ -2779,52 +873,17 @@ type ContextReferenceEntry struct {
 	AuthorizationRef Optional[string]                     `json:"authorization_ref,omitzero"`
 	Revision         Optional[string]                     `json:"revision,omitzero"`
 }
-type ContextReferenceEntryResourceRef = string
-type ContextReferenceEntryResolver = string
-type ContextReferenceEntryLocator = map[string]json.RawMessage
-type ContextReferenceEntryParams = map[string]json.RawMessage
-type ContextReferenceEntryAuthorizationRef = string
-type ContextReferenceEntryRevision = string
-type ContextReferenceEntryAllOf0 struct {
-	Locator Optional[ContextMcpLocator] `json:"locator,omitzero"`
-	Extra   map[string]json.RawMessage  `json:"-"`
-}
-
-func (v ContextReferenceEntryAllOf0) MarshalJSON() ([]byte, error) {
-	type plain ContextReferenceEntryAllOf0
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *ContextReferenceEntryAllOf0) UnmarshalJSON(data []byte) error {
-	type plain ContextReferenceEntryAllOf0
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = ContextReferenceEntryAllOf0(p)
-	return nil
-}
-
-type ContextReferenceEntryAllOf0Locator = ContextMcpLocator
 type ContextInlinePayload struct {
 	Entries []ContextInlineEntry `json:"entries"`
 }
-type ContextInlinePayloadEntries = []ContextInlineEntry
-type ContextInlinePayloadEntriesItems = ContextInlineEntry
 type ContextReferencesPayload struct {
 	Entries []ContextReferenceEntry `json:"entries"`
 }
-type ContextReferencesPayloadEntries = []ContextReferenceEntry
-type ContextReferencesPayloadEntriesItems = ContextReferenceEntry
 type ToolAuthorization struct {
 	ServiceSubjectId string   `json:"service_subject_id"`
 	AllowedTools     []string `json:"allowed_tools"`
 	ResourceRefs     []string `json:"resource_refs"`
 }
-type ToolAuthorizationServiceSubjectId = string
-type ToolAuthorizationAllowedTools = []string
-type ToolAuthorizationAllowedToolsItems = string
-type ToolAuthorizationResourceRefs = []string
-type ToolAuthorizationResourceRefsItems = string
 type IssuedToolAuthorization struct {
 	ServiceSubjectId string   `json:"service_subject_id"`
 	AllowedTools     []string `json:"allowed_tools"`
@@ -2834,31 +893,17 @@ type IssuedToolAuthorization struct {
 	Namespace        string   `json:"namespace"`
 	ExpiresAt        string   `json:"expires_at"`
 }
-type IssuedToolAuthorizationServiceSubjectId = string
-type IssuedToolAuthorizationAllowedTools = []string
-type IssuedToolAuthorizationAllowedToolsItems = string
-type IssuedToolAuthorizationResourceRefs = []string
-type IssuedToolAuthorizationResourceRefsItems = string
-type IssuedToolAuthorizationToken = string
-type IssuedToolAuthorizationOctoSpaceId = string
-type IssuedToolAuthorizationNamespace = string
-type IssuedToolAuthorizationExpiresAt = string
 type ContextEnvsPayload struct {
 	EnvVariables []ContextEnvsPayloadEnvVariablesItems `json:"env_variables"`
 }
-type ContextEnvsPayloadEnvVariables = []ContextEnvsPayloadEnvVariablesItems
 type ContextEnvsPayloadEnvVariablesItems struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
 }
-type ContextEnvsPayloadEnvVariablesItemsKey = string
-type ContextEnvsPayloadEnvVariablesItemsValue = string
 type ContextMcpPayload struct {
 	McpServers McpServers `json:"mcpServers"`
 }
-type ContextMcpPayloadMcpServers = McpServers
 type ModelInputParts = []ModelInputPart
-type ModelInputPartsItems = ModelInputPart
 type InvokeInputWire struct {
 	SessionId                      Optional[string]                     `json:"sessionId,omitzero"`
 	InvocationId                   Optional[string]                     `json:"invocationId,omitzero"`
@@ -2899,105 +944,9 @@ func (v *InvokeInputWire) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type InvokeInputWireSessionId = string
-type InvokeInputWireInvocationId = string
-type InvokeInputWireRunId = string
-type InvokeInputWirePrompt = string
-type InvokeInputWireModelInput = string
-type InvokeInputWireFreshFallbackModelInput = string
-type InvokeInputWireWorkdir = string
-type InvokeInputWireControlInstructions = string
-type InvokeInputWireInputs = ModelInputParts
-type InvokeInputWireContexts = ContextEnvelope
-type InvokeInputWireProtocolMode = ProtocolMode
-type InvokeInputWireAgentSource = AgentSource
-type InvokeInputWireApprovalMode = ApprovalMode
-type InvokeInputWireAgentConfig = AgentConfig
-type InvokeInputWireRuntimeLimits = RuntimeLimits
-type InvokeInputWireProviderSession = ProviderSession
-type InvokeInputWireSessionGeneration = int64
-type InvokeInputWireProviderEpoch = int64
-type InvokeInputWireRunMetadata = map[string]json.RawMessage
-type InvokeInputWireContinuityMode = string
-type InvokeInputWireFreshFallbackModelInputParts = ModelInputParts
-type InvokeInputWireFreshFallbackImagesUnavailable = bool
-type InvokeInputWireAllOf0 = json.RawMessage
-type InvokeInputWireAllOf0Not = json.RawMessage
-type InvokeInputWireAllOf1 = json.RawMessage
-type InvokeInputWireAllOf1Not = json.RawMessage
-type InvokeInputWireAllOf2 = json.RawMessage
-type InvokeInputWireAllOf2Not = json.RawMessage
-type InvokeInputWireAllOf3 = json.RawMessage
-type InvokeInputWireAllOf3Not = json.RawMessage
-type InvokeInputWireAllOf4 = json.RawMessage
-type InvokeInputWireAllOf4Not = json.RawMessage
-type InvokeInputWireAllOf5 = json.RawMessage
-type InvokeInputWireAllOf5Not = json.RawMessage
-type InvokeInputWireAllOf6 struct {
-	AgentConfig     Optional[InvokeInputWireAllOf6AgentConfig]     `json:"agentConfig,omitzero"`
-	ProviderSession Optional[InvokeInputWireAllOf6ProviderSession] `json:"providerSession,omitzero"`
-	Extra           map[string]json.RawMessage                     `json:"-"`
-}
-
-func (v InvokeInputWireAllOf6) MarshalJSON() ([]byte, error) {
-	type plain InvokeInputWireAllOf6
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *InvokeInputWireAllOf6) UnmarshalJSON(data []byte) error {
-	type plain InvokeInputWireAllOf6
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = InvokeInputWireAllOf6(p)
-	return nil
-}
-
-type InvokeInputWireAllOf6AgentConfig struct {
-	TimeoutSeconds Optional[json.RawMessage]  `json:"timeoutSeconds,omitzero"`
-	Extra          map[string]json.RawMessage `json:"-"`
-}
-
-func (v InvokeInputWireAllOf6AgentConfig) MarshalJSON() ([]byte, error) {
-	type plain InvokeInputWireAllOf6AgentConfig
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *InvokeInputWireAllOf6AgentConfig) UnmarshalJSON(data []byte) error {
-	type plain InvokeInputWireAllOf6AgentConfig
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = InvokeInputWireAllOf6AgentConfig(p)
-	return nil
-}
-
-type InvokeInputWireAllOf6AgentConfigTimeoutSeconds = json.RawMessage
-type InvokeInputWireAllOf6AgentConfigTimeoutSecondsNot = json.RawMessage
-type InvokeInputWireAllOf6ProviderSession struct {
-	SessionId Optional[json.RawMessage]  `json:"sessionId,omitzero"`
-	Extra     map[string]json.RawMessage `json:"-"`
-}
-
-func (v InvokeInputWireAllOf6ProviderSession) MarshalJSON() ([]byte, error) {
-	type plain InvokeInputWireAllOf6ProviderSession
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *InvokeInputWireAllOf6ProviderSession) UnmarshalJSON(data []byte) error {
-	type plain InvokeInputWireAllOf6ProviderSession
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = InvokeInputWireAllOf6ProviderSession(p)
-	return nil
-}
-
-type InvokeInputWireAllOf6ProviderSessionSessionId = json.RawMessage
 type KernelInvokeEnvironmentWire struct {
 	ExecutionEnvOverrides Optional[ContextEnvsPayload] `json:"executionEnvOverrides,omitzero"`
 }
-type KernelInvokeEnvironmentWireExecutionEnvOverrides = ContextEnvsPayload
 type InteractionResponseWire struct {
 	InteractionId string                     `json:"interactionId"`
 	Outcome       string                     `json:"outcome"`
@@ -3019,9 +968,6 @@ func (v *InteractionResponseWire) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type InteractionResponseWireInteractionId = string
-type InteractionResponseWireOutcome = string
-type InteractionResponseWireValue = json.RawMessage
 type HostedAdapterMetadataWire struct {
 	Type              string                           `json:"type"`
 	AgentSources      []AgentSource                    `json:"agentSources"`
@@ -3050,355 +996,12 @@ func (v *HostedAdapterMetadataWire) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type HostedAdapterMetadataWireType = string
-type HostedAdapterMetadataWireAgentSources = []AgentSource
-type HostedAdapterMetadataWireAgentSourcesItems = AgentSource
-type HostedAdapterMetadataWireWorkspace = bool
-type HostedAdapterMetadataWireProtocolSupport = AdapterProtocolSupport
-type HostedAdapterMetadataWireProcessModel = string
-type HostedAdapterMetadataWireTransport = string
-type HostedAdapterMetadataWireProviderVersion = *string
-type HostedAdapterMetadataWireProviderPath = *string
-type HostedAdapterMetadataWireAvailable = bool
-type HostedAdapterMetadataWireUnavailableReason = *string
 type IpcRequest struct {
 	Jsonrpc string                     `json:"jsonrpc"`
 	Id      string                     `json:"id"`
 	Method  string                     `json:"method"`
 	Params  map[string]json.RawMessage `json:"params"`
 }
-type IpcRequestJsonrpc = string
-type IpcRequestId = string
-type IpcRequestMethod = string
-type IpcRequestParams = map[string]json.RawMessage
-type IpcRequestAllOf0 = json.RawMessage
-type IpcRequestAllOf0If struct {
-	Method Optional[string]           `json:"method,omitzero"`
-	Extra  map[string]json.RawMessage `json:"-"`
-}
-
-func (v IpcRequestAllOf0If) MarshalJSON() ([]byte, error) {
-	type plain IpcRequestAllOf0If
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *IpcRequestAllOf0If) UnmarshalJSON(data []byte) error {
-	type plain IpcRequestAllOf0If
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = IpcRequestAllOf0If(p)
-	return nil
-}
-
-type IpcRequestAllOf0IfMethod = string
-type IpcRequestAllOf0Then struct {
-	Params Optional[IpcEmptyParams]   `json:"params,omitzero"`
-	Extra  map[string]json.RawMessage `json:"-"`
-}
-
-func (v IpcRequestAllOf0Then) MarshalJSON() ([]byte, error) {
-	type plain IpcRequestAllOf0Then
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *IpcRequestAllOf0Then) UnmarshalJSON(data []byte) error {
-	type plain IpcRequestAllOf0Then
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = IpcRequestAllOf0Then(p)
-	return nil
-}
-
-type IpcRequestAllOf0ThenParams = IpcEmptyParams
-type IpcRequestAllOf1 = json.RawMessage
-type IpcRequestAllOf1If struct {
-	Method Optional[string]           `json:"method,omitzero"`
-	Extra  map[string]json.RawMessage `json:"-"`
-}
-
-func (v IpcRequestAllOf1If) MarshalJSON() ([]byte, error) {
-	type plain IpcRequestAllOf1If
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *IpcRequestAllOf1If) UnmarshalJSON(data []byte) error {
-	type plain IpcRequestAllOf1If
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = IpcRequestAllOf1If(p)
-	return nil
-}
-
-type IpcRequestAllOf1IfMethod = string
-type IpcRequestAllOf1Then struct {
-	Params Optional[IpcEmptyParams]   `json:"params,omitzero"`
-	Extra  map[string]json.RawMessage `json:"-"`
-}
-
-func (v IpcRequestAllOf1Then) MarshalJSON() ([]byte, error) {
-	type plain IpcRequestAllOf1Then
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *IpcRequestAllOf1Then) UnmarshalJSON(data []byte) error {
-	type plain IpcRequestAllOf1Then
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = IpcRequestAllOf1Then(p)
-	return nil
-}
-
-type IpcRequestAllOf1ThenParams = IpcEmptyParams
-type IpcRequestAllOf2 = json.RawMessage
-type IpcRequestAllOf2If struct {
-	Method Optional[string]           `json:"method,omitzero"`
-	Extra  map[string]json.RawMessage `json:"-"`
-}
-
-func (v IpcRequestAllOf2If) MarshalJSON() ([]byte, error) {
-	type plain IpcRequestAllOf2If
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *IpcRequestAllOf2If) UnmarshalJSON(data []byte) error {
-	type plain IpcRequestAllOf2If
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = IpcRequestAllOf2If(p)
-	return nil
-}
-
-type IpcRequestAllOf2IfMethod = string
-type IpcRequestAllOf2Then struct {
-	Params Optional[IpcInvokeParams]  `json:"params,omitzero"`
-	Extra  map[string]json.RawMessage `json:"-"`
-}
-
-func (v IpcRequestAllOf2Then) MarshalJSON() ([]byte, error) {
-	type plain IpcRequestAllOf2Then
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *IpcRequestAllOf2Then) UnmarshalJSON(data []byte) error {
-	type plain IpcRequestAllOf2Then
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = IpcRequestAllOf2Then(p)
-	return nil
-}
-
-type IpcRequestAllOf2ThenParams = IpcInvokeParams
-type IpcRequestAllOf3 = json.RawMessage
-type IpcRequestAllOf3If struct {
-	Method Optional[string]           `json:"method,omitzero"`
-	Extra  map[string]json.RawMessage `json:"-"`
-}
-
-func (v IpcRequestAllOf3If) MarshalJSON() ([]byte, error) {
-	type plain IpcRequestAllOf3If
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *IpcRequestAllOf3If) UnmarshalJSON(data []byte) error {
-	type plain IpcRequestAllOf3If
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = IpcRequestAllOf3If(p)
-	return nil
-}
-
-type IpcRequestAllOf3IfMethod = string
-type IpcRequestAllOf3Then struct {
-	Params Optional[IpcGetParams]     `json:"params,omitzero"`
-	Extra  map[string]json.RawMessage `json:"-"`
-}
-
-func (v IpcRequestAllOf3Then) MarshalJSON() ([]byte, error) {
-	type plain IpcRequestAllOf3Then
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *IpcRequestAllOf3Then) UnmarshalJSON(data []byte) error {
-	type plain IpcRequestAllOf3Then
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = IpcRequestAllOf3Then(p)
-	return nil
-}
-
-type IpcRequestAllOf3ThenParams = IpcGetParams
-type IpcRequestAllOf4 = json.RawMessage
-type IpcRequestAllOf4If struct {
-	Method Optional[string]           `json:"method,omitzero"`
-	Extra  map[string]json.RawMessage `json:"-"`
-}
-
-func (v IpcRequestAllOf4If) MarshalJSON() ([]byte, error) {
-	type plain IpcRequestAllOf4If
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *IpcRequestAllOf4If) UnmarshalJSON(data []byte) error {
-	type plain IpcRequestAllOf4If
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = IpcRequestAllOf4If(p)
-	return nil
-}
-
-type IpcRequestAllOf4IfMethod = string
-type IpcRequestAllOf4Then struct {
-	Params Optional[IpcSubscribeParams] `json:"params,omitzero"`
-	Extra  map[string]json.RawMessage   `json:"-"`
-}
-
-func (v IpcRequestAllOf4Then) MarshalJSON() ([]byte, error) {
-	type plain IpcRequestAllOf4Then
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *IpcRequestAllOf4Then) UnmarshalJSON(data []byte) error {
-	type plain IpcRequestAllOf4Then
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = IpcRequestAllOf4Then(p)
-	return nil
-}
-
-type IpcRequestAllOf4ThenParams = IpcSubscribeParams
-type IpcRequestAllOf5 = json.RawMessage
-type IpcRequestAllOf5If struct {
-	Method Optional[string]           `json:"method,omitzero"`
-	Extra  map[string]json.RawMessage `json:"-"`
-}
-
-func (v IpcRequestAllOf5If) MarshalJSON() ([]byte, error) {
-	type plain IpcRequestAllOf5If
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *IpcRequestAllOf5If) UnmarshalJSON(data []byte) error {
-	type plain IpcRequestAllOf5If
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = IpcRequestAllOf5If(p)
-	return nil
-}
-
-type IpcRequestAllOf5IfMethod = string
-type IpcRequestAllOf5Then struct {
-	Params Optional[IpcCancelParams]  `json:"params,omitzero"`
-	Extra  map[string]json.RawMessage `json:"-"`
-}
-
-func (v IpcRequestAllOf5Then) MarshalJSON() ([]byte, error) {
-	type plain IpcRequestAllOf5Then
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *IpcRequestAllOf5Then) UnmarshalJSON(data []byte) error {
-	type plain IpcRequestAllOf5Then
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = IpcRequestAllOf5Then(p)
-	return nil
-}
-
-type IpcRequestAllOf5ThenParams = IpcCancelParams
-type IpcRequestAllOf6 = json.RawMessage
-type IpcRequestAllOf6If struct {
-	Method Optional[string]           `json:"method,omitzero"`
-	Extra  map[string]json.RawMessage `json:"-"`
-}
-
-func (v IpcRequestAllOf6If) MarshalJSON() ([]byte, error) {
-	type plain IpcRequestAllOf6If
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *IpcRequestAllOf6If) UnmarshalJSON(data []byte) error {
-	type plain IpcRequestAllOf6If
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = IpcRequestAllOf6If(p)
-	return nil
-}
-
-type IpcRequestAllOf6IfMethod = string
-type IpcRequestAllOf6Then struct {
-	Params Optional[IpcRespondParams] `json:"params,omitzero"`
-	Extra  map[string]json.RawMessage `json:"-"`
-}
-
-func (v IpcRequestAllOf6Then) MarshalJSON() ([]byte, error) {
-	type plain IpcRequestAllOf6Then
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *IpcRequestAllOf6Then) UnmarshalJSON(data []byte) error {
-	type plain IpcRequestAllOf6Then
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = IpcRequestAllOf6Then(p)
-	return nil
-}
-
-type IpcRequestAllOf6ThenParams = IpcRespondParams
-type IpcRequestAllOf7 = json.RawMessage
-type IpcRequestAllOf7If struct {
-	Method Optional[string]           `json:"method,omitzero"`
-	Extra  map[string]json.RawMessage `json:"-"`
-}
-
-func (v IpcRequestAllOf7If) MarshalJSON() ([]byte, error) {
-	type plain IpcRequestAllOf7If
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *IpcRequestAllOf7If) UnmarshalJSON(data []byte) error {
-	type plain IpcRequestAllOf7If
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = IpcRequestAllOf7If(p)
-	return nil
-}
-
-type IpcRequestAllOf7IfMethod = string
-type IpcRequestAllOf7Then struct {
-	Params Optional[IpcRespondNativeParams] `json:"params,omitzero"`
-	Extra  map[string]json.RawMessage       `json:"-"`
-}
-
-func (v IpcRequestAllOf7Then) MarshalJSON() ([]byte, error) {
-	type plain IpcRequestAllOf7Then
-	return marshalOpen(plain(v), v.Extra)
-}
-func (v *IpcRequestAllOf7Then) UnmarshalJSON(data []byte) error {
-	type plain IpcRequestAllOf7Then
-	var p plain
-	if err := unmarshalOpen(data, &p, &p.Extra); err != nil {
-		return err
-	}
-	*v = IpcRequestAllOf7Then(p)
-	return nil
-}
-
-type IpcRequestAllOf7ThenParams = IpcRespondNativeParams
 type IpcEmptyParams struct {
 }
 type IpcEmptyResult struct {
@@ -3408,64 +1011,43 @@ type IpcInvokeParams struct {
 	ExecutionEnvOverrides Optional[ContextEnvsPayload] `json:"executionEnvOverrides,omitzero"`
 	KernelInstanceId      Optional[string]             `json:"kernel_instance_id,omitzero"`
 }
-type IpcInvokeParamsInput = InvokeInputWire
-type IpcInvokeParamsExecutionEnvOverrides = ContextEnvsPayload
-type IpcInvokeParamsKernelInstanceId = string
 type IpcGetParams struct {
 	Key              KernelLookupKey  `json:"key"`
 	KernelInstanceId Optional[string] `json:"kernel_instance_id,omitzero"`
 }
-type IpcGetParamsKey = KernelLookupKey
-type IpcGetParamsKernelInstanceId = string
 type IpcSubscribeParams struct {
 	Ref      KernelRunRef `json:"ref"`
 	AfterSeq int64        `json:"after_seq"`
 }
-type IpcSubscribeParamsRef = KernelRunRef
-type IpcSubscribeParamsAfterSeq = int64
 type IpcCancelParams struct {
 	Ref    KernelRunRef     `json:"ref"`
 	Reason Optional[string] `json:"reason,omitzero"`
 }
-type IpcCancelParamsRef = KernelRunRef
-type IpcCancelParamsReason = string
 type IpcRespondParams struct {
 	Ref      KernelRunRef            `json:"ref"`
 	Response InteractionResponseWire `json:"response"`
 }
-type IpcRespondParamsRef = KernelRunRef
-type IpcRespondParamsResponse = InteractionResponseWire
 type IpcRespondNativeParams struct {
 	Ref      KernelRunRef              `json:"ref"`
 	Response NativeInteractionResponse `json:"response"`
 }
-type IpcRespondNativeParamsRef = KernelRunRef
-type IpcRespondNativeParamsResponse = NativeInteractionResponse
 type IpcInvokeResult struct {
 	KernelInstanceId string         `json:"kernel_instance_id"`
 	Receipt          HostRunReceipt `json:"receipt"`
 }
-type IpcInvokeResultKernelInstanceId = string
-type IpcInvokeResultReceipt = HostRunReceipt
 type IpcCancelResult struct {
 	Accepted bool `json:"accepted"`
 }
-type IpcCancelResultAccepted = bool
 type IpcSuccessResponse struct {
 	Jsonrpc string          `json:"jsonrpc"`
 	Id      string          `json:"id"`
 	Result  json.RawMessage `json:"result"`
 }
-type IpcSuccessResponseJsonrpc = string
-type IpcSuccessResponseId = string
-type IpcSuccessResponseResult = json.RawMessage
 type IpcErrorResponse struct {
 	Jsonrpc string                `json:"jsonrpc"`
 	Id      *string               `json:"id"`
 	Error   IpcErrorResponseError `json:"error"`
 }
-type IpcErrorResponseJsonrpc = string
-type IpcErrorResponseId = *string
 type IpcErrorResponseError struct {
 	Code    int64                      `json:"code"`
 	Message string                     `json:"message"`
@@ -3487,8 +1069,6 @@ func (v *IpcErrorResponseError) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type IpcErrorResponseErrorCode = int64
-type IpcErrorResponseErrorMessage = string
 type IpcErrorResponseErrorData struct {
 	Code  string                     `json:"code"`
 	Extra map[string]json.RawMessage `json:"-"`
@@ -3508,14 +1088,11 @@ func (v *IpcErrorResponseErrorData) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type IpcErrorResponseErrorDataCode = string
 type IpcEventNotification struct {
 	Jsonrpc string                     `json:"jsonrpc"`
 	Method  string                     `json:"method"`
 	Params  IpcEventNotificationParams `json:"params"`
 }
-type IpcEventNotificationJsonrpc = string
-type IpcEventNotificationMethod = string
 type IpcEventNotificationParams struct {
 	KernelInstanceId string    `json:"kernel_instance_id"`
 	RunId            string    `json:"run_id"`
@@ -3523,28 +1100,18 @@ type IpcEventNotificationParams struct {
 	Seq              int64     `json:"seq"`
 	Event            HostFrame `json:"event"`
 }
-type IpcEventNotificationParamsKernelInstanceId = string
-type IpcEventNotificationParamsRunId = string
-type IpcEventNotificationParamsStreamId = string
-type IpcEventNotificationParamsSeq = int64
-type IpcEventNotificationParamsEvent = HostFrame
 type IpcStreamErrorNotification struct {
 	Jsonrpc string                           `json:"jsonrpc"`
 	Method  string                           `json:"method"`
 	Params  IpcStreamErrorNotificationParams `json:"params"`
 }
-type IpcStreamErrorNotificationJsonrpc = string
-type IpcStreamErrorNotificationMethod = string
 type IpcStreamErrorNotificationParams struct {
 	Code             string `json:"code"`
 	KernelInstanceId string `json:"kernel_instance_id"`
 }
-type IpcStreamErrorNotificationParamsCode = string
-type IpcStreamErrorNotificationParamsKernelInstanceId = string
 type IpcKnownBusinessErrorCode = string
 type IpcBusinessErrorCode = string
 type IpcListResult = []HostedAdapterMetadataWire
-type IpcListResultItems = HostedAdapterMetadataWire
 
 var definitionRules = map[string]int{"KernelLookupKey": 0, "KernelRunRef": 6, "KernelRunSnapshot": 15, "KernelStatus": 20, "RunProtocolErrorCode": 30, "ProtocolMode": 31, "CanonicalEventWire": 32, "HostInvokeOptions": 36, "HostRunReceipt": 39, "AdapterProtocolSupport": 47, "NativeInteractionResponse": 59, "HostControl": 64, "HostFrame": 96, "NativeHostFrame": 100, "CanonicalHostFrame": 112, "ControlHostFrame": 123, "NotificationMessage": 134, "ApprovalMode": 181, "ContextItem": 182, "ContextEnvelope": 266, "ContextConfiguration": 270, "RunContextProjection": 279, "PublicObjectMaterial": 296, "ContextPreparationReceipt": 317, "PersistentContextEnvelope": 327, "ContextAdapterPayload": 364, "ContextActmodePayload": 372, "ExecutionEvidence": 374, "ContextModelPayload": 381, "ContextReasoningPayload": 384, "ContextWorkspacePayload": 391, "ContextLimitsPayload": 399, "ContextRuntimeSelectionPayload": 416, "ContextApprovalPolicyPayload": 432, "ContextSelectionEntry": 434, "ContextResourceEntry": 439, "ContextMcpLocator": 448, "ContextInstructionEntry": 451, "ContextInstructionsPayload": 453, "ContextContinuityPayload": 456, "ResolvedRuntimeSelection": 464, "ResolvedExecutionPlan": 484, "MessageChannel": 513, "MessageExposure": 514, "MessageProvenance": 515, "FailureAction": 518, "FailureSource": 521, "FailureCause": 524, "FailureEnvelope": 527, "ProviderSession": 543, "RuntimeLimits": 549, "AgentConfig": 559, "CanonicalEventPayload": 574, "InteractionRequestedPayload": 587, "ApprovalRequest": 597, "ApprovalOperation": 611, "ApprovalDisplayDetails": 616, "InteractionResolvedPayload": 630, "ModelStepStartedPayload": 640, "ModelStepFinishedPayload": 643, "ToolCallCreatePayload": 648, "ToolCallDeltaPayload": 653, "ToolCallUpdatePayload": 658, "RunIdentity": 665, "ChannelScope": 668, "ChannelMessagePart": 676, "ChannelMessageSender": 679, "ChannelMessageFlags": 683, "ChannelMessageFact": 686, "ChannelContextAppend": 694, "ContextSyncRequest": 700, "ContextSyncResult": 708, "ChannelContextDescriptor": 720, "ContextCommitResult": 727, "McpStdioServer": 731, "McpStreamableHttpServer": 743, "McpServer": 754, "McpServers": 757, "ModelInputPart": 760, "InvokeRequestWire": 772, "ActivityInfo": 798, "ActivitySubject": 804, "ActivityStartedPayload": 816, "ActivityUpdatedPayload": 823, "ActivityFinishedPayload": 826, "PlanUpdatedPayload": 830, "ToolProgressPayload": 838, "RunNoticePayload": 845, "AgentSource": 853, "ContextModelSelectionPayload": 854, "ContextInlineEntry": 861, "ContextReferenceEntry": 866, "ContextInlinePayload": 875, "ContextReferencesPayload": 878, "ToolAuthorization": 881, "IssuedToolAuthorization": 887, "ContextEnvsPayload": 897, "ContextMcpPayload": 902, "ModelInputParts": 904, "InvokeInputWire": 906, "KernelInvokeEnvironmentWire": 947, "InteractionResponseWire": 949, "HostedAdapterMetadataWire": 953, "IpcRequest": 965, "IpcEmptyParams": 1010, "IpcEmptyResult": 1011, "IpcInvokeParams": 1012, "IpcGetParams": 1016, "IpcSubscribeParams": 1019, "IpcCancelParams": 1022, "IpcRespondParams": 1025, "IpcRespondNativeParams": 1028, "IpcInvokeResult": 1031, "IpcCancelResult": 1034, "IpcSuccessResponse": 1036, "IpcErrorResponse": 1040, "IpcEventNotification": 1048, "IpcStreamErrorNotification": 1057, "IpcKnownBusinessErrorCode": 1063, "IpcBusinessErrorCode": 1064}
 var rules = []rule{

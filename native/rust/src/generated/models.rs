@@ -19,11 +19,6 @@ pub struct KernelLookupKey {
     #[serde(rename = "protocol_mode")]
     pub r#protocol_mode: ProtocolMode,
 }
-pub type KernelLookupKeyRunId = String;
-pub type KernelLookupKeyInvocationId = String;
-pub type KernelLookupKeyAgentSessionId = String;
-pub type KernelLookupKeySessionGeneration = i64;
-pub type KernelLookupKeyProtocolMode = ProtocolMode;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KernelRunRef {
     #[serde(rename = "kernel_instance_id")]
@@ -46,14 +41,6 @@ pub struct KernelRunRef {
     #[serde(rename = "protocol")]
     pub r#protocol: String,
 }
-pub type KernelRunRefKernelInstanceId = String;
-pub type KernelRunRefRunId = String;
-pub type KernelRunRefInvocationId = String;
-pub type KernelRunRefStreamId = String;
-pub type KernelRunRefAgentSessionId = String;
-pub type KernelRunRefSessionGeneration = i64;
-pub type KernelRunRefProtocolMode = ProtocolMode;
-pub type KernelRunRefProtocol = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KernelRunSnapshot {
     #[serde(rename = "ref")]
@@ -75,10 +62,6 @@ pub struct KernelRunSnapshot {
     )]
     pub r#terminal: Presence<HostFrame>,
 }
-pub type KernelRunSnapshotRef = KernelRunRef;
-pub type KernelRunSnapshotOldestSeq = i64;
-pub type KernelRunSnapshotLatestSeq = i64;
-pub type KernelRunSnapshotTerminal = HostFrame;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KernelStatus {
     #[serde(rename = "ipc_version")]
@@ -95,10 +78,6 @@ pub struct KernelStatus {
     #[serde(rename = "worker")]
     pub r#worker: KernelStatusWorker,
 }
-pub type KernelStatusIpcVersion = serde_json::Number;
-pub type KernelStatusKernelInstanceId = String;
-pub type KernelStatusPid = i64;
-pub type KernelStatusExecutionReady = bool;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KernelStatusWorker {
     #[serde(
@@ -121,10 +100,6 @@ pub struct KernelStatusWorker {
     #[serde(rename = "state")]
     pub r#state: String,
 }
-pub type KernelStatusWorkerPid = i64;
-pub type KernelStatusWorkerGeneration = i64;
-pub type KernelStatusWorkerRestartAttempt = i64;
-pub type KernelStatusWorkerState = String;
 pub type RunProtocolErrorCode = String;
 pub type ProtocolMode = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -136,9 +111,6 @@ pub struct CanonicalEventWire {
     #[serde(rename = "payload")]
     pub r#payload: CanonicalEventPayload,
 }
-pub type CanonicalEventWireProtocolVersion = serde_json::Number;
-pub type CanonicalEventWireType = String;
-pub type CanonicalEventWirePayload = CanonicalEventPayload;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HostInvokeOptions {
     #[serde(
@@ -154,8 +126,6 @@ pub struct HostInvokeOptions {
     )]
     pub r#protocol: Presence<String>,
 }
-pub type HostInvokeOptionsProtocolMode = ProtocolMode;
-pub type HostInvokeOptionsProtocol = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HostRunReceipt {
     #[serde(rename = "run_id")]
@@ -176,13 +146,6 @@ pub struct HostRunReceipt {
     #[serde(rename = "protocol")]
     pub r#protocol: String,
 }
-pub type HostRunReceiptRunId = String;
-pub type HostRunReceiptInvocationId = String;
-pub type HostRunReceiptStreamId = String;
-pub type HostRunReceiptAgentSessionId = String;
-pub type HostRunReceiptSessionGeneration = i64;
-pub type HostRunReceiptProtocolMode = ProtocolMode;
-pub type HostRunReceiptProtocol = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AdapterProtocolSupport {
     #[serde(rename = "protocol")]
@@ -192,37 +155,6 @@ pub struct AdapterProtocolSupport {
     #[serde(rename = "nativeMethods")]
     pub r#native_methods: Vec<String>,
 }
-pub type AdapterProtocolSupportProtocol = String;
-pub type AdapterProtocolSupportModes = Vec<ProtocolMode>;
-pub type AdapterProtocolSupportModesItems = ProtocolMode;
-pub type AdapterProtocolSupportNativeMethods = Vec<String>;
-pub type AdapterProtocolSupportNativeMethodsItems = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AdapterProtocolSupportIf {
-    #[serde(
-        rename = "modes",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#modes: Presence<Value>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type AdapterProtocolSupportIfModes = Value;
-pub type AdapterProtocolSupportIfModesNot = Value;
-pub type AdapterProtocolSupportIfModesNotContains = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AdapterProtocolSupportThen {
-    #[serde(
-        rename = "nativeMethods",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#native_methods: Presence<Value>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type AdapterProtocolSupportThenNativeMethods = Value;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NativeInteractionResponse {
     #[serde(rename = "requestId")]
@@ -230,16 +162,32 @@ pub struct NativeInteractionResponse {
     #[serde(rename = "payload")]
     pub r#payload: std::collections::BTreeMap<String, Value>,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(untagged)]
 pub enum NativeInteractionResponseRequestId {
     Variant0(String),
-    Variant1(#[serde(deserialize_with = "crate::codec::deserialize_integers")] i64),
+    Variant1(i64),
 }
-pub type NativeInteractionResponseRequestIdOneOf0 = String;
-pub type NativeInteractionResponseRequestIdOneOf1 = i64;
-pub type NativeInteractionResponsePayload = std::collections::BTreeMap<String, Value>;
-#[derive(Debug, Clone, Serialize, Deserialize)]
+impl<'de> Deserialize<'de> for NativeInteractionResponseRequestId {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = Value::deserialize(deserializer)?;
+        super::rules::validate_node(60, &value).map_err(serde::de::Error::custom)?;
+        if super::rules::validate_node(61, &value).is_ok() {
+            return crate::codec::from_value(value)
+                .map(Self::Variant0)
+                .map_err(serde::de::Error::custom);
+        }
+        if super::rules::validate_node(62, &value).is_ok() {
+            let mut value = value;
+            crate::codec::normalize_integers(&mut value).map_err(serde::de::Error::custom)?;
+            return crate::codec::from_value(value)
+                .map(Self::Variant1)
+                .map_err(serde::de::Error::custom);
+        }
+        Err(serde::de::Error::custom("VALIDATION_ERROR"))
+    }
+}
+#[derive(Debug, Clone, Serialize)]
 #[serde(untagged)]
 pub enum HostControl {
     Variant0(HostControlOneOf0),
@@ -248,6 +196,43 @@ pub enum HostControl {
     Variant3(HostControlOneOf3),
     Variant4(HostControlOneOf4),
     Variant5(HostControlOneOf5),
+}
+impl<'de> Deserialize<'de> for HostControl {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = Value::deserialize(deserializer)?;
+        super::rules::validate_node(64, &value).map_err(serde::de::Error::custom)?;
+        if super::rules::validate_node(65, &value).is_ok() {
+            return crate::codec::from_value(value)
+                .map(Self::Variant0)
+                .map_err(serde::de::Error::custom);
+        }
+        if super::rules::validate_node(69, &value).is_ok() {
+            return crate::codec::from_value(value)
+                .map(Self::Variant1)
+                .map_err(serde::de::Error::custom);
+        }
+        if super::rules::validate_node(73, &value).is_ok() {
+            return crate::codec::from_value(value)
+                .map(Self::Variant2)
+                .map_err(serde::de::Error::custom);
+        }
+        if super::rules::validate_node(76, &value).is_ok() {
+            return crate::codec::from_value(value)
+                .map(Self::Variant3)
+                .map_err(serde::de::Error::custom);
+        }
+        if super::rules::validate_node(81, &value).is_ok() {
+            return crate::codec::from_value(value)
+                .map(Self::Variant4)
+                .map_err(serde::de::Error::custom);
+        }
+        if super::rules::validate_node(91, &value).is_ok() {
+            return crate::codec::from_value(value)
+                .map(Self::Variant5)
+                .map_err(serde::de::Error::custom);
+        }
+        Err(serde::de::Error::custom("VALIDATION_ERROR"))
+    }
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HostControlOneOf0 {
@@ -258,9 +243,6 @@ pub struct HostControlOneOf0 {
     #[serde(rename = "payload")]
     pub r#payload: ExecutionEvidence,
 }
-pub type HostControlOneOf0Type = String;
-pub type HostControlOneOf0Name = String;
-pub type HostControlOneOf0Payload = ExecutionEvidence;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HostControlOneOf1 {
     #[serde(rename = "type")]
@@ -270,9 +252,6 @@ pub struct HostControlOneOf1 {
     #[serde(rename = "payload")]
     pub r#payload: std::collections::BTreeMap<String, Value>,
 }
-pub type HostControlOneOf1Type = String;
-pub type HostControlOneOf1Name = String;
-pub type HostControlOneOf1Payload = std::collections::BTreeMap<String, Value>;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HostControlOneOf2 {
     #[serde(rename = "type")]
@@ -280,8 +259,6 @@ pub struct HostControlOneOf2 {
     #[serde(rename = "state")]
     pub r#state: String,
 }
-pub type HostControlOneOf2Type = String;
-pub type HostControlOneOf2State = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HostControlOneOf3 {
     #[serde(rename = "type")]
@@ -297,10 +274,6 @@ pub struct HostControlOneOf3 {
     )]
     pub r#failure: Presence<FailureEnvelope>,
 }
-pub type HostControlOneOf3Type = String;
-pub type HostControlOneOf3Code = RunProtocolErrorCode;
-pub type HostControlOneOf3Message = String;
-pub type HostControlOneOf3Failure = FailureEnvelope;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HostControlOneOf4 {
     #[serde(rename = "type")]
@@ -317,30 +290,31 @@ pub struct HostControlOneOf4 {
     )]
     pub r#expires_at: Presence<i64>,
 }
-pub type HostControlOneOf4Type = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(untagged)]
 pub enum HostControlOneOf4RequestId {
     Variant0(String),
-    Variant1(#[serde(deserialize_with = "crate::codec::deserialize_integers")] i64),
+    Variant1(i64),
 }
-pub type HostControlOneOf4RequestIdOneOf0 = String;
-pub type HostControlOneOf4RequestIdOneOf1 = i64;
-pub type HostControlOneOf4Status = String;
-pub type HostControlOneOf4ExpiresAt = i64;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HostControlOneOf4If {
-    #[serde(
-        rename = "status",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#status: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
+impl<'de> Deserialize<'de> for HostControlOneOf4RequestId {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = Value::deserialize(deserializer)?;
+        super::rules::validate_node(83, &value).map_err(serde::de::Error::custom)?;
+        if super::rules::validate_node(84, &value).is_ok() {
+            return crate::codec::from_value(value)
+                .map(Self::Variant0)
+                .map_err(serde::de::Error::custom);
+        }
+        if super::rules::validate_node(85, &value).is_ok() {
+            let mut value = value;
+            crate::codec::normalize_integers(&mut value).map_err(serde::de::Error::custom)?;
+            return crate::codec::from_value(value)
+                .map(Self::Variant1)
+                .map_err(serde::de::Error::custom);
+        }
+        Err(serde::de::Error::custom("VALIDATION_ERROR"))
+    }
 }
-pub type HostControlOneOf4IfStatus = String;
-pub type HostControlOneOf4Then = Value;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HostControlOneOf5 {
     #[serde(rename = "type")]
@@ -361,20 +335,35 @@ pub struct HostControlOneOf5 {
     )]
     pub r#latest_seq: i64,
 }
-pub type HostControlOneOf5Type = String;
-pub type HostControlOneOf5RequestedAfterSeq = i64;
-pub type HostControlOneOf5OldestSeq = i64;
-pub type HostControlOneOf5LatestSeq = i64;
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(untagged)]
 pub enum HostFrame {
     Variant0(NativeHostFrame),
     Variant1(CanonicalHostFrame),
     Variant2(ControlHostFrame),
 }
-pub type HostFrameOneOf0 = NativeHostFrame;
-pub type HostFrameOneOf1 = CanonicalHostFrame;
-pub type HostFrameOneOf2 = ControlHostFrame;
+impl<'de> Deserialize<'de> for HostFrame {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = Value::deserialize(deserializer)?;
+        super::rules::validate_node(96, &value).map_err(serde::de::Error::custom)?;
+        if super::rules::validate_node(97, &value).is_ok() {
+            return crate::codec::from_value(value)
+                .map(Self::Variant0)
+                .map_err(serde::de::Error::custom);
+        }
+        if super::rules::validate_node(98, &value).is_ok() {
+            return crate::codec::from_value(value)
+                .map(Self::Variant1)
+                .map_err(serde::de::Error::custom);
+        }
+        if super::rules::validate_node(99, &value).is_ok() {
+            return crate::codec::from_value(value)
+                .map(Self::Variant2)
+                .map_err(serde::de::Error::custom);
+        }
+        Err(serde::de::Error::custom("VALIDATION_ERROR"))
+    }
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NativeHostFrame {
     #[serde(rename = "run_id")]
@@ -406,17 +395,6 @@ pub struct NativeHostFrame {
     #[serde(rename = "payload")]
     pub r#payload: std::collections::BTreeMap<String, Value>,
 }
-pub type NativeHostFrameRunId = String;
-pub type NativeHostFrameInvocationId = String;
-pub type NativeHostFrameStreamId = String;
-pub type NativeHostFrameAgentSessionId = String;
-pub type NativeHostFrameSessionGeneration = i64;
-pub type NativeHostFrameSeq = i64;
-pub type NativeHostFrameProtocolMode = String;
-pub type NativeHostFrameProtocol = String;
-pub type NativeHostFrameKind = String;
-pub type NativeHostFrameMessageKind = String;
-pub type NativeHostFramePayload = std::collections::BTreeMap<String, Value>;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CanonicalHostFrame {
     #[serde(rename = "run_id")]
@@ -446,16 +424,6 @@ pub struct CanonicalHostFrame {
     #[serde(rename = "event")]
     pub r#event: CanonicalEventWire,
 }
-pub type CanonicalHostFrameRunId = String;
-pub type CanonicalHostFrameInvocationId = String;
-pub type CanonicalHostFrameStreamId = String;
-pub type CanonicalHostFrameAgentSessionId = String;
-pub type CanonicalHostFrameSessionGeneration = i64;
-pub type CanonicalHostFrameSeq = i64;
-pub type CanonicalHostFrameProtocolMode = String;
-pub type CanonicalHostFrameProtocol = String;
-pub type CanonicalHostFrameKind = String;
-pub type CanonicalHostFrameEvent = CanonicalEventWire;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ControlHostFrame {
     #[serde(rename = "run_id")]
@@ -485,16 +453,6 @@ pub struct ControlHostFrame {
     #[serde(rename = "control")]
     pub r#control: HostControl,
 }
-pub type ControlHostFrameRunId = String;
-pub type ControlHostFrameInvocationId = String;
-pub type ControlHostFrameStreamId = String;
-pub type ControlHostFrameAgentSessionId = String;
-pub type ControlHostFrameSessionGeneration = i64;
-pub type ControlHostFrameSeq = i64;
-pub type ControlHostFrameProtocolMode = ProtocolMode;
-pub type ControlHostFrameProtocol = String;
-pub type ControlHostFrameKind = String;
-pub type ControlHostFrameControl = HostControl;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NotificationMessage {
     #[serde(rename = "schema")]
@@ -548,15 +506,6 @@ pub struct NotificationMessage {
     )]
     pub r#timeline_through_sequence: Presence<i64>,
 }
-pub type NotificationMessageSchema = String;
-pub type NotificationMessageEventId = String;
-pub type NotificationMessageEvent = String;
-pub type NotificationMessageOccurredAt = String;
-pub type NotificationMessageProjectId = String;
-pub type NotificationMessageSourceId = String;
-pub type NotificationMessageTitle = String;
-pub type NotificationMessageText = String;
-pub type NotificationMessageEvtType = i64;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NotificationMessageTask {
     #[serde(rename = "id")]
@@ -588,14 +537,6 @@ pub struct NotificationMessageTask {
     )]
     pub r#current_handler: Presence<Option<std::collections::BTreeMap<String, Value>>>,
 }
-pub type NotificationMessageTaskId = String;
-pub type NotificationMessageTaskTitle = String;
-pub type NotificationMessageTaskStatus = String;
-pub type NotificationMessageTaskRowVersion = i64;
-pub type NotificationMessageTaskHandlerEpoch = i64;
-pub type NotificationMessageTaskResponsibleParty =
-    Option<std::collections::BTreeMap<String, Value>>;
-pub type NotificationMessageTaskCurrentHandler = Option<std::collections::BTreeMap<String, Value>>;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NotificationMessageTaskEvent {
     #[serde(rename = "id")]
@@ -629,15 +570,6 @@ pub struct NotificationMessageTaskEvent {
     #[serde(rename = "payload")]
     pub r#payload: std::collections::BTreeMap<String, Value>,
 }
-pub type NotificationMessageTaskEventId = String;
-pub type NotificationMessageTaskEventSequence = i64;
-pub type NotificationMessageTaskEventEvtType = i64;
-pub type NotificationMessageTaskEventActor = std::collections::BTreeMap<String, Value>;
-pub type NotificationMessageTaskEventTaskConversationId = String;
-pub type NotificationMessageTaskEventSourceRunId = String;
-pub type NotificationMessageTaskEventSummary = String;
-pub type NotificationMessageTaskEventPayload = std::collections::BTreeMap<String, Value>;
-pub type NotificationMessageTimeline = Vec<NotificationMessageTimelineItems>;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NotificationMessageTimelineItems {
     #[serde(rename = "eventId")]
@@ -655,43 +587,6 @@ pub struct NotificationMessageTimelineItems {
     #[serde(rename = "summary")]
     pub r#summary: String,
 }
-pub type NotificationMessageTimelineItemsEventId = String;
-pub type NotificationMessageTimelineItemsSequence = i64;
-pub type NotificationMessageTimelineItemsEvtType = i64;
-pub type NotificationMessageTimelineItemsSummary = String;
-pub type NotificationMessageTimelineTruncated = bool;
-pub type NotificationMessageTimelineThroughSequence = i64;
-pub type NotificationMessageAllOf0 = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NotificationMessageAllOf0If {
-    #[serde(
-        rename = "event",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#event: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type NotificationMessageAllOf0IfEvent = String;
-pub type NotificationMessageAllOf0Then = Value;
-pub type NotificationMessageAllOf0Else = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum NotificationMessageAllOf0ElseNot {
-    Variant0(Value),
-    Variant1(Value),
-    Variant2(Value),
-    Variant3(Value),
-    Variant4(Value),
-    Variant5(Value),
-}
-pub type NotificationMessageAllOf0ElseNotAnyOf0 = Value;
-pub type NotificationMessageAllOf0ElseNotAnyOf1 = Value;
-pub type NotificationMessageAllOf0ElseNotAnyOf2 = Value;
-pub type NotificationMessageAllOf0ElseNotAnyOf3 = Value;
-pub type NotificationMessageAllOf0ElseNotAnyOf4 = Value;
-pub type NotificationMessageAllOf0ElseNotAnyOf5 = Value;
 pub type ApprovalMode = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextItem {
@@ -708,369 +603,6 @@ pub struct ContextItem {
     )]
     pub r#guidance: Presence<String>,
 }
-pub type ContextItemNamespace = String;
-pub type ContextItemName = String;
-pub type ContextItemPayload = std::collections::BTreeMap<String, Value>;
-pub type ContextItemGuidance = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextItemNot {
-    #[serde(rename = "namespace")]
-    pub r#namespace: String,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextItemNotNamespace = String;
-pub type ContextItemAllOf0 = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextItemAllOf0If {
-    #[serde(
-        rename = "namespace",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#namespace: Presence<String>,
-    #[serde(rename = "name", default, skip_serializing_if = "Presence::is_missing")]
-    pub r#name: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextItemAllOf0IfNamespace = String;
-pub type ContextItemAllOf0IfName = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextItemAllOf0Then {
-    #[serde(
-        rename = "payload",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#payload: Presence<ContextActmodePayload>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextItemAllOf0ThenPayload = ContextActmodePayload;
-pub type ContextItemAllOf1 = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextItemAllOf1If {
-    #[serde(
-        rename = "namespace",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#namespace: Presence<String>,
-    #[serde(rename = "name", default, skip_serializing_if = "Presence::is_missing")]
-    pub r#name: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextItemAllOf1IfNamespace = String;
-pub type ContextItemAllOf1IfName = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextItemAllOf1Then {
-    #[serde(
-        rename = "payload",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#payload: Presence<ContextModelPayload>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextItemAllOf1ThenPayload = ContextModelPayload;
-pub type ContextItemAllOf2 = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextItemAllOf2If {
-    #[serde(
-        rename = "namespace",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#namespace: Presence<String>,
-    #[serde(rename = "name", default, skip_serializing_if = "Presence::is_missing")]
-    pub r#name: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextItemAllOf2IfNamespace = String;
-pub type ContextItemAllOf2IfName = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextItemAllOf2Then {
-    #[serde(
-        rename = "payload",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#payload: Presence<ContextAdapterPayload>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextItemAllOf2ThenPayload = ContextAdapterPayload;
-pub type ContextItemAllOf3 = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextItemAllOf3If {
-    #[serde(
-        rename = "namespace",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#namespace: Presence<String>,
-    #[serde(rename = "name", default, skip_serializing_if = "Presence::is_missing")]
-    pub r#name: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextItemAllOf3IfNamespace = String;
-pub type ContextItemAllOf3IfName = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextItemAllOf3Then {
-    #[serde(
-        rename = "payload",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#payload: Presence<ContextWorkspacePayload>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextItemAllOf3ThenPayload = ContextWorkspacePayload;
-pub type ContextItemAllOf4 = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextItemAllOf4If {
-    #[serde(
-        rename = "namespace",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#namespace: Presence<String>,
-    #[serde(rename = "name", default, skip_serializing_if = "Presence::is_missing")]
-    pub r#name: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextItemAllOf4IfNamespace = String;
-pub type ContextItemAllOf4IfName = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextItemAllOf4Then {
-    #[serde(
-        rename = "payload",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#payload: Presence<ContextLimitsPayload>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextItemAllOf4ThenPayload = ContextLimitsPayload;
-pub type ContextItemAllOf5 = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextItemAllOf5If {
-    #[serde(
-        rename = "namespace",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#namespace: Presence<String>,
-    #[serde(rename = "name", default, skip_serializing_if = "Presence::is_missing")]
-    pub r#name: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextItemAllOf5IfNamespace = String;
-pub type ContextItemAllOf5IfName = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextItemAllOf5Then {
-    #[serde(
-        rename = "payload",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#payload: Presence<ContextRuntimeSelectionPayload>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextItemAllOf5ThenPayload = ContextRuntimeSelectionPayload;
-pub type ContextItemAllOf6 = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextItemAllOf6If {
-    #[serde(
-        rename = "namespace",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#namespace: Presence<String>,
-    #[serde(rename = "name", default, skip_serializing_if = "Presence::is_missing")]
-    pub r#name: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextItemAllOf6IfNamespace = String;
-pub type ContextItemAllOf6IfName = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextItemAllOf6Then {
-    #[serde(
-        rename = "payload",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#payload: Presence<ContextApprovalPolicyPayload>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextItemAllOf6ThenPayload = ContextApprovalPolicyPayload;
-pub type ContextItemAllOf7 = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextItemAllOf7If {
-    #[serde(
-        rename = "namespace",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#namespace: Presence<String>,
-    #[serde(rename = "name", default, skip_serializing_if = "Presence::is_missing")]
-    pub r#name: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextItemAllOf7IfNamespace = String;
-pub type ContextItemAllOf7IfName = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextItemAllOf7Then {
-    #[serde(
-        rename = "payload",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#payload: Presence<ContextInlinePayload>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextItemAllOf7ThenPayload = ContextInlinePayload;
-pub type ContextItemAllOf8 = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextItemAllOf8If {
-    #[serde(
-        rename = "namespace",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#namespace: Presence<String>,
-    #[serde(rename = "name", default, skip_serializing_if = "Presence::is_missing")]
-    pub r#name: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextItemAllOf8IfNamespace = String;
-pub type ContextItemAllOf8IfName = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextItemAllOf8Then {
-    #[serde(
-        rename = "payload",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#payload: Presence<ContextReferencesPayload>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextItemAllOf8ThenPayload = ContextReferencesPayload;
-pub type ContextItemAllOf9 = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextItemAllOf9If {
-    #[serde(
-        rename = "namespace",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#namespace: Presence<String>,
-    #[serde(rename = "name", default, skip_serializing_if = "Presence::is_missing")]
-    pub r#name: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextItemAllOf9IfNamespace = String;
-pub type ContextItemAllOf9IfName = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextItemAllOf9Then {
-    #[serde(
-        rename = "payload",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#payload: Presence<ContextInstructionsPayload>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextItemAllOf9ThenPayload = ContextInstructionsPayload;
-pub type ContextItemAllOf10 = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextItemAllOf10If {
-    #[serde(
-        rename = "namespace",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#namespace: Presence<String>,
-    #[serde(rename = "name", default, skip_serializing_if = "Presence::is_missing")]
-    pub r#name: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextItemAllOf10IfNamespace = String;
-pub type ContextItemAllOf10IfName = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextItemAllOf10Then {
-    #[serde(
-        rename = "payload",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#payload: Presence<ContextEnvsPayload>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextItemAllOf10ThenPayload = ContextEnvsPayload;
-pub type ContextItemAllOf11 = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextItemAllOf11If {
-    #[serde(
-        rename = "namespace",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#namespace: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextItemAllOf11IfNamespace = String;
-pub type ContextItemAllOf11Then = Value;
-pub type ContextItemAllOf11ThenNot = Value;
-pub type ContextItemAllOf12 = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextItemAllOf12If {
-    #[serde(
-        rename = "namespace",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#namespace: Presence<String>,
-    #[serde(rename = "name", default, skip_serializing_if = "Presence::is_missing")]
-    pub r#name: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextItemAllOf12IfNamespace = String;
-pub type ContextItemAllOf12IfName = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextItemAllOf12Then {
-    #[serde(
-        rename = "payload",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#payload: Presence<ContextMcpPayload>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextItemAllOf12ThenPayload = ContextMcpPayload;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextEnvelope {
     #[serde(rename = "schema")]
@@ -1078,9 +610,6 @@ pub struct ContextEnvelope {
     #[serde(rename = "items")]
     pub r#items: Vec<ContextItem>,
 }
-pub type ContextEnvelopeSchema = String;
-pub type ContextEnvelopeItems = Vec<ContextItem>;
-pub type ContextEnvelopeItemsItems = ContextItem;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextConfiguration {
     #[serde(rename = "defaults")]
@@ -1088,34 +617,6 @@ pub struct ContextConfiguration {
     #[serde(rename = "mandatory")]
     pub r#mandatory: PersistentContextEnvelope,
 }
-pub type ContextConfigurationDefaults = Value;
-pub type ContextConfigurationDefaultsAllOf0 = PersistentContextEnvelope;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextConfigurationDefaultsAllOf1 {
-    #[serde(
-        rename = "items",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#items: Presence<Value>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextConfigurationDefaultsAllOf1Items = Value;
-pub type ContextConfigurationDefaultsAllOf1ItemsItems = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextConfigurationDefaultsAllOf1ItemsItemsNot {
-    #[serde(
-        rename = "namespace",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#namespace: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextConfigurationDefaultsAllOf1ItemsItemsNotNamespace = String;
-pub type ContextConfigurationMandatory = PersistentContextEnvelope;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RunContextProjection {
     #[serde(rename = "run_id")]
@@ -1147,16 +648,6 @@ pub struct RunContextProjection {
     #[serde(rename = "execution")]
     pub r#execution: RunContextProjectionExecution,
 }
-pub type RunContextProjectionRunId = String;
-pub type RunContextProjectionContextHash = String;
-pub type RunContextProjectionActualRuntimeId = String;
-pub type RunContextProjectionPreparationStatus = String;
-pub type RunContextProjectionApplicationStatus = String;
-pub type RunContextProjectionInvocationStatus = String;
-pub type RunContextProjectionModelUsesProviderDefault = bool;
-pub type RunContextProjectionEffortUsesProviderDefault = bool;
-pub type RunContextProjectionObjectMaterials = Vec<PublicObjectMaterial>;
-pub type RunContextProjectionObjectMaterialsItems = PublicObjectMaterial;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RunContextProjectionExecution {
     #[serde(rename = "adapter_type")]
@@ -1178,11 +669,6 @@ pub struct RunContextProjectionExecution {
     #[serde(rename = "workspace_mode")]
     pub r#workspace_mode: String,
 }
-pub type RunContextProjectionExecutionAdapterType = String;
-pub type RunContextProjectionExecutionModel = String;
-pub type RunContextProjectionExecutionEffort = String;
-pub type RunContextProjectionExecutionApprovalMode = String;
-pub type RunContextProjectionExecutionWorkspaceMode = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PublicObjectMaterial {
     #[serde(rename = "resource_ref")]
@@ -1223,13 +709,6 @@ pub struct PublicObjectMaterial {
     )]
     pub r#selector: Presence<PublicObjectMaterialSelector>,
 }
-pub type PublicObjectMaterialResourceRef = String;
-pub type PublicObjectMaterialObjectType = String;
-pub type PublicObjectMaterialObjectId = String;
-pub type PublicObjectMaterialOrigin = String;
-pub type PublicObjectMaterialRevision = String;
-pub type PublicObjectMaterialByteSize = i64;
-pub type PublicObjectMaterialDigest = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PublicObjectMaterialObjectScope {
     #[serde(rename = "type")]
@@ -1237,8 +716,6 @@ pub struct PublicObjectMaterialObjectScope {
     #[serde(rename = "id")]
     pub r#id: String,
 }
-pub type PublicObjectMaterialObjectScopeType = String;
-pub type PublicObjectMaterialObjectScopeId = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PublicObjectMaterialSelector {
     #[serde(rename = "mode")]
@@ -1258,25 +735,6 @@ pub struct PublicObjectMaterialSelector {
     )]
     pub r#end: Presence<i64>,
 }
-pub type PublicObjectMaterialSelectorMode = String;
-pub type PublicObjectMaterialSelectorStart = i64;
-pub type PublicObjectMaterialSelectorEnd = i64;
-pub type PublicObjectMaterialAllOf0 = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PublicObjectMaterialAllOf0If {
-    #[serde(
-        rename = "object_type",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#object_type: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type PublicObjectMaterialAllOf0IfObjectType = String;
-pub type PublicObjectMaterialAllOf0Then = Value;
-pub type PublicObjectMaterialAllOf0ThenNot = Value;
-pub type PublicObjectMaterialAllOf0Else = Value;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextPreparationReceipt {
     #[serde(rename = "context_hash")]
@@ -1299,194 +757,7 @@ pub struct ContextPreparationReceipt {
     #[serde(rename = "warnings")]
     pub r#warnings: Vec<String>,
 }
-pub type ContextPreparationReceiptContextHash = String;
-pub type ContextPreparationReceiptRunId = String;
-pub type ContextPreparationReceiptLeaseId = String;
-pub type ContextPreparationReceiptFencingToken = i64;
-pub type ContextPreparationReceiptWorkspaceMode = String;
-pub type ContextPreparationReceiptWorkspacePath = String;
-pub type ContextPreparationReceiptProviderStateDir = String;
-pub type ContextPreparationReceiptWarnings = Vec<String>;
-pub type ContextPreparationReceiptWarningsItems = String;
 pub type PersistentContextEnvelope = Value;
-pub type PersistentContextEnvelopeAllOf0 = ContextEnvelope;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PersistentContextEnvelopeAllOf1 {
-    #[serde(
-        rename = "items",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#items: Presence<Value>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type PersistentContextEnvelopeAllOf1Items = Value;
-pub type PersistentContextEnvelopeAllOf1ItemsItems = Value;
-pub type PersistentContextEnvelopeAllOf1ItemsItemsAllOf0 = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PersistentContextEnvelopeAllOf1ItemsItemsAllOf0Not {
-    #[serde(
-        rename = "namespace",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#namespace: Presence<String>,
-    #[serde(rename = "name", default, skip_serializing_if = "Presence::is_missing")]
-    pub r#name: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type PersistentContextEnvelopeAllOf1ItemsItemsAllOf0NotNamespace = String;
-pub type PersistentContextEnvelopeAllOf1ItemsItemsAllOf0NotName = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum PersistentContextEnvelopeAllOf1ItemsItemsAllOf1 {
-    Variant0(PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf0),
-    Variant1(PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf1),
-    Variant2(PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf2),
-    Variant3(PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf3),
-    Variant4(PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf4),
-    Variant5(PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf5),
-    Variant6(PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf6),
-    Variant7(PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf7),
-    Variant8(PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf8),
-}
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf0 {
-    #[serde(
-        rename = "namespace",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#namespace: Presence<String>,
-    #[serde(rename = "name", default, skip_serializing_if = "Presence::is_missing")]
-    pub r#name: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf0Namespace = String;
-pub type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf0Name = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf1 {
-    #[serde(
-        rename = "namespace",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#namespace: Presence<String>,
-    #[serde(rename = "name", default, skip_serializing_if = "Presence::is_missing")]
-    pub r#name: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf1Namespace = String;
-pub type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf1Name = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf2 {
-    #[serde(
-        rename = "namespace",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#namespace: Presence<String>,
-    #[serde(rename = "name", default, skip_serializing_if = "Presence::is_missing")]
-    pub r#name: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf2Namespace = String;
-pub type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf2Name = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf3 {
-    #[serde(
-        rename = "namespace",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#namespace: Presence<String>,
-    #[serde(rename = "name", default, skip_serializing_if = "Presence::is_missing")]
-    pub r#name: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf3Namespace = String;
-pub type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf3Name = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf4 {
-    #[serde(
-        rename = "namespace",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#namespace: Presence<String>,
-    #[serde(rename = "name", default, skip_serializing_if = "Presence::is_missing")]
-    pub r#name: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf4Namespace = String;
-pub type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf4Name = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf5 {
-    #[serde(
-        rename = "namespace",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#namespace: Presence<String>,
-    #[serde(rename = "name", default, skip_serializing_if = "Presence::is_missing")]
-    pub r#name: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf5Namespace = String;
-pub type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf5Name = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf6 {
-    #[serde(
-        rename = "namespace",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#namespace: Presence<String>,
-    #[serde(rename = "name", default, skip_serializing_if = "Presence::is_missing")]
-    pub r#name: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf6Namespace = String;
-pub type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf6Name = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf7 {
-    #[serde(
-        rename = "namespace",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#namespace: Presence<String>,
-    #[serde(rename = "name", default, skip_serializing_if = "Presence::is_missing")]
-    pub r#name: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf7Namespace = String;
-pub type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf7Name = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf8 {
-    #[serde(
-        rename = "namespace",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#namespace: Presence<String>,
-    #[serde(rename = "name", default, skip_serializing_if = "Presence::is_missing")]
-    pub r#name: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf8Namespace = String;
-pub type PersistentContextEnvelopeAllOf1ItemsItemsAllOf1AnyOf8Name = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextAdapterPayload {
     #[serde(rename = "type")]
@@ -1498,25 +769,11 @@ pub struct ContextAdapterPayload {
     )]
     pub r#provider_agent_id: Presence<String>,
 }
-pub type ContextAdapterPayloadType = String;
-pub type ContextAdapterPayloadProviderAgentId = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextAdapterPayloadIf {
-    #[serde(rename = "type", default, skip_serializing_if = "Presence::is_missing")]
-    pub r#type: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextAdapterPayloadIfType = String;
-pub type ContextAdapterPayloadThen = Value;
-pub type ContextAdapterPayloadElse = Value;
-pub type ContextAdapterPayloadElseNot = Value;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextActmodePayload {
     #[serde(rename = "mode")]
     pub r#mode: String,
 }
-pub type ContextActmodePayloadMode = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExecutionEvidence {
     #[serde(rename = "actmode")]
@@ -1543,11 +800,6 @@ pub struct ExecutionEvidenceActmode {
     )]
     pub r#reason: Presence<String>,
 }
-pub type ExecutionEvidenceActmodeRequested = String;
-pub type ExecutionEvidenceActmodeEffective = String;
-pub type ExecutionEvidenceActmodeStatus = String;
-pub type ExecutionEvidenceActmodeNativeMode = String;
-pub type ExecutionEvidenceActmodeReason = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextModelPayload {
     #[serde(
@@ -1563,8 +815,6 @@ pub struct ContextModelPayload {
     )]
     pub r#reasoning: Presence<ContextReasoningPayload>,
 }
-pub type ContextModelPayloadSelection = ContextModelSelectionPayload;
-pub type ContextModelPayloadReasoning = ContextReasoningPayload;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextReasoningPayload {
     #[serde(
@@ -1580,18 +830,34 @@ pub struct ContextReasoningPayload {
     )]
     pub r#use_provider_default: Presence<bool>,
 }
-pub type ContextReasoningPayloadEffort = String;
-pub type ContextReasoningPayloadUseProviderDefault = bool;
-pub type ContextReasoningPayloadOneOf0 = Value;
-pub type ContextReasoningPayloadOneOf0Not = Value;
-pub type ContextReasoningPayloadOneOf1 = Value;
-pub type ContextReasoningPayloadOneOf1Not = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(untagged)]
 pub enum ContextWorkspacePayload {
     Variant0(ContextWorkspacePayloadOneOf0),
     Variant1(ContextWorkspacePayloadOneOf1),
     Variant2(ContextWorkspacePayloadOneOf2),
+}
+impl<'de> Deserialize<'de> for ContextWorkspacePayload {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = Value::deserialize(deserializer)?;
+        super::rules::validate_node(391, &value).map_err(serde::de::Error::custom)?;
+        if super::rules::validate_node(392, &value).is_ok() {
+            return crate::codec::from_value(value)
+                .map(Self::Variant0)
+                .map_err(serde::de::Error::custom);
+        }
+        if super::rules::validate_node(395, &value).is_ok() {
+            return crate::codec::from_value(value)
+                .map(Self::Variant1)
+                .map_err(serde::de::Error::custom);
+        }
+        if super::rules::validate_node(397, &value).is_ok() {
+            return crate::codec::from_value(value)
+                .map(Self::Variant2)
+                .map_err(serde::de::Error::custom);
+        }
+        Err(serde::de::Error::custom("VALIDATION_ERROR"))
+    }
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextWorkspacePayloadOneOf0 {
@@ -1600,20 +866,16 @@ pub struct ContextWorkspacePayloadOneOf0 {
     #[serde(rename = "path")]
     pub r#path: String,
 }
-pub type ContextWorkspacePayloadOneOf0Mode = String;
-pub type ContextWorkspacePayloadOneOf0Path = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextWorkspacePayloadOneOf1 {
     #[serde(rename = "mode")]
     pub r#mode: String,
 }
-pub type ContextWorkspacePayloadOneOf1Mode = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextWorkspacePayloadOneOf2 {
     #[serde(rename = "mode")]
     pub r#mode: String,
 }
-pub type ContextWorkspacePayloadOneOf2Mode = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextLimitsPayload {
     #[serde(
@@ -1678,34 +940,6 @@ pub struct ContextLimitsPayload {
     )]
     pub r#enforcement: Presence<String>,
 }
-pub type ContextLimitsPayloadFirstFrameTimeoutMs = i64;
-pub type ContextLimitsPayloadModelIdleTimeoutMs = i64;
-pub type ContextLimitsPayloadModelIdleWarningMs = i64;
-pub type ContextLimitsPayloadModelIdlePolicy = String;
-pub type ContextLimitsPayloadToolTimeoutMs = i64;
-pub type ContextLimitsPayloadToolWallTimeoutMs = i64;
-pub type ContextLimitsPayloadRunTimeoutMs = i64;
-pub type ContextLimitsPayloadCancelGraceMs = i64;
-pub type ContextLimitsPayloadEnforcement = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextLimitsPayloadIf {
-    #[serde(rename = "enforcement")]
-    pub r#enforcement: String,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextLimitsPayloadIfEnforcement = String;
-pub type ContextLimitsPayloadThen = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ContextLimitsPayloadThenNot {
-    Variant0(Value),
-    Variant1(Value),
-    Variant2(Value),
-}
-pub type ContextLimitsPayloadThenNotAnyOf0 = Value;
-pub type ContextLimitsPayloadThenNotAnyOf1 = Value;
-pub type ContextLimitsPayloadThenNotAnyOf2 = Value;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextRuntimeSelectionPayload {
     #[serde(rename = "mode")]
@@ -1741,44 +975,11 @@ pub struct ContextRuntimeSelectionPayload {
     )]
     pub r#failover: Presence<String>,
 }
-pub type ContextRuntimeSelectionPayloadMode = String;
-pub type ContextRuntimeSelectionPayloadRuntimeId = String;
-pub type ContextRuntimeSelectionPayloadRuntimeIds = Vec<String>;
-pub type ContextRuntimeSelectionPayloadRuntimeIdsItems = String;
-pub type ContextRuntimeSelectionPayloadStrategy = String;
-pub type ContextRuntimeSelectionPayloadOfflineBehavior = String;
-pub type ContextRuntimeSelectionPayloadFailover = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextRuntimeSelectionPayloadOneOf0 {
-    #[serde(rename = "mode", default, skip_serializing_if = "Presence::is_missing")]
-    pub r#mode: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextRuntimeSelectionPayloadOneOf0Mode = String;
-pub type ContextRuntimeSelectionPayloadOneOf0Not = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextRuntimeSelectionPayloadOneOf1 {
-    #[serde(rename = "mode", default, skip_serializing_if = "Presence::is_missing")]
-    pub r#mode: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextRuntimeSelectionPayloadOneOf1Mode = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ContextRuntimeSelectionPayloadOneOf1Not {
-    Variant0(Value),
-    Variant1(Value),
-}
-pub type ContextRuntimeSelectionPayloadOneOf1NotAnyOf0 = Value;
-pub type ContextRuntimeSelectionPayloadOneOf1NotAnyOf1 = Value;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextApprovalPolicyPayload {
     #[serde(rename = "mode")]
     pub r#mode: ApprovalMode,
 }
-pub type ContextApprovalPolicyPayloadMode = ApprovalMode;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextSelectionEntry {
     #[serde(rename = "text")]
@@ -1802,10 +1003,6 @@ pub struct ContextSelectionEntry {
     )]
     pub r#summary: Presence<String>,
 }
-pub type ContextSelectionEntryText = String;
-pub type ContextSelectionEntryResourceRef = String;
-pub type ContextSelectionEntrySource = Value;
-pub type ContextSelectionEntrySummary = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextResourceEntry {
     #[serde(rename = "resource_ref")]
@@ -1833,24 +1030,6 @@ pub struct ContextResourceEntry {
     )]
     pub r#revision: Presence<String>,
 }
-pub type ContextResourceEntryResourceRef = String;
-pub type ContextResourceEntryResolver = String;
-pub type ContextResourceEntryLocator = std::collections::BTreeMap<String, Value>;
-pub type ContextResourceEntryParams = std::collections::BTreeMap<String, Value>;
-pub type ContextResourceEntryAuthorizationRef = String;
-pub type ContextResourceEntryRevision = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextResourceEntryAllOf0 {
-    #[serde(
-        rename = "locator",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#locator: Presence<ContextMcpLocator>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextResourceEntryAllOf0Locator = ContextMcpLocator;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextMcpLocator {
     #[serde(rename = "server_ref")]
@@ -1858,67 +1037,17 @@ pub struct ContextMcpLocator {
     #[serde(rename = "tool")]
     pub r#tool: String,
 }
-pub type ContextMcpLocatorServerRef = String;
-pub type ContextMcpLocatorTool = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextInstructionEntry {
     #[serde(rename = "text")]
     pub r#text: String,
 }
-pub type ContextInstructionEntryText = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextInstructionsPayload {
     #[serde(rename = "entries")]
     pub r#entries: Vec<ContextInstructionEntry>,
 }
-pub type ContextInstructionsPayloadEntries = Vec<ContextInstructionEntry>;
-pub type ContextInstructionsPayloadEntriesItems = ContextInstructionEntry;
 pub type ContextContinuityPayload = Value;
-pub type ContextContinuityPayloadAllOf0 = ChannelContextDescriptor;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextContinuityPayloadAllOf1 {
-    #[serde(
-        rename = "session_generation",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#session_generation: Presence<Value>,
-    #[serde(
-        rename = "trigger_seq",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#trigger_seq: Presence<Value>,
-    #[serde(
-        rename = "trigger_fact",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#trigger_fact: Presence<ContextContinuityPayloadAllOf1TriggerFact>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextContinuityPayloadAllOf1SessionGeneration = Value;
-pub type ContextContinuityPayloadAllOf1TriggerSeq = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextContinuityPayloadAllOf1TriggerFact {
-    #[serde(
-        rename = "message_seq",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#message_seq: Presence<Value>,
-    #[serde(
-        rename = "occurred_at_ms",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#occurred_at_ms: Presence<Value>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextContinuityPayloadAllOf1TriggerFactMessageSeq = Value;
-pub type ContextContinuityPayloadAllOf1TriggerFactOccurredAtMs = Value;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResolvedRuntimeSelection {
     #[serde(rename = "schema")]
@@ -1938,11 +1067,6 @@ pub struct ResolvedRuntimeSelection {
     #[serde(rename = "failover")]
     pub r#failover: String,
 }
-pub type ResolvedRuntimeSelectionSchema = String;
-pub type ResolvedRuntimeSelectionSelectionMode = String;
-pub type ResolvedRuntimeSelectionExplicitRuntimeId = String;
-pub type ResolvedRuntimeSelectionAuthorizedCandidates =
-    Vec<ResolvedRuntimeSelectionAuthorizedCandidatesItems>;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResolvedRuntimeSelectionAuthorizedCandidatesItems {
     #[serde(rename = "runtime_id")]
@@ -1957,46 +1081,6 @@ pub struct ResolvedRuntimeSelectionAuthorizedCandidatesItems {
     #[serde(rename = "owner_subject_id")]
     pub r#owner_subject_id: String,
 }
-pub type ResolvedRuntimeSelectionAuthorizedCandidatesItemsRuntimeId = String;
-pub type ResolvedRuntimeSelectionAuthorizedCandidatesItemsPriority = i64;
-pub type ResolvedRuntimeSelectionAuthorizedCandidatesItemsOwnerSubjectType = String;
-pub type ResolvedRuntimeSelectionAuthorizedCandidatesItemsOwnerSubjectId = String;
-pub type ResolvedRuntimeSelectionOfflineBehavior = String;
-pub type ResolvedRuntimeSelectionFailover = String;
-pub type ResolvedRuntimeSelectionAllOf0 = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ResolvedRuntimeSelectionAllOf0If {
-    #[serde(
-        rename = "selection_mode",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#selection_mode: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ResolvedRuntimeSelectionAllOf0IfSelectionMode = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ResolvedRuntimeSelectionAllOf0Then {
-    #[serde(
-        rename = "authorized_candidates",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#authorized_candidates: Presence<Value>,
-    #[serde(
-        rename = "failover",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#failover: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ResolvedRuntimeSelectionAllOf0ThenAuthorizedCandidates = Value;
-pub type ResolvedRuntimeSelectionAllOf0ThenFailover = String;
-pub type ResolvedRuntimeSelectionAllOf0Else = Value;
-pub type ResolvedRuntimeSelectionAllOf0ElseNot = Value;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResolvedExecutionPlan {
     #[serde(
@@ -2048,70 +1132,6 @@ pub struct ResolvedExecutionPlan {
     #[serde(rename = "mcp", default, skip_serializing_if = "Presence::is_missing")]
     pub r#mcp: Presence<ContextMcpPayload>,
 }
-pub type ResolvedExecutionPlanActmode = String;
-pub type ResolvedExecutionPlanAdapterType = String;
-pub type ResolvedExecutionPlanWorkdir = String;
-pub type ResolvedExecutionPlanWorkspace = ContextWorkspacePayload;
-pub type ResolvedExecutionPlanModel = String;
-pub type ResolvedExecutionPlanEffort = String;
-pub type ResolvedExecutionPlanApprovalMode = ApprovalMode;
-pub type ResolvedExecutionPlanRuntimeLimits = ContextLimitsPayload;
-pub type ResolvedExecutionPlanProviderAgentId = String;
-pub type ResolvedExecutionPlanAgentSource = AgentSource;
-pub type ResolvedExecutionPlanEnvs = ContextEnvsPayload;
-pub type ResolvedExecutionPlanMcp = ContextMcpPayload;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ResolvedExecutionPlanIf {
-    #[serde(rename = "agent_source")]
-    pub r#agent_source: String,
-    #[serde(rename = "workdir")]
-    pub r#workdir: String,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ResolvedExecutionPlanIfAgentSource = String;
-pub type ResolvedExecutionPlanIfWorkdir = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ResolvedExecutionPlanThen {
-    #[serde(rename = "workspace")]
-    pub r#workspace: ResolvedExecutionPlanThenWorkspace,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ResolvedExecutionPlanThenWorkspace {
-    #[serde(rename = "mode", default, skip_serializing_if = "Presence::is_missing")]
-    pub r#mode: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ResolvedExecutionPlanThenWorkspaceMode = String;
-pub type ResolvedExecutionPlanAllOf0 = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ResolvedExecutionPlanAllOf0If {
-    #[serde(
-        rename = "adapter_type",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#adapter_type: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ResolvedExecutionPlanAllOf0IfAdapterType = String;
-pub type ResolvedExecutionPlanAllOf0Then = Value;
-pub type ResolvedExecutionPlanAllOf0Else = Value;
-pub type ResolvedExecutionPlanAllOf0ElseNot = Value;
-pub type ResolvedExecutionPlanAllOf1 = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ResolvedExecutionPlanAllOf1If {
-    #[serde(rename = "agent_source")]
-    pub r#agent_source: String,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ResolvedExecutionPlanAllOf1IfAgentSource = String;
-pub type ResolvedExecutionPlanAllOf1Then = Value;
 pub type MessageChannel = String;
 pub type MessageExposure = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2121,8 +1141,6 @@ pub struct MessageProvenance {
     #[serde(rename = "nativeEvent")]
     pub r#native_event: String,
 }
-pub type MessageProvenanceProvider = String;
-pub type MessageProvenanceNativeEvent = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FailureAction {
     #[serde(rename = "type")]
@@ -2130,8 +1148,6 @@ pub struct FailureAction {
     #[serde(rename = "labelKey")]
     pub r#label_key: String,
 }
-pub type FailureActionType = String;
-pub type FailureActionLabelKey = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FailureSource {
     #[serde(rename = "component")]
@@ -2143,8 +1159,6 @@ pub struct FailureSource {
     )]
     pub r#adapter: Presence<String>,
 }
-pub type FailureSourceComponent = String;
-pub type FailureSourceAdapter = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FailureCause {
     #[serde(rename = "reasonCode")]
@@ -2157,8 +1171,6 @@ pub struct FailureCause {
     )]
     pub r#http_status: Presence<i64>,
 }
-pub type FailureCauseReasonCode = String;
-pub type FailureCauseHttpStatus = i64;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FailureEnvelope {
     #[serde(
@@ -2202,21 +1214,6 @@ pub struct FailureEnvelope {
     #[serde(rename = "occurredAt")]
     pub r#occurred_at: String,
 }
-pub type FailureEnvelopeSchemaVersion = i64;
-pub type FailureEnvelopeCode = String;
-pub type FailureEnvelopeReasonCode = String;
-pub type FailureEnvelopeCategory = String;
-pub type FailureEnvelopeStage = String;
-pub type FailureEnvelopeMessageKey = String;
-pub type FailureEnvelopeParams = std::collections::BTreeMap<String, Value>;
-pub type FailureEnvelopeParamsAdditional = Value;
-pub type FailureEnvelopeRetryable = bool;
-pub type FailureEnvelopeRetryAfterMs = i64;
-pub type FailureEnvelopeAction = FailureAction;
-pub type FailureEnvelopeDiagnosticId = String;
-pub type FailureEnvelopeSource = FailureSource;
-pub type FailureEnvelopeCause = FailureCause;
-pub type FailureEnvelopeOccurredAt = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProviderSession {
     #[serde(rename = "sessionId")]
@@ -2248,11 +1245,6 @@ pub struct ProviderSession {
     #[serde(flatten)]
     pub extra: std::collections::BTreeMap<String, Value>,
 }
-pub type ProviderSessionSessionId = String;
-pub type ProviderSessionResumable = bool;
-pub type ProviderSessionResumeOutcome = String;
-pub type ProviderSessionResumeFallback = String;
-pub type ProviderSessionContextInputVariant = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuntimeLimits {
     #[serde(
@@ -2317,15 +1309,6 @@ pub struct RuntimeLimits {
     )]
     pub r#enforcement: Presence<String>,
 }
-pub type RuntimeLimitsFirstFrameTimeoutMs = i64;
-pub type RuntimeLimitsModelIdleTimeoutMs = i64;
-pub type RuntimeLimitsModelIdleWarningMs = i64;
-pub type RuntimeLimitsModelIdlePolicy = String;
-pub type RuntimeLimitsToolTimeoutMs = i64;
-pub type RuntimeLimitsToolWallTimeoutMs = i64;
-pub type RuntimeLimitsRunTimeoutMs = i64;
-pub type RuntimeLimitsCancelGraceMs = i64;
-pub type RuntimeLimitsEnforcement = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentConfig {
     #[serde(
@@ -2385,27 +1368,6 @@ pub struct AgentConfig {
     #[serde(flatten)]
     pub extra: std::collections::BTreeMap<String, Value>,
 }
-pub type AgentConfigWorkdir = String;
-pub type AgentConfigModel = String;
-pub type AgentConfigSandbox = String;
-pub type AgentConfigProviderAgentId = String;
-pub type AgentConfigEffort = String;
-pub type AgentConfigTimeoutSeconds = serde_json::Number;
-pub type AgentConfigOpenclawConfigPath = String;
-pub type AgentConfigOpenclawStateDir = String;
-pub type AgentConfigProviderOptions = std::collections::BTreeMap<String, Value>;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum AgentConfigNot {
-    Variant0(Value),
-    Variant1(Value),
-    Variant2(Value),
-    Variant3(Value),
-}
-pub type AgentConfigNotAnyOf0 = Value;
-pub type AgentConfigNotAnyOf1 = Value;
-pub type AgentConfigNotAnyOf2 = Value;
-pub type AgentConfigNotAnyOf3 = Value;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CanonicalEventPayload {
     #[serde(
@@ -2475,18 +1437,6 @@ pub struct CanonicalEventPayload {
     #[serde(flatten)]
     pub extra: std::collections::BTreeMap<String, Value>,
 }
-pub type CanonicalEventPayloadProviderSession = ProviderSession;
-pub type CanonicalEventPayloadChannel = MessageChannel;
-pub type CanonicalEventPayloadExposure = MessageExposure;
-pub type CanonicalEventPayloadProvenance = MessageProvenance;
-pub type CanonicalEventPayloadMessageId = String;
-pub type CanonicalEventPayloadStepId = String;
-pub type CanonicalEventPayloadRole = String;
-pub type CanonicalEventPayloadStatus = String;
-pub type CanonicalEventPayloadText = String;
-pub type CanonicalEventPayloadReason = String;
-pub type CanonicalEventPayloadMessage = String;
-pub type CanonicalEventPayloadFailure = FailureEnvelope;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InteractionRequestedPayload {
     #[serde(rename = "executionInstanceId")]
@@ -2500,31 +1450,6 @@ pub struct InteractionRequestedPayload {
     #[serde(rename = "request")]
     pub r#request: std::collections::BTreeMap<String, Value>,
 }
-pub type InteractionRequestedPayloadExecutionInstanceId = String;
-pub type InteractionRequestedPayloadExpiresAt = String;
-pub type InteractionRequestedPayloadInteractionId = String;
-pub type InteractionRequestedPayloadKind = String;
-pub type InteractionRequestedPayloadRequest = std::collections::BTreeMap<String, Value>;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InteractionRequestedPayloadIf {
-    #[serde(rename = "kind")]
-    pub r#kind: String,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type InteractionRequestedPayloadIfKind = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InteractionRequestedPayloadThen {
-    #[serde(
-        rename = "request",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#request: Presence<ApprovalRequest>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type InteractionRequestedPayloadThenRequest = ApprovalRequest;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApprovalRequest {
     #[serde(rename = "schema")]
@@ -2552,7 +1477,6 @@ pub struct ApprovalRequest {
     )]
     pub r#provider_details: Presence<ApprovalDisplayDetails>,
 }
-pub type ApprovalRequestSchema = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApprovalRequestPolicy {
     #[serde(rename = "mode")]
@@ -2560,17 +1484,6 @@ pub struct ApprovalRequestPolicy {
     #[serde(rename = "hash")]
     pub r#hash: String,
 }
-pub type ApprovalRequestPolicyMode = ApprovalMode;
-pub type ApprovalRequestPolicyHash = String;
-pub type ApprovalRequestOperation = ApprovalOperation;
-pub type ApprovalRequestRequestedPermissions = Vec<Value>;
-pub type ApprovalRequestRequestedPermissionsItems = Value;
-pub type ApprovalRequestRequestedPermissionsItemsNot = Value;
-pub type ApprovalRequestReason = String;
-pub type ApprovalRequestAllowedOutcomes = Vec<String>;
-pub type ApprovalRequestAllowedOutcomesItems = String;
-pub type ApprovalRequestGrantScope = String;
-pub type ApprovalRequestProviderDetails = ApprovalDisplayDetails;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApprovalOperation {
     #[serde(rename = "kind")]
@@ -2590,10 +1503,6 @@ pub struct ApprovalOperation {
     )]
     pub r#details: Presence<ApprovalDisplayDetails>,
 }
-pub type ApprovalOperationKind = String;
-pub type ApprovalOperationSummary = String;
-pub type ApprovalOperationToolCallId = String;
-pub type ApprovalOperationDetails = ApprovalDisplayDetails;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApprovalDisplayDetails {
     #[serde(
@@ -2671,19 +1580,6 @@ pub struct ApprovalDisplayDetails {
     )]
     pub r#options: Presence<Value>,
 }
-pub type ApprovalDisplayDetailsProvider = Value;
-pub type ApprovalDisplayDetailsMethod = Value;
-pub type ApprovalDisplayDetailsItemId = Value;
-pub type ApprovalDisplayDetailsApprovalId = Value;
-pub type ApprovalDisplayDetailsReason = Value;
-pub type ApprovalDisplayDetailsCommand = Value;
-pub type ApprovalDisplayDetailsCwd = Value;
-pub type ApprovalDisplayDetailsGrantRoot = Value;
-pub type ApprovalDisplayDetailsFiles = Value;
-pub type ApprovalDisplayDetailsToolCallId = Value;
-pub type ApprovalDisplayDetailsTitle = Value;
-pub type ApprovalDisplayDetailsDescription = Value;
-pub type ApprovalDisplayDetailsOptions = Value;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InteractionResolvedPayload {
     #[serde(rename = "interactionId")]
@@ -2705,21 +1601,6 @@ pub struct InteractionResolvedPayload {
     )]
     pub r#reason_code: Presence<String>,
 }
-pub type InteractionResolvedPayloadInteractionId = String;
-pub type InteractionResolvedPayloadExecutionInstanceId = String;
-pub type InteractionResolvedPayloadStatus = String;
-pub type InteractionResolvedPayloadOutcome = String;
-pub type InteractionResolvedPayloadReasonCode = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InteractionResolvedPayloadIf {
-    #[serde(rename = "status")]
-    pub r#status: String,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type InteractionResolvedPayloadIfStatus = String;
-pub type InteractionResolvedPayloadThen = Value;
-pub type InteractionResolvedPayloadElse = Value;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelStepStartedPayload {
     #[serde(rename = "stepId")]
@@ -2734,8 +1615,6 @@ pub struct ModelStepStartedPayload {
     #[serde(flatten)]
     pub extra: std::collections::BTreeMap<String, Value>,
 }
-pub type ModelStepStartedPayloadStepId = String;
-pub type ModelStepStartedPayloadStartedAtMs = i64;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelStepFinishedPayload {
     #[serde(rename = "stepId")]
@@ -2758,10 +1637,6 @@ pub struct ModelStepFinishedPayload {
     #[serde(flatten)]
     pub extra: std::collections::BTreeMap<String, Value>,
 }
-pub type ModelStepFinishedPayloadStepId = String;
-pub type ModelStepFinishedPayloadStatus = String;
-pub type ModelStepFinishedPayloadFinishReason = String;
-pub type ModelStepFinishedPayloadEndedAtMs = i64;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolCallCreatePayload {
     #[serde(rename = "id")]
@@ -2775,10 +1650,6 @@ pub struct ToolCallCreatePayload {
     #[serde(flatten)]
     pub extra: std::collections::BTreeMap<String, Value>,
 }
-pub type ToolCallCreatePayloadId = String;
-pub type ToolCallCreatePayloadName = String;
-pub type ToolCallCreatePayloadArgs = std::collections::BTreeMap<String, Value>;
-pub type ToolCallCreatePayloadStatus = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolCallDeltaPayload {
     #[serde(rename = "id")]
@@ -2804,10 +1675,6 @@ pub struct ToolCallDeltaPayload {
     #[serde(flatten)]
     pub extra: std::collections::BTreeMap<String, Value>,
 }
-pub type ToolCallDeltaPayloadId = String;
-pub type ToolCallDeltaPayloadArgsDelta = String;
-pub type ToolCallDeltaPayloadOutputDelta = String;
-pub type ToolCallDeltaPayloadOutputSnapshot = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolCallUpdatePayload {
     #[serde(rename = "id")]
@@ -2843,12 +1710,6 @@ pub struct ToolCallUpdatePayload {
     #[serde(flatten)]
     pub extra: std::collections::BTreeMap<String, Value>,
 }
-pub type ToolCallUpdatePayloadId = String;
-pub type ToolCallUpdatePayloadStatus = String;
-pub type ToolCallUpdatePayloadOutput = Value;
-pub type ToolCallUpdatePayloadError = std::collections::BTreeMap<String, Value>;
-pub type ToolCallUpdatePayloadExitCode = i64;
-pub type ToolCallUpdatePayloadDurationMs = i64;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RunIdentity {
     #[serde(rename = "id")]
@@ -2856,8 +1717,6 @@ pub struct RunIdentity {
     #[serde(rename = "agentSessionId")]
     pub r#agent_session_id: String,
 }
-pub type RunIdentityId = String;
-pub type RunIdentityAgentSessionId = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChannelScope {
     #[serde(rename = "tenant_id")]
@@ -2879,13 +1738,6 @@ pub struct ChannelScope {
     )]
     pub r#thread_id: Presence<Option<String>>,
 }
-pub type ChannelScopeTenantId = String;
-pub type ChannelScopeEndpointId = String;
-pub type ChannelScopeChannel = String;
-pub type ChannelScopeAccountId = Option<String>;
-pub type ChannelScopeBotId = String;
-pub type ChannelScopeConversationId = String;
-pub type ChannelScopeThreadId = Option<String>;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChannelMessagePart {
     #[serde(rename = "type")]
@@ -2895,8 +1747,6 @@ pub struct ChannelMessagePart {
     #[serde(flatten)]
     pub extra: std::collections::BTreeMap<String, Value>,
 }
-pub type ChannelMessagePartType = String;
-pub type ChannelMessagePartText = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChannelMessageSender {
     #[serde(rename = "id")]
@@ -2910,9 +1760,6 @@ pub struct ChannelMessageSender {
     #[serde(rename = "kind")]
     pub r#kind: String,
 }
-pub type ChannelMessageSenderId = String;
-pub type ChannelMessageSenderLabel = String;
-pub type ChannelMessageSenderKind = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChannelMessageFlags {
     #[serde(rename = "self", default, skip_serializing_if = "Presence::is_missing")]
@@ -2924,8 +1771,6 @@ pub struct ChannelMessageFlags {
     )]
     pub r#control: Presence<bool>,
 }
-pub type ChannelMessageFlagsSelf = bool;
-pub type ChannelMessageFlagsControl = bool;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChannelMessageFact {
     #[serde(rename = "message_id")]
@@ -2953,13 +1798,6 @@ pub struct ChannelMessageFact {
     )]
     pub r#flags: Presence<ChannelMessageFlags>,
 }
-pub type ChannelMessageFactMessageId = String;
-pub type ChannelMessageFactMessageSeq = i64;
-pub type ChannelMessageFactSender = ChannelMessageSender;
-pub type ChannelMessageFactOccurredAtMs = i64;
-pub type ChannelMessageFactParts = Vec<ChannelMessagePart>;
-pub type ChannelMessageFactPartsItems = ChannelMessagePart;
-pub type ChannelMessageFactFlags = ChannelMessageFlags;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChannelContextAppend {
     #[serde(rename = "agent_id")]
@@ -2976,11 +1814,6 @@ pub struct ChannelContextAppend {
     )]
     pub r#gap_after_seq: Presence<i64>,
 }
-pub type ChannelContextAppendAgentId = String;
-pub type ChannelContextAppendScope = ChannelScope;
-pub type ChannelContextAppendFacts = Vec<ChannelMessageFact>;
-pub type ChannelContextAppendFactsItems = ChannelMessageFact;
-pub type ChannelContextAppendGapAfterSeq = i64;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextSyncRequest {
     #[serde(rename = "request_id")]
@@ -3011,13 +1844,6 @@ pub struct ContextSyncRequest {
     )]
     pub r#limit: i64,
 }
-pub type ContextSyncRequestRequestId = String;
-pub type ContextSyncRequestRunId = String;
-pub type ContextSyncRequestScope = ChannelScope;
-pub type ContextSyncRequestTriggerMessageId = String;
-pub type ContextSyncRequestTriggerSeq = i64;
-pub type ContextSyncRequestAfterSeq = i64;
-pub type ContextSyncRequestLimit = i64;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextSyncResult {
     #[serde(rename = "request_id")]
@@ -3036,37 +1862,6 @@ pub struct ContextSyncResult {
     )]
     pub r#through_seq: Presence<i64>,
 }
-pub type ContextSyncResultRequestId = String;
-pub type ContextSyncResultScope = ChannelScope;
-pub type ContextSyncResultFacts = Vec<ChannelMessageFact>;
-pub type ContextSyncResultFactsItems = ChannelMessageFact;
-pub type ContextSyncResultCompleteness = String;
-pub type ContextSyncResultThroughSeq = i64;
-pub type ContextSyncResultAllOf0 = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextSyncResultAllOf0If {
-    #[serde(
-        rename = "completeness",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#completeness: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextSyncResultAllOf0IfCompleteness = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextSyncResultAllOf0Then {
-    #[serde(
-        rename = "facts",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#facts: Presence<Value>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextSyncResultAllOf0ThenFacts = Value;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChannelContextDescriptor {
     #[serde(rename = "scope")]
@@ -3090,12 +1885,6 @@ pub struct ChannelContextDescriptor {
     #[serde(rename = "trigger_fact")]
     pub r#trigger_fact: ChannelMessageFact,
 }
-pub type ChannelContextDescriptorScope = ChannelScope;
-pub type ChannelContextDescriptorConsumerKey = String;
-pub type ChannelContextDescriptorSessionGeneration = i64;
-pub type ChannelContextDescriptorTriggerMessageId = String;
-pub type ChannelContextDescriptorTriggerSeq = i64;
-pub type ChannelContextDescriptorTriggerFact = ChannelMessageFact;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextCommitResult {
     #[serde(rename = "snapshot_id")]
@@ -3109,9 +1898,6 @@ pub struct ContextCommitResult {
     )]
     pub r#reason: Presence<String>,
 }
-pub type ContextCommitResultSnapshotId = String;
-pub type ContextCommitResultCommitted = bool;
-pub type ContextCommitResultReason = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpStdioServer {
     #[serde(rename = "type")]
@@ -3145,17 +1931,6 @@ pub struct McpStdioServer {
     )]
     pub r#tool_timeout_ms: Presence<i64>,
 }
-pub type McpStdioServerType = String;
-pub type McpStdioServerCommand = String;
-pub type McpStdioServerArgs = Vec<String>;
-pub type McpStdioServerArgsItems = String;
-pub type McpStdioServerEnv = std::collections::BTreeMap<String, Value>;
-pub type McpStdioServerEnvPropertyNames = Value;
-pub type McpStdioServerEnvAdditional = String;
-pub type McpStdioServerCwd = String;
-pub type McpStdioServerRequired = bool;
-pub type McpStdioServerStartupTimeoutMs = i64;
-pub type McpStdioServerToolTimeoutMs = i64;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpStreamableHttpServer {
     #[serde(rename = "type")]
@@ -3189,37 +1964,75 @@ pub struct McpStreamableHttpServer {
     )]
     pub r#tool_timeout_ms: Presence<i64>,
 }
-pub type McpStreamableHttpServerType = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(untagged)]
 pub enum McpStreamableHttpServerUrl {
     Variant0(Value),
     Variant1(Value),
 }
-pub type McpStreamableHttpServerUrlAnyOf0 = Value;
-pub type McpStreamableHttpServerUrlAnyOf1 = Value;
-pub type McpStreamableHttpServerHeaders = std::collections::BTreeMap<String, Value>;
-pub type McpStreamableHttpServerHeadersPropertyNames = Value;
-pub type McpStreamableHttpServerHeadersAdditional = String;
-pub type McpStreamableHttpServerRequired = bool;
-pub type McpStreamableHttpServerStartupTimeoutMs = i64;
-pub type McpStreamableHttpServerToolTimeoutMs = i64;
-#[derive(Debug, Clone, Serialize, Deserialize)]
+impl<'de> Deserialize<'de> for McpStreamableHttpServerUrl {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = Value::deserialize(deserializer)?;
+        super::rules::validate_node(745, &value).map_err(serde::de::Error::custom)?;
+        if super::rules::validate_node(746, &value).is_ok() {
+            return crate::codec::from_value(value)
+                .map(Self::Variant0)
+                .map_err(serde::de::Error::custom);
+        }
+        if super::rules::validate_node(747, &value).is_ok() {
+            return crate::codec::from_value(value)
+                .map(Self::Variant1)
+                .map_err(serde::de::Error::custom);
+        }
+        Err(serde::de::Error::custom("VALIDATION_ERROR"))
+    }
+}
+#[derive(Debug, Clone, Serialize)]
 #[serde(untagged)]
 pub enum McpServer {
     Variant0(McpStdioServer),
     Variant1(McpStreamableHttpServer),
 }
-pub type McpServerOneOf0 = McpStdioServer;
-pub type McpServerOneOf1 = McpStreamableHttpServer;
+impl<'de> Deserialize<'de> for McpServer {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = Value::deserialize(deserializer)?;
+        super::rules::validate_node(754, &value).map_err(serde::de::Error::custom)?;
+        if super::rules::validate_node(755, &value).is_ok() {
+            return crate::codec::from_value(value)
+                .map(Self::Variant0)
+                .map_err(serde::de::Error::custom);
+        }
+        if super::rules::validate_node(756, &value).is_ok() {
+            return crate::codec::from_value(value)
+                .map(Self::Variant1)
+                .map_err(serde::de::Error::custom);
+        }
+        Err(serde::de::Error::custom("VALIDATION_ERROR"))
+    }
+}
 pub type McpServers = std::collections::BTreeMap<String, Value>;
-pub type McpServersPropertyNames = Value;
-pub type McpServersAdditional = McpServer;
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(untagged)]
 pub enum ModelInputPart {
     Variant0(ModelInputPartOneOf0),
     Variant1(ModelInputPartOneOf1),
+}
+impl<'de> Deserialize<'de> for ModelInputPart {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = Value::deserialize(deserializer)?;
+        super::rules::validate_node(760, &value).map_err(serde::de::Error::custom)?;
+        if super::rules::validate_node(761, &value).is_ok() {
+            return crate::codec::from_value(value)
+                .map(Self::Variant0)
+                .map_err(serde::de::Error::custom);
+        }
+        if super::rules::validate_node(765, &value).is_ok() {
+            return crate::codec::from_value(value)
+                .map(Self::Variant1)
+                .map_err(serde::de::Error::custom);
+        }
+        Err(serde::de::Error::custom("VALIDATION_ERROR"))
+    }
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelInputPartOneOf0 {
@@ -3230,9 +2043,6 @@ pub struct ModelInputPartOneOf0 {
     #[serde(rename = "text")]
     pub r#text: String,
 }
-pub type ModelInputPartOneOf0Id = String;
-pub type ModelInputPartOneOf0Type = String;
-pub type ModelInputPartOneOf0Text = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelInputPartOneOf1 {
     #[serde(rename = "id", default, skip_serializing_if = "Presence::is_missing")]
@@ -3251,12 +2061,6 @@ pub struct ModelInputPartOneOf1 {
     #[serde(rename = "sha256")]
     pub r#sha256: String,
 }
-pub type ModelInputPartOneOf1Id = String;
-pub type ModelInputPartOneOf1Type = String;
-pub type ModelInputPartOneOf1MimeType = String;
-pub type ModelInputPartOneOf1Data = String;
-pub type ModelInputPartOneOf1ByteSize = i64;
-pub type ModelInputPartOneOf1Sha256 = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InvokeRequestWire {
     #[serde(
@@ -3352,31 +2156,6 @@ pub struct InvokeRequestWire {
     #[serde(rename = "agentSource")]
     pub r#agent_source: AgentSource,
 }
-pub type InvokeRequestWireExecutionEnvOverrides = ContextEnvsPayload;
-pub type InvokeRequestWireInvocationId = String;
-pub type InvokeRequestWireAgentSessionId = String;
-pub type InvokeRequestWireRunId = String;
-pub type InvokeRequestWireSessionGeneration = i64;
-pub type InvokeRequestWireProviderEpoch = i64;
-pub type InvokeRequestWireContinuityMode = String;
-pub type InvokeRequestWirePrompt = String;
-pub type InvokeRequestWireModelInput = String;
-pub type InvokeRequestWireModelInputParts = Vec<ModelInputPart>;
-pub type InvokeRequestWireModelInputPartsItems = ModelInputPart;
-pub type InvokeRequestWireFreshFallbackModelInputParts = Vec<ModelInputPart>;
-pub type InvokeRequestWireFreshFallbackModelInputPartsItems = ModelInputPart;
-pub type InvokeRequestWireFreshFallbackImagesUnavailable = bool;
-pub type InvokeRequestWireFreshFallbackModelInput = String;
-pub type InvokeRequestWireWorkdir = String;
-pub type InvokeRequestWireControlInstructions = String;
-pub type InvokeRequestWireContext = ContextEnvelope;
-pub type InvokeRequestWireRunMetadata = std::collections::BTreeMap<String, Value>;
-pub type InvokeRequestWireApprovalMode = ApprovalMode;
-pub type InvokeRequestWireProviderSession = ProviderSession;
-pub type InvokeRequestWireRuntimeLimits = RuntimeLimits;
-pub type InvokeRequestWireAgentConfig = AgentConfig;
-pub type InvokeRequestWireProtocolVersion = serde_json::Number;
-pub type InvokeRequestWireAgentSource = AgentSource;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActivityInfo {
     #[serde(
@@ -3406,12 +2185,7 @@ pub struct ActivityInfo {
     )]
     pub r#retry_after_ms: Presence<i64>,
 }
-pub type ActivityInfoMessageKey = String;
-pub type ActivityInfoParams = std::collections::BTreeMap<String, Value>;
-pub type ActivityInfoParamsAdditional = Value;
-pub type ActivityInfoAttempt = i64;
-pub type ActivityInfoRetryAfterMs = i64;
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(untagged)]
 pub enum ActivitySubject {
     Variant0(ActivitySubjectOneOf0),
@@ -3419,12 +2193,38 @@ pub enum ActivitySubject {
     Variant2(ActivitySubjectOneOf2),
     Variant3(ActivitySubjectOneOf3),
 }
+impl<'de> Deserialize<'de> for ActivitySubject {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = Value::deserialize(deserializer)?;
+        super::rules::validate_node(804, &value).map_err(serde::de::Error::custom)?;
+        if super::rules::validate_node(805, &value).is_ok() {
+            return crate::codec::from_value(value)
+                .map(Self::Variant0)
+                .map_err(serde::de::Error::custom);
+        }
+        if super::rules::validate_node(807, &value).is_ok() {
+            return crate::codec::from_value(value)
+                .map(Self::Variant1)
+                .map_err(serde::de::Error::custom);
+        }
+        if super::rules::validate_node(810, &value).is_ok() {
+            return crate::codec::from_value(value)
+                .map(Self::Variant2)
+                .map_err(serde::de::Error::custom);
+        }
+        if super::rules::validate_node(813, &value).is_ok() {
+            return crate::codec::from_value(value)
+                .map(Self::Variant3)
+                .map_err(serde::de::Error::custom);
+        }
+        Err(serde::de::Error::custom("VALIDATION_ERROR"))
+    }
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActivitySubjectOneOf0 {
     #[serde(rename = "type")]
     pub r#type: String,
 }
-pub type ActivitySubjectOneOf0Type = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActivitySubjectOneOf1 {
     #[serde(rename = "type")]
@@ -3432,8 +2232,6 @@ pub struct ActivitySubjectOneOf1 {
     #[serde(rename = "id")]
     pub r#id: String,
 }
-pub type ActivitySubjectOneOf1Type = String;
-pub type ActivitySubjectOneOf1Id = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActivitySubjectOneOf2 {
     #[serde(rename = "type")]
@@ -3441,8 +2239,6 @@ pub struct ActivitySubjectOneOf2 {
     #[serde(rename = "id")]
     pub r#id: String,
 }
-pub type ActivitySubjectOneOf2Type = String;
-pub type ActivitySubjectOneOf2Id = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActivitySubjectOneOf3 {
     #[serde(rename = "type")]
@@ -3450,8 +2246,6 @@ pub struct ActivitySubjectOneOf3 {
     #[serde(rename = "id")]
     pub r#id: String,
 }
-pub type ActivitySubjectOneOf3Type = String;
-pub type ActivitySubjectOneOf3Id = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActivityStartedPayload {
     #[serde(rename = "activityId")]
@@ -3472,12 +2266,6 @@ pub struct ActivityStartedPayload {
     )]
     pub r#started_at_ms: Presence<i64>,
 }
-pub type ActivityStartedPayloadActivityId = String;
-pub type ActivityStartedPayloadKind = String;
-pub type ActivityStartedPayloadSubject = ActivitySubject;
-pub type ActivityStartedPayloadSource = String;
-pub type ActivityStartedPayloadInfo = ActivityInfo;
-pub type ActivityStartedPayloadStartedAtMs = i64;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActivityUpdatedPayload {
     #[serde(rename = "activityId")]
@@ -3485,8 +2273,6 @@ pub struct ActivityUpdatedPayload {
     #[serde(rename = "info")]
     pub r#info: ActivityInfo,
 }
-pub type ActivityUpdatedPayloadActivityId = String;
-pub type ActivityUpdatedPayloadInfo = ActivityInfo;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActivityFinishedPayload {
     #[serde(rename = "activityId")]
@@ -3501,9 +2287,6 @@ pub struct ActivityFinishedPayload {
     )]
     pub r#ended_at_ms: Presence<i64>,
 }
-pub type ActivityFinishedPayloadActivityId = String;
-pub type ActivityFinishedPayloadStatus = String;
-pub type ActivityFinishedPayloadEndedAtMs = i64;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlanUpdatedPayload {
     #[serde(rename = "planId")]
@@ -3518,10 +2301,6 @@ pub struct PlanUpdatedPayload {
     #[serde(rename = "steps")]
     pub r#steps: Vec<PlanUpdatedPayloadStepsItems>,
 }
-pub type PlanUpdatedPayloadPlanId = String;
-pub type PlanUpdatedPayloadRevision = i64;
-pub type PlanUpdatedPayloadExplanation = Option<String>;
-pub type PlanUpdatedPayloadSteps = Vec<PlanUpdatedPayloadStepsItems>;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlanUpdatedPayloadStepsItems {
     #[serde(rename = "text")]
@@ -3529,8 +2308,6 @@ pub struct PlanUpdatedPayloadStepsItems {
     #[serde(rename = "status")]
     pub r#status: String,
 }
-pub type PlanUpdatedPayloadStepsItemsText = String;
-pub type PlanUpdatedPayloadStepsItemsStatus = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolProgressPayload {
     #[serde(rename = "id")]
@@ -3538,7 +2315,6 @@ pub struct ToolProgressPayload {
     #[serde(rename = "progress")]
     pub r#progress: ToolProgressPayloadProgress,
 }
-pub type ToolProgressPayloadId = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolProgressPayloadProgress {
     #[serde(
@@ -3564,10 +2340,6 @@ pub struct ToolProgressPayloadProgress {
     #[serde(rename = "unit", default, skip_serializing_if = "Presence::is_missing")]
     pub r#unit: Presence<String>,
 }
-pub type ToolProgressPayloadProgressMessage = String;
-pub type ToolProgressPayloadProgressCompleted = i64;
-pub type ToolProgressPayloadProgressTotal = i64;
-pub type ToolProgressPayloadProgressUnit = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RunNoticePayload {
     #[serde(rename = "noticeId")]
@@ -3591,13 +2363,6 @@ pub struct RunNoticePayload {
     )]
     pub r#related_item_id: Presence<String>,
 }
-pub type RunNoticePayloadNoticeId = String;
-pub type RunNoticePayloadCode = String;
-pub type RunNoticePayloadSeverity = String;
-pub type RunNoticePayloadParams = std::collections::BTreeMap<String, Value>;
-pub type RunNoticePayloadParamsAdditional = Value;
-pub type RunNoticePayloadRelatedActivityId = String;
-pub type RunNoticePayloadRelatedItemId = String;
 pub type AgentSource = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextModelSelectionPayload {
@@ -3610,12 +2375,6 @@ pub struct ContextModelSelectionPayload {
     )]
     pub r#use_provider_default: Presence<bool>,
 }
-pub type ContextModelSelectionPayloadId = String;
-pub type ContextModelSelectionPayloadUseProviderDefault = bool;
-pub type ContextModelSelectionPayloadOneOf0 = Value;
-pub type ContextModelSelectionPayloadOneOf0Not = Value;
-pub type ContextModelSelectionPayloadOneOf1 = Value;
-pub type ContextModelSelectionPayloadOneOf1Not = Value;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextInlineEntry {
     #[serde(rename = "text")]
@@ -3639,10 +2398,6 @@ pub struct ContextInlineEntry {
     )]
     pub r#summary: Presence<String>,
 }
-pub type ContextInlineEntryText = String;
-pub type ContextInlineEntryResourceRef = String;
-pub type ContextInlineEntrySource = Value;
-pub type ContextInlineEntrySummary = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextReferenceEntry {
     #[serde(rename = "resource_ref")]
@@ -3670,38 +2425,16 @@ pub struct ContextReferenceEntry {
     )]
     pub r#revision: Presence<String>,
 }
-pub type ContextReferenceEntryResourceRef = String;
-pub type ContextReferenceEntryResolver = String;
-pub type ContextReferenceEntryLocator = std::collections::BTreeMap<String, Value>;
-pub type ContextReferenceEntryParams = std::collections::BTreeMap<String, Value>;
-pub type ContextReferenceEntryAuthorizationRef = String;
-pub type ContextReferenceEntryRevision = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContextReferenceEntryAllOf0 {
-    #[serde(
-        rename = "locator",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#locator: Presence<ContextMcpLocator>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type ContextReferenceEntryAllOf0Locator = ContextMcpLocator;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextInlinePayload {
     #[serde(rename = "entries")]
     pub r#entries: Vec<ContextInlineEntry>,
 }
-pub type ContextInlinePayloadEntries = Vec<ContextInlineEntry>;
-pub type ContextInlinePayloadEntriesItems = ContextInlineEntry;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextReferencesPayload {
     #[serde(rename = "entries")]
     pub r#entries: Vec<ContextReferenceEntry>,
 }
-pub type ContextReferencesPayloadEntries = Vec<ContextReferenceEntry>;
-pub type ContextReferencesPayloadEntriesItems = ContextReferenceEntry;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolAuthorization {
     #[serde(rename = "service_subject_id")]
@@ -3711,11 +2444,6 @@ pub struct ToolAuthorization {
     #[serde(rename = "resource_refs")]
     pub r#resource_refs: Vec<String>,
 }
-pub type ToolAuthorizationServiceSubjectId = String;
-pub type ToolAuthorizationAllowedTools = Vec<String>;
-pub type ToolAuthorizationAllowedToolsItems = String;
-pub type ToolAuthorizationResourceRefs = Vec<String>;
-pub type ToolAuthorizationResourceRefsItems = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IssuedToolAuthorization {
     #[serde(rename = "service_subject_id")]
@@ -3733,21 +2461,11 @@ pub struct IssuedToolAuthorization {
     #[serde(rename = "expires_at")]
     pub r#expires_at: String,
 }
-pub type IssuedToolAuthorizationServiceSubjectId = String;
-pub type IssuedToolAuthorizationAllowedTools = Vec<String>;
-pub type IssuedToolAuthorizationAllowedToolsItems = String;
-pub type IssuedToolAuthorizationResourceRefs = Vec<String>;
-pub type IssuedToolAuthorizationResourceRefsItems = String;
-pub type IssuedToolAuthorizationToken = String;
-pub type IssuedToolAuthorizationOctoSpaceId = String;
-pub type IssuedToolAuthorizationNamespace = String;
-pub type IssuedToolAuthorizationExpiresAt = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextEnvsPayload {
     #[serde(rename = "env_variables")]
     pub r#env_variables: Vec<ContextEnvsPayloadEnvVariablesItems>,
 }
-pub type ContextEnvsPayloadEnvVariables = Vec<ContextEnvsPayloadEnvVariablesItems>;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextEnvsPayloadEnvVariablesItems {
     #[serde(rename = "key")]
@@ -3755,16 +2473,12 @@ pub struct ContextEnvsPayloadEnvVariablesItems {
     #[serde(rename = "value")]
     pub r#value: String,
 }
-pub type ContextEnvsPayloadEnvVariablesItemsKey = String;
-pub type ContextEnvsPayloadEnvVariablesItemsValue = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextMcpPayload {
     #[serde(rename = "mcpServers")]
     pub r#mcp_servers: McpServers,
 }
-pub type ContextMcpPayloadMcpServers = McpServers;
 pub type ModelInputParts = Vec<ModelInputPart>;
-pub type ModelInputPartsItems = ModelInputPart;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InvokeInputWire {
     #[serde(
@@ -3896,82 +2610,6 @@ pub struct InvokeInputWire {
     #[serde(flatten)]
     pub extra: std::collections::BTreeMap<String, Value>,
 }
-pub type InvokeInputWireSessionId = String;
-pub type InvokeInputWireInvocationId = String;
-pub type InvokeInputWireRunId = String;
-pub type InvokeInputWirePrompt = String;
-pub type InvokeInputWireModelInput = String;
-pub type InvokeInputWireFreshFallbackModelInput = String;
-pub type InvokeInputWireWorkdir = String;
-pub type InvokeInputWireControlInstructions = String;
-pub type InvokeInputWireInputs = ModelInputParts;
-pub type InvokeInputWireContexts = ContextEnvelope;
-pub type InvokeInputWireProtocolMode = ProtocolMode;
-pub type InvokeInputWireAgentSource = AgentSource;
-pub type InvokeInputWireApprovalMode = ApprovalMode;
-pub type InvokeInputWireAgentConfig = AgentConfig;
-pub type InvokeInputWireRuntimeLimits = RuntimeLimits;
-pub type InvokeInputWireProviderSession = ProviderSession;
-pub type InvokeInputWireSessionGeneration = i64;
-pub type InvokeInputWireProviderEpoch = i64;
-pub type InvokeInputWireRunMetadata = std::collections::BTreeMap<String, Value>;
-pub type InvokeInputWireContinuityMode = String;
-pub type InvokeInputWireFreshFallbackModelInputParts = ModelInputParts;
-pub type InvokeInputWireFreshFallbackImagesUnavailable = bool;
-pub type InvokeInputWireAllOf0 = Value;
-pub type InvokeInputWireAllOf0Not = Value;
-pub type InvokeInputWireAllOf1 = Value;
-pub type InvokeInputWireAllOf1Not = Value;
-pub type InvokeInputWireAllOf2 = Value;
-pub type InvokeInputWireAllOf2Not = Value;
-pub type InvokeInputWireAllOf3 = Value;
-pub type InvokeInputWireAllOf3Not = Value;
-pub type InvokeInputWireAllOf4 = Value;
-pub type InvokeInputWireAllOf4Not = Value;
-pub type InvokeInputWireAllOf5 = Value;
-pub type InvokeInputWireAllOf5Not = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InvokeInputWireAllOf6 {
-    #[serde(
-        rename = "agentConfig",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#agent_config: Presence<InvokeInputWireAllOf6AgentConfig>,
-    #[serde(
-        rename = "providerSession",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#provider_session: Presence<InvokeInputWireAllOf6ProviderSession>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InvokeInputWireAllOf6AgentConfig {
-    #[serde(
-        rename = "timeoutSeconds",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#timeout_seconds: Presence<Value>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type InvokeInputWireAllOf6AgentConfigTimeoutSeconds = Value;
-pub type InvokeInputWireAllOf6AgentConfigTimeoutSecondsNot = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InvokeInputWireAllOf6ProviderSession {
-    #[serde(
-        rename = "sessionId",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#session_id: Presence<Value>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type InvokeInputWireAllOf6ProviderSessionSessionId = Value;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KernelInvokeEnvironmentWire {
     #[serde(
@@ -3981,7 +2619,6 @@ pub struct KernelInvokeEnvironmentWire {
     )]
     pub r#execution_env_overrides: Presence<ContextEnvsPayload>,
 }
-pub type KernelInvokeEnvironmentWireExecutionEnvOverrides = ContextEnvsPayload;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InteractionResponseWire {
     #[serde(rename = "interactionId")]
@@ -3997,9 +2634,6 @@ pub struct InteractionResponseWire {
     #[serde(flatten)]
     pub extra: std::collections::BTreeMap<String, Value>,
 }
-pub type InteractionResponseWireInteractionId = String;
-pub type InteractionResponseWireOutcome = String;
-pub type InteractionResponseWireValue = Value;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HostedAdapterMetadataWire {
     #[serde(rename = "type")]
@@ -4057,17 +2691,6 @@ pub struct HostedAdapterMetadataWire {
     #[serde(flatten)]
     pub extra: std::collections::BTreeMap<String, Value>,
 }
-pub type HostedAdapterMetadataWireType = String;
-pub type HostedAdapterMetadataWireAgentSources = Vec<AgentSource>;
-pub type HostedAdapterMetadataWireAgentSourcesItems = AgentSource;
-pub type HostedAdapterMetadataWireWorkspace = bool;
-pub type HostedAdapterMetadataWireProtocolSupport = AdapterProtocolSupport;
-pub type HostedAdapterMetadataWireProcessModel = String;
-pub type HostedAdapterMetadataWireTransport = String;
-pub type HostedAdapterMetadataWireProviderVersion = Option<String>;
-pub type HostedAdapterMetadataWireProviderPath = Option<String>;
-pub type HostedAdapterMetadataWireAvailable = bool;
-pub type HostedAdapterMetadataWireUnavailableReason = Option<String>;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IpcRequest {
     #[serde(rename = "jsonrpc")]
@@ -4079,210 +2702,6 @@ pub struct IpcRequest {
     #[serde(rename = "params")]
     pub r#params: std::collections::BTreeMap<String, Value>,
 }
-pub type IpcRequestJsonrpc = String;
-pub type IpcRequestId = String;
-pub type IpcRequestMethod = String;
-pub type IpcRequestParams = std::collections::BTreeMap<String, Value>;
-pub type IpcRequestAllOf0 = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IpcRequestAllOf0If {
-    #[serde(
-        rename = "method",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#method: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type IpcRequestAllOf0IfMethod = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IpcRequestAllOf0Then {
-    #[serde(
-        rename = "params",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#params: Presence<IpcEmptyParams>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type IpcRequestAllOf0ThenParams = IpcEmptyParams;
-pub type IpcRequestAllOf1 = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IpcRequestAllOf1If {
-    #[serde(
-        rename = "method",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#method: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type IpcRequestAllOf1IfMethod = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IpcRequestAllOf1Then {
-    #[serde(
-        rename = "params",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#params: Presence<IpcEmptyParams>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type IpcRequestAllOf1ThenParams = IpcEmptyParams;
-pub type IpcRequestAllOf2 = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IpcRequestAllOf2If {
-    #[serde(
-        rename = "method",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#method: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type IpcRequestAllOf2IfMethod = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IpcRequestAllOf2Then {
-    #[serde(
-        rename = "params",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#params: Presence<IpcInvokeParams>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type IpcRequestAllOf2ThenParams = IpcInvokeParams;
-pub type IpcRequestAllOf3 = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IpcRequestAllOf3If {
-    #[serde(
-        rename = "method",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#method: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type IpcRequestAllOf3IfMethod = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IpcRequestAllOf3Then {
-    #[serde(
-        rename = "params",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#params: Presence<IpcGetParams>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type IpcRequestAllOf3ThenParams = IpcGetParams;
-pub type IpcRequestAllOf4 = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IpcRequestAllOf4If {
-    #[serde(
-        rename = "method",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#method: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type IpcRequestAllOf4IfMethod = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IpcRequestAllOf4Then {
-    #[serde(
-        rename = "params",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#params: Presence<IpcSubscribeParams>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type IpcRequestAllOf4ThenParams = IpcSubscribeParams;
-pub type IpcRequestAllOf5 = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IpcRequestAllOf5If {
-    #[serde(
-        rename = "method",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#method: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type IpcRequestAllOf5IfMethod = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IpcRequestAllOf5Then {
-    #[serde(
-        rename = "params",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#params: Presence<IpcCancelParams>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type IpcRequestAllOf5ThenParams = IpcCancelParams;
-pub type IpcRequestAllOf6 = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IpcRequestAllOf6If {
-    #[serde(
-        rename = "method",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#method: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type IpcRequestAllOf6IfMethod = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IpcRequestAllOf6Then {
-    #[serde(
-        rename = "params",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#params: Presence<IpcRespondParams>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type IpcRequestAllOf6ThenParams = IpcRespondParams;
-pub type IpcRequestAllOf7 = Value;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IpcRequestAllOf7If {
-    #[serde(
-        rename = "method",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#method: Presence<String>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type IpcRequestAllOf7IfMethod = String;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IpcRequestAllOf7Then {
-    #[serde(
-        rename = "params",
-        default,
-        skip_serializing_if = "Presence::is_missing"
-    )]
-    pub r#params: Presence<IpcRespondNativeParams>,
-    #[serde(flatten)]
-    pub extra: std::collections::BTreeMap<String, Value>,
-}
-pub type IpcRequestAllOf7ThenParams = IpcRespondNativeParams;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IpcEmptyParams {}
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4304,9 +2723,6 @@ pub struct IpcInvokeParams {
     )]
     pub r#kernel_instance_id: Presence<String>,
 }
-pub type IpcInvokeParamsInput = InvokeInputWire;
-pub type IpcInvokeParamsExecutionEnvOverrides = ContextEnvsPayload;
-pub type IpcInvokeParamsKernelInstanceId = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IpcGetParams {
     #[serde(rename = "key")]
@@ -4318,8 +2734,6 @@ pub struct IpcGetParams {
     )]
     pub r#kernel_instance_id: Presence<String>,
 }
-pub type IpcGetParamsKey = KernelLookupKey;
-pub type IpcGetParamsKernelInstanceId = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IpcSubscribeParams {
     #[serde(rename = "ref")]
@@ -4330,8 +2744,6 @@ pub struct IpcSubscribeParams {
     )]
     pub r#after_seq: i64,
 }
-pub type IpcSubscribeParamsRef = KernelRunRef;
-pub type IpcSubscribeParamsAfterSeq = i64;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IpcCancelParams {
     #[serde(rename = "ref")]
@@ -4343,8 +2755,6 @@ pub struct IpcCancelParams {
     )]
     pub r#reason: Presence<String>,
 }
-pub type IpcCancelParamsRef = KernelRunRef;
-pub type IpcCancelParamsReason = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IpcRespondParams {
     #[serde(rename = "ref")]
@@ -4352,8 +2762,6 @@ pub struct IpcRespondParams {
     #[serde(rename = "response")]
     pub r#response: InteractionResponseWire,
 }
-pub type IpcRespondParamsRef = KernelRunRef;
-pub type IpcRespondParamsResponse = InteractionResponseWire;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IpcRespondNativeParams {
     #[serde(rename = "ref")]
@@ -4361,8 +2769,6 @@ pub struct IpcRespondNativeParams {
     #[serde(rename = "response")]
     pub r#response: NativeInteractionResponse,
 }
-pub type IpcRespondNativeParamsRef = KernelRunRef;
-pub type IpcRespondNativeParamsResponse = NativeInteractionResponse;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IpcInvokeResult {
     #[serde(rename = "kernel_instance_id")]
@@ -4370,14 +2776,11 @@ pub struct IpcInvokeResult {
     #[serde(rename = "receipt")]
     pub r#receipt: HostRunReceipt,
 }
-pub type IpcInvokeResultKernelInstanceId = String;
-pub type IpcInvokeResultReceipt = HostRunReceipt;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IpcCancelResult {
     #[serde(rename = "accepted")]
     pub r#accepted: bool,
 }
-pub type IpcCancelResultAccepted = bool;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IpcSuccessResponse {
     #[serde(rename = "jsonrpc")]
@@ -4387,9 +2790,6 @@ pub struct IpcSuccessResponse {
     #[serde(rename = "result")]
     pub r#result: Value,
 }
-pub type IpcSuccessResponseJsonrpc = String;
-pub type IpcSuccessResponseId = String;
-pub type IpcSuccessResponseResult = Value;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IpcErrorResponse {
     #[serde(rename = "jsonrpc")]
@@ -4399,8 +2799,6 @@ pub struct IpcErrorResponse {
     #[serde(rename = "error")]
     pub r#error: IpcErrorResponseError,
 }
-pub type IpcErrorResponseJsonrpc = String;
-pub type IpcErrorResponseId = Option<String>;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IpcErrorResponseError {
     #[serde(
@@ -4415,8 +2813,6 @@ pub struct IpcErrorResponseError {
     #[serde(flatten)]
     pub extra: std::collections::BTreeMap<String, Value>,
 }
-pub type IpcErrorResponseErrorCode = i64;
-pub type IpcErrorResponseErrorMessage = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IpcErrorResponseErrorData {
     #[serde(rename = "code")]
@@ -4424,7 +2820,6 @@ pub struct IpcErrorResponseErrorData {
     #[serde(flatten)]
     pub extra: std::collections::BTreeMap<String, Value>,
 }
-pub type IpcErrorResponseErrorDataCode = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IpcEventNotification {
     #[serde(rename = "jsonrpc")]
@@ -4434,8 +2829,6 @@ pub struct IpcEventNotification {
     #[serde(rename = "params")]
     pub r#params: IpcEventNotificationParams,
 }
-pub type IpcEventNotificationJsonrpc = String;
-pub type IpcEventNotificationMethod = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IpcEventNotificationParams {
     #[serde(rename = "kernel_instance_id")]
@@ -4452,11 +2845,6 @@ pub struct IpcEventNotificationParams {
     #[serde(rename = "event")]
     pub r#event: HostFrame,
 }
-pub type IpcEventNotificationParamsKernelInstanceId = String;
-pub type IpcEventNotificationParamsRunId = String;
-pub type IpcEventNotificationParamsStreamId = String;
-pub type IpcEventNotificationParamsSeq = i64;
-pub type IpcEventNotificationParamsEvent = HostFrame;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IpcStreamErrorNotification {
     #[serde(rename = "jsonrpc")]
@@ -4466,8 +2854,6 @@ pub struct IpcStreamErrorNotification {
     #[serde(rename = "params")]
     pub r#params: IpcStreamErrorNotificationParams,
 }
-pub type IpcStreamErrorNotificationJsonrpc = String;
-pub type IpcStreamErrorNotificationMethod = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IpcStreamErrorNotificationParams {
     #[serde(rename = "code")]
@@ -4475,9 +2861,6 @@ pub struct IpcStreamErrorNotificationParams {
     #[serde(rename = "kernel_instance_id")]
     pub r#kernel_instance_id: String,
 }
-pub type IpcStreamErrorNotificationParamsCode = String;
-pub type IpcStreamErrorNotificationParamsKernelInstanceId = String;
 pub type IpcKnownBusinessErrorCode = String;
 pub type IpcBusinessErrorCode = String;
 pub type IpcListResult = Vec<HostedAdapterMetadataWire>;
-pub type IpcListResultItems = HostedAdapterMetadataWire;

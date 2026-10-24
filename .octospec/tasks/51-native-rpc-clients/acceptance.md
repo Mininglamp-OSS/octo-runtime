@@ -10,7 +10,7 @@ timestamp: 2026-10-23T00:00:00Z
 
 2026-10-24 已完成三语言 SDK/demo 的本机基础实施，逐项已有证据和剩余项见 [implementation](implementation.md) 与 [contract-diff](contract-diff.md)。以下保留完整验收断言，不因已通过的 demo 缩减门槛。规划文档检查与产品验收分开。协议/行为用同一批权威 fixtures/scenarios，逐项在 TS reference、Go、Rust、Python 执行；语言特殊生命周期另加单测。自动化使用真实 TS Kernel + 隔离 worker + fake Provider，不能称为真实 Provider 联调。平台 IPC 使用本机真实 socket/pipe，不能以模拟 pipe 或交叉编译代替。
 
-每个 case 的 artifact 至少含：case id、OS/arch、SDK/toolchain/version、Kernel commit/instance、schema/behavior hash、endpoint 类型、原 key/ref、最后连续 seq、upstream invoke/Provider start/cancel/respond 次数、最终错误或 Host 终态、registry unresolved、transport 清理结果和耗时。成功证据同时检查事件和副作用计数；不输出正文或凭据。证据文件落入运行参数指定目录并由 CI 上传；最终在本任务新增 `implementation.md` 汇总索引。
+每个 case 的 artifact 至少含：case id、OS/arch、SDK/toolchain/version、Kernel commit/instance、schema/behavior hash、endpoint 类型、原 key/ref、最后连续 seq、upstream invoke/Provider start/cancel/respond 次数、最终错误或 Host 终态、registry unresolved、transport 清理结果和耗时。成功证据同时检查事件和副作用计数；不输出正文或凭据。证据文件落入运行参数指定目录，在 `implementation.md` 汇总。按 2026-10-24 用户决定，native 不接入 GitHub CI；跨平台验收通过手动执行取得证据。
 
 ## 合同与编解码
 
@@ -31,7 +31,7 @@ timestamp: 2026-10-23T00:00:00Z
 | --- | --- | --- | --- |
 | A09 | 完整 schema 连续生成两次，三 OS 生成 | 相同文件集合和字节，无路径/时间/随机值；代码有 generated 标记 | generate --check + hash artifact |
 | A10 | 修改小 Schema 新增可选字段/方法/结果，修改共享状态参数 | 三语言 model、wrapper、invoke 模板输出相应变化；手写 transport 无 method/state 分支 | codegen.test |
-| A11 | 修改/删除生成文件、增加遗留产物、未知 Schema 关键字 | --check 非零；生成器在不支持时零部分写入；CI Gate 因漂移失败 | codegen.test + CI |
+| A11 | 修改/删除生成文件、增加遗留产物、未知 Schema 关键字 | 本地 --check 非零；生成器在不支持时零部分写入 | codegen.test |
 | A12 | 只安装语言包，移走 native/codegen 和 schema 目录 | codec/client/invoke 全部正常，不调用生成器、Node 或文件 Schema loader | package suite |
 
 ## 执行与故障
@@ -68,7 +68,7 @@ timestamp: 2026-10-23T00:00:00Z
 | A35 | 关闭/失败循环 100 次，Windows pipe read/write 中取消 | client 无遗留 socket、goroutine/task、executor 作业或 handle 增长；OVERLAPPED completion 后释放；Kernel/其他 client 保持运行 | transport stress + native platform |
 | A36 | 三语言 × macOS/Linux UDS × Windows pipe | 每格实际 Kernel 连通、流/控制/故障/清理通过；真实 OS/arch/工具链证据，非交叉编译或 skip | 9 格平台矩阵 |
 | A37 | 各语言最低版本/当前版本 build/test、仓外独立产物、无客户端 Node | Go binary、Rust packaged crate、Python wheel/sdist 可独立使用；生成源已入包且无仓库路径依赖 | toolchain CI + package suite |
-| A38 | TS build/install/test、npm offline tgz、native jobs/生成 job 故意失败 | 原 TS Runtime 不要求 native 工具链；TS 回归通过；任一 native 必测失败使 CI Gate 失败 | TS CI + gate negative test |
+| A38 | TS build/install/test、npm offline tgz、检查 workflow 与安装链 | 原 TS Runtime 不要求 native 工具链；TS 回归通过；GitHub workflow/Gate 不执行 native 检查 | 原 TS 检查 + workflow diff |
 | A39 | 文档/示例、兼容/版本/分发/手写边界检查 | 最短 invoke、取消/交互、advanced 原语、unknown、服务独立所有权、三包版本及生成流程可执行；中英用户文档一致 | docs checks +例子真实运行 |
 | A40 | 三语言接真实支持 native 的 Adapter，各跑 native/canonical/取消/交互 | 保存实际 Provider/Kernel 版本与终态；每语言证据独立，未触发的真实交互标未验；fake 结果不替代真实调用 | opt-in live harness |
 

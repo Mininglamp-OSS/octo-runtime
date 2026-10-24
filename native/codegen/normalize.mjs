@@ -145,3 +145,59 @@ export function snake(s) {
     .replace(/[^a-zA-Z0-9]+/g, "_")
     .toLowerCase();
 }
+// Python/Rust 共用校验 IR，类型名和 Schema 描述不进入运行时规则表。
+export function ruleNodes(nodes) {
+  return nodes.map((n) => {
+    const s = n.schema;
+    const r = {};
+    if (n.ref !== undefined) r.ref = n.ref;
+    for (const k of [
+      "type",
+      "enum",
+      "const",
+      "required",
+      "minimum",
+      "maximum",
+      "minLength",
+      "maxLength",
+      "minItems",
+      "maxItems",
+      "minProperties",
+      "maxProperties",
+      "uniqueItems",
+      "pattern",
+      "format"
+    ])
+      if (s[k] !== undefined) r[k] = s[k];
+    if (s.properties) r.properties = n.properties;
+    if (s.additionalProperties === false) r.strict = true;
+    Object.assign(r, n.branches);
+    const extensions = Object.fromEntries(Object.entries(s).filter(([k]) => k.startsWith("x-")));
+    if (Object.keys(extensions).length) r.extensions = extensions;
+    return r;
+  });
+}
+
+// 公共根和字段需要的类型才进入模型；验证专用子节点仍留在规则表中。
+export function modelNodes({ nodes, roots, methods }) {
+  const needed = new Set();
+  const seen = new Set();
+  function visit(id, named = false) {
+    const n = nodes[id],
+      s = n.schema;
+    if (named || s.properties || s.oneOf || s.anyOf) needed.add(id);
+    if (seen.has(id)) return;
+    seen.add(id);
+    if (n.ref !== undefined) visit(n.ref, true);
+    else if (s.properties) Object.values(n.properties).forEach((child) => visit(child));
+    else if (s.oneOf || s.anyOf)
+      (n.branches.oneOf ?? n.branches.anyOf).forEach((child) => visit(child));
+    else if (s.type === "array") visit(n.branches.items);
+  }
+  Object.values(roots).forEach((id) => visit(id, true));
+  for (const m of methods) {
+    visit(m.paramsId, true);
+    visit(m.resultId, true);
+  }
+  return nodes.filter((n) => needed.has(n.id));
+}

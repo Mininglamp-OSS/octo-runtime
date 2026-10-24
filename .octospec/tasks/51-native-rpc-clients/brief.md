@@ -10,7 +10,7 @@ timestamp: 2026-10-23T00:00:00Z
 
 需求来源为 [Issue #51](https://github.com/Mininglamp-OSS/octo-runtime/issues/51)，包括最后追加的 Go、Rust、Python 三语言要求。目标是在仓库根目录 `native/` 交付三个普通语言包，直接连接现有 Kernel，支持高层流式 Invoke 及全部公开 RPC。SDK 安装后的客户端不依赖 Node.js、生成器或运行时 Schema 文件；TS Kernel 服务端仍需其既有 Node.js 环境。
 
-本轮仅执行 OctoSpec 规划。基线为 `origin/main@445d2bb24f6ffc27bb4414c835e6a0b365f9f25b`，分支 `codex/51-native-rpc-clients`，worktree 为 `/Users/lvsijia/github.com/Mininglamp-OSS/octo-runtime-issue-51-native-rpc`。尚未实现 SDK、运行互操作测试、提交或推送。规划准备度自评 **96/100**，依据和扣分见 [assessment](assessment.md)，不代表功能完成或成功概率。
+初始规划基线为 `origin/main@445d2bb24f6ffc27bb4414c835e6a0b365f9f25b`，分支 `codex/51-native-rpc-clients`。三语言 SDK/demo 已实施并提交 PR，当前记录见 [implementation](implementation.md)。2026-10-24 用户确认保留完整 SDK、去掉客户端模板重复、精简生成代码，并明确 native 不接入 GitHub CI；本地验证与未验平台分别记录。初始规划准备度自评 **96/100** 仅为当时的规划评估，不代表功能完成或成功概率。
 
 ## 产品意图与责任
 
@@ -57,4 +57,4 @@ Issue 明确授权的 `native/` 客户端是 Kernel 的外部消费者，不把 
 
 ## 验收总门槛
 
-A01-A40 全部可追溯；所有三语言必测平台格子有真实证据，任何必测 skip 不算通过；生成两次字节一致且 CI 拦截漂移；三个包在仓外安装/编译并无 Node 客户端环境下调用既有 Kernel；TS 现有回归保持。真实 Provider 联调与 fake Provider 自动化分别记录。具体命令和证据格式见 plan/acceptance。
+A01-A40 全部可追溯；所有三语言必测平台格子有真实证据，任何必测 skip 不算通过；本地生成两次字节一致且漂移检查失败可见；三个包在仓外安装/编译并无 Node 客户端环境下调用既有 Kernel；TS 现有回归保持。Native 不接入 GitHub CI。真实 Provider 联调与 fake Provider 自动化分别记录。具体命令和证据格式见 plan/acceptance。

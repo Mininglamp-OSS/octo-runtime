@@ -1,11 +1,12 @@
 import asyncio
 import importlib.util
+import socket
 import sys
 import types
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from octo_runtime import KernelError
+from octo_runtime import Client, KernelError
 from octo_runtime.transport import Channel, BEHAVIOR
 
 
@@ -47,6 +48,82 @@ class MeasuredBuffer(bytearray):
 
 
 class TransportTests(unittest.IsolatedAsyncioTestCase):
+    async def test_nonreading_peer_does_not_block_timeout_or_client_close(self):
+        import octo_runtime.transport as transport_module
+
+        peers = []
+        server = await asyncio.start_server(
+            lambda r, w: peers.append((r, w)), "127.0.0.1", 0
+        )
+        try:
+            for explicit_close in (False, True):
+                with self.subTest(explicit_close=explicit_close):
+                    reader, writer = await asyncio.open_connection(
+                        "127.0.0.1", server.sockets[0].getsockname()[1]
+                    )
+                    writer.get_extra_info("socket").setsockopt(
+                        socket.SOL_SOCKET, socket.SO_SNDBUF, 4096
+                    )
+                    writer.transport.set_write_buffer_limits(high=2048)
+                    client = Client("unused.sock")
+                    request = {
+                        "input": {
+                            "contexts": {
+                                "schema": "octo.context-envelope/v3",
+                                "items": [],
+                            },
+                            "inputs": [
+                                {"type": "text", "text": "x" * (4 * 1024 * 1024)}
+                            ],
+                        }
+                    }
+                    with (
+                        patch.object(
+                            transport_module,
+                            "sys",
+                            types.SimpleNamespace(platform="linux"),
+                        ),
+                        patch(
+                            "asyncio.open_unix_connection",
+                            return_value=(reader, writer),
+                            create=True,
+                        ),
+                        patch.dict(
+                            BEHAVIOR["timeoutsMs"],
+                            invokeAck=150 if not explicit_close else 5000,
+                        ),
+                    ):
+                        call = asyncio.create_task(client.rpc_submit(request))
+                        try:
+                            async with asyncio.timeout(2):
+                                while writer.transport.get_write_buffer_size() == 0:
+                                    await asyncio.sleep(0.001)
+                                if explicit_close:
+                                    await client.close()
+                                with self.assertRaisesRegex(
+                                    KernelError,
+                                    "CONNECTION_CLOSED"
+                                    if explicit_close
+                                    else "KERNEL_TIMEOUT",
+                                ):
+                                    await call
+                            self.assertEqual(client.transport.channels, set())
+                            self.assertEqual(
+                                writer.transport.get_write_buffer_size(), 0
+                            )
+                            self.assertFalse(peers[-1][1].is_closing())
+                        finally:
+                            writer.transport.abort()
+                            call.cancel()
+                            await asyncio.gather(call, return_exceptions=True)
+                            await client.close()
+        finally:
+            server.close()
+            for _, writer in peers:
+                writer.transport.abort()
+                await writer.wait_closed()
+            await server.wait_closed()
+
     async def test_fragmented_large_line_scanning_is_linear(self):
         payload = "界".encode() * 1_000_000
         channel = Channel(Stream(payload + b"\nnext\r\n"), None)
@@ -158,7 +235,9 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
         from octo_runtime.transport import Transport
 
         reader = types.SimpleNamespace(read=None)
-        writer = types.SimpleNamespace(close=lambda: None)
+        writer = types.SimpleNamespace(
+            close=lambda: None, transport=types.SimpleNamespace(abort=lambda: None)
+        )
 
         async def wait_closed():
             pass

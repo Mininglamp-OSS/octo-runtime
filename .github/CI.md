@@ -39,18 +39,8 @@ These checks do not register native user services. Windows cleanup of descendant
 whose process leader has already exited still lacks a Job Object-level guarantee;
 passing package verification does not close that release gap.
 
-The native SDK matrix covers Go, Rust and Python on Ubuntu, macOS and Windows, with
-minimum/current toolchains (18 entries). Each entry runs shared protocol fixtures,
-real Kernel IPC fault cases and its language's playboard demo. Demo client processes
-have an empty PATH; the test host owns the Kernel and fake Provider. A separate job
-checks the complete generated manifest and generator failure cases with pinned
-gofmt/rustfmt. These jobs do not invoke a real model or require Provider credentials.
-The matrix is configuration for future CI runs; local macOS results do not establish
-Windows/Linux or package-isolation acceptance. See `native/README.md` for local entry points.
-
-`CI Gate` is the stable required check. It runs after the Ubuntu/macOS matrix,
-Windows release verification, native matrix and native generation check, including
-on failure, and rejects any aggregate result other than `success`. Branch protection
+`CI Gate` is the stable required check. It runs after the Ubuntu/macOS matrix and the
+Windows release verification, including on failure, and rejects any aggregate result other than `success`. Branch protection
 requires this check from the GitHub Actions app and an up-to-date branch.
 Neither Node.js major is optional or uses `continue-on-error`; a failed, cancelled,
 or skipped matrix makes the gate fail. `fail-fast: false` lets every entry report its result.

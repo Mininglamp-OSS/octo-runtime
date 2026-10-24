@@ -28,10 +28,10 @@ timestamp: 2026-10-23T00:00:00Z
 
 退出：A01-A08/A39 的合同部分通过，8 方法覆盖表无洞；TS 现有合法请求样例通过；代码生成输入无宽泛替代本应已知的数据；Windows spike 若未获得机器，保持 M0 平台子项未完成并继续可独立完成的生成工作，不能据此进入最终验收。
 
-## M1：生成器与模板
+## M1：生成器与单份客户端源码
 
 1. 实现 `native/codegen/normalize.mjs`，从两个 Schema 及行为源读取可达闭包；输出 IR。先检测 unsupported keyword/歧义 union/重复字段、输出路径冲突，再写文件。
-2. 实现语言 emitter 与模板，至少先生成 InvokeInput、环境、RunRef、HostFrame/CanonicalEvent、两种交互响应、未知错误、八方法 wrapper 和完整 invoke 状态机；随后覆盖其全部可达依赖。不得将暂未支持的对象改成 map/unknown 通过生成。
+2. 实现语言 emitter，生成 InvokeInput、环境、RunRef、HostFrame/CanonicalEvent、两种交互响应、八方法 wrapper 及其类型依赖。客户端、错误适配和完整 invoke 状态机在语言包内单份维护，不复制模板。验证专用节点留在规则表，不额外导出无用类型别名。
 3. 按 design 实现 presence、raw JSON、Unicode 和安全整数 codec。schema 形状校验生成；跨字段身份、cursor、状态按共享行为生成；Provider 权限判定仍在 Kernel/Adapter。
 4. 新增输出 manifest：记录输入 hash、模板/生成器版本和完整生成文件集合；生成文件有禁止手改标记。`--check` 临时生成比较，不修改工作区。
 5. 增加 codegen 回归：相同输入两次一致；新增可选属性/新增方法/修改 result 类型的测试小 Schema 自动影响三语言输出；删除定义删除预期产物；未知关键字失败且零部分写入；禁止在手写 transport 重复 wire method 和状态机。
@@ -81,11 +81,7 @@ Windows executor 只运行真正受控的 overlapped I/O 等待，取消后 GetO
 
 ## M6：平台、包外与真实 Provider
 
-在 `.github/workflows/ci.yml` 新增 native matrix：OS 为 ubuntu/macos/windows，language 为 go/rust/python，toolchain 为 minimum/current，合计 18 格。current 在实施时固定精确版本并写入 artifact，不能每次跑时隐式漂移。Node 24 只用于 CI 测试服务/生成，现有 TS Node 24/26 矩阵保留。所有 action 使用仓库要求的固定 SHA。
-
-每格独立 build/test/interop/faults/package；必需平台不支持时 fail，不能用 continue-on-error 或 skip 得到绿色。`CI Gate.needs` 加 native matrix 和独立生成检查 job；workflow_dispatch/workflow_call 同样执行，npm release 原有 Gate 保持。运行时间先按分阶段套件控制，不通过放宽协议预算掩盖慢测试。
-
-同步维护 `.github/CI.md`、workflow sanity 的实际断言和 generated drift 文件列表；检查生成 IPC TS 文件与所有 native 输出，不能只沿用旧 protocol-types.ts 单文件检查。根 format/check 的现有 glob 不含 native，新增 native 专用格式入口并由相应语言 job 调用，不能让新目录落在检查范围外。
+2026-10-24 用户明确要求 native 不走 GitHub CI。删除 native matrix、生成检查 job、CI Gate 依赖和负例测试，核心 Runtime workflow 不接入 native 工具链或测试。平台、最低/当前工具链和包外消费按需手动运行并记录真实证据；未执行的格子保持待验。生成、语言 formatter、协议与故障测试的本地命令见 `native/README.md`。
 
 每语言最低版本/当前版本跑协议与行为；每 OS 至少有一个当前版本环境执行隔离客户端无 Node 的仓外产物。服务在另一个由测试宿主拥有的进程运行；清除客户端 PATH 的 Node 入口并让 spawn Node/CLI 明确失败，随后用独立 binary/wheel 客户端完成 invoke。安装依赖时可以有开发工具，但运行客户端不能触发它们。
 

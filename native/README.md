@@ -40,7 +40,7 @@ Windows 的 Python 路径是 `native/python/.venv/Scripts/python.exe`，Go/Rust 
 
 ## 协议生成
 
-数据唯一来源是 `packages/octo-runtime-protocol/schema/` 下的 `protocol.schema.json`、`kernel-ipc.schema.json` 和 `kernel-client.behavior.json`。`native/codegen` 编译字段、校验、方法表与状态机模板，不从 TypeScript 源码反推 wire 类型。
+数据唯一来源是 `packages/octo-runtime-protocol/schema/` 下的 `protocol.schema.json`、`kernel-ipc.schema.json` 和 `kernel-client.behavior.json`。`native/codegen` 只生成协议类型、校验规则、行为常量和 RPC 接口。客户端流程、生命周期和 transport 在各语言包内各维护一份手写源码，不再复制为模板和生成文件。
 
 ```sh
 node native/codegen/generate.mjs
@@ -48,9 +48,11 @@ node native/codegen/generate.mjs --check
 node --test native/tests/codegen.test.mjs
 ```
 
-生成需要 Node、gofmt、rustfmt；安装/运行已生成 SDK 不需要生成工具。修改模板后重新生成，禁止只改 `generated*` 文件。manifest 记录 Schema/生成器 hash 和完整产物列表；不支持的关键字直接失败。
+生成需要 Node、gofmt、rustfmt；安装/运行已生成 SDK 不需要生成工具。修改 Schema 或 emitter 后重新生成，禁止只改生成文件。manifest 记录 Schema/生成器 hash 和完整产物列表；不支持的关键字直接失败。模型只导出公共根及其类型依赖，验证专用节点保留在规则表中。
 
 ## 验证
+
+Native 是可选功能，不接入 GitHub Actions 或 CI Gate。以下检查按需在本地运行；未执行的平台不能记为通过。
 
 先 `pnpm install --frozen-lockfile` / `pnpm build` 构建测试 Kernel，安装各语言工具链，执行上述 Python `uv sync`。
 

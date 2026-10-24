@@ -1,4 +1,4 @@
-import { pascal } from "./normalize.mjs";
+import { pascal, modelNodes } from "./normalize.mjs";
 // Go 源码中的 BOM 即使位于字符串内部也非法，必须使用转义形式。
 const q = (value) => JSON.stringify(value).replaceAll("\uFEFF", "\\ufeff");
 export function emitGo(ir) {
@@ -32,7 +32,7 @@ export function emitGo(ir) {
       "json.RawMessage"
     );
   }
-  for (const n of nodes) {
+  for (const n of modelNodes(ir)) {
     const s = n.schema;
     if (s.properties) {
       out.push(`type ${n.name} struct {`);
