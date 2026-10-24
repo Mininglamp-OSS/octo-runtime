@@ -19,6 +19,7 @@
 | [octo-runtime-executor-kernel](octo-runtime-executor-kernel/README.md)               | 通过 Kernel IPC 统一 invoke、cancel、probe 和交互响应，管理适配器与事件生命周期                                                                                  |
 | [octo-runtime-adapter-kimi-code](octo-runtime-adapter-kimi-code/README.md)     | provider 协议适配，由 Kernel worker 调用                                                                                                                              |
 | [octo-runtime-adapter-mcode](octo-runtime-adapter-mcode/README.md)             | provider 协议适配，由 Kernel worker 调用                                                                                                                              |
+| [octo-runtime-adapter-mimo-code](octo-runtime-adapter-mimo-code/README.md)     | MiMo Code，共享 ACP 协议适配，由 Kernel worker 调用 |
 | [octo-runtime-adapter-openclaw](octo-runtime-adapter-openclaw/README.md)       | provider 协议适配，由 Kernel worker 调用                                                                                                                              |
 | [octo-runtime-adapter-opencode](octo-runtime-adapter-opencode/README.md)       | provider 协议适配，由 Kernel worker 调用                                                                                                                              |
 | [octo-runtime-adapter-qodercli](octo-runtime-adapter-qodercli/README.md)       | provider 协议适配，由 Kernel worker 调用                                                                                                                              |

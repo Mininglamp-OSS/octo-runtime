@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { lstatSync, readdirSync, readFileSync } from "node:fs";
 import { resolve, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -32,6 +32,49 @@ const historicalEvidence = new Map([
   ]
 ]);
 const excluded = [".git", "node_modules", "dist", "out", "release", ".worktree", ".workbuddy"];
+const spawnOptions = { cwd: root, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 };
+function fallbackFiles() {
+  // Git preserves ignore rules without relying on rg being an executable on PATH.
+  const git = spawnSync(
+    "git",
+    ["ls-files", "--cached", "--others", "--exclude-standard", "--deduplicate", "-z", "--", "."],
+    spawnOptions
+  );
+  if (git.error) throw git.error;
+  if (git.status === 0) {
+    const files = git.stdout.split("\0").filter(Boolean);
+    const ignored = spawnSync("git", ["check-ignore", "--no-index", "--stdin", "-z"], {
+      ...spawnOptions,
+      input: files.length ? files.join("\0") + "\0" : ""
+    });
+    if (ignored.error || ![0, 1].includes(ignored.status))
+      throw ignored.error ?? new Error(ignored.stderr);
+    const ignoredFiles = new Set(ignored.stdout.split("\0"));
+    return files.filter((file) => {
+      if (ignoredFiles.has(file) || file.split("/").some((part) => excluded.includes(part)))
+        return false;
+      if (file.split("/").at(-1) === "secret.md") return false;
+      try {
+        return lstatSync(resolve(root, file)).isFile();
+      } catch (error) {
+        if (error.code === "ENOENT") return false;
+        throw error;
+      }
+    });
+  }
+  const repository = spawnSync("git", ["rev-parse", "--is-inside-work-tree"], spawnOptions);
+  if (repository.error || repository.status === 0) throw repository.error ?? new Error(git.stderr);
+
+  // Temporary non-Git fixtures need no external file enumerator; never follow symlinks.
+  function walk(directory = "") {
+    return readdirSync(resolve(root, directory), { withFileTypes: true }).flatMap((entry) => {
+      if (excluded.includes(entry.name) || entry.name === "secret.md") return [];
+      const file = directory ? `${directory}/${entry.name}` : entry.name;
+      return entry.isDirectory() ? walk(file) : entry.isFile() ? [file] : [];
+    });
+  }
+  return walk();
+}
 const args = [
   "--files",
   "--hidden",
@@ -40,10 +83,11 @@ const args = [
   "-g",
   "!**/secret.md"
 ];
-const result = spawnSync("rg", args, { cwd: root, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
-if (result.error || (result.status !== 0 && result.status !== 1))
+const result = spawnSync("rg", args, spawnOptions);
+const missingRg = result.error?.code === "ENOENT";
+if (!missingRg && (result.error || (result.status !== 0 && result.status !== 1)))
   throw result.error ?? new Error(result.stderr);
-const files = result.stdout.split("\0").filter(Boolean);
+const files = missingRg ? fallbackFiles() : result.stdout.split("\0").filter(Boolean);
 const findings = [],
   exceptions = [];
 for (const file of files) {

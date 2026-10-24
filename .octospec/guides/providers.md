@@ -18,6 +18,7 @@ CLI 默认加载集合以 [manifest.json](../../apps/cli/src/manifest.json) 为�
 | [Codex](../../packages/octo-runtime-adapter-codex/README.md) | app-server JSON-RPC stdio | native / canonical |
 | [Claude Code](../../packages/octo-runtime-adapter-claude-code/README.md) | stream-json stdio | native / canonical |
 | [CodeBuddy](../../packages/octo-runtime-adapter-codebuddy/README.md) | ACP stdio | canonical |
+| [MiMo Code](../../packages/octo-runtime-adapter-mimo-code/README.zh-CN.md) | 共享 ACP stdio，`mimo acp` | canonical |
 | [OpenCode](../../packages/octo-runtime-adapter-opencode/README.md) | full_access 使用 JSON CLI，ask 使用 ACP | canonical |
 | [OpenClaw](../../packages/octo-runtime-adapter-openclaw/README.md) | Gateway WebSocket RPC 与事件 | canonical |
 | [ZCode](../../packages/octo-runtime-adapter-zcode-gui/README.md) | 私有 NDJSON RPC stdio | canonical |

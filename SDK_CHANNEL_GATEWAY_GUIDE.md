@@ -22,6 +22,10 @@ Electron/Buddy 通过 submodule 接入时，必须使用最新远端 `main`。�
 原生Extra可选 `logging: { directory: absolutePath, statusOutput: record => hostLogger(record) }` 是宿主代码选项，不放入Bot JSON。SDK默认不写stdout；sink只收到服务生命周期、Kernel可用性转换和Gateway连接/重试，不含chat、session/run/message标识、模型输出、工具参数及凭据。状态同时镜像到directory下 `extras/<extra>-status-<UTC小时>.log`，最多三份、每份100MiB；日志失败不改变执行结果。CLI自动接入stdout，使用 `octo-runtime channel-gateway logs --follow` 查看状态。业务onStatus仍同步，不负责异步探测或重启。
 5. 配置变更先等待 extra.close() 且 complete=true，再保存并创建新实例；Kernel 保持运行。
 
+## MiMo Code 配置
+
+MiMo Code 在 `config.bots[].adapter.adapter_type` 填写 `mimo-code`，执行 worker 先注册 `mimoCodeAdapter`；Provider 启动命令为 `mimo acp`。完整 SDK/CLI 用法、可执行路径设置和验证范围见 [MiMo Code 指南](packages/octo-runtime-adapter-mimo-code/README.zh-CN.md)。
+
 ## 逐轮 Context
 
 dependencies.loadContexts(botConfig,{signal}) 返回当前 ContextItem 数组或 Promise。函数在宿主同进程直接调用，读取的数据变化无需重载连接。超时或取消后真实 Promise 未结束仍占额度；返回值最多 32 项 / 64 KiB。静态 context 与动态项的合并、业务指引和准入规则继续按 [Gateway 合同](packages/octo-runtime-extra-channel-gateway/README.md)。

@@ -32,6 +32,11 @@
       "export": "kimiCodeAdapter"
     },
     {
+      "type": "mimo-code",
+      "module": "@mininglamp-oss/octo-runtime-adapter-mimo-code",
+      "export": "mimoCodeAdapter"
+    },
+    {
       "type": "mcode",
       "module": "@mininglamp-oss/octo-runtime-adapter-mcode",
       "export": "mcodeAdapter"

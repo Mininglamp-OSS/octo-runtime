@@ -8,14 +8,25 @@ import { spawnSync } from "node:child_process";
 
 const script = fileURLToPath(new URL("../scripts/lint-names.mjs", import.meta.url));
 const previous = ["octo", "harness"].join("-");
+const missingRgImport = `data:text/javascript,${encodeURIComponent(`
+  import childProcess from "node:child_process";
+  import { syncBuiltinESMExports } from "node:module";
+  const original = childProcess.spawnSync;
+  childProcess.spawnSync = (command, ...args) => command === "rg"
+    ? { error: Object.assign(new Error("rg is unavailable"), { code: "ENOENT" }) }
+    : original(command, ...args);
+  syncBuiltinESMExports();
+`)}`;
 async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), "runtime-names-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   return {
     root,
-    run() {
-      const result = spawnSync(process.execPath, [script, "--root", root], { encoding: "utf8" });
+    run({ withoutRg = false } = {}) {
+      const args = [...(withoutRg ? ["--import", missingRgImport] : []), script, "--root", root];
+      const result = spawnSync(process.execPath, args, { encoding: "utf8" });
       assert.equal(result.error, undefined);
+      assert.ok(result.stdout, result.stderr);
       return { code: result.status, report: JSON.parse(result.stdout) };
     }
   };
@@ -34,6 +45,59 @@ test("name lint accepts current names and rejects case variants without echoing 
   assert.equal(result.report.findings.length, 1);
   assert.equal(result.report.findings[0].line, 1);
   assert.ok(!JSON.stringify(result.report).includes("DO_NOT_ECHO"));
+});
+
+test("name lint works without an rg executable in a non-Git directory", async (t) => {
+  const { root, run } = await fixture(t);
+  for (const directory of ["node_modules", "dist", ".worktree", "nested/.workbuddy"]) {
+    await mkdir(join(root, directory), { recursive: true });
+    await writeFile(join(root, directory, `${previous}.js`), previous);
+  }
+  await writeFile(join(root, "secret.md"), previous);
+  await writeFile(join(root, "binary.dat"), Buffer.from(`\0${previous}`));
+  await writeFile(join(root, ".hidden-source.ts"), previous);
+  const result = run({ withoutRg: true });
+  assert.equal(result.code, 1);
+  assert.deepEqual(
+    result.report.findings.map((finding) => finding.file),
+    [".hidden-source.ts"]
+  );
+  await writeFile(join(root, ".hidden-source.ts"), "Octo Runtime");
+  assert.equal(run({ withoutRg: true }).code, 0);
+});
+
+test("name lint without rg respects Git ignores, negations and excluded paths", async (t) => {
+  const { root, run } = await fixture(t);
+  const git = (args) => {
+    const result = spawnSync("git", args, { cwd: root, encoding: "utf8" });
+    assert.equal(result.status, 0, result.stderr);
+  };
+  git(["init", "--quiet"]);
+  await writeFile(join(root, ".gitignore"), "ignored/\n*.log\n!keep.log\n");
+  await mkdir(join(root, "ignored"));
+  await writeFile(join(root, "ignored", "source.ts"), previous);
+  await writeFile(join(root, "tracked.log"), previous);
+  git(["add", "--force", "tracked.log"]);
+  await writeFile(join(root, "deleted.ts"), "Octo Runtime");
+  git(["add", "deleted.ts"]);
+  await rm(join(root, "deleted.ts"));
+  await mkdir(join(root, "nested"));
+  await writeFile(join(root, "nested", ".gitignore"), "local.ts\n");
+  await writeFile(join(root, "nested", "local.ts"), previous);
+  await writeFile(join(root, "nested", "secret.md"), previous);
+  await mkdir(join(root, "nested", "dist"));
+  await writeFile(join(root, "nested", "dist", "source.ts"), previous);
+  await writeFile(join(root, "keep.log"), previous);
+  await writeFile(join(root, "source with spaces.ts"), previous);
+  const result = run({ withoutRg: true });
+  assert.equal(result.code, 1);
+  assert.deepEqual(result.report.findings.map((finding) => finding.file).sort(), [
+    "keep.log",
+    "source with spaces.ts"
+  ]);
+  await writeFile(join(root, "keep.log"), "Octo Runtime");
+  await writeFile(join(root, "source with spaces.ts"), "Octo Runtime");
+  assert.equal(run({ withoutRg: true }).code, 0);
 });
 
 test("name lint rejects old filenames even when their contents use only new names", async (t) => {

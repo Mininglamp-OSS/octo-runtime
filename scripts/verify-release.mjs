@@ -107,7 +107,14 @@ export async function verifyRelease(archiveInput, { expectedCommit, requireClean
     const moduleManifest = JSON.parse(
       await readFile(join(installed, "apps/cli/dist/manifest.json"), "utf8")
     );
-    assert.equal(moduleManifest.adapters.length, 13);
+    assert.equal(moduleManifest.adapters.length, 14);
+    const mimoEntry = moduleManifest.adapters.find((entry) => entry.type === "mimo-code");
+    assert.equal(mimoEntry?.module, "@mininglamp-oss/octo-runtime-adapter-mimo-code");
+    const mimoModule = await import(
+      pathToFileURL(join(installed, "node_modules", mimoEntry.module, "dist/index.js")).href
+    );
+    assert.equal(mimoModule[mimoEntry.export].metadata.type, "mimo-code");
+    assert.deepEqual(mimoModule[mimoEntry.export].metadata.protocolSupport.modes, ["canonical"]);
     const grokEntry = moduleManifest.adapters.find((entry) => entry.type === "grok-build");
     assert.equal(grokEntry?.module, "@mininglamp-oss/octo-runtime-adapter-grok-build");
     const grokModule = await import(

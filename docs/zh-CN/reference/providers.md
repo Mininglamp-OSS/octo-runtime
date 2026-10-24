@@ -8,21 +8,23 @@ Provider 是实际执行 Agent 任务的程序，例如 Codex 或 Claude Code。
 
 下表记录当前源码中的 Adapter。使用前还需确认实际 Provider 版本和账号配置可用，不能只根据 Adapter 已注册就认定能够执行。
 
-| Adapter type                                                    | 原生传输           | 公开输出模式       | 逐轮 MCP                        |
-| --------------------------------------------------------------- | ------------------ | ------------------ | ------------------------------- |
-| `codex`                                                         | app-server         | native + canonical | stdio + HTTP                    |
-| `claude-code`                                                   | stream-json        | native + canonical | stdio + HTTP                    |
-| `acp`、`hermes`、`kimi-code`、`mcode`、`qodercli`、`qoderclicn` | ACP                | canonical          | stdio；原生声明支持 HTTP 时可用 |
-| `opencode`                                                      | OpenCode CLI       | canonical          | local stdio + remote HTTP       |
-| `codebuddy`                                                     | Provider CLI       | canonical          | 不支持                          |
-| `openclaw`                                                      | Gateway            | canonical          | 不支持                          |
-| `zcode-gui`                                                     | GUI runtime client | canonical          | 不支持                          |
-| `antigravity`                                                   | Provider CLI       | canonical          | 不支持                          |
-| `grok-build` | Grok CLI ACP stdio | canonical | stdio；广告支持时使用 HTTP；最终 `${` 字面量拒绝 |
+| Adapter type                                                                 | 原生传输           | 公开输出模式       | 逐轮 MCP                                         |
+| ---------------------------------------------------------------------------- | ------------------ | ------------------ | ------------------------------------------------ |
+| `codex`                                                                      | app-server         | native + canonical | stdio + HTTP                                     |
+| `claude-code`                                                                | stream-json        | native + canonical | stdio + HTTP                                     |
+| `acp`、`hermes`、`kimi-code`、`mimo-code`、`mcode`、`qodercli`、`qoderclicn` | ACP                | canonical          | stdio；原生声明支持 HTTP 时可用                  |
+| `opencode`                                                                   | OpenCode CLI       | canonical          | local stdio + remote HTTP                        |
+| `codebuddy`                                                                  | Provider CLI       | canonical          | 不支持                                           |
+| `openclaw`                                                                   | Gateway            | canonical          | 不支持                                           |
+| `zcode-gui`                                                                  | GUI runtime client | canonical          | 不支持                                           |
+| `antigravity`                                                                | Provider CLI       | canonical          | 不支持                                           |
+| `grok-build`                                                                 | Grok CLI ACP stdio | canonical          | stdio；广告支持时使用 HTTP；最终 `${` 字面量拒绝 |
 
 Grok Build 使用共享 ACP client，每次调用启动一个 CLI 进程。已在 macOS arm64 验证 1.0.67 的文本流和跨进程会话续聊。认证、配置和验证限制见 [Grok adapter](../../../packages/octo-runtime-adapter-grok-build/README.md)。
 
 表中的 MCP 列表示通过本轮 `octo.execution/mcp` 配置连接的能力。Provider 自己已有的 MCP 配置是另一种配置来源。可选字段和使用限制见 [MCP 指南](../guides/mcp.md)。
+
+MiMo Code 在 Context 类型选择及 Gateway 的 `bots[].adapter.adapter_type` 中均填写 `mimo-code`；可执行文件为 `mimo`，启动命令为 `mimo acp`。`mimoi` 不是别名。[MiMo adapter 指南](../../../packages/octo-runtime-adapter-mimo-code/README.zh-CN.md)记录安装、可执行路径、SDK/CLI 示例和验收边界。Runtime 接入与 MiMo 发行版本兼容性分别评估。MiMo 0.1.15 在同一次回复的末尾正文发送前返回完成，可能导致 Runtime 返回 `run.completed` 和截断正文；Runtime 不会将其检测为失败。要求完整输出的场景不得使用该版本。生产兼容性验收等待上游修复 [MiMo Code #2709](https://github.com/XiaomiMiMo/MiMo-Code/issues/2709)，并针对具体修复版本重新执行 SDK、CLI 和 Gateway 可见回复的精确正文检查；probe 成功不代表兼容。
 
 ## 原生交互的支持范围
 
