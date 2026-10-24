@@ -46,3 +46,9 @@ Thumbs.db
 .idea/
 .vscode/
 .run/
+
+# Native SDK development artifacts
+native/rust/target/
+native/python/.venv/
+__pycache__/
+*.py[cod]
