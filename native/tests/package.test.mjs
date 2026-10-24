@@ -67,7 +67,7 @@ test(`${language} archive consumer runs outside the repository without Node on P
     execute("go", ["run", ".", resolve("native/go"), proxy], {
       cwd: resolve("native/tests/go-package")
     });
-    await copyFile("native/go/examples/playboard-demo/main.go", join(consumer, "main.go"));
+    await copyFile("native/go/examples/demo_playboard.go", join(consumer, "main.go"));
     await writeFile(
       join(consumer, "go.mod"),
       "module isolated-native-consumer\n\ngo 1.25.0\n\nrequire github.com/Mininglamp-OSS/octo-runtime/native/go v0.0.0-native.test\n"
@@ -85,23 +85,6 @@ test(`${language} archive consumer runs outside the repository without Node on P
     execute("go", ["mod", "tidy"], { cwd: consumer, env });
     binary = join(consumer, "playboard-demo" + suffix);
     execute("go", ["build", "-o", binary, "."], { cwd: consumer, env });
-  } else if (language === "rust") {
-    execute("cargo", [
-      "package",
-      "--locked",
-      "--allow-dirty",
-      "--manifest-path",
-      resolve("native/rust/Cargo.toml")
-    ]);
-    execute("tar", [
-      "-xzf",
-      resolve("native/rust/target/package/octo-runtime-client-0.0.0.crate"),
-      "-C",
-      consumer
-    ]);
-    const source = join(consumer, "octo-runtime-client-0.0.0");
-    execute("cargo", ["build", "--locked", "--example", "playboard-demo"], { cwd: source });
-    binary = join(source, "target/debug/examples/playboard-demo" + suffix);
   } else if (language === "python") {
     const packages = join(directory, "packages");
     execute("uv", ["build", "--project", resolve("native/python"), "--out-dir", packages]);
@@ -116,8 +99,8 @@ test(`${language} archive consumer runs outside the repository without Node on P
     binary = join(venv, process.platform === "win32" ? "Scripts/python.exe" : "bin/python");
     const wheel = (await readdir(packages)).find((x) => x.endsWith(".whl"));
     execute("uv", ["pip", "install", "--python", binary, join(packages, wheel)]);
-    const script = join(consumer, "playboard_demo.py");
-    await copyFile("native/python/examples/playboard_demo.py", script);
+    const script = join(consumer, "demo_playboard.py");
+    await copyFile("native/python/demo_playboard.py", script);
     prefix = ["-I", script];
     const location = execute(binary, [
       "-I",

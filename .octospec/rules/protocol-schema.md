@@ -30,7 +30,7 @@ Schema 定义 ProviderSession、AgentConfig、Context、执行计划、Host 帧�
 
 运行时常量、泛型 CanonicalEvent 以及带 `AbortSignal` 的 InvokeRequest 组合留在 [src/index.ts](../../packages/octo-runtime-protocol/src/index.ts)。函数、活对象及 AbortSignal 不通过 JSON wire 传输。
 
-当前 Kernel、worker 入口及 Host SDK 是 TypeScript 实现。`native/` 提供 Go、Rust、Python 附着客户端及各自的 playboard demo；模型、校验规则、行为常量和 RPC 方法从 Schema 及 `kernel-client.behavior.json` 生成，客户端/生命周期在各语言包内单份维护。原生客户端只连接已有服务，不代启 Node/CLI，不拥有 Kernel。
+当前 Kernel、worker 入口及 Host SDK 是 TypeScript 实现。`native/` 提供 Go、Python 附着客户端及各自的 playboard demo；模型、校验规则、行为常量和 RPC 方法从 Schema 及 `kernel-client.behavior.json` 生成，客户端/生命周期在各语言包内单份维护。原生客户端只连接已有服务，不代启 Node/CLI，不拥有 Kernel。
 
 生成入口为 `node native/codegen/generate.mjs`，`--check` 校验完整产物及输入/生成器 hash。Native 不接入 GitHub CI；生成器与 native 测试按需本地运行，SDK 安装和根 Runtime `build`/`prepare` 不调用 native 工具链。平台实测范围见 [Issue 51 实施记录](../tasks/51-native-rpc-clients/implementation.md)，目录中存在 Windows transport 不等于已通过实机验证。
 

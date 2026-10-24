@@ -4,7 +4,6 @@ import assert from "node:assert/strict";
 export function command(language) {
   const exe = process.platform === "win32" ? ".exe" : "";
   if (language === "go") return [resolve(".tmp/native-go-driver" + exe), []];
-  if (language === "rust") return [resolve("native/rust/target/debug/interop-driver" + exe), []];
   if (language === "python")
     return [
       resolve(
@@ -19,11 +18,15 @@ export function command(language) {
 }
 export function build(language) {
   if (language === "python") return;
-  const [tool, args, cwd] =
-    language === "go"
-      ? ["go", ["build", "-race", "-o", command(language)[0], "./cmd/interop-driver"], "native/go"]
-      : ["cargo", ["build", "--locked", "--bin", "interop-driver"], "native/rust"];
-  const p = spawnSync(tool, args, { cwd: resolve(cwd), encoding: "utf8" });
+  if (language !== "go") throw Error("Unknown language " + language);
+  const p = spawnSync(
+    "go",
+    ["build", "-race", "-o", command(language)[0], "./cmd/interop-driver"],
+    {
+      cwd: resolve("native/go"),
+      encoding: "utf8"
+    }
+  );
   assert.equal(p.status, 0, p.stderr);
 }
 export async function batch(language, commands) {

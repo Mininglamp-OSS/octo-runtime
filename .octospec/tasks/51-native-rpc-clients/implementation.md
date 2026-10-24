@@ -1,12 +1,24 @@
 ---
 type: Implementation
-title: Issue 51 三语言原生 Client 与 playboard 实施记录
-description: 本仓 native 下三套 SDK/demo、macOS 双工具链和包外验证、真实 Codex 结果及未闭合验收。
+title: Issue 51 Go/Python 原生 Client 与 playboard 实施记录
+description: 当前 Go/Python 完整 SDK、包内示例、Rust 移除决定及各阶段真实验证记录。
 tags: [protocol, schema, native, ipc, testing]
 timestamp: 2026-10-24T00:00:00Z
 ---
 
-# 本轮交付
+# 当前交付范围
+
+2026-10-24 用户最新决定：仅交付完整 Go/Python SDK，移除 Rust SDK、demo、emitter、生成源码、Cargo 锁和工具链要求。生成仅需 Node/gofmt，检查仅需 Node；manifest 当前包含 5 个生成源码。两套示例就是各自语言包中的普通文件：Go 的 `examples/demo_playboard.go`、Python 的 `demo_playboard.py`，不另建 demo 工程。Native 不接入 GitHub CI。当前验收范围见 [brief](brief.md) 和 [plan](plan.md)。
+
+下文三语言、Rust 工具链和旧 CI 结果保留为历史。历史结果不意味着当前 Rust 支持或完整跨平台验收已完成。
+
+本轮 Go/Python 完整本地套件各 **45 项通过、0 失败、0 skip**，每语言 **354 条协议样例**，覆盖改名后的包内 demo 及仓外消费。Go race、Python 七项单测、生成器两项回归、六个生成产物的完整性检查和开发文档检查通过。生成源码头部直接记录 octo-runtime Schema commit、Schema/生成器 SHA-256；manifest 另外记录生成器 commit，未提交目录不冒充已固定版本。
+
+yujiawei 报告的无 rg 测试失败已修复：非 Git fixture 先解析真实临时目录，再移出所有 Git 祖先，兼容 TMPDIR 在 checkout 内和 .git 文件式 worktree。默认环境与 TMPDIR/TMP/TEMP 均置于真实 worktree 内分别 **9/9 通过**，子进程 PATH/Path 清空；新增回归覆盖嵌套临时目录。生产扫描的 Git ignore 保护保留，CI 已安装并文档声明 ripgrep。
+
+随后完整 `pnpm test:suites` 通过：Node 1746 项中 1706 通过、40 个既有 skip、0 失败；UI 35 项通过。相对最新 `origin/main@8214292`，本 PR 约新增 1.23 万行，当前生成源码 **5 文件、1972 行**；Rust 移除及文档收敛净减约 6500 行。完整 OKF 仍仅有下述四处既有 frontmatter 错误。
+
+# 历史：移除 Rust 前的交付
 
 2026-10-24 verified-review 四项修复：三语言首次 drain 的期限约束此前控制任务及排队取消，不在截止后新增 cancel，未确认执行仍保留 unresolved；Go 接收器按实际字节检测无 LF 超限并复用读缓冲，Context 预算扣除 Go 对 U+2028/U+2029 的额外转义；Python 在 codec、identity、RPC、执行环境和订阅入口统一省略 UNSET，显式 null/零值及 opaque 数字保持原义。SDK 核心入口和取消/超时分支补充中文所有权、返回值及失败边界注释。本轮没有修改生成产物或新增 native CI。
 
@@ -14,13 +26,13 @@ timestamp: 2026-10-24T00:00:00Z
 
 本轮本机 macOS arm64 三语言完整本地套件各 **45 项通过，0 失败、0 skip**，每语言 **354 条协议样例**，包含 demo 与仓外安装消费。Go 1.25.0/1.26.1 race、Rust 1.85.0 全 target 单测及 1.98.1 Clippy、Python 3.11.16 七项单测、生成器两项回归及九个产物 hash 检查通过。Linux/Windows 实机、真实 Provider 和全量 TS 套件未在本轮重跑。
 
-另核对 yujiawei 在 [PR 最新评审](https://github.com/Mininglamp-OSS/octo-runtime/pull/129#pullrequestreview-5638240688) 的四项意见：命名检查及测试与 main 基线相同，八项测试和本机命名检查通过，现有 CI 已声明安装 ripgrep；Gemini 调用失败是评审覆盖限制；Rust 本地编译/测试证据如上，遵守用户要求不恢复 native CI；生成流程及 manifest 已固定输入/生成器/产物 hash。本轮生成代码增量为零，不能将整份 PR 的约 1.84 万新增行全算成生成代码。
+此前核对 yujiawei 在 [PR 评审](https://github.com/Mininglamp-OSS/octo-runtime/pull/129#pullrequestreview-5638240688) 的四项意见：命名检查及测试与 main 基线相同，八项测试和本机命名检查通过，现有 CI 已声明安装 ripgrep；Gemini 调用失败是评审覆盖限制；Rust 本地编译/测试证据如上，遵守用户要求不恢复 native CI；生成流程及 manifest 已固定输入/生成器/产物 hash。当时生成代码增量为零，约 1.84 万新增行并非全为生成代码。随后复现命名测试的环境隔离缺陷：当 TMPDIR 位于 Git worktree 内且 PATH 清空时，测试 fixture 会被判断为 Git 工作树，八项中七项失败；默认环境通过不能排除此问题。此缺陷现已修复，结果见本页当前交付记录，不能以与 main 相同认定不存在。
 
 OKF 全量检查未通过：四处既有文件缺 YAML frontmatter，分别为 systemd-directive-paths 的 brief/review/journal 和 `2026-10-24-124-sass-build-fix.md`。本轮修改的任务记录无新增错误；未改动这些无关文件。
 
 第二轮精简：三语言共用去重规则图，等价校验节点由 1,067 减至 597；Rust union 的分支绑定改为单份宏实现，保留全部公开类型、变体及整数/opaque 数字语义。当前 native:check 只需 Node，manifest v2 对输入、生成器及各产物字节做完整性检查；重新生成仍明确要求 gofmt/rustfmt，完整生成一致性另由测试验证。新增空 PATH 检查、不同数值约束和递归引用去重回归；未接入 native GitHub CI。
 
-2026-10-24 最新范围：保留完整三语言 SDK 和 demo；删除复制客户端的模板，客户端/生命周期在各语言包只维护一份源码。模型只生成公共根及类型依赖，验证专用节点保留在规则表；Rust 校验器使用与 Python 共用的规则 IR，替代逐节点展开函数。Native 的 GitHub Actions job、CI Gate 接入、Gate 负例测试和根格式检查接入全部删除；只保留按需本地验证。下文的模板/CI 结果是此前实施历史，不构成当前交付要求。
+2026-10-24 此前范围：保留完整三语言 SDK 和 demo；删除复制客户端的模板，客户端/生命周期在各语言包只维护一份源码。模型只生成公共根及类型依赖，验证专用节点保留在规则表；Rust 校验器使用与 Python 共用的规则 IR，替代逐节点展开函数。Native 的 GitHub Actions job、CI Gate 接入、Gate 负例测试和根格式检查接入全部删除；只保留按需本地验证。下文的模板/CI 结果是此前实施历史，不构成当前交付要求。
 
 PR 复审的两项缺陷已修复：Python Unix 关闭会中止未发送缓冲，避免超时或 client.close 无限等待；Rust union 在绑定前按 schema 选择分支，完整保留 message/tool/interaction subject 的 id。新增真实非读端缓冲阻塞测试，以及 ActivitySubject、嵌套 activity、三类 HostFrame、MCP 和不透明数字的类型往返测试。
 
@@ -28,7 +40,7 @@ PR 复审的两项缺陷已修复：Python Unix 关闭会中止未发送缓冲�
 
 Go、Rust、Python 三套原生客户端和 playboard demo 均位于当前 worktree 的 `native/`，按用户最后的要求不使用外部 demo 仓库。统一支持 status/list、输入 JSON 或 prompt、native/canonical 流、原回执、get/subscribe、取消、两类回复、等待人工回答和显式回答文件。
 
-代码入口：[Go](../../../native/go/examples/playboard-demo/main.go)、[Rust](../../../native/rust/examples/playboard-demo.rs)、[Python](../../../native/python/examples/playboard_demo.py)。统一操作见 [demo README](../../../native/examples/README.md)；生成和 SDK 所有权见 [native README](../../../native/README.md)。
+代码入口：[Go](../../../native/go/examples/demo_playboard.go)、[Python](../../../native/python/demo_playboard.py)（Rust 示例已移除）。统一操作见 [demo README](../../../native/examples/README.md)；生成和 SDK 所有权见 [native README](../../../native/README.md)。
 
 工作树 `codex/51-native-rpc-clients`，基线 `445d2bb24f6ffc27bb4414c835e6a0b365f9f25b`。未 commit、push、创建 PR、发包或关闭 issue。规划 96 分仅指可执行准备度，不是实施完成比例。
 

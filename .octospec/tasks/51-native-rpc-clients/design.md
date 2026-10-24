@@ -1,7 +1,7 @@
 ---
 type: Design
 title: Issue 51 Schema 生成与原生客户端合同
-description: 固定生成链、公共 API、RPC 映射、取消恢复状态和三语言平台集成边界。
+description: 固定生成链、公共 API、RPC 映射、取消恢复状态和Go/Python 两语言平台集成边界。
 tags: [architecture, protocol, schema, ipc, native, invoke]
 timestamp: 2026-10-23T00:00:00Z
 ---
@@ -17,7 +17,7 @@ timestamp: 2026-10-23T00:00:00Z
 | `packages/octo-runtime-protocol/src/invoke-input.ts` | InvokeInput 是可用普通 JSON 满足的 class；inputs/contexts 必填；本地 signal、streamLimits 不进 Kernel wire。 | 保留 class/check 公共入口，字段声明从生成 wire type 派生或以类型等价检查约束，禁止两套字段独立维护。 |
 | `packages/octo-runtime-protocol/src/index.ts` | InteractionResponse 是手写 interface，value 可为任意 JSON；校验器定义 outcome 与 ID 长度。 | 生成数据类型，保留运行时语义校验入口；opaque value 支持 null，不能仅生成为 object。 |
 | `packages/octo-runtime-executor-kernel/src/client.ts` | 已有 submit、ACK 查询、连续游标恢复、invoke 视图、取消及 ownership。 | 作为行为参照，与 native 共用行为参数和回归场景；不把 WorkerRpc 的 stdio 方法错当公共 RPC。 |
-| `packages/octo-runtime-executor-kernel/src/invocation-lifecycle.ts` | 128 个元数据登记，未知占额；同一取消意图；4 路 get、4 路 cancel；首次 drain 共用 deadline。 | 三语言从模板生成同等登记/控制；不缓存正文，不实现第二套服务托管。 |
+| `packages/octo-runtime-executor-kernel/src/invocation-lifecycle.ts` | 128 个元数据登记，未知占额；同一取消意图；4 路 get、4 路 cancel；首次 drain 共用 deadline。 | 两语言在包内单份实现同等登记/控制；不缓存正文，不实现第二套服务托管。 |
 | `packages/octo-runtime-protocol/scripts/gen-types.mjs` | 使用 json-schema-to-typescript，只生成 protocol-types.ts。 | 保留现有生成链，补 IPC wire 生成和漂移检查。 |
 | `test/kernel-fixture.js`、`test/kernel-relay.js` | 真实 Kernel/worker + fake Adapter，支持按 RPC 请求/响应 barrier 断线。 | 复用服务与 relay，增加跨语言 driver 协议与计数，覆盖非法原始字节的 relay 专项。 |
 | 根 `native/` | 不存在。 | 新建独立工具/包，不加入 pnpm recursive 生产构建。 |
@@ -33,13 +33,12 @@ packages/octo-runtime-protocol/schema/
   kernel-client.behavior.json          # 目标：行为参数、状态/动作与错误分类，无重复模型
   kernel-ipc.md                        # 目标：数据 Schema 无法表达的行为规范
   kernel-ipc-fixtures.json             # 扩充既有权威样例
-  kernel-client-scenarios.json         # 目标：四客户端复用场景清单和断言
+  kernel-client-scenarios.json         # 目标：TS/Go/Python 三客户端复用场景清单和断言
 native/
   README.md
   codegen/{generate.mjs,normalize.mjs,emit-*.mjs}
-  go/{go.mod,go.sum,client.go,lifecycle.go,generated_*.go,transport_*.go,examples/,cmd/interop-driver/}
-  rust/{Cargo.toml,Cargo.lock,src/{client.rs,generated/,transport.rs},examples/}
-  python/{pyproject.toml,uv.lock,src/octo_runtime/{client.py,generated_*.py,transport.py},examples/}
+  go/{go.mod,go.sum,client.go,lifecycle.go,generated_*.go,transport_*.go,examples/demo_playboard.go,cmd/interop-driver/}
+  python/{pyproject.toml,uv.lock,src/octo_runtime/{client.py,generated_*.py,transport.py},demo_playboard.py}
   tests/{run.mjs,serve-kernel.mjs,driver-protocol.md,codegen.test.mjs,interop.test.mjs}
 ```
 
@@ -58,9 +57,9 @@ native/
 | 高层 Invoke | 共享行为参数与 RPC 接口 | lazy admission、ACK 查询、续流、模式投影、取消、交互、元数据登记与 drain；各语言只维护一份 |
 | 协议边界 | 上限常量、已知值校验和错误映射、控制状态判定 | 分块 reader/writer 的平台机制 |
 
-2026-10-24 用户确认保留完整 SDK 并去重：删除客户端模板及其复制产物，客户端/生命周期在语言包内单份维护。修改状态或错误分类必须同时运行共享场景。手写 transport 中不得出现 `agent_run.*` 方法选择、InvokeInput 字段清单、恢复分支或权限逻辑。Rust/Python 共用生成规则 IR；Rust 用通用校验器解释规则表，union 绑定先按同一规则选分支，避免丢失 discriminator 关联字段。Native 不接入 GitHub CI，所有校验按需本地执行。
+2026-10-24 用户确认保留完整 SDK 并去重：删除客户端模板及其复制产物，客户端/生命周期在语言包内单份维护。修改状态或错误分类必须同时运行共享场景。手写 transport 中不得出现 `agent_run.*` 方法选择、InvokeInput 字段清单、恢复分支或权限逻辑。Go/Python 校验使用去重规则 IR，公开类型保持完整。Native 不接入 GitHub CI，所有校验按需本地执行。
 
-生成命令为 `node native/codegen/generate.mjs`，使用 Node、gofmt、rustfmt 在临时目录生成，全部成功后写回；检查命令 `node native/codegen/generate.mjs --check` 只使用 Node，核对 manifest v2 的 Schema/生成器摘要、完整产物清单和逐文件 SHA-256，发现修改/缺失/遗留产物即失败。检查不重新格式化；生成器测试另行证明完整生成两次字节一致。输出使用 UTF-8 LF、固定排序和内容摘要，不写绝对路径、时间戳或随机值。TS build 仍只需 Node/pnpm。
+生成命令为 `node native/codegen/generate.mjs`，使用 Node、gofmt 在临时目录生成，全部成功后写回；检查命令 `node native/codegen/generate.mjs --check` 只使用 Node，核对 manifest v2 的 Schema/生成器摘要、完整产物清单和逐文件 SHA-256，发现修改/缺失/遗留产物即失败。检查不重新格式化；生成器测试另行证明完整生成两次字节一致。输出使用 UTF-8 LF、固定排序和内容摘要，不写绝对路径、时间戳或随机值。TS build 仍只需 Node/pnpm。
 
 ## 精确 RPC 目录
 
@@ -89,7 +88,6 @@ native/
 | 数值 | 已知 seq/generation/整数 requestId 限 JS 安全整数，最大 9007199254740991；禁止 NaN/Infinity。opaque Provider JSON 不强转 float64，也不擅自限制为协议身份整数。native codec 保留收到的数值 token/精度；既有 TS 服务 JSON.parse 会对超出 IEEE-754 精度的数值舍入，不承诺改变服务端数字表示。codec 保真测试与穿过 TS 后的实际 wire 测试分别断言，不要求 TS 还原已舍入数值。 |
 | presence | 非 nullable optional 缺失时省略，显式 null 拒绝。nullable optional 使用 absent/null/value 三态。false、0、空 string/list/object 仅按该字段合同检查，不能由 omitempty/default 抹去。 |
 | Go | 可选标量不用零值表达缺失；生成 presence wrapper/自定义 MarshalJSON。opaque 用 json.RawMessage，保留数字 token。 |
-| Rust | absent 与 null 不合并为 Option；生成 presence enum 和 serde codec。opaque 使用 serde_json raw_value/arbitrary_precision，union 不匹配须报错。 |
 | Python | dataclass/TypedDict 与 UNSET sentinel；生成 codec 严格区分 bool 与 int；opaque JSON 用 Decimal/int 保留数值，生成 token writer 处理 Decimal，禁止 float 路径丢精度。 |
 | 字符 | UTF-8 严格解码，跨 chunk 多字节字符合法，拒绝无效 UTF-8/孤立 surrogate。不得借 Go/Python 默认 replacement 静默修复。保留有效 Unicode，不做正规化。 |
 | 长度 | Schema 字符长度按 Unicode scalar 计；RPC id 的 128 上限是 UTF-8 字节，增加显式字节约束元数据/生成校验；不把 maxLength 当字节。 |
@@ -126,22 +124,21 @@ connect/unary/订阅 ACK 默认 5 秒，invoke ACK 30 秒，写出等待 5 秒�
 
 ## 语言 API 与平台边界
 
-三语言都提供 `status/list/submit/get/subscribe/cancel/respond/respondNative/close` 对应操作、`invoke`、按 invocationId 的控制、snapshot/stopAdmission/drain。命名按语言习惯，wire 字段和错误码保持原文。高级 subscribe 返回 HostFrame；高层 native 输出 HostFrame、canonical 输出 CanonicalEvent，动态模式使用语言判别联合，不要求调用者手动 submit/subscribe。
+Go/Python 两语言都提供 `status/list/submit/get/subscribe/cancel/respond/respondNative/close` 对应操作、`invoke`、按 invocationId 的控制、snapshot/stopAdmission/drain。命名按语言习惯，wire 字段和错误码保持原文。高级 subscribe 返回 HostFrame；高层 native 输出 HostFrame、canonical 输出 CanonicalEvent，动态模式使用语言判别联合，不要求调用者手动 submit/subscribe。
 
 | 语言 | 高层 API 目标 | 观察与取消 | 传输和依赖 |
 | --- | --- | --- | --- |
 | Go | `client.Invoke(ctx, input, options) *Invocation`；`Next() bool / Event() InvokeEvent / Err() error / Close() error` | ctx 取消控制 Run，Close 只关观察；InvokeEvent 暴露模式对应 typed view；实例可从 client registry 查 ref | Unix net.Dialer；Windows microsoft/go-winio DialPipeContext；build tag 隔离 |
-| Rust | `client.invoke(input, options) -> Invocation`；实现 `Stream<Item=Result<InvokeEvent,KernelError>>`，另有 `close_observation().await` | options CancellationToken/deadline 控制 Run；drop 关闭观察，不能在 Drop 发业务取消；尾流和 unknown 保留 | Tokio UnixStream / Windows named_pipe ClientOptions；serde/serde_json、tokio-util token；平台 cfg |
-| Python | `client.invoke(input, *, cancel=None, deadline=None) -> Invocation`；async iterator，`async with`/`aclose()` | 显式 CancelToken/deadline 控制 Run；Task.cancel/CancelledError/aclose 关闭观察；单独有界控制任务维护已写请求结果 | Unix asyncio socket；Windows pywin32 overlapped I/O + 有界 executor，默认/Selector loop 均不依赖 asyncio 私有 pipe API |
+| Python | `client.invoke(input, *, cancel=None, deadline=None) -> Invocation`；async iterator，`async with`/`aclose()` | 显式 CancelToken/deadline 控制 Run；Task.cancel/CancelledError/aclose 关闭观察；单独有界控制任务维护已写请求结果 | Unix asyncio socket；Windows pywin32 overlapped I/O + 有界 event 轮询，默认/Selector loop 均不依赖 asyncio 私有 pipe API |
 
-Python Windows 使用 CreateFile(FILE_FLAG_OVERLAPPED)、ReadFile/WriteFile、event、GetOverlappedResult；取消 I/O 用 CancelIoEx，并确认 completion 后释放 OVERLAPPED/buffer/handle。executor 只承载已获得连接额度的操作，最多 32 workers，每连接同一方向一个在途 I/O，无无界待办。不能用 `asyncio.to_thread` 取消了 Future 就声称阻塞 I/O 已回收。Rust pipe busy 只在 connect 的剩余 5 秒预算内等待，不重试已写 RPC。所有平台 write 必须处理 partial write。
+Python Windows 使用 CreateFile(FILE_FLAG_OVERLAPPED)、ReadFile/WriteFile、event、GetOverlappedResult；取消 I/O 用 CancelIoEx，并确认 completion 后释放 OVERLAPPED/buffer/handle。在事件循环内有界轮询 completion，每连接同一方向一个在途 I/O，连接额度上限 32；不新增线程 executor。不能用 `asyncio.to_thread` 取消了 Future 就声称阻塞 I/O 已回收。所有平台 write 必须处理 partial write。
 
-工具链目标：Go 模块 `go 1.25`，Rust edition 2021/MSRV 1.85，Python >=3.11；CI 同时测试最低版本和实施时固定的当前稳定版本。依赖在 M0 按 MSRV/平台 wheel 核对并记录精确锁定版本；若当前依赖不兼容最低版本，优先锁定兼容版本，不能悄悄提高最低要求。本机 Python 3.9.6 不满足目标，实施测试用 uv 管理 Python 3.11+。各语言独立 lock，不修改 TS 生产依赖来安装这些工具链。
+工具链目标：Go 模块 `go 1.25`，Python >=3.11；按需本地测试最低版本和当前版本，不接入 native CI。依赖在 M0 按最低版本/平台 wheel 核对并记录精确锁定版本；若当前依赖不兼容最低版本，优先锁定兼容版本，不能悄悄提高最低要求。本机 Python 3.9.6 不满足目标，实施测试用 uv 管理 Python 3.11+。各语言独立 lock，不修改 TS 生产依赖来安装这些工具链。
 
-平台机制依据（2026-10-23 已查阅）：[go-winio 源码](https://github.com/microsoft/go-winio/blob/main/pipe.go)、[Tokio ClientOptions](https://docs.rs/tokio/latest/tokio/net/windows/named_pipe/struct.ClientOptions.html)、[pywin32 win32file 源码](https://github.com/mhammond/pywin32/blob/main/win32/src/win32file.i)、[Windows CancelIoEx](https://learn.microsoft.com/en-us/windows/win32/api/ioapiset/nf-ioapiset-cancelioex)。这些资料支持选型，不是本项目 Windows 已通过的证据。
+平台机制依据（2026-10-23 已查阅）：[go-winio 源码](https://github.com/microsoft/go-winio/blob/main/pipe.go)、[pywin32 win32file 源码](https://github.com/mhammond/pywin32/blob/main/win32/src/win32file.i)、[Windows CancelIoEx](https://learn.microsoft.com/en-us/windows/win32/api/ioapiset/nf-ioapiset-cancelioex)。这些资料支持选型，不是本项目 Windows 已通过的证据。
 
 ## 包与兼容策略
 
-Go module 目标 `github.com/Mininglamp-OSS/octo-runtime/native/go`，Rust crate `octo-runtime-client`，Python distribution `octo-runtime-client` / import `octo_runtime`。首版源码版本 `0.0.0`，首次发布候选 `0.1.0`，发布另行授权；名称是否可占用不阻塞本地交付。Go 子目录 tag 使用 `native/go/vX.Y.Z`，Rust/Python 独立版本，不能套用 npm pack/install hook。
+Go module 目标 `github.com/Mininglamp-OSS/octo-runtime/native/go`，Python distribution `octo-runtime-client` / import `octo_runtime`。首版源码版本 `0.0.0`，首次发布候选 `0.1.0`，发布另行授权；名称是否可占用不阻塞本地交付。Go 子目录 tag 使用 `native/go/vX.Y.Z`，Python 独立版本，不能套用 npm pack/install hook。
 
 服务兼容以 `ipc_version=1`、现有 Run 7/Context v3 和经联调的最早服务 commit 为下界，记录 schema hash/client behavior revision。没有对应 release tag 时报告 commit 范围，不能杜撰最低发行版本。未知 IPC major 在 invoke write 前拒绝；新增合法可选字段按开放边界保留。首次只承诺通过验收的服务范围，不宣称兼容所有历史 ipc_version=1 实现。SDK 小版本允许向后兼容增量，破坏性客户端 API 或 wire 变化必须独立记录。

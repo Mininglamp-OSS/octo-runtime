@@ -16,13 +16,11 @@ const { values } = parseArgs({
 });
 if (!values.endpoint)
   throw Error("--endpoint is required; the caller must own/authorize these runs");
-const languages = values.language === "all" ? ["go", "rust", "python"] : [values.language];
-if (languages.some((x) => !["go", "rust", "python"].includes(x))) throw Error("Unknown language");
+const languages = values.language === "all" ? ["go", "python"] : [values.language];
+if (languages.some((x) => !["go", "python"].includes(x))) throw Error("Unknown language");
 const suffix = process.platform === "win32" ? ".exe" : "";
 function executable(language) {
   if (language === "go") return [resolve(".tmp/playboard-demo-go" + suffix), []];
-  if (language === "rust")
-    return [resolve("native/rust/target/debug/examples/playboard-demo" + suffix), []];
   return [
     resolve(
       process.env.OCTO_NATIVE_PYTHON ||
@@ -30,7 +28,7 @@ function executable(language) {
           ? "native/python/.venv/Scripts/python.exe"
           : "native/python/.venv/bin/python")
     ),
-    ["-I", resolve("native/python/examples/playboard_demo.py")]
+    ["-I", resolve("native/python/demo_playboard.py")]
   ];
 }
 function run(language, args, request) {

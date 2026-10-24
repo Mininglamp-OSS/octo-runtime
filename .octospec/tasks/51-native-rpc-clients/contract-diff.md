@@ -12,7 +12,7 @@ timestamp: 2026-10-24T00:00:00Z
 
 | 方法 | 生成 wrapper 与业务入口 | 真实 IPC 证据 |
 | --- | --- | --- |
-| status | RPCStatus/status | 三语言 demo status、invoke admission |
+| status | RPCStatus/status | Go/Python demo status、invoke admission |
 | adapter.list | RPCList/list | demo list、包外消费 |
 | agent_run.invoke | RPCInvoke/submit/invoke | native/canonical、丢 ACK 后原身份 get |
 | agent_run.get | RPCGet/get | 独立终态、原 ref/instance 核验 |
@@ -45,11 +45,11 @@ timestamp: 2026-10-24T00:00:00Z
 | signal、executionEnvOverrides 等旧入口字段 | InvokeInput wire 禁止；signal 是各语言本地取消对象，不序列化 |
 | environment.streamLimits | advanced submit 拒绝 KERNEL_STREAM_LIMITS_UNSUPPORTED；不假装已透传 Kernel |
 
-新增 `native-invoke-fixtures.json` 的 6 个正反样例由 TS `InvokeInput.check` 和三语言规则共同执行，覆盖正/零/负 timeout，以及空/空白/非空 providerSession ID。连同原 Context、runtime-selection、Run 和 IPC 样例合计 339 个。
+新增 `native-invoke-fixtures.json` 的 6 个正反样例由 TS `InvokeInput.check` 和Go/Python规则共同执行，覆盖正/零/负 timeout，以及空/空白/非空 providerSession ID。连同原 Context、runtime-selection、Run 和 IPC 样例合计 354 个（含后续 URL 和 Context 字节边界回归）。
 
 # 生成与手写边界
 
-生成器读取完整 Schema，先编译并拒绝未知关键字，再写产物。模型、规则表/函数、8 方法声明、错误及高层生命周期来自 Schema/behavior/templates。平台 socket/pipe、JSON 原语、命令行 UI 和测试驱动手写；安装包不读取 Schema，不运行生成器。
+生成器读取完整 Schema，先编译并拒绝未知关键字，再写产物。模型、规则表/函数、8 方法声明、行为常量来自 Schema/behavior；高层客户端与生命周期在各语言包内单份维护。平台 socket/pipe、JSON 原语、命令行 UI 和测试驱动手写；安装包不读取 Schema，不运行生成器。
 
 `kernel-client.behavior.json` 固定请求/接收字节、连接/登记/控制/查询额度、恢复次数与 deadline。TS 目前仍使用自身既有常量；未完成自动比较 TS 常量和行为文件的全量断言。Python Windows 使用 overlapped event 有限轮询替代规划中的 executor 等待，减少阻塞线程；仍需 Windows 实机验证 completion、重复取消和 handle 清理。
 

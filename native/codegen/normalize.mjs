@@ -145,7 +145,7 @@ export function snake(s) {
     .replace(/[^a-zA-Z0-9]+/g, "_")
     .toLowerCase();
 }
-// Python/Rust 共用校验 IR，类型名和 Schema 描述不进入运行时规则表。
+// 校验 IR 去重后独立于公开类型，类型名和 Schema 描述不进入运行时规则表。
 export function ruleNodes(nodes) {
   return nodes.map((n) => {
     const s = n.schema;

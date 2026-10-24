@@ -7,16 +7,16 @@ import { spawnSync } from "node:child_process";
 import { normalize } from "./normalize.mjs";
 import { emitGo } from "./emit-go.mjs";
 import { emitPython } from "./emit-python.mjs";
-import { emitRust } from "./emit-rust.mjs";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const defaultSchema = new URL("../../packages/octo-runtime-protocol/schema/", import.meta.url);
 const schema = process.env.OCTO_CODEGEN_SCHEMA
   ? pathToFileURL(resolve(process.env.OCTO_CODEGEN_SCHEMA) + "/")
-  : new URL("../../packages/octo-runtime-protocol/schema/", import.meta.url);
+  : defaultSchema;
 const ir = await normalize(schema);
 const outputRoot = process.env.OCTO_CODEGEN_OUTPUT
   ? resolve(process.env.OCTO_CODEGEN_OUTPUT)
   : root;
-const outputs = { ...emitGo(ir), ...emitPython(ir), ...emitRust(ir) };
+const outputs = { ...emitGo(ir), ...emitPython(ir) };
 const digest = (data) => createHash("sha256").update(data).digest("hex");
 const generatorHash = createHash("sha256");
 async function hashTree(dir) {
@@ -31,18 +31,53 @@ async function hashTree(dir) {
 await hashTree("native/codegen");
 const sourceHash = createHash("sha256");
 for (const [name, text] of ir.sources) sourceHash.update(name + "\0" + text);
-const manifest = {
-  revision: 2,
-  sourceHash: sourceHash.digest("hex"),
-  generatorHash: generatorHash.digest("hex"),
-  files: Object.keys(outputs).sort()
-};
 let previous;
 try {
   previous = JSON.parse(
     await readFile(resolve(outputRoot, "native/generated-manifest.json"), "utf8")
   );
 } catch {}
+function committedRevision(path) {
+  // 只有目录与已提交版本完全一致时才标注 commit；未提交输入由内容摘要精确标识。
+  const status = spawnSync("git", ["status", "--porcelain", "--untracked-files=all", "--", path], {
+    cwd: root,
+    encoding: "utf8"
+  });
+  if (status.status !== 0 || status.stdout.trim()) return null;
+  const revision = spawnSync("git", ["log", "-1", "--format=%H", "--", path], {
+    cwd: root,
+    encoding: "utf8"
+  });
+  const commit = revision.stdout?.trim();
+  return revision.status === 0 && /^[a-f0-9]{40}$/.test(commit) ? commit : null;
+}
+const check = process.argv.includes("--check");
+const manifest = {
+  revision: 2,
+  sourceHash: sourceHash.digest("hex"),
+  generatorHash: generatorHash.digest("hex"),
+  provenance: {
+    // --check 在无 Git/语言工具链时仍验证内容摘要，commit 只是已记录的来源标签。
+    schemaCommit: check
+      ? (previous?.provenance?.schemaCommit ?? null)
+      : schema.href === defaultSchema.href
+        ? committedRevision("packages/octo-runtime-protocol/schema")
+        : null,
+    generatorCommit: check
+      ? (previous?.provenance?.generatorCommit ?? null)
+      : committedRevision("native/codegen")
+  },
+  files: Object.keys(outputs).sort()
+};
+for (const path of manifest.files) {
+  const comment = path.endsWith(".go") ? "//" : "#";
+  const provenance = [
+    `${comment} octo-runtime schema commit: ${manifest.provenance.schemaCommit ?? "uncommitted or unavailable"}`,
+    `${comment} Schema SHA-256: ${manifest.sourceHash}`,
+    `${comment} Generator SHA-256: ${manifest.generatorHash}`
+  ].join("\n");
+  outputs[path] = outputs[path].replace("\n", "\n" + provenance + "\n");
+}
 async function findStale(dir) {
   let entries;
   try {
@@ -57,7 +92,7 @@ async function findStale(dir) {
       if (!["target", ".venv", "__pycache__"].includes(entry.name))
         found.push(...(await findStale(path)));
     } else if (
-      (entry.name.startsWith("generated_") || dir === "native/rust/src/generated") &&
+      entry.name.startsWith("generated_") &&
       path !== "native/generated-manifest.json" &&
       !Object.hasOwn(outputs, path)
     )
@@ -74,7 +109,7 @@ const stale = [
 if (stale.some((p) => !p.startsWith("native/") || p.includes("..")))
   throw Error("Unsafe generated manifest path");
 
-if (process.argv.includes("--check")) {
+if (check) {
   // 摘要同时覆盖 Schema、生成器、输出清单和各产物字节；检查不调用语言工具链。
   const drift = [...stale];
   if (
@@ -101,22 +136,13 @@ if (process.argv.includes("--check")) {
       await mkdir(dirname(target), { recursive: true });
       await writeFile(target, data);
     }
-    for (const [tool, ext, args, install] of [
-      ["gofmt", ".go", ["-w"], "Install Go 1.25+ and add gofmt to PATH."],
-      [
-        "rustfmt",
-        ".rs",
-        ["--edition", "2021"],
-        "Run rustup component add rustfmt and add it to PATH."
-      ]
-    ]) {
-      const files = manifest.files.filter((p) => p.endsWith(ext)).map((p) => resolve(temp, p));
-      if (!files.length) continue;
-      const result = spawnSync(tool, [...args, ...files], { encoding: "utf8" });
-      if (result.error?.code === "ENOENT")
-        throw Error(tool + " is required to regenerate native sources. " + install);
-      if (result.status !== 0) throw Error(result.stderr || tool + " failed");
-    }
+    const files = manifest.files.filter((p) => p.endsWith(".go")).map((p) => resolve(temp, p));
+    const result = spawnSync("gofmt", ["-w", ...files], { encoding: "utf8" });
+    if (result.error?.code === "ENOENT")
+      throw Error(
+        "gofmt is required to regenerate native sources. Install Go 1.25+ and add gofmt to PATH."
+      );
+    if (result.status !== 0) throw Error(result.stderr || "gofmt failed");
     for (const path of manifest.files) outputs[path] = await readFile(resolve(temp, path), "utf8");
     manifest.fileHashes = Object.fromEntries(
       manifest.files.map((path) => [path, digest(outputs[path])])

@@ -69,7 +69,7 @@ for (const c of await read("native-invoke-fixtures.json")) {
   assert.equal(valid, c.valid, `TS InvokeInput reference: ${c.name}`);
   cases.push({ ...c, definition: "InvokeInputWire" });
 }
-// 同时经过 TS 权威边界与三语言 codec，避免只验证某个 URL parser 的宽松行为。
+// 同时经过 TS 权威边界与 Go/Python codec，避免只验证某个 URL parser 的宽松行为。
 for (const [url, valid] of [
   ["http://example.com:bad/path", false],
   ["http://exa mple.com/path", false],

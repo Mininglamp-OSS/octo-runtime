@@ -6,6 +6,8 @@ tags: [native, ipc, testing, lifecycle, schema]
 timestamp: 2026-10-24T00:00:00Z
 ---
 
+范围说明：以下是移除 Rust 前的历史评审与运行记录；当前仅交付 Go/Python，命令入口见 [native README](../../../native/README.md)。
+
 # 范围与修复
 
 用户授权修复本轮 code review 的全部六项问题。修改维护源后重新生成客户端；未提交、推送、发布或关闭 Issue 51。

@@ -1,25 +1,23 @@
 {
   "revision": 2,
   "sourceHash": "e87aaad925b8d6b43906ed7f2508440f3f619534757f1865c5db5b531f88727f",
-  "generatorHash": "aebca34781bc881caa9cafde12bf6359dbbd01ca9a0f7d29d51efba45bb9051f",
+  "generatorHash": "16ff4de9a1210b0c2c1bbcb189131c0ab8e384c44f924193eceafbacaaeb46eb",
+  "provenance": {
+    "schemaCommit": "879163b86a63604622e4bfdf0e962f4bca420d2d",
+    "generatorCommit": null
+  },
   "files": [
     "native/go/generated_models.go",
     "native/go/generated_rpc.go",
     "native/python/src/octo_runtime/generated_models.py",
     "native/python/src/octo_runtime/generated_rpc.py",
-    "native/python/src/octo_runtime/generated_rules.py",
-    "native/rust/src/generated/models.rs",
-    "native/rust/src/generated/rpc.rs",
-    "native/rust/src/generated/rules.rs"
+    "native/python/src/octo_runtime/generated_rules.py"
   ],
   "fileHashes": {
-    "native/go/generated_models.go": "4f6c685510c3116f1c67c98d24de9dccad0e6453ce96f1d0dc29fd68eea3a339",
-    "native/go/generated_rpc.go": "deb4cf22857f6131ab45faa4af00c7646315dbf3f66eac25ba744802353b2ff3",
-    "native/python/src/octo_runtime/generated_models.py": "707afa8ca7ccc8296177804b20642b7584520ca26b176c0153b9a90ae7daa536",
-    "native/python/src/octo_runtime/generated_rpc.py": "092f5c99fc3376ad37f5ae774777ed49a326404919cae8c987e48474f511207a",
-    "native/python/src/octo_runtime/generated_rules.py": "4bc9c6ae26e6ae98f6fc98287ec9f92c90d2490bcba4f398669d9aecad05789b",
-    "native/rust/src/generated/models.rs": "53881b460a3c633bef6e1af5555427c02e3e55890e931d515b74f8c21fd4bf84",
-    "native/rust/src/generated/rpc.rs": "d57e91e6f6fd984b514756052ffa3d27ddac094f72002fee3510de39c2803673",
-    "native/rust/src/generated/rules.rs": "b9a2747164acc562fe4ced1f5c57f73167d744c12aa1dda09ade3fe0b862aa59"
+    "native/go/generated_models.go": "7b81bf2ad9cbd29a7a2397bd3f95358c38fc96cd5930c8484fc159a3635c5346",
+    "native/go/generated_rpc.go": "4ced2aea47b45c7a21585574841cfc08fd085db3629c2919222f37facbb20abe",
+    "native/python/src/octo_runtime/generated_models.py": "092dd07960f13dc6fa3bf1659933628086965fa58d38e18c02a940d99a1b80aa",
+    "native/python/src/octo_runtime/generated_rpc.py": "d92a6344f4f536396248aaa304fedbd618f76400f57fd9a46ef434549523ed78",
+    "native/python/src/octo_runtime/generated_rules.py": "21c682dfdd0ce6a9d35f5ee00375313c78bc29c17e15edc0f378806d666de1db"
   }
 }

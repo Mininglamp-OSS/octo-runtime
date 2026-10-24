@@ -6,6 +6,8 @@ tags: [architecture, protocol, schema, native, testing]
 timestamp: 2026-10-23T00:00:00Z
 ---
 
+2026-10-24 范围更新：用户已移除 Rust，仅交付完整 Go/Python SDK 和包内 demo，且不接入 native CI。以下评分保留初始三语言规划历史，不代表当前验收完成；现行范围见 [brief](brief.md)。
+
 # 结论与口径
 
 以下保留 2026-10-23 的规划评估。2026-10-24 用户决定覆盖原方案中的模板和 CI 要求：保留完整 SDK，客户端源码单份维护，精简生成模型和规则，不接入 native GitHub CI。当前实施与本地验证见 [implementation](implementation.md)。

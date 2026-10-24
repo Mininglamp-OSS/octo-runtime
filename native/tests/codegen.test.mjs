@@ -31,7 +31,20 @@ test("generation is reproducible, rejects drift/stale outputs and fails before w
   const manifest = JSON.parse(
     await readFile(join(output, "native/generated-manifest.json"), "utf8")
   );
+  assert.equal(manifest.files.length, 5);
+  assert.ok(manifest.files.every((path) => /^native\/(go|python)\//.test(path)));
+  for (const commit of Object.values(manifest.provenance))
+    assert.ok(commit === null || /^[a-f0-9]{40}$/.test(commit));
   const before = await Promise.all(manifest.files.map((p) => readFile(join(output, p), "utf8")));
+  for (const content of before) {
+    assert.ok(
+      content.includes(
+        `octo-runtime schema commit: ${manifest.provenance.schemaCommit ?? "uncommitted or unavailable"}`
+      )
+    );
+    assert.ok(content.includes(`Schema SHA-256: ${manifest.sourceHash}`));
+    assert.ok(content.includes(`Generator SHA-256: ${manifest.generatorHash}`));
+  }
   assert.equal(generate(output).status, 0);
   assert.deepEqual(
     await Promise.all(manifest.files.map((p) => readFile(join(output, p), "utf8"))),
@@ -68,15 +81,26 @@ test("generation is reproducible, rejects drift/stale outputs and fails before w
   });
   await writeFile(path, JSON.stringify(wire));
   assert.equal(generate(output, schema).status, 0);
+  const customManifest = JSON.parse(
+    await readFile(join(output, "native/generated-manifest.json"), "utf8")
+  );
+  assert.equal(
+    customManifest.provenance.schemaCommit,
+    null,
+    "custom inputs must not inherit the repository's schema commit"
+  );
+  assert.notEqual(customManifest.sourceHash, manifest.sourceHash);
+  assert.match(
+    await readFile(join(output, customManifest.files[0]), "utf8"),
+    /octo-runtime schema commit: uncommitted or unavailable/
+  );
   for (const file of [
     "native/go/generated_models.go",
-    "native/rust/src/generated/models.rs",
     "native/python/src/octo_runtime/generated_models.py"
   ])
     assert.match(await readFile(join(output, file), "utf8"), /futureOptional/);
   for (const file of [
     "native/go/generated_rpc.go",
-    "native/rust/src/generated/rpc.rs",
     "native/python/src/octo_runtime/generated_rpc.py"
   ])
     assert.match(await readFile(join(output, file), "utf8"), /test.inspect/);

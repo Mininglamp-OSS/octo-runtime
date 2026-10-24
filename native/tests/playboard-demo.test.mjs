@@ -7,11 +7,10 @@ import { kernelFixture, kernelInput } from "../../test/kernel-fixture.js";
 import { kernelRelay } from "../../test/kernel-relay.js";
 import { createInterface } from "node:readline";
 const language = process.env.OCTO_NATIVE_LANGUAGE ?? "go";
+if (!["go", "python"].includes(language)) throw Error("Unknown language " + language);
 const suffix = process.platform === "win32" ? ".exe" : "";
 function executable() {
   if (language === "go") return [resolve(".tmp/playboard-demo-go" + suffix), []];
-  if (language === "rust")
-    return [resolve("native/rust/target/debug/examples/playboard-demo" + suffix), []];
   return [
     resolve(
       process.env.OCTO_NATIVE_PYTHON ||
@@ -19,16 +18,14 @@ function executable() {
           ? "native/python/.venv/Scripts/python.exe"
           : "native/python/.venv/bin/python")
     ),
-    ["-I", resolve("native/python/examples/playboard_demo.py")]
+    ["-I", resolve("native/python/demo_playboard.py")]
   ];
 }
 function build() {
   const command =
     language === "go"
-      ? ["go", ["build", "-o", executable()[0], "./examples/playboard-demo"], "native/go"]
-      : language === "rust"
-        ? ["cargo", ["build", "--locked", "--example", "playboard-demo"], "native/rust"]
-        : undefined;
+      ? ["go", ["build", "-o", executable()[0], "./examples/demo_playboard.go"], "native/go"]
+      : undefined;
   if (command) {
     const p = spawnSync(command[0], command[1], { cwd: resolve(command[2]), encoding: "utf8" });
     assert.equal(p.status, 0, p.stderr);

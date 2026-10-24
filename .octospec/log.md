@@ -2,6 +2,8 @@
 
 ## 2026-10-24
 
+- Issue 51 按用户最新决定仅保留完整 Go/Python SDK，移除 Rust SDK、emitter、生成产物、工具链与测试入口；两套包内示例统一命名 `demo_playboard.py` / `demo_playboard.go`，本地验证不接入 native CI，见[当前规划](tasks/51-native-rpc-clients/plan.md)。
+
 - Issue 51 修复复审四项问题，并按用户要求删除 Python 独立 Windows 模块，将平台异步传输合入 `transport.py` 自动分支。SDK 保持同一安装包/导入入口；增加 Windows 取消错误回收、Go 取消等待关闭、Extra Unicode 与 URL 一致性回归，见[修复记录](tasks/51-native-rpc-clients/review-fixes.md#复审修复与-python-单入口)。
 
 - Issue 51 按用户授权修复六项代码审查问题：接纳期间关闭观察、保留显式取消、整数绑定、大帧增量扫描、Windows 最终回收和 Go 错误后迭代。维护模板并重新生成，新增三语言 ACK barrier 与语言单测，见[修复记录](tasks/51-native-rpc-clients/review-fixes.md)。

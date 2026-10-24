@@ -56,7 +56,7 @@
 
 - [Issue 103：OpenCode 2 与原生 ACP 兼容](tasks/103-opencode-v2/brief.md)：最低支持 2.1.3，V1 在 probe 与直接 invoke 明确报错；完成 CLI/ACP 原生参数、环境、MCP 和清理适配。OpenCode 2.1.3 / DeepSeek 的 16 个真实场景及独立 worker 测试 IM 往返通过；[验收记录](tasks/103-opencode-v2/validation.md)与[双轴审查](tasks/103-opencode-v2/review.md)记录回归及未覆盖边界。
 
-- [Issue 51：Go、Rust、Python 原生 RPC Client](tasks/51-native-rpc-clients/brief.md)：独立 worktree `codex/51-native-rpc-clients` 已实现 `native/` 下三套 SDK/playboard demo；复审修复后三语言 macOS 各 44 项通过，包含 347 个协议样例、包外消费及独立 demo。真实 Codex native/canonical 六次完成为初始实施证据。用户已授权提交、同步最新 main、创建 PR 并合并；完整验收剩余项见[实施记录](tasks/51-native-rpc-clients/implementation.md)，[96/100](tasks/51-native-rpc-clients/assessment.md) 仅为原规划准备度。
+- [Issue 51：Go、Python 原生 RPC Client](tasks/51-native-rpc-clients/brief.md)：按用户最新决定移除 Rust SDK、生成器、demo 和工具链要求，仅交付两套完整 SDK 及包内 `demo_playboard` 示例；不接入 native GitHub CI。macOS 两语言各 45 项、354 条协议样例通过，平台与完整验收缺口见[实施记录](tasks/51-native-rpc-clients/implementation.md)。[96/100](tasks/51-native-rpc-clients/assessment.md) 仅为原规划准备度。
 
 - [Issue 110：Gateway 默认发送者准入](tasks/channel-default-admission/brief.md)：独立 worktree 基于 `main@5c1921d`；消息及卡片入口省略名单时不回退 owner，DM 沿用平台准入、群/话题不额外限制发送者。架构与文档同步，五 Bot 群/子区触发及 stop/reset 隔离回归通过，Node 1630 通过/35 跳过、UI 35 通过，尚未提交；见[可执行性 100/100 与 gap](tasks/channel-default-admission/assessment.md)、[验证记录](journal/shared/2026-10-22-channel-default-admission.md)及[相邻入口检查](tasks/channel-default-admission/audit.md)。
 

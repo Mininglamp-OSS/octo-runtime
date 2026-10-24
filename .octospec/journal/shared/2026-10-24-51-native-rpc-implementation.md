@@ -6,7 +6,13 @@ tags: [protocol, schema, native, ipc, testing]
 timestamp: 2026-10-24T00:00:00Z
 ---
 
-# 结果
+# 最新范围与复验
+
+用户移除 Rust，仅保留完整 Go/Python SDK；示例统一为语言包内的 `demo_playboard.go` / `demo_playboard.py`。生成文件头部携带 octo-runtime Schema commit 与输入/生成器摘要，完整 manifest 记录来源。Native 不接入 GitHub CI。两语言各 45 项/354 协议样例通过，Go race、Python 七项单测及生成/包外/demo 验证通过。
+
+无 rg 的命名测试缺陷已复现并修复：TMPDIR 在 checkout 内时，非 Git fixture 先移出所有真实 Git 祖先。默认与仓内 TMPDIR 两环境各 9 项通过，子进程 PATH 清空。完整 Node 1706 通过/40 既有 skip、UI 35 通过。生成源码现为 5 文件/1972 行，约 1.23 万 PR 新增行。详见[当前实施记录](../../tasks/51-native-rpc-clients/implementation.md)。下文保留原三语言实施历史。
+
+# 历史结果
 
 用户要求从规划进入实施，并最终明确 demo 就放在本仓库 `native/`，每种语言都有自己的实现。当前 worktree `codex/51-native-rpc-clients` 已完成 Go、Rust、Python SDK 与同命令接口的 CLI playboard，原外部 demo 目录恢复为空。
 

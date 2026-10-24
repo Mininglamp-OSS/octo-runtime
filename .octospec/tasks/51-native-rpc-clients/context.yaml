@@ -1,5 +1,9 @@
 task: 51-native-rpc-clients
 phase: implementation
+current_scope: Complete Go and Python SDKs only; Rust removed by user on 2026-10-24.
+demos:
+  go: native/go/examples/demo_playboard.go
+  python: native/python/demo_playboard.py
 issue: https://github.com/Mininglamp-OSS/octo-runtime/issues/51
 read_at: 2026-10-24
 baseline: 445d2bb24f6ffc27bb4414c835e6a0b365f9f25b
@@ -76,14 +80,14 @@ external_sources:
     result: CancelIoEx requests cancellation but does not await completion; buffers/OVERLAPPED must remain alive until completion.
 decisions:
   - User explicitly authorized implementation after the planning review.
-  - Three complete native SDK clients under native; data authority remains Protocol schema directory.
+  - Two complete native SDK clients (Go/Python) under native; Rust SDK, emitter, demos, lockfiles and toolchain requirements removed at the user's request.
   - Generate protocol models, validation rules, behavior constants and RPC methods only; maintain one handwritten client/lifecycle implementation per language.
   - User requires all native GitHub CI jobs and gate integration removed; validation is local and optional for the core Runtime.
   - Preserve IPC 1, Run 7, Context v3, default worker isolation and TS Runtime installation dependencies.
   - Match TS identity/acceptance/stream/cancel semantics; never implicitly resubmit or own Kernel.
   - M0-M7 implementation plan and A01-A40 evidence assertions; 96/100 is a planning self-assessment only.
   - Client-side numeric fidelity does not promise arbitrary precision through the existing TS JSON.parse service.
-  - User corrected demo location to this worktree's native directory; all three languages have independent playboard implementations.
+  - User corrected demo location to this worktree's native directory; Go/Python have package-local demo_playboard source files.
   - Python models use TypedDict; Windows overlapped completion uses bounded event polling rather than an executor thread.
   - User explicitly requires one Python transport.py with internal Unix/Windows async branches; remove the separate Windows module and keep one SDK package/import.
   - Fix the four reproduced verified-review defects, add local regressions and Chinese comments at SDK ownership/cancellation/codec boundaries; do not add native CI or generated outputs.
@@ -104,12 +108,11 @@ tools_observed:
   node: v24.19.0
   pnpm: 11.19.0
   go: go1.26.1 darwin/arm64
-  rust: 1.98.1
   system_python: 3.9.6; below proposed Python SDK minimum 3.11
   uv: 0.12.13
-  native_minimum: Go 1.25.0; Rust 1.85.0; Python 3.11.16
-  native_current: Go 1.26.1; Rust 1.98.1; Python 3.14.7
-validation:
+  native_minimum: Go 1.25.0; Python 3.11.16
+  native_current: Go 1.26.1; Python 3.14.7
+historical_validation:
   - command: uv run --with pyyaml python .octospec/scripts/lint.py
     scope: Untouched baseline before any edit
     result: FAIL; three pre-existing systemd-directive-paths Markdown files lack YAML frontmatter.
@@ -136,3 +139,13 @@ validation:
     result: PASS; reproducibility, drift and unsupported assertions. Previous native CI gate tests were removed at the user's request.
   - scope: Required cross-platform, stress, full field parity and typed binding acceptance
     result: INCOMPLETE; see implementation.md and contract-diff.md. Native has no GitHub CI matrix; additional platform validation must be run explicitly.
+
+current_validation:
+  - command: pnpm test:suites
+    result: PASS; 1706 Node tests passed, 40 existing skips, zero failures; 35 UI tests passed.
+  - scope: Go/Python only; macOS arm64; real Kernel with isolated fake Provider
+    result: PASS; 45 tests and 354 protocol fixtures each; includes package-local demos and outside-repository installation.
+  - scope: Naming fixture isolation; empty PATH/Path; default temporary directory and TMPDIR/TMP/TEMP inside the worktree
+    result: PASS; 9 tests in each environment; production Git ignore guard retained.
+  - scope: Source provenance and generation
+    result: PASS; 5 generated source headers carry octo-runtime schema commit and schema/generator SHA-256; deterministic regeneration, custom-input provenance, empty-PATH check and drift detection passed.

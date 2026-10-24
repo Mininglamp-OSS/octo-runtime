@@ -1,12 +1,11 @@
-# 三语言 playboard demo
+# Go / Python playboard demo
 
 每个 demo 都直接调用同目录 SDK，提供请求输入、流式事件、回执查询、重订阅、取消和交互回复。以下用 `DEMO` 表示某一语言的启动命令：
 
-| 语言   | 从仓库根目录启动                                                             |
-| ------ | ---------------------------------------------------------------------------- |
-| Go     | `.tmp/playboard-demo-go`                                                     |
-| Rust   | `native/rust/target/debug/examples/playboard-demo`                           |
-| Python | `native/python/.venv/bin/python -I native/python/examples/playboard_demo.py` |
+| 语言   | 从仓库根目录启动                                                    |
+| ------ | ------------------------------------------------------------------- |
+| Go     | `.tmp/playboard-demo-go`                                            |
+| Python | `native/python/.venv/bin/python -I native/python/demo_playboard.py` |
 
 构建见 [native README](../README.md)。所有命令都需要 `--endpoint` 或 `OCTO_KERNEL_ENDPOINT`。`stdout` 是逐行 JSON，诊断及等待交互提示写入 `stderr`，方便终端查看和脚本保存。
 

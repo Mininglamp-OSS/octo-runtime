@@ -10,13 +10,13 @@ const { values } = parseArgs({
     evidence: { type: "string", default: ".tmp/native-evidence.json" }
   }
 });
-const languages = values.language === "all" ? ["go", "rust", "python"] : [values.language];
+const languages = values.language === "all" ? ["go", "python"] : [values.language];
 const suites =
   values.suite === "all"
     ? ["protocol", "interop", "faults", "lifecycle", "playboard-demo", "package"]
     : [values.suite];
-if (languages.some((x) => !["go", "rust", "python"].includes(x)))
-  throw Error("--language must be go, rust, python or all");
+if (languages.some((x) => !["go", "python"].includes(x)))
+  throw Error("--language must be go, python or all");
 if (
   suites.some(
     (x) => !["protocol", "interop", "faults", "lifecycle", "playboard-demo", "package"].includes(x)
