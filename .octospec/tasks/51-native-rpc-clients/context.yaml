@@ -90,6 +90,7 @@ decisions:
   - User corrected demo location to this worktree's native directory; Go/Python have package-local demo_playboard source files.
   - Python models use TypedDict; Windows overlapped completion uses bounded event polling rather than an executor thread.
   - Latest user scope is one generated source and one handwritten source including transport per language. Generated files are named octo_runtime_generated.go and octo_runtime_generated.py. Python implementation lives in client.py; __init__.py only re-exports public API. Go uses client.go plus an 8-line pipe_windows.go API binding selected by the compiler. The same complete SDK source works on all platforms without consumer-selected or copied platform variants.
+  - Consolidate Go unit tests into client_test.go to keep the package directory small; preserve all codec, lifecycle and transport regressions. The compiler-selected Windows API binding remains unchanged.
   - Fix the four reproduced verified-review defects and add local regressions. Latest user instruction requires English comments throughout native SDK, demo and related code, superseding the earlier Chinese-comment request; retain ownership/cancellation/codec explanations and do not add native CI.
   - Fix all four rereview findings; preserve in-flight OVERLAPPED resources even if cancellation fails, detach observer waiting from cancel ACK, reject malformed Extra Unicode, and validate URL ports/hostname.
   - macOS minimum/current and real Codex text smoke passed; Linux/Windows and full boundary/stress acceptance remain open.

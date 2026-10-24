@@ -13,4 +13,6 @@ go build -o ../../.tmp/playboard-demo-go ./examples/demo_playboard.go
 
 Go 的 `runtime.GOOS` 分支只控制运行时执行，无法隐藏编译时 import 或不存在的符号。依赖中的 `DialPipeContext` 仅在 Windows 构建时存在，因此绑定必须放在编译器识别的 `_windows.go` 文件；连接、超时和关闭逻辑仍集中在 `client.go`。
 
+单测统一放在 `client_test.go`，不再按 codec、lifecycle、transport 拆文件。Go 在同包内测试私有实现，因此测试文件与源码同目录；`_test.go` 不参与 SDK 使用方的正常构建。
+
 统一命令和验证入口见 [native README](../README.md) 与 [demo 说明](../examples/README.md)。

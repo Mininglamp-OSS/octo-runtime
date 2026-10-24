@@ -8,6 +8,8 @@ timestamp: 2026-10-24T00:00:00Z
 
 # 当前交付范围
 
+Go 的 codec、lifecycle、transport 三份单测进一步合并为 `client_test.go`，保留全部 10 个顶层测试，合并后 `go test -race ./...` 通过；SDK 不再有独立 transport 实现文件。`pipe_windows.go` 仍是既定的 8 行 Windows API 绑定，自动编译选择，不由使用方挑选或复制。
+
 按用户最新要求，每语言只保留一份生成源码和一份手写实现，codec、生命周期及 transport 全部合并。Python 为 `octo_runtime_generated.py` + `client.py`，`__init__.py` 仅导出公开 API；Go 为 `octo_runtime_generated.go` + `client.go`，另有 8 行 `pipe_windows.go` 自动绑定 Windows 专用 API。删除独立 rules、transport、codec、lifecycle 等源码文件；同一份完整 SDK 源码全平台使用，使用方不选择或复制平台文件。SDK、demo 和相关代码注释改为英文，保留核心所有权及取消竞态说明。
 
 合并后两语言各完整重跑 45 项测试通过，含每语言 354 条协议样例、仓外安装及包内 demo；生成文件改名、Python 实现迁入 client.py 后再次重跑相同套件。Python wheel 断言仅含 client.py、octo_runtime_generated.py 和薄导出 __init__.py，并验证两种公开导入得到同一 Client。Go race 在合并后通过；Python 七项单测和生成器两项回归在迁移后通过。Linux/Windows amd64 全模块交叉编译通过，仅为编译证据。生成源码 2 文件、1959 行；手写实现 Go 1966 行、Python 1218 行，Go 平台适配另 8 行。
