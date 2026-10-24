@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, writeFile, chmod, rm, readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdtemp, writeFile, chmod, rm, readFile, mkdir, link, copyFile } from "node:fs/promises";
+import { delimiter, join, parse, relative } from "node:path";
 import { tmpdir } from "node:os";
 import {
   createOpenCodeAdapter,
@@ -13,6 +13,8 @@ import {
   createAcpAdapter,
   normalizeAcpUpdate
 } from "@mininglamp-oss/octo-runtime-adapter-acp";
+import { AgentExecutor } from "@mininglamp-oss/octo-runtime-executor-core";
+import { invocationInput } from "@mininglamp-oss/octo-runtime-protocol";
 import { invokeRequest } from "./runtime-fixture.js";
 
 // 实际子进程验证选择路径和版本门禁，不安装或替换宿主 Provider。
@@ -25,6 +27,55 @@ async function executable(t, body) {
   return { directory, command };
 }
 const posix = { skip: process.platform === "win32" };
+test("native executable probing uses platform PATH, extension and cwd semantics", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "octo-opencode-native-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const bin = join(directory, "bin");
+  await mkdir(bin);
+  const filename = process.platform === "win32" ? "opencode.exe" : "opencode";
+  const rootCommand = join(directory, filename);
+  const binCommand = join(bin, filename);
+  for (const target of [rootCommand, binCommand]) {
+    try {
+      await link(process.execPath, target);
+    } catch (error) {
+      if (!["EXDEV", "EPERM", "EACCES", "ENOTSUP"].includes(error.code)) throw error;
+      await copyFile(process.execPath, target);
+    }
+  }
+  const scenarios = [
+    { entries: [bin], command: "opencode", expected: binCommand },
+    { entries: ["bin"], command: "opencode", expected: binCommand },
+    { entries: [""], command: "opencode", expected: rootCommand },
+    { entries: [".", bin], command: "opencode", expected: rootCommand },
+    { entries: [bin, "."], command: "opencode", expected: binCommand },
+    { entries: [directory], command: join("bin", filename), expected: binCommand },
+    { entries: [directory], command: binCommand, expected: binCommand }
+  ];
+  if (process.platform === "win32") {
+    const root = parse(directory).root;
+    scenarios.push(
+      { entries: [bin.slice(root.length - 1)], command: "opencode", expected: binCommand },
+      { entries: [bin], command: rootCommand.slice(root.length - 1), expected: rootCommand }
+    );
+    if (/^[A-Za-z]:\\$/.test(root))
+      scenarios.push({
+        entries: [bin],
+        command: `${root.slice(0, 2)}${filename}`,
+        expected: rootCommand
+      });
+  }
+  for (const { entries, command, expected } of scenarios) {
+    const env = { ...process.env, PATH: entries.join(delimiter), PATHEXT: ".EXE" };
+    const probe = await probeOpenCode(command, env, directory);
+    assert.equal(probe.command, expected);
+    assert.equal(probe.version, process.versions.node);
+    // 使用本机 Node 二进制检查真实查找与启动；它不是受支持的 OpenCode，必须明确拒绝。
+    assert.equal(probe.available, false);
+    assert.match(probe.reason, /OPENCODE_VERSION_UNSUPPORTED/);
+    assert.equal(env.PATH, entries.join(delimiter));
+  }
+});
 for (const version of ["1.18.30", "2.0.0", "2.1.2", "2.1.3-beta", "3.0.0", "unparseable"]) {
   test(
     `OpenCode ${version} is rejected during probe and direct invocation on both transports`,
@@ -125,6 +176,155 @@ console.log(JSON.stringify({type:"step_finish",part:{reason:"stop"}}));process.e
   );
   assert.equal(events.at(-1).type, "run.failed");
 });
+test(
+  "probe and execution preserve absolute, relative and empty PATH entry precedence",
+  posix,
+  async (t) => {
+    const selected = await executable(
+      t,
+      `if(process.argv[2]==="--version"){console.log("2.1.3");process.exit(0)}
+process.stdin.resume();process.stdin.on("end",()=>console.log(JSON.stringify({type:"text",part:{text:process.argv[1]}})));`
+    );
+    const cwd = await executable(
+      t,
+      `if(process.argv[2]==="--version"){console.log("1.18.30");process.exit(0)}throw Error("must not execute V1");`
+    );
+    for (const entries of [
+      [selected.directory, "."],
+      [relative(cwd.directory, selected.directory), "."],
+      [".", selected.directory],
+      ["", selected.directory]
+    ]) {
+      const PATH = entries.join(delimiter);
+      const expected = entries[0] === "." || entries[0] === "" ? cwd : selected;
+      const probe = await probeOpenCode("opencode", { ...process.env, PATH }, cwd.directory);
+      assert.equal(probe.command, expected.command);
+      assert.equal(probe.available, expected === selected);
+      const request = invokeRequest({
+        approvalMode: "full_access",
+        workdir: cwd.directory,
+        executionEnvOverrides: { env_variables: [{ key: "PATH", value: PATH }] }
+      });
+      const adapter = createOpenCodeAdapter();
+      if (expected === cwd) {
+        assert.match(probe.reason, /OPENCODE_VERSION_UNSUPPORTED/);
+        await assert.rejects(async () => {
+          for await (const _ of adapter.invoke(request)) {
+            /* drain */
+          }
+        }, /OPENCODE_VERSION_UNSUPPORTED/);
+      } else {
+        const events = await Array.fromAsync(adapter.invoke(request));
+        assert.equal(
+          events.find((event) => event.type === "message.delta").payload.text,
+          probe.command
+        );
+        assert.equal(events.at(-1).type, "run.completed");
+      }
+    }
+  }
+);
+
+for (const { name, frames, terminal } of [
+  { name: "no events", frames: [], terminal: "run.failed" },
+  {
+    name: "reasoning only",
+    frames: [{ type: "reasoning", part: { text: "thinking" } }],
+    terminal: "run.failed"
+  },
+  {
+    name: "missing text",
+    frames: [{ type: "text", part: { type: "text" } }],
+    terminal: "run.failed"
+  },
+  {
+    name: "non-string text",
+    frames: [{ type: "text", part: { text: 42 } }],
+    terminal: "run.failed"
+  },
+  { name: "empty text", frames: [{ type: "text", part: { text: "" } }], terminal: "run.completed" },
+  {
+    name: "part-wrapped text",
+    frames: [{ type: "update", part: { type: "text", text: "answer" } }],
+    terminal: "run.completed"
+  },
+  {
+    name: "new step without answer",
+    frames: [
+      { type: "text", part: { text: "old answer" } },
+      { type: "step_start", part: { messageID: "next" } }
+    ],
+    terminal: "run.failed"
+  },
+  {
+    name: "part-wrapped new step without answer",
+    frames: [
+      { type: "text", part: { text: "old answer" } },
+      { type: "update", part: { type: "step-start", messageID: "next" } }
+    ],
+    terminal: "run.failed"
+  }
+]) {
+  test(
+    `zero-exit CLI with ${name} emits exactly one ${terminal} without throwing`,
+    posix,
+    async (t) => {
+      const fixture = await executable(
+        t,
+        `if(process.argv[2]==="--version"){console.log("2.1.3");process.exit(0)}
+process.stdin.resume();process.stdin.on("end",()=>{for(const frame of ${JSON.stringify(frames)})console.log(JSON.stringify(frame));});`
+      );
+      const events = await Array.fromAsync(
+        createOpenCodeAdapter({ command: fixture.command }).invoke(
+          invokeRequest({ approvalMode: "full_access" })
+        )
+      );
+      const terminals = events.filter((event) =>
+        ["run.completed", "run.failed", "run.cancelled"].includes(event.type)
+      );
+      assert.equal(terminals.length, 1);
+      assert.equal(terminals[0].type, terminal);
+      if (terminal === "run.failed")
+        assert.equal(terminals[0].payload.code, "OPENCODE_INCOMPLETE_OUTPUT");
+    }
+  );
+}
+
+test(
+  "Core reports missing CLI output as failed with complete resource cleanup",
+  posix,
+  async (t) => {
+    const fixture = await executable(
+      t,
+      `if(process.argv[2]==="--version"){console.log("2.1.3");process.exit(0)}
+process.stdin.resume();process.stdin.on("end",()=>{
+ const config=JSON.parse(process.env.OPENCODE_CONFIG_CONTENT);
+ require("node:fs").writeFileSync(require("node:path").join(process.cwd(),"instructions-path"),config.instructions.at(-1));
+});`
+    );
+    const core = new AgentExecutor();
+    core.register(createOpenCodeAdapter({ command: fixture.command }));
+    t.after(() => core.shutdown());
+    const events = await Array.fromAsync(
+      core.invoke(
+        invocationInput(
+          invokeRequest({ approvalMode: "full_access", workdir: fixture.directory }),
+          "canonical",
+          "opencode"
+        )
+      )
+    );
+    assert.deepEqual(
+      events
+        .filter((event) => ["run.completed", "run.failed", "run.cancelled"].includes(event.type))
+        .map((event) => event.type),
+      ["run.failed"]
+    );
+    assert.equal((await core.shutdown()).cleanup, "complete");
+    const instructions = await readFile(join(fixture.directory, "instructions-path"), "utf8");
+    await assert.rejects(readFile(instructions), { code: "ENOENT" });
+  }
+);
 test("OpenCode V2 preserves native config and overlays MCP under servers with execution timeout", async () => {
   const original = {
     instructions: ["existing.md"],

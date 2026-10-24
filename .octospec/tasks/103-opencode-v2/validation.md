@@ -92,7 +92,7 @@ CI 采用 depth=2 的 PR merge checkout，暂缺父历史，因此将整份文�
 
 用户明确禁止在仓库提交 API Key，并要求写入架构设计约束。此前无效值是本任务写入的固定测试样例，不是读取用户配置或测试账号得到的凭据；仍不应以其非真实或扫描通过作为保留硬编码的理由。
 
-已将禁止提交凭据值（含固定测试占位值）的合同写入 [architecture](../../rules/architecture.md#凭据值严禁进入代码仓库)。验收脚本的错误认证值改为每轮在内存调用 randomUUID() 生成；MCP 模拟服务的 Authorization 值同样仅在运行期生成，服务端仍严格比较本轮收到的值。实际认证沿用宿主已有配置，脚本不新增实际凭据读取或持久化，不输出这些测试值。历史扫描例外只对应原始非秘密固定样例，不作为提交实际凭据的许可。
+已将禁止提交凭据值（含固定测试占位值）的合同写入 [architecture](../../rules/architecture.md#凭据值严禁进入代码仓库)。验收脚本的错误认证值改为每轮在内存调用 randomUUID() 生成；MCP 模拟服务的 Authorization 值同样仅在运行期生成，服务端记录请求 header，由验收脚本在工具调用回执中比较本轮收到的值。这证明 header 传递，不证明服务端会拒绝错误认证。实际认证沿用宿主已有配置，脚本不新增实际凭据读取或持久化，不输出这些测试值。历史扫描例外只对应原始非秘密固定样例，不作为提交实际凭据的许可。
 
 运行期随机值版本重新执行 16 个真实场景全部通过，shutdown.cleanup=complete。脚本 AST 检查确认 apiKey 与 Authorization 两个字段均无字面量值，Gitleaks 8.30.1 对当前脚本 stdin 扫描退出 0；格式与 diff 检查通过。OctoSpec lint 仍仅有前述 3 个基线 frontmatter 错误。
 
@@ -109,6 +109,21 @@ CI 采用 depth=2 的 PR merge checkout，暂缺父历史，因此将整份文�
 - `pnpm lint`、`pnpm lint:names`、`pnpm format:check`、`pnpm docs:check` 通过；命名回归包含在 Node 全量内。
 - Gitleaks 8.30.1 对 `cc49c8b..HEAD` 的 PR 范围扫描退出 0；`git diff --check` 通过。没有修改检测规则或扩大例外范围。
 - 四个重放提交均保留原配置作者及唯一 Codex trailer；远端更新使用明确旧 head 的 force-with-lease，避免覆盖并发更新。
+
+## yujiawei 最新审查修复
+
+2026-10-24 对照针对 `9ca69ac` 的审查修复真实缺陷。零退出且缺失最终文本时直接返回唯一 `run.failed`，错误码为 `OPENCODE_INCOMPLETE_OUTPUT`；不再在资源清理成功后抛出普通 Error 导致 Core 保守报告 incomplete。文本判定与 normalizer 一致，接受空字符串及 part 包装文本，拒绝非字符串；两种 step-start 均重置上一轮文本状态。
+
+PATH 按本机 `node:path` 规则解析：POSIX `resolve(cwd, "/usr/bin")` 仍是 `/usr/bin`。相对和空项按本轮 cwd 解析，保留宿主显式 PATH 顺序；实际执行固定为 probe 返回的绝对路径。额外修复 Windows 自定义命令的根相对与盘符相对路径，使用本轮 cwd 及本机盘符规则，无固定系统目录或盘符。
+
+- 先加回归、未改产品代码时：22 项中 13 通过、9 失败，复现终态、文本判定和 Core 清理问题；PATH 优先级回归已通过。
+- 修复后新增原生可执行文件测试，OpenCode 文件 23 项全部通过，覆盖唯一终态、空文本、包装帧、step 重置、Core 清理和临时文件删除。
+- 原生路径测试通过硬链接或复制本机 Node 可执行文件，真实探测 PATH 与版本，断言 Node 被明确判为不支持的 OpenCode。测试无 shebang 依赖，覆盖绝对、相对、空 PATH 项及 Windows 扩展名、根相对／盘符相对路径；Windows Node 24/26 CI 已接入。本机执行只证明 macOS，Windows/Linux 结果仍须看当前 head 的托管 CI。
+- workspace 构建、根类型检查、lint、命名、格式及文档检查通过。Node concurrency=4 全量 1742 项：1702 通过、40 跳过、0 失败；UI 35 项通过。
+- 当前修改重新执行 16 个真实 OpenCode 2.1.3 / DeepSeek 场景，全部符合预期终态，最终 shutdown.cleanup=complete；未重复未受影响的真实 IM 往返。
+- 两个独立子审查分别核对 Standards 和 Spec，均无待修复问题，见 [review](review.md#yujiawei-最新审查逐项处理)。
+
+`rg` 不可执行的意见属于审查环境缺少已声明前置依赖：CONTRIBUTING.md 已要求安装实际 ripgrep，macOS/Linux CI 显式安装。保持已有 gitignore 枚举行为，不新增命名检查替代实现；本轮真实命名检查及其全量回归通过。
 
 ## 证据边界
 

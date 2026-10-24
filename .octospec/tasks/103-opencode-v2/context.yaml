@@ -1,5 +1,5 @@
-status: pr-open-rebased-validated
-recorded_on: 2026-10-23
+status: pr-review-fixes-locally-validated
+recorded_on: 2026-10-24
 baseline: cc49c8b4ce2d04fd2389585d00ffcf8806b4af72
 initial_baseline: 445d2bb24f6ffc27bb4414c835e6a0b365f9f25b
 baseline_source: git-fetch-origin-main
@@ -63,7 +63,11 @@ verification:
   v2_binary: user-installed-functional-tests-passed
   runtime_e2e: cli-acp-and-live-im-passed
   model_provider_tools_permissions_cancellation: passed-deepseek-deepseek-flash
-  product_tests: rebased-node-1691-passed-40-skipped-ui-35-passed
+  product_tests: review-fixes-node-1702-passed-40-skipped-ui-35-passed
+  review_regressions: opencode-23-passed-including-native-path-and-core-cleanup
+  review_live_tests: rerun-16-real-opencode-deepseek-scenarios-cleanup-complete
+  review_fixed_point: 9ca69ac24064627a4ec77783c5f27a8b8647a55b
+  windows_native_path: ci-added-not-locally-qualified
   engineering_checks: typecheck-lint-names-docs-format-passed
   review: standards-zero-findings-spec-zero-findings
   reviewed_implementation: 81f316e88c324e374b613dc6a12437da130fa5ff

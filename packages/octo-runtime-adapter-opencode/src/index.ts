@@ -25,7 +25,7 @@ import {
 } from "@mininglamp-oss/octo-runtime-adapter-sdk";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { delimiter, isAbsolute, join, resolve } from "node:path";
+import { delimiter, join, parse, resolve } from "node:path";
 
 export const MINIMUM_OPENCODE_VERSION = "2.1.3";
 
@@ -37,12 +37,14 @@ export async function probeOpenCode(
   env: NodeJS.ProcessEnv = process.env,
   cwd = process.cwd()
 ): Promise<ProbeResult> {
-  const qualified = command.includes("/") || command.includes("\\");
-  const selected = qualified && !isAbsolute(command) ? resolve(cwd, command) : command;
+  const qualified = command.includes("/") || command.includes("\\") || parse(command).root !== "";
+  // 本机 path 规则保留绝对路径；Windows 根相对和盘符相对路径也绑定本轮 cwd。
+  const selected = qualified ? resolve(cwd, command) : command;
   const result = await probeCommand(selected, {
     cwd,
     env: {
       ...env,
+      // 空项和相对项按子进程 cwd 查找；绝对项按本机规则保留原有含义。
       PATH: (env.PATH ?? "")
         .split(delimiter)
         .map((entry) => resolve(cwd, entry))
@@ -508,16 +510,25 @@ export function createOpenCodeAdapter({ command = "opencode" }: { command?: stri
           buildCommand: (req) => buildOpenCodeCommand(req, selected.command),
           normalize: (native) => {
             const part = native.part ?? native;
-            if (native.type === "step_start") finalText = false;
-            if (native.type === "text" && part.text) finalText = true;
+            if (native.type === "step_start" || part.type === "step-start") finalText = false;
+            if ((native.type === "text" || part.type === "text") && typeof part.text === "string")
+              finalText = true;
             // 一个 step 的 stop 不能掩盖随后进程的失败；等待私有 CLI 正常退出。
             return normalizer.normalize(native);
           },
           onSuccess: (req) => {
             if (!finalText)
-              throw new Error(
-                "OPENCODE_INCOMPLETE_OUTPUT: process exited without a final assistant response"
-              );
+              return [
+                {
+                  protocolVersion: 2,
+                  type: "run.failed",
+                  payload: {
+                    code: "OPENCODE_INCOMPLETE_OUTPUT",
+                    message:
+                      "OPENCODE_INCOMPLETE_OUTPUT: process exited without a final assistant response"
+                  }
+                }
+              ];
             return options.onSuccess!(req);
           }
         }).invoke(request, context);

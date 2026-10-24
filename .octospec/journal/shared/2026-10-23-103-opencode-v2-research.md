@@ -8,6 +8,8 @@ timestamp: 2026-10-23T00:00:00Z
 
 # 本轮结果
 
+2026-10-24 按 PR #116 最新审查追加修复：缺失最终输出返回失败终态，文本类型及 step 状态与 normalizer 对齐，Windows 根相对／盘符相对命令按本轮 cwd 解析；PATH 绝对项示例和 rg 环境意见按实际证据逐项处理。OpenCode 回归 23 项、Node 1702 通过/40 跳过、UI 35 项及重跑的 16 个真实场景通过，两个独立审查无待修复问题。新增原生二进制路径测试进入 Windows Node 24/26 CI，本机证据仍仅 macOS。详见 [最新验收](../../tasks/103-opencode-v2/validation.md#yujiawei-最新审查修复)和[逐项审查](../../tasks/103-opencode-v2/review.md#yujiawei-最新审查逐项处理)。
+
 后续实施已完成：最低支持版本确定为 2.1.3，旧 nvm 全局 V1 已按用户要求卸载。CLI/ACP 的 16 个真实 DeepSeek 场景、真实测试 IM 往返及独立 V1 二进制拒绝均通过；最终回归与双轴审查见 [验收记录](../../tasks/103-opencode-v2/validation.md)及 [review](../../tasks/103-opencode-v2/review.md)。下文保留最初调研时的状态，候选版本与待验表述不代表最终支持合同。
 
 用户进一步明确凭据禁止入库：本任务先前写入固定无效认证样例的做法已撤回，错误认证及本地 MCP 认证值改为运行期在内存随机生成；真实认证仍由宿主已有配置提供。禁止提交任何凭据值及固定测试占位值的要求已回写 [架构约束](../../rules/architecture.md#凭据值严禁进入代码仓库)和工程规则，来源、纠正及验证见 [验收记录](../../tasks/103-opencode-v2/validation.md#凭据禁止入库约束纠正)。

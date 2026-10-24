@@ -1,5 +1,9 @@
 # 工程知识变更记录
 
+## 2026-10-24
+
+- 修复 [PR #116 最新审查](tasks/103-opencode-v2/review.md#yujiawei-最新审查逐项处理)：缺失最终输出返回唯一失败终态，修正空文本及 step 状态，补全 Windows 根相对／盘符相对命令解析和原生 CI 测试。逐项澄清 PATH 与 rg 意见并纠正 MCP 证据措辞；本机 OpenCode 23 项、Node 1702 通过/40 跳过、UI 35 项和 16 个真实 OpenCode 场景通过，双轴复核无待修复问题，见[验证](tasks/103-opencode-v2/validation.md#yujiawei-最新审查修复)。Windows/Linux 托管结果待当前提交执行。
+
 ## 2026-10-23
 
 - 按用户要求将 [PR #116](https://github.com/Mininglamp-OSS/octo-runtime/pull/116) rebase 到最新 main@cc49c8b；知识目录冲突保留双方条目，OpenCode 实现、测试和真实验收脚本不变，历史扫描指纹及命名摘要同步新提交。更新后 Node 1691 通过/40 跳过、UI 35 通过，构建、类型、lint、格式、文档与 PR 范围扫描通过，见[验证](tasks/103-opencode-v2/validation.md#rebase-到最新-main)。
