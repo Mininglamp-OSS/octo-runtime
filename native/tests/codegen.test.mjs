@@ -4,14 +4,15 @@ import { mkdtemp, cp, readFile, writeFile, rm, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
+import { compactValidation } from "../codegen/normalize.mjs";
 const source = resolve("packages/octo-runtime-protocol/schema");
-function generate(output, schema = source, check = false) {
+function generate(output, schema = source, check = false, extraEnv = {}) {
   return spawnSync(
     process.execPath,
     ["native/codegen/generate.mjs", ...(check ? ["--check"] : [])],
     {
       encoding: "utf8",
-      env: { ...process.env, OCTO_CODEGEN_OUTPUT: output, OCTO_CODEGEN_SCHEMA: schema }
+      env: { ...process.env, OCTO_CODEGEN_OUTPUT: output, OCTO_CODEGEN_SCHEMA: schema, ...extraEnv }
     }
   );
 }
@@ -22,6 +23,11 @@ test("generation is reproducible, rejects drift/stale outputs and fails before w
   let result = generate(output);
   assert.equal(result.status, 0, result.stderr);
   assert.equal(generate(output, source, true).status, 0);
+  assert.equal(
+    generate(output, source, true, { PATH: "" }).status,
+    0,
+    "integrity check needs only Node"
+  );
   const manifest = JSON.parse(
     await readFile(join(output, "native/generated-manifest.json"), "utf8")
   );
@@ -31,9 +37,16 @@ test("generation is reproducible, rejects drift/stale outputs and fails before w
     await Promise.all(manifest.files.map((p) => readFile(join(output, p), "utf8"))),
     before
   );
+  const missingTools = generate(output, source, false, { PATH: "" });
+  assert.notEqual(missingTools.status, 0);
+  assert.match(missingTools.stderr, /gofmt is required.*Install Go/);
+  assert.deepEqual(
+    await Promise.all(manifest.files.map((p) => readFile(join(output, p), "utf8"))),
+    before
+  );
   const first = join(output, manifest.files[0]);
   await writeFile(first, "modified");
-  assert.notEqual(generate(output, source, true).status, 0);
+  assert.notEqual(generate(output, source, true, { PATH: "" }).status, 0);
   assert.equal(await readFile(first, "utf8"), "modified");
   assert.equal(generate(output).status, 0);
   const stale = join(output, "native/go/generated_retired.go");
@@ -74,4 +87,40 @@ test("generation is reproducible, rejects drift/stale outputs and fails before w
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Unsupported keyword/);
   assert.equal(await readFile(join(output, "native/generated-manifest.json"), "utf8"), stable);
+});
+
+test("rule compaction preserves constraints, public roots and recursive references", () => {
+  const node = (id, schema, properties = {}, branches = {}, ref) => ({
+    id,
+    schema,
+    properties,
+    branches,
+    ref
+  });
+  const nodes = [
+    node(0, { type: "integer", minimum: 0 }),
+    node(1, { type: "integer", minimum: 0, description: "same rule" }),
+    node(2, { type: "integer", minimum: 1 }),
+    node(3, { type: "array" }, {}, { items: 0 }),
+    node(4, { type: "array" }, {}, { items: 1 }),
+    node(5, { type: "object", properties: {} }, { value: 0, next: 6 }),
+    node(6, {}, {}, {}, 5),
+    node(7, { type: "object", properties: {} }, { value: 1, next: 8 }),
+    node(8, {}, {}, {}, 7)
+  ];
+  const compact = compactValidation({
+    nodes,
+    roots: { First: 5, Second: 7 },
+    methods: [{ paramsId: 3, resultId: 7 }]
+  });
+  const ids = compact.indices;
+  assert.equal(ids[0], ids[1]);
+  assert.notEqual(ids[0], ids[2]);
+  assert.equal(ids[3], ids[4]);
+  assert.equal(ids[5], ids[7]);
+  assert.equal(ids[6], ids[8]);
+  assert.equal(compact.nodes[ids[6]].ref, ids[5]);
+  assert.deepEqual(compact.roots, { First: ids[5], Second: ids[7] });
+  assert.equal(compact.methods[0].paramsId, ids[3]);
+  assert.equal(compact.methods[0].resultId, ids[7]);
 });

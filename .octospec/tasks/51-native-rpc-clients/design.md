@@ -60,7 +60,7 @@ native/
 
 2026-10-24 用户确认保留完整 SDK 并去重：删除客户端模板及其复制产物，客户端/生命周期在语言包内单份维护。修改状态或错误分类必须同时运行共享场景。手写 transport 中不得出现 `agent_run.*` 方法选择、InvokeInput 字段清单、恢复分支或权限逻辑。Rust/Python 共用生成规则 IR；Rust 用通用校验器解释规则表，union 绑定先按同一规则选分支，避免丢失 discriminator 关联字段。Native 不接入 GitHub CI，所有校验按需本地执行。
 
-生成命令目标为 `node native/codegen/generate.mjs`；检查命令为 `node native/codegen/generate.mjs --check`。检查在临时目录生成并比较完整预期文件集合，包含新增/缺失/遗留文件，不只运行 git diff。输出使用 UTF-8 LF、固定排序、固定格式模板和内容 hash，不写绝对路径、时间戳或随机值，不依赖本机 gofmt/rustfmt。两次生成和三个 OS 生成必须字节一致。语言 formatter check 另行验证模板输出。TS build 仍只需 Node/pnpm。
+生成命令为 `node native/codegen/generate.mjs`，使用 Node、gofmt、rustfmt 在临时目录生成，全部成功后写回；检查命令 `node native/codegen/generate.mjs --check` 只使用 Node，核对 manifest v2 的 Schema/生成器摘要、完整产物清单和逐文件 SHA-256，发现修改/缺失/遗留产物即失败。检查不重新格式化；生成器测试另行证明完整生成两次字节一致。输出使用 UTF-8 LF、固定排序和内容摘要，不写绝对路径、时间戳或随机值。TS build 仍只需 Node/pnpm。
 
 ## 精确 RPC 目录
 

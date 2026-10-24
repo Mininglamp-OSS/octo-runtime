@@ -8,6 +8,8 @@ timestamp: 2026-10-24T00:00:00Z
 
 # 本轮交付
 
+第二轮精简：三语言共用去重规则图，等价校验节点由 1,067 减至 597；Rust union 的分支绑定改为单份宏实现，保留全部公开类型、变体及整数/opaque 数字语义。当前 native:check 只需 Node，manifest v2 对输入、生成器及各产物字节做完整性检查；重新生成仍明确要求 gofmt/rustfmt，完整生成一致性另由测试验证。新增空 PATH 检查、不同数值约束和递归引用去重回归；未接入 native GitHub CI。
+
 2026-10-24 最新范围：保留完整三语言 SDK 和 demo；删除复制客户端的模板，客户端/生命周期在各语言包只维护一份源码。模型只生成公共根及类型依赖，验证专用节点保留在规则表；Rust 校验器使用与 Python 共用的规则 IR，替代逐节点展开函数。Native 的 GitHub Actions job、CI Gate 接入、Gate 负例测试和根格式检查接入全部删除；只保留按需本地验证。下文的模板/CI 结果是此前实施历史，不构成当前交付要求。
 
 PR 复审的两项缺陷已修复：Python Unix 关闭会中止未发送缓冲，避免超时或 client.close 无限等待；Rust union 在绑定前按 schema 选择分支，完整保留 message/tool/interaction subject 的 id。新增真实非读端缓冲阻塞测试，以及 ActivitySubject、嵌套 activity、三类 HostFrame、MCP 和不透明数字的类型往返测试。

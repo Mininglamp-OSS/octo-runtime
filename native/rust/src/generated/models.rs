@@ -162,78 +162,18 @@ pub struct NativeInteractionResponse {
     #[serde(rename = "payload")]
     pub r#payload: std::collections::BTreeMap<String, Value>,
 }
-#[derive(Debug, Clone, Serialize)]
-#[serde(untagged)]
-pub enum NativeInteractionResponseRequestId {
-    Variant0(String),
-    Variant1(i64),
-}
-impl<'de> Deserialize<'de> for NativeInteractionResponseRequestId {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let value = Value::deserialize(deserializer)?;
-        super::rules::validate_node(60, &value).map_err(serde::de::Error::custom)?;
-        if super::rules::validate_node(61, &value).is_ok() {
-            return crate::codec::from_value(value)
-                .map(Self::Variant0)
-                .map_err(serde::de::Error::custom);
-        }
-        if super::rules::validate_node(62, &value).is_ok() {
-            let mut value = value;
-            crate::codec::normalize_integers(&mut value).map_err(serde::de::Error::custom)?;
-            return crate::codec::from_value(value)
-                .map(Self::Variant1)
-                .map_err(serde::de::Error::custom);
-        }
-        Err(serde::de::Error::custom("VALIDATION_ERROR"))
-    }
-}
-#[derive(Debug, Clone, Serialize)]
-#[serde(untagged)]
-pub enum HostControl {
-    Variant0(HostControlOneOf0),
-    Variant1(HostControlOneOf1),
-    Variant2(HostControlOneOf2),
-    Variant3(HostControlOneOf3),
-    Variant4(HostControlOneOf4),
-    Variant5(HostControlOneOf5),
-}
-impl<'de> Deserialize<'de> for HostControl {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let value = Value::deserialize(deserializer)?;
-        super::rules::validate_node(64, &value).map_err(serde::de::Error::custom)?;
-        if super::rules::validate_node(65, &value).is_ok() {
-            return crate::codec::from_value(value)
-                .map(Self::Variant0)
-                .map_err(serde::de::Error::custom);
-        }
-        if super::rules::validate_node(69, &value).is_ok() {
-            return crate::codec::from_value(value)
-                .map(Self::Variant1)
-                .map_err(serde::de::Error::custom);
-        }
-        if super::rules::validate_node(73, &value).is_ok() {
-            return crate::codec::from_value(value)
-                .map(Self::Variant2)
-                .map_err(serde::de::Error::custom);
-        }
-        if super::rules::validate_node(76, &value).is_ok() {
-            return crate::codec::from_value(value)
-                .map(Self::Variant3)
-                .map_err(serde::de::Error::custom);
-        }
-        if super::rules::validate_node(81, &value).is_ok() {
-            return crate::codec::from_value(value)
-                .map(Self::Variant4)
-                .map_err(serde::de::Error::custom);
-        }
-        if super::rules::validate_node(91, &value).is_ok() {
-            return crate::codec::from_value(value)
-                .map(Self::Variant5)
-                .map_err(serde::de::Error::custom);
-        }
-        Err(serde::de::Error::custom("VALIDATION_ERROR"))
-    }
-}
+crate::codec::schema_union!(NativeInteractionResponseRequestId, 36, {
+Variant0(String) => (1, false),
+Variant1(i64) => (37, true),
+});
+crate::codec::schema_union!(HostControl, 39, {
+Variant0(HostControlOneOf0) => (40, false),
+Variant1(HostControlOneOf1) => (44, false),
+Variant2(HostControlOneOf2) => (46, false),
+Variant3(HostControlOneOf3) => (49, false),
+Variant4(HostControlOneOf4) => (54, false),
+Variant5(HostControlOneOf5) => (60, false),
+});
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HostControlOneOf0 {
     #[serde(rename = "type")]
@@ -290,31 +230,10 @@ pub struct HostControlOneOf4 {
     )]
     pub r#expires_at: Presence<i64>,
 }
-#[derive(Debug, Clone, Serialize)]
-#[serde(untagged)]
-pub enum HostControlOneOf4RequestId {
-    Variant0(String),
-    Variant1(i64),
-}
-impl<'de> Deserialize<'de> for HostControlOneOf4RequestId {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let value = Value::deserialize(deserializer)?;
-        super::rules::validate_node(83, &value).map_err(serde::de::Error::custom)?;
-        if super::rules::validate_node(84, &value).is_ok() {
-            return crate::codec::from_value(value)
-                .map(Self::Variant0)
-                .map_err(serde::de::Error::custom);
-        }
-        if super::rules::validate_node(85, &value).is_ok() {
-            let mut value = value;
-            crate::codec::normalize_integers(&mut value).map_err(serde::de::Error::custom)?;
-            return crate::codec::from_value(value)
-                .map(Self::Variant1)
-                .map_err(serde::de::Error::custom);
-        }
-        Err(serde::de::Error::custom("VALIDATION_ERROR"))
-    }
-}
+crate::codec::schema_union!(HostControlOneOf4RequestId, 36, {
+Variant0(String) => (1, false),
+Variant1(i64) => (37, true),
+});
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HostControlOneOf5 {
     #[serde(rename = "type")]
@@ -335,35 +254,11 @@ pub struct HostControlOneOf5 {
     )]
     pub r#latest_seq: i64,
 }
-#[derive(Debug, Clone, Serialize)]
-#[serde(untagged)]
-pub enum HostFrame {
-    Variant0(NativeHostFrame),
-    Variant1(CanonicalHostFrame),
-    Variant2(ControlHostFrame),
-}
-impl<'de> Deserialize<'de> for HostFrame {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let value = Value::deserialize(deserializer)?;
-        super::rules::validate_node(96, &value).map_err(serde::de::Error::custom)?;
-        if super::rules::validate_node(97, &value).is_ok() {
-            return crate::codec::from_value(value)
-                .map(Self::Variant0)
-                .map_err(serde::de::Error::custom);
-        }
-        if super::rules::validate_node(98, &value).is_ok() {
-            return crate::codec::from_value(value)
-                .map(Self::Variant1)
-                .map_err(serde::de::Error::custom);
-        }
-        if super::rules::validate_node(99, &value).is_ok() {
-            return crate::codec::from_value(value)
-                .map(Self::Variant2)
-                .map_err(serde::de::Error::custom);
-        }
-        Err(serde::de::Error::custom("VALIDATION_ERROR"))
-    }
-}
+crate::codec::schema_union!(HostFrame, 62, {
+Variant0(NativeHostFrame) => (63, false),
+Variant1(CanonicalHostFrame) => (64, false),
+Variant2(ControlHostFrame) => (65, false),
+});
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NativeHostFrame {
     #[serde(rename = "run_id")]
@@ -830,35 +725,11 @@ pub struct ContextReasoningPayload {
     )]
     pub r#use_provider_default: Presence<bool>,
 }
-#[derive(Debug, Clone, Serialize)]
-#[serde(untagged)]
-pub enum ContextWorkspacePayload {
-    Variant0(ContextWorkspacePayloadOneOf0),
-    Variant1(ContextWorkspacePayloadOneOf1),
-    Variant2(ContextWorkspacePayloadOneOf2),
-}
-impl<'de> Deserialize<'de> for ContextWorkspacePayload {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let value = Value::deserialize(deserializer)?;
-        super::rules::validate_node(391, &value).map_err(serde::de::Error::custom)?;
-        if super::rules::validate_node(392, &value).is_ok() {
-            return crate::codec::from_value(value)
-                .map(Self::Variant0)
-                .map_err(serde::de::Error::custom);
-        }
-        if super::rules::validate_node(395, &value).is_ok() {
-            return crate::codec::from_value(value)
-                .map(Self::Variant1)
-                .map_err(serde::de::Error::custom);
-        }
-        if super::rules::validate_node(397, &value).is_ok() {
-            return crate::codec::from_value(value)
-                .map(Self::Variant2)
-                .map_err(serde::de::Error::custom);
-        }
-        Err(serde::de::Error::custom("VALIDATION_ERROR"))
-    }
-}
+crate::codec::schema_union!(ContextWorkspacePayload, 240, {
+Variant0(ContextWorkspacePayloadOneOf0) => (241, false),
+Variant1(ContextWorkspacePayloadOneOf1) => (243, false),
+Variant2(ContextWorkspacePayloadOneOf2) => (245, false),
+});
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextWorkspacePayloadOneOf0 {
     #[serde(rename = "mode")]
@@ -1964,76 +1835,19 @@ pub struct McpStreamableHttpServer {
     )]
     pub r#tool_timeout_ms: Presence<i64>,
 }
-#[derive(Debug, Clone, Serialize)]
-#[serde(untagged)]
-pub enum McpStreamableHttpServerUrl {
-    Variant0(Value),
-    Variant1(Value),
-}
-impl<'de> Deserialize<'de> for McpStreamableHttpServerUrl {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let value = Value::deserialize(deserializer)?;
-        super::rules::validate_node(745, &value).map_err(serde::de::Error::custom)?;
-        if super::rules::validate_node(746, &value).is_ok() {
-            return crate::codec::from_value(value)
-                .map(Self::Variant0)
-                .map_err(serde::de::Error::custom);
-        }
-        if super::rules::validate_node(747, &value).is_ok() {
-            return crate::codec::from_value(value)
-                .map(Self::Variant1)
-                .map_err(serde::de::Error::custom);
-        }
-        Err(serde::de::Error::custom("VALIDATION_ERROR"))
-    }
-}
-#[derive(Debug, Clone, Serialize)]
-#[serde(untagged)]
-pub enum McpServer {
-    Variant0(McpStdioServer),
-    Variant1(McpStreamableHttpServer),
-}
-impl<'de> Deserialize<'de> for McpServer {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let value = Value::deserialize(deserializer)?;
-        super::rules::validate_node(754, &value).map_err(serde::de::Error::custom)?;
-        if super::rules::validate_node(755, &value).is_ok() {
-            return crate::codec::from_value(value)
-                .map(Self::Variant0)
-                .map_err(serde::de::Error::custom);
-        }
-        if super::rules::validate_node(756, &value).is_ok() {
-            return crate::codec::from_value(value)
-                .map(Self::Variant1)
-                .map_err(serde::de::Error::custom);
-        }
-        Err(serde::de::Error::custom("VALIDATION_ERROR"))
-    }
-}
+crate::codec::schema_union!(McpStreamableHttpServerUrl, 424, {
+Variant0(Value) => (425, false),
+Variant1(Value) => (426, false),
+});
+crate::codec::schema_union!(McpServer, 430, {
+Variant0(McpStdioServer) => (431, false),
+Variant1(McpStreamableHttpServer) => (432, false),
+});
 pub type McpServers = std::collections::BTreeMap<String, Value>;
-#[derive(Debug, Clone, Serialize)]
-#[serde(untagged)]
-pub enum ModelInputPart {
-    Variant0(ModelInputPartOneOf0),
-    Variant1(ModelInputPartOneOf1),
-}
-impl<'de> Deserialize<'de> for ModelInputPart {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let value = Value::deserialize(deserializer)?;
-        super::rules::validate_node(760, &value).map_err(serde::de::Error::custom)?;
-        if super::rules::validate_node(761, &value).is_ok() {
-            return crate::codec::from_value(value)
-                .map(Self::Variant0)
-                .map_err(serde::de::Error::custom);
-        }
-        if super::rules::validate_node(765, &value).is_ok() {
-            return crate::codec::from_value(value)
-                .map(Self::Variant1)
-                .map_err(serde::de::Error::custom);
-        }
-        Err(serde::de::Error::custom("VALIDATION_ERROR"))
-    }
-}
+crate::codec::schema_union!(ModelInputPart, 436, {
+Variant0(ModelInputPartOneOf0) => (437, false),
+Variant1(ModelInputPartOneOf1) => (439, false),
+});
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelInputPartOneOf0 {
     #[serde(rename = "id", default, skip_serializing_if = "Presence::is_missing")]
@@ -2185,41 +1999,12 @@ pub struct ActivityInfo {
     )]
     pub r#retry_after_ms: Presence<i64>,
 }
-#[derive(Debug, Clone, Serialize)]
-#[serde(untagged)]
-pub enum ActivitySubject {
-    Variant0(ActivitySubjectOneOf0),
-    Variant1(ActivitySubjectOneOf1),
-    Variant2(ActivitySubjectOneOf2),
-    Variant3(ActivitySubjectOneOf3),
-}
-impl<'de> Deserialize<'de> for ActivitySubject {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let value = Value::deserialize(deserializer)?;
-        super::rules::validate_node(804, &value).map_err(serde::de::Error::custom)?;
-        if super::rules::validate_node(805, &value).is_ok() {
-            return crate::codec::from_value(value)
-                .map(Self::Variant0)
-                .map_err(serde::de::Error::custom);
-        }
-        if super::rules::validate_node(807, &value).is_ok() {
-            return crate::codec::from_value(value)
-                .map(Self::Variant1)
-                .map_err(serde::de::Error::custom);
-        }
-        if super::rules::validate_node(810, &value).is_ok() {
-            return crate::codec::from_value(value)
-                .map(Self::Variant2)
-                .map_err(serde::de::Error::custom);
-        }
-        if super::rules::validate_node(813, &value).is_ok() {
-            return crate::codec::from_value(value)
-                .map(Self::Variant3)
-                .map_err(serde::de::Error::custom);
-        }
-        Err(serde::de::Error::custom("VALIDATION_ERROR"))
-    }
-}
+crate::codec::schema_union!(ActivitySubject, 452, {
+Variant0(ActivitySubjectOneOf0) => (453, false),
+Variant1(ActivitySubjectOneOf1) => (455, false),
+Variant2(ActivitySubjectOneOf2) => (457, false),
+Variant3(ActivitySubjectOneOf3) => (459, false),
+});
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActivitySubjectOneOf0 {
     #[serde(rename = "type")]

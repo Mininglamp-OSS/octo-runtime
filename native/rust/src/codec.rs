@@ -3,6 +3,31 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use std::str::FromStr;
 
+// 统一 union 的 Schema 分支选择，避免每个生成类型复制一份反序列化流程。
+macro_rules! schema_union {
+    ($name:ident, $node:literal, {$( $variant:ident($kind:ty) => ($branch:literal, $integer:literal)),+ $(,)?}) => {
+        #[derive(Debug, Clone, serde::Serialize)]
+        #[serde(untagged)]
+        pub enum $name { $( $variant($kind), )+ }
+        impl<'de> serde::Deserialize<'de> for $name {
+            fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+                let mut value = <serde_json::Value as serde::Deserialize>::deserialize(d)?;
+                $crate::generated::rules::validate_node($node, &value).map_err(serde::de::Error::custom)?;
+                $(
+                    if $crate::generated::rules::validate_node($branch, &value).is_ok() {
+                        if $integer {
+                            $crate::codec::normalize_integers(&mut value).map_err(serde::de::Error::custom)?;
+                        }
+                        return $crate::codec::from_value(value).map(Self::$variant).map_err(serde::de::Error::custom);
+                    }
+                )+
+                Err(serde::de::Error::custom("VALIDATION_ERROR"))
+            }
+        }
+    };
+}
+pub(crate) use schema_union;
+
 #[derive(Debug, Clone)]
 pub struct Error {
     pub code: String,

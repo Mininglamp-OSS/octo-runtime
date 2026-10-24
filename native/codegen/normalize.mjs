@@ -178,6 +178,57 @@ export function ruleNodes(nodes) {
   });
 }
 
+// 按规则而非类型名合并等价节点；逐轮细分也适用于递归 $ref。
+export function compactValidation(ir) {
+  const remap = (n, ids) => ({
+    ...n,
+    ref: n.ref === undefined ? undefined : ids[n.ref],
+    properties: Object.fromEntries(Object.entries(n.properties).map(([k, id]) => [k, ids[id]])),
+    branches: Object.fromEntries(
+      Object.entries(n.branches).map(([k, value]) => [
+        k,
+        Array.isArray(value) ? value.map((id) => ids[id]) : ids[value]
+      ])
+    )
+  });
+  const canonical = (v) =>
+    Array.isArray(v)
+      ? v.map(canonical)
+      : v && typeof v === "object"
+        ? Object.fromEntries(
+            Object.keys(v)
+              .sort()
+              .map((k) => [k, canonical(v[k])])
+          )
+        : v;
+  let indices = ir.nodes.map(() => 0);
+  for (;;) {
+    const classes = new Map();
+    const next = ruleNodes(ir.nodes.map((n) => remap(n, indices))).map((r) => {
+      const key = JSON.stringify(canonical(r));
+      if (!classes.has(key)) classes.set(key, classes.size);
+      return classes.get(key);
+    });
+    if (next.every((id, i) => id === indices[i])) break;
+    indices = next;
+  }
+  const nodes = [];
+  for (const n of ir.nodes) {
+    const id = indices[n.id];
+    if (!nodes[id]) nodes[id] = { ...remap(n, indices), id };
+  }
+  return {
+    nodes,
+    indices,
+    roots: Object.fromEntries(Object.entries(ir.roots).map(([name, id]) => [name, indices[id]])),
+    methods: ir.methods.map((m) => ({
+      ...m,
+      paramsId: indices[m.paramsId],
+      resultId: indices[m.resultId]
+    }))
+  };
+}
+
 // 公共根和字段需要的类型才进入模型；验证专用子节点仍留在规则表中。
 export function modelNodes({ nodes, roots, methods }) {
   const needed = new Set();

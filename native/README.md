@@ -48,7 +48,9 @@ node native/codegen/generate.mjs --check
 node --test native/tests/codegen.test.mjs
 ```
 
-生成需要 Node、gofmt、rustfmt；安装/运行已生成 SDK 不需要生成工具。修改 Schema 或 emitter 后重新生成，禁止只改生成文件。manifest 记录 Schema/生成器 hash 和完整产物列表；不支持的关键字直接失败。模型只导出公共根及其类型依赖，验证专用节点保留在规则表中。
+重新生成需要 Node、gofmt、rustfmt；`--check` 只需要 Node，核对 Schema、生成器、产物清单及每个文件的 SHA-256 摘要，修改、缺失或遗留产物都会报错。它不重新运行语言 formatter；完整重新生成的字节一致性由 `codegen.test.mjs` 验证。安装/运行已生成 SDK 不需要生成工具。
+
+修改 Schema 或 emitter 后重新生成，禁止只改生成文件。未知关键字在写文件前失败。模型保留公共根及其类型依赖；三语言校验规则共用去重后的节点图，Rust union 共用一份 Schema 分支绑定逻辑。
 
 ## 验证
 
