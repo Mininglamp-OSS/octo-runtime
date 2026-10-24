@@ -43,7 +43,7 @@ Standards：0 个发现；Spec：0 个发现；两个轴均无待修复问题。
 1. PATH：审查中的绝对路径示例不成立，POSIX resolve 保留绝对项；真实子进程回归证明绝对／相对／空项顺序与最终执行一致。相对项属于宿主显式环境输入，workdir 并非操作系统安全隔离，不拒绝合同已有的相对项。补查修正实际 Windows 自定义根相对／盘符相对命令绑定 cwd 的缺口，新增三平台原生二进制探测，Windows CI 显式运行。
 2. 裸 Error：成立。缺少最终输出改为 canonical run.failed，不吞掉 Provider 进程或清理异常。Core 回归同时验证唯一失败终态、cleanup complete 及指令临时文件删除。
 3. 空字符串：成立。使用 string 类型检查，并同步支持 normalizer 已接受的 part 包装文本与 step-start 重置，避免真值非字符串和旧 step 文本误报成功。
-4. rg：main 已有依赖且 CONTRIBUTING.md 明确要求真实 ripgrep，macOS/Linux CI 显式安装。审查环境中的 shell function 不能替代 spawn 可执行文件；未为这一环境问题修改共享命名工具。本轮命名检查及测试实际通过。
+4. rg：首轮按 main 已有依赖且 CONTRIBUTING.md 明确要求真实 ripgrep 处理，macOS/Linux CI 显式安装。审查环境中的 shell function 不能替代 spawn 可执行文件。用户后续要求进一步处理测试可移植性，已补下文的非 Git fixture 回退，不再以先决条件作为全部处置。
 
 同时纠正 Jerry-Xin 的非阻断证据说明：MCP fixture 记录 header，验收脚本事后断言相等；该证据验证传递，没有验证服务端拒绝错误认证。
 
@@ -56,3 +56,13 @@ Standards：0 个发现；Spec：0 个发现；两个轴均无待修复问题。
 独立需求审查无需要修复的问题。路径门禁与执行一致，缺输出返回失败，文本及 step 状态与 normalizer 对齐，未扩大产品策略。Windows 原生测试已接入 CI，但本机 23 项通过不代表 Windows 已验证。
 
 Standards：0 个发现；Spec：0 个发现。实际测试结果及 OS 边界见 [validation](validation.md#yujiawei-最新审查修复)。
+
+## 最新 P2 与测试可移植性
+
+Jerry-Xin 在 `1467724` 提出的 P2 成立：将 process.execPath 硬链接或复制到临时目录，不能保证动态链接 Node 的相对原生库仍可加载。改为 POSIX fixture 通过原绝对路径 shebang 调用安装位置的 Node；Windows 保留原生 exe 查找、PATHEXT、盘符及目录选择回归。没有修改版本门禁来接纳失败 fixture，也未跳过 POSIX 路径场景。
+
+按用户补充的 rg 意见，缺少真实 rg 时仅为非 Git 目录提供 Node 遍历回退，保留固定目录排除、secret.md 排除、二进制内容跳过和不跟随内部链接；报告不再声称应用 Git ignore。真实路径任一祖先有 .git 的目录仍明确 RIPGREP_REQUIRED，其余 rg 错误继续失败。8 项命名测试主动清空 PATH 和 Path，避免碰巧依赖开发者或 CI 的安装；Windows 增加同一套测试。
+
+两个独立审查再次分别核对 Standards／Spec。Standards 无需修复问题；Spec 发现 Git 祖先判断的符号链接绕过，改为 realpathSync(root) 后向上查找，并补真实子目录及外部链接（Windows junction）回归；最终复核无剩余可操作问题。
+
+yujiawei 在 `1467724` 已 Approved，附带两个非阻断 P2：README 现已说明 PATH／UNC 行为和未实测共享边界；工具终态原有 completed/error 显式白名单不变，新增回归保证 pending、running、未知或缺失状态均不被误认为工具终态。没有把所有未知状态猜成失败。

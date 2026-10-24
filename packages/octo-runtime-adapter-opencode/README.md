@@ -4,6 +4,8 @@ OpenCode 2 适配器，type 为 `opencode`。本次验证的最低版本与最�
 
 `probe` 和每次 `invoke` 都检查实际选中的 executable，包括调用方指定的路径。本轮 PATH、cwd 与环境参与选择，执行使用同一解析路径。OpenCode 1 返回 `OPENCODE_VERSION_UNSUPPORTED`，包含检测版本和 “OpenCode 1 is no longer supported”；版本检测失败、超时或输出无法解析返回 `OPENCODE_VERSION_DETECTION_FAILED`。适配器不自动安装、升级或登录。
 
+PATH 使用本机 `node:path` 规则及平台分隔符，保留条目顺序。绝对项保留原有含义，空项和相对项按本轮 cwd 查找；Windows 自定义命令的根相对和盘符相对路径也按本轮 cwd 解析。Windows UNC 项遵循本机 UNC 解析，适配器不映射共享、不提供网络认证；UNC 共享的真实可达性尚未实测。版本探测成功后执行固定绝对路径，不再次搜索 PATH。宿主负责选择可信目录，workdir 不构成安全沙箱。
+
 ## 传输与权限
 
 | approvalMode | 原生传输                                                    | 行为                                                                                                |
@@ -31,6 +33,8 @@ ask 保留 OpenCode 原生权限配置，不用全局 allow 或 ask 覆盖用户
 ## 输出与清理
 
 JSON CLI 归一化 step_start、text、reasoning、tool_use、step_finish 和 error。公开 reasoning 标记为 analysis/public_reasoning；相同 part 的快照不重复累加。V2 可以只发送终结工具帧，也可能在最终文本后直接退出而不发送 step_finish；有实际帧时保留原生 usage。
+
+工具终态只接受原生 `completed` 与 `error`，分别映射为 completed 与 failed；其他状态不产生工具终态，不猜测新状态已经完成或失败。running 产生工具开始事件，pending 不产生工具终态。工具状态不决定整个 Run 成功，Run 仍以进程退出和最终文本为准。
 
 一次模型 step 的 stop 不等于整个进程成功。适配器等待 CLI 正常退出且收到最终文本后才发送 run.completed；后续非零退出不能被早先 step_finish 掩盖。取消、原生错误和异常退出产生各自真实终态。ACP 同样保留文本、工具、usage_update 和 prompt 结果。每轮临时文件及所属 Provider 进程沿现有清理机制回收，清理失败继续向上报告。
 

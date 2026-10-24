@@ -123,9 +123,21 @@ PATH 按本机 `node:path` 规则解析：POSIX `resolve(cwd, "/usr/bin")` 仍�
 - 当前修改重新执行 16 个真实 OpenCode 2.1.3 / DeepSeek 场景，全部符合预期终态，最终 shutdown.cleanup=complete；未重复未受影响的真实 IM 往返。
 - 两个独立子审查分别核对 Standards 和 Spec，均无待修复问题，见 [review](review.md#yujiawei-最新审查逐项处理)。
 
-`rg` 不可执行的意见属于审查环境缺少已声明前置依赖：CONTRIBUTING.md 已要求安装实际 ripgrep，macOS/Linux CI 显式安装。保持已有 gitignore 枚举行为，不新增命名检查替代实现；本轮真实命名检查及其全量回归通过。
+首轮将 `rg` 不可执行的意见按审查环境缺少已声明前置依赖处理，CONTRIBUTING.md 已要求安装实际 ripgrep，macOS/Linux CI 显式安装。用户随后要求补齐测试可移植性，非 Git 回退及回归见下文；Git 仓库仍保留已有 ignore 枚举合同。
 
 `e056b6c` 的托管 Secret Scan、Linux Node 24/26 和 macOS Node 26 通过；Windows Node 24/26 在新增原生路径测试中因 `.EXE` 与 `.exe` 的字符串大小写断言失败。程序已实际启动并返回版本，但尚未完成后续路径场景，不能登记 Windows 路径验证通过。断言改为比较双方 realpath，以文件系统解析结果验证目录选择，兼容 Windows 的扩展名大小写。该跟进仅修改测试及记录，产品代码不变；当前提交的 Windows 完整结果仍以重新运行的 CI 为准。
+
+## 最新 P2 与托管重验
+
+`1467724` 的 Windows Node 24/26 完整 job 均通过，涵盖原生路径及发行安装；Linux Node 24/26、macOS Node 26 同样通过。macOS Node 24 首轮在未修改的 process-group-cleanup.test.js 中因 NDJSON parent-exits 场景报 PROCESS_CLEANUP_TIMEOUT，600ms 的清理预算内未确认进程组消失；不把原因推断成已证实的 runner 波动。本机单独复测该文件 11/11 通过；仅重跑失败 job 和 CI Gate 一次后，当前 head 六个 job 及 CI Gate 全部通过。没有改变清理预算或跳过该测试。
+
+Jerry-Xin 随后在其他 Node 安装上独立复现同 head 的另一个 P2：复制或硬链接到临时目录的动态链接 Node 因缺少相对原生库 SIGABRT，无法打印版本。托管 runner 通过不能否定这个可移植性缺陷。本轮改为 POSIX fixture 通过原位置 Node 的绝对 shebang 执行；Windows 保留已验证的原生 exe 场景和 realpath 目录选择断言。当前本机未安装 reviewer 的动态链接 Node 构建，不宣称已在该构建上重验；结构上不再搬迁 POSIX Node，普通 Node 下相应场景全部通过。
+
+命名测试在缺少真实 rg 时原先会因空 stdout 再抛 JSON 解析错误。先将测试 PATH 主动清空，8 项全部失败；加入仅非 Git 目录的 Node 遍历回退及真实 Git 祖先检测后 8 项通过，含外部链接指向 Git 子目录的拒绝场景。Git 根仍明确报 RIPGREP_REQUIRED，不静默降低忽略规则。脚本只在 rg ENOENT 时回退，保留其他错误；遍历跳过排除目录和链接，respectsGitIgnore=false，如实标记结果。Windows CI 现运行同一组测试，不依赖是否预装 rg。
+
+新增工具终态白名单回归及 README 的 PATH/UNC 说明，未修改产品状态映射。相关 OpenCode／命名共 32 项通过；符号链接边界补修后命名 8 项再次通过。独立规范审查无问题，独立需求审查的链接边界已修复并复审通过。UI 和 16 个真实 OpenCode 场景的产品代码未改变，沿用上一轮明确记录的结果，不宣称重新执行。
+
+本轮最终 Node concurrency=4 全量 1744 项：1704 通过、40 跳过、0 失败。根命名检查、全仓格式及 diff 检查通过；OctoSpec lint 仍仅有前述 3 个已有 frontmatter 错误。生产 TypeScript、依赖和锁文件未变，构建／类型结果沿用上一轮；新 head 的托管结果不能由上一 head 的绿色代替。
 
 ## 证据边界
 

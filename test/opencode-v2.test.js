@@ -16,7 +16,8 @@ import { tmpdir } from "node:os";
 import {
   createOpenCodeAdapter,
   buildOpenCodeCommand,
-  probeOpenCode
+  probeOpenCode,
+  normalizeOpenCodeEvent
 } from "@mininglamp-oss/octo-runtime-adapter-opencode";
 import {
   AcpInvocationError,
@@ -37,7 +38,31 @@ async function executable(t, body) {
   return { directory, command };
 }
 const posix = { skip: process.platform === "win32" };
-test("native executable probing uses platform PATH, extension and cwd semantics", async (t) => {
+test("OpenCode only maps explicitly recognized tool terminal states", () => {
+  for (const [status, expected] of [
+    ["completed", "completed"],
+    ["error", "failed"],
+    ["pending", undefined],
+    ["running", undefined],
+    ["unknown-terminal", undefined],
+    ["failed", undefined],
+    [undefined, undefined]
+  ]) {
+    const events = normalizeOpenCodeEvent({
+      type: "tool_use",
+      part: { type: "tool", callID: "tool-status", tool: "shell", state: { status } }
+    });
+    const terminals = events.filter(
+      (event) =>
+        event.type === "tool_call.update" && ["completed", "failed"].includes(event.payload.status)
+    );
+    assert.deepEqual(
+      terminals.map((event) => event.payload.status),
+      expected ? [expected] : []
+    );
+  }
+});
+test("executable probing uses platform PATH, extension and cwd semantics", async (t) => {
   const directory = await mkdtemp(join(tmpdir(), "octo-opencode-native-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const bin = join(directory, "bin");
@@ -46,11 +71,17 @@ test("native executable probing uses platform PATH, extension and cwd semantics"
   const rootCommand = join(directory, filename);
   const binCommand = join(bin, filename);
   for (const target of [rootCommand, binCommand]) {
-    try {
-      await link(process.execPath, target);
-    } catch (error) {
-      if (!["EXDEV", "EPERM", "EACCES", "ENOTSUP"].includes(error.code)) throw error;
-      await copyFile(process.execPath, target);
+    if (process.platform === "win32") {
+      try {
+        await link(process.execPath, target);
+      } catch (error) {
+        if (!["EXDEV", "EPERM", "EACCES", "ENOTSUP"].includes(error.code)) throw error;
+        await copyFile(process.execPath, target);
+      }
+    } else {
+      // POSIX Node 可能依赖安装目录的动态库，保持原位置，由 fixture 的 shebang 调用。
+      await writeFile(target, `#!${process.execPath}\nconsole.log(process.versions.node);\n`);
+      await chmod(target, 0o700);
     }
   }
   const scenarios = [
@@ -81,7 +112,7 @@ test("native executable probing uses platform PATH, extension and cwd semantics"
     // PATHEXT 的大小写可与目录项不同；比较文件系统解析后的路径，仍校验目录选择。
     assert.equal(await realpath(probe.command), await realpath(expected));
     assert.equal(probe.version, process.versions.node);
-    // 使用本机 Node 二进制检查真实查找与启动；它不是受支持的 OpenCode，必须明确拒绝。
+    // Windows 使用原生 exe，POSIX 保持 Node 安装位置；两者都必须明确拒绝 Node 版本。
     assert.equal(probe.available, false);
     assert.match(probe.reason, /OPENCODE_VERSION_UNSUPPORTED/);
     assert.equal(env.PATH, entries.join(delimiter));

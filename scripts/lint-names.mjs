@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { resolve, relative } from "node:path";
+import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs";
+import { dirname, join, resolve, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const rootArg = process.argv.indexOf("--root");
@@ -41,9 +41,29 @@ const args = [
   "!**/secret.md"
 ];
 const result = spawnSync("rg", args, { cwd: root, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
-if (result.error || (result.status !== 0 && result.status !== 1))
-  throw result.error ?? new Error(result.stderr);
-const files = result.stdout.split("\0").filter(Boolean);
+let files;
+if (result.error?.code === "ENOENT") {
+  // 非 Git fixture 不依赖宿主工具；Git 工作树仍由 rg 保留完整忽略规则。
+  for (let directory = realpathSync(root); ; directory = dirname(directory)) {
+    if (existsSync(join(directory, ".git")))
+      throw new Error("RIPGREP_REQUIRED: install an executable rg on PATH to scan a Git worktree");
+    if (dirname(directory) === directory) break;
+  }
+  files = [];
+  const visit = (directory) => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      if (excluded.includes(entry.name) || entry.name === "secret.md") continue;
+      const path = join(directory, entry.name);
+      if (entry.isDirectory()) visit(path);
+      else if (entry.isFile()) files.push(relative(root, path));
+    }
+  };
+  visit(root);
+} else {
+  if (result.error || (result.status !== 0 && result.status !== 1))
+    throw result.error ?? new Error(result.stderr);
+  files = result.stdout.split("\0").filter(Boolean);
+}
 const findings = [],
   exceptions = [];
 for (const file of files) {
@@ -79,7 +99,7 @@ console.log(
       findings,
       exceptions,
       excluded,
-      respectsGitIgnore: true
+      respectsGitIgnore: !result.error
     },
     null,
     2
