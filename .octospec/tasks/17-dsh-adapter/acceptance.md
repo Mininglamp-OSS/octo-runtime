@@ -62,5 +62,6 @@ SDK-hosted 与 CLI-hosted 两条真实路径均 PASS：群 @ 回复落入原会�
 | 恢复后沿用旧 cwd | read-confirmed | resume 成功后显式设置并校验本轮 cwd；续聊 fixture/真实 PASS |
 | 默认结构化日志丢原生诊断 | reproduced | invocation context 复用已有 RuntimeLog；落盘保留阶段/request/native/PID，凭据 canary 不出现 |
 | 发行验证硬编码旧 Adapter 数量 | reproduced | 仓外 verifier 实际报 14 != 13；更新清单数量，并增加 DSH 公共导出/metadata 校验 |
+| Windows 发行负例的外层期限早于系统查询预算 | reproduced | CI Node 24 在未安装服务 restart 的 10000 毫秒期限被验收脚本终止；追踪到 Windows inspect 可顺序执行两个各 30000 毫秒的原生命令。Windows CLI 外层改为 75000 毫秒，保留 SERVICE_NOT_INSTALLED 断言，其他平台仍为 10000 毫秒 |
 
 在已覆盖的固定版本/macOS 范围内，没有遗留中等或更高严重性代码发现。DM、Windows、客户端视觉检查仍为上述明确证据缺口。PR 使用 Addresses #17，保持 Issue 开放，不将部分端到端结果标记为全部验收完成。

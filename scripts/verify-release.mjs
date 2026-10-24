@@ -131,7 +131,8 @@ export async function verifyRelease(archiveInput, { expectedCommit, requireClean
     const run = (args) =>
       execute(process.execPath, [cli, ...args, "--home", home], {
         cwd: consumer,
-        timeout: 10_000,
+        // Windows service inspection can issue two sequential 30-second native queries.
+        timeout: process.platform === "win32" ? 75_000 : 10_000,
         label: `CLI ${args.join(" ") || "help"}`
       });
     const version = `${metadata.version}\ncommit:${build.commit.slice(0, 12)}${build.dirty ? " (dirty)" : ""}\nbuild:${build.buildTime}`;
