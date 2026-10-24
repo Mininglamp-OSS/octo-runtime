@@ -125,6 +125,8 @@ PATH 按本机 `node:path` 规则解析：POSIX `resolve(cwd, "/usr/bin")` 仍�
 
 `rg` 不可执行的意见属于审查环境缺少已声明前置依赖：CONTRIBUTING.md 已要求安装实际 ripgrep，macOS/Linux CI 显式安装。保持已有 gitignore 枚举行为，不新增命名检查替代实现；本轮真实命名检查及其全量回归通过。
 
+`e056b6c` 的托管 Secret Scan、Linux Node 24/26 和 macOS Node 26 通过；Windows Node 24/26 在新增原生路径测试中因 `.EXE` 与 `.exe` 的字符串大小写断言失败。程序已实际启动并返回版本，但尚未完成后续路径场景，不能登记 Windows 路径验证通过。断言改为比较双方 realpath，以文件系统解析结果验证目录选择，兼容 Windows 的扩展名大小写。该跟进仅修改测试及记录，产品代码不变；当前提交的 Windows 完整结果仍以重新运行的 CI 为准。
+
 ## 证据边界
 
 未在 Windows/Linux 做真实 OpenCode E2E；未测其他 2.x、其他模型、ACP 图片/表单/终端扩展或实际 Electron App。ACP effort setter 尚未实现，CLI 不传 model 时不猜测默认模型来套用 effort。合成子进程回归覆盖版本超时、异常退出及 stop 后非零退出，不能代替相应 OS 上的原生集成证据。Core 对其他未经此 Adapter 收敛的异常仍可能保守报告 incomplete，不将其解释为所有 Provider 清理问题已解决。

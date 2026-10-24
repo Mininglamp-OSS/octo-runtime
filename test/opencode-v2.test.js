@@ -1,6 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, writeFile, chmod, rm, readFile, mkdir, link, copyFile } from "node:fs/promises";
+import {
+  mkdtemp,
+  writeFile,
+  chmod,
+  rm,
+  readFile,
+  mkdir,
+  link,
+  copyFile,
+  realpath
+} from "node:fs/promises";
 import { delimiter, join, parse, relative } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -68,7 +78,8 @@ test("native executable probing uses platform PATH, extension and cwd semantics"
   for (const { entries, command, expected } of scenarios) {
     const env = { ...process.env, PATH: entries.join(delimiter), PATHEXT: ".EXE" };
     const probe = await probeOpenCode(command, env, directory);
-    assert.equal(probe.command, expected);
+    // PATHEXT 的大小写可与目录项不同；比较文件系统解析后的路径，仍校验目录选择。
+    assert.equal(await realpath(probe.command), await realpath(expected));
     assert.equal(probe.version, process.versions.node);
     // 使用本机 Node 二进制检查真实查找与启动；它不是受支持的 OpenCode，必须明确拒绝。
     assert.equal(probe.available, false);
