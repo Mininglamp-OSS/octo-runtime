@@ -29,7 +29,9 @@ After installation, follow [CLI Installation and Invocation](../getting-started/
 
 ## MiMo Code
 
-Select `mimo-code` in Context or Gateway `bots[].adapter.adapter_type`; Runtime starts `mimo acp`. Install MiMo Code using the [official setup](https://github.com/XiaomiMiMo/MiMo-Code#quick-start) if needed, then run `mimo` as the Runtime user to configure its provider and authentication. An existing installation must be on the worker's PATH or supplied through the adapter factory's command override. See the [adapter guide](../../../packages/octo-runtime-adapter-mimo-code/README.md) for path setup and SDK/CLI examples. On 2026-10-23, the installed CLI returned 0.1.15 and displayed ACP help successfully; model execution remains unvalidated.
+Select `mimo-code` in Context or Gateway `bots[].adapter.adapter_type`; Runtime starts `mimo acp`. Install MiMo Code using the [official setup](https://github.com/XiaomiMiMo/MiMo-Code#quick-start) if needed, then run `mimo` as the Runtime user to configure its provider and authentication. An existing installation must be on the worker's PATH or supplied through the adapter factory's command override. See the [adapter guide](../../../packages/octo-runtime-adapter-mimo-code/README.md) for path setup and SDK/CLI examples.
+
+On 2026-10-23, MiMo Code 0.1.15 passed executable/version/help checks and real model execution was observed. The final adapter's SDK call and human-browser Gateway SDK reply failed exact-output checks: text was truncated even though Runtime emitted `run.completed`. The Gateway CLI browser probe timed out; its cause was not established. The completion-ordering defect is tracked in [MiMo Code #2709](https://github.com/XiaomiMiMo/MiMo-Code/issues/2709). Runtime provides the standard ACP integration; this does not certify MiMo 0.1.15 for production use. Do not use that version where complete output is required. After an upstream fix, rerun SDK, CLI and visible Gateway exact-output acceptance against the specific fixed build. See the [verification record](../../../.octospec/journal/shared/2026-10-23-16-mimo-code.md) for evidence and unverified cases.
 
 ## Enable Codex Computer Use
 

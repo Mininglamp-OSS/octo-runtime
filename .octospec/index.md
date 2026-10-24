@@ -53,7 +53,7 @@
 
 - [Issue 81 与 Dependabot 安全整改](tasks/81-security-remediation/brief.md)：基于 `main@445d2bb`，原 35 条及新增 7 条均有[逐条处置](tasks/81-security-remediation/disposition.md)；修复项在分支扫描不再命中，其余按证据分别登记误报，Vitest 升至 4.1.12，六平台 CI 通过。用户已授权合并 [PR #115](https://github.com/Mininglamp-OSS/octo-runtime/pull/115)，仍需满足 GitHub 至少一位 reviewer 批准及 CI Gate；最终 main 重扫和 Dependabot 状态待合并后核对，见[验证记录](journal/shared/2026-10-23-81-security-remediation.md)。
 
-- [Issue 16：MiMo Code ACP](tasks/16-mimo-code/brief.md)：独立 worktree 已 rebase 到 `main@cc49c8b`，采用共享 ACP 薄封装，新增 CLI 默认装配、SDK 工厂与双语文档，配置类型统一为 `mimo-code`。真实 SDK 与人类浏览器私聊已验证执行链路，最终输出完整性验收等待上游 [MiMo Code #2709](https://github.com/XiaomiMiMo/MiMo-Code/issues/2709) 修复；验证结果见[记录](journal/shared/2026-10-23-16-mimo-code.md)。
+- [Issue 16：MiMo Code ACP](tasks/16-mimo-code/brief.md)：独立 worktree 已 rebase 到 `main@cc49c8b`，采用共享 ACP 薄封装，新增 CLI 默认装配、SDK 工厂与双语文档，配置类型统一为 `mimo-code`。[PR #127](https://github.com/Mininglamp-OSS/octo-runtime/pull/127) 按 Runtime 接入范围评审，已披露上游限制；真实 SDK 与人类浏览器私聊已验证执行链路，MiMo 版本的生产兼容性及输出完整性验收等待上游 [MiMo Code #2709](https://github.com/XiaomiMiMo/MiMo-Code/issues/2709) 修复后复验。验证结果见[记录](journal/shared/2026-10-23-16-mimo-code.md)。
 
 - [Issue 110：Gateway 默认发送者准入](tasks/channel-default-admission/brief.md)：独立 worktree 基于 `main@5c1921d`；消息及卡片入口省略名单时不回退 owner，DM 沿用平台准入、群/话题不额外限制发送者。架构与文档同步，五 Bot 群/子区触发及 stop/reset 隔离回归通过，Node 1630 通过/35 跳过、UI 35 通过，尚未提交；见[可执行性 100/100 与 gap](tasks/channel-default-admission/assessment.md)、[验证记录](journal/shared/2026-10-22-channel-default-admission.md)及[相邻入口检查](tasks/channel-default-admission/audit.md)。
 

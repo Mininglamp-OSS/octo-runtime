@@ -24,7 +24,7 @@ Grok Build 使用共享 ACP client，每次调用启动一个 CLI 进程。已�
 
 表中的 MCP 列表示通过本轮 `octo.execution/mcp` 配置连接的能力。Provider 自己已有的 MCP 配置是另一种配置来源。可选字段和使用限制见 [MCP 指南](../guides/mcp.md)。
 
-MiMo Code 在 Context 类型选择及 Gateway 的 `bots[].adapter.adapter_type` 中均填写 `mimo-code`；可执行文件为 `mimo`，启动命令为 `mimo acp`。`mimoi` 不是别名。[MiMo adapter 指南](../../../packages/octo-runtime-adapter-mimo-code/README.zh-CN.md)记录安装、可执行路径、SDK/CLI 示例和验收边界。最终验收等待上游修复 [MiMo Code #2709](https://github.com/XiaomiMiMo/MiMo-Code/issues/2709)：0.1.15 在同一次回复的末尾正文发送前返回完成。修复后须重新执行 SDK、CLI 和 Gateway 验收；probe 成功不代表兼容。
+MiMo Code 在 Context 类型选择及 Gateway 的 `bots[].adapter.adapter_type` 中均填写 `mimo-code`；可执行文件为 `mimo`，启动命令为 `mimo acp`。`mimoi` 不是别名。[MiMo adapter 指南](../../../packages/octo-runtime-adapter-mimo-code/README.zh-CN.md)记录安装、可执行路径、SDK/CLI 示例和验收边界。Runtime 接入与 MiMo 发行版本兼容性分别评估。MiMo 0.1.15 在同一次回复的末尾正文发送前返回完成，可能导致 Runtime 返回 `run.completed` 和截断正文；Runtime 不会将其检测为失败。要求完整输出的场景不得使用该版本。生产兼容性验收等待上游修复 [MiMo Code #2709](https://github.com/XiaomiMiMo/MiMo-Code/issues/2709)，并针对具体修复版本重新执行 SDK、CLI 和 Gateway 可见回复的精确正文检查；probe 成功不代表兼容。
 
 ## 原生交互的支持范围
 
