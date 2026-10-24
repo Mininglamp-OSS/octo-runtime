@@ -40,16 +40,26 @@ export async function probeOpenCode(
   const qualified = command.includes("/") || command.includes("\\") || parse(command).root !== "";
   // 本机 path 规则保留绝对路径；Windows 根相对和盘符相对路径也绑定本轮 cwd。
   const selected = qualified ? resolve(cwd, command) : command;
+  const probeEnv = { ...env };
+  if (process.platform === "win32") {
+    // 普通对象的键区分大小写；与 Node 子进程一致，重复别名取字典序首项。
+    for (const name of ["PATH", "PATHEXT"]) {
+      const aliases = Object.keys(env)
+        .filter((key) => key.toUpperCase() === name)
+        .sort();
+      const value = aliases.length ? env[aliases[0]] : undefined;
+      for (const alias of aliases) delete probeEnv[alias];
+      if (value !== undefined) probeEnv[name] = value;
+    }
+  }
+  // 空项和相对项按子进程 cwd 查找；绝对项按本机规则保留原有含义。
+  probeEnv.PATH = (probeEnv.PATH ?? "")
+    .split(delimiter)
+    .map((entry) => resolve(cwd, entry))
+    .join(delimiter);
   const result = await probeCommand(selected, {
     cwd,
-    env: {
-      ...env,
-      // 空项和相对项按子进程 cwd 查找；绝对项按本机规则保留原有含义。
-      PATH: (env.PATH ?? "")
-        .split(delimiter)
-        .map((entry) => resolve(cwd, entry))
-        .join(delimiter)
-    }
+    env: probeEnv
   });
   if (!result.available) return result;
   if (!result.version)

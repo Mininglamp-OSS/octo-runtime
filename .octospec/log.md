@@ -2,6 +2,8 @@
 
 ## 2026-10-24
 
+- [PR #116](tasks/103-opencode-v2/review.md#a5f5cac-审查与再次同步-main) rebase 到 main@c01c0c9，8 个重放提交内容一致；修复 Windows PATH／PATHEXT 大小写别名及普通 ACP 错误子类分类。Node 1705 通过/40 跳过、UI 35 项、16 个真实 OpenCode 场景通过，双轴审查无问题；新 head 托管检查待执行，见[验证](tasks/103-opencode-v2/validation.md#最新-main-与环境别名复核)。
+
 - 继续处理 [PR #116 P2](tasks/103-opencode-v2/review.md#最新-p2-与测试可移植性)：POSIX fixture 不再搬迁动态链接 Node，Windows 原生路径验证保留；非 Git 命名测试缺少 rg 时采用明确的文件遍历回退，Git 真实祖先仍要求实际 rg。补工具终态白名单回归及 PATH/UNC 文档，独立审查发现的外部链接边界已修复。上一 head 的 Windows 完整 job 均通过，macOS 首次清理超时在一次重跑后通过，细节见[记录](tasks/103-opencode-v2/validation.md#最新-p2-与托管重验)。
 
 - 修复 [PR #116 最新审查](tasks/103-opencode-v2/review.md#yujiawei-最新审查逐项处理)：缺失最终输出返回唯一失败终态，修正空文本及 step 状态，补全 Windows 根相对／盘符相对命令解析和原生 CI 测试。逐项澄清 PATH 与 rg 意见并纠正 MCP 证据措辞；本机 OpenCode 23 项、Node 1702 通过/40 跳过、UI 35 项和 16 个真实 OpenCode 场景通过，双轴复核无待修复问题，见[验证](tasks/103-opencode-v2/validation.md#yujiawei-最新审查修复)。Windows/Linux 托管结果待当前提交执行。

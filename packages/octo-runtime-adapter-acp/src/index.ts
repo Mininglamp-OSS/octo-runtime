@@ -587,10 +587,11 @@ export function createAcpAdapter(
       await client.close();
     }
     if (invocationFailed) {
-      // 容量等结构化错误继续保留原类型、错误码和测量字段。
+      // 有明确错误码的容量等结构化错误保留原对象；普通内建子类仍交给适配器归一化。
       if (
         invocationError instanceof Error &&
-        (invocationError.constructor !== Error || "code" in invocationError)
+        "code" in invocationError &&
+        (typeof invocationError.code === "string" || typeof invocationError.code === "number")
       )
         throw invocationError;
       throw new AcpInvocationError(invocationError);

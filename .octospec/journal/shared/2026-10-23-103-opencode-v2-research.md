@@ -32,6 +32,8 @@ timestamp: 2026-10-23T00:00:00Z
 
 ## 验证边界
 
+2026-10-24 再次按用户要求 rebase 到 main@c01c0c9，8 个重放提交内容一致。补修 yujiawei 在 a5f5cac 提出的 Windows 环境别名和普通 ACP 内建错误分类遗漏；其 glob／版本 banner 意见前提与代码不符，保留核对证据。最新基线上 Node 1705 通过/40 跳过、UI 35 项、16 个真实 Provider 场景通过；Standards 与 Spec 独立复核无新增问题。Windows 专属分支与 rebase 后 Secret Scan 待新 head 托管检查，详见[最新验证](../../tasks/103-opencode-v2/validation.md#最新-main-与环境别名复核)。以下为最初调研时的历史边界，不代表当前仍未实施。
+
 已执行 issue/网页/registry/固定源码读取和本机两个 executable 的版本查询。用户已安装 V2，本轮未安装或覆盖 Provider；未进行 Runtime 调用或真实模型/工具/审批测试，未修改产品实现。
 
 最初 `python3 .octospec/scripts/lint.py` 因当前 Python 缺少 PyYAML 无法启动；改用 `uv run --with pyyaml python .octospec/scripts/lint.py` 后，仅报告以下 3 个基线已有文件缺少 frontmatter，已通过 `git show HEAD:<path>` 确认，不属于本次变更：

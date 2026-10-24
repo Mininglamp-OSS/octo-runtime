@@ -1,6 +1,6 @@
-status: pr-portability-review-follow-up
+status: pr-main-rebased-windows-env-acp-review-follow-up
 recorded_on: 2026-10-24
-baseline: cc49c8b4ce2d04fd2389585d00ffcf8806b4af72
+baseline: c01c0c9144b74028b3f08ab59d9e27ed7ed8a9ff
 initial_baseline: 445d2bb24f6ffc27bb4414c835e6a0b365f9f25b
 baseline_source: git-fetch-origin-main
 branch: research/103-opencode-v2
@@ -63,7 +63,17 @@ verification:
   v2_binary: user-installed-functional-tests-passed
   runtime_e2e: cli-acp-and-live-im-passed
   model_provider_tools_permissions_cancellation: passed-deepseek-deepseek-flash
-  product_tests: portability-follow-up-node-1704-passed-40-skipped-ui-35-reused
+  product_tests: latest-main-node-1705-passed-40-skipped-ui-35-passed
+  latest_rebase_previous_head: a5f5cac91deaaf600acf6e9d12aba6212dbaabf8
+  latest_rebase_replayed_head: ef9c312
+  latest_rebase_range_diff: all-eight-commits-identical
+  latest_rebase_implementation: 15575e62f3644f1fcdfb8798cd44c090f863edba
+  latest_review_fixed_point: ef9c312
+  windows_environment_aliases: path-pathext-lexical-first-caller-unchanged-ci-pending
+  acp_error_subclasses: ordinary-builtins-wrapped-coded-and-cleanup-errors-preserved
+  latest_review: independent-standards-zero-spec-zero
+  latest_live_tests: sixteen-real-opencode-deepseek-scenarios-passed-cleanup-complete
+  latest_hosted_ci: pending-after-push
   review_regressions: opencode-23-passed-including-native-path-and-core-cleanup
   review_live_tests: rerun-16-real-opencode-deepseek-scenarios-cleanup-complete
   review_fixed_point: 9ca69ac24064627a4ec77783c5f27a8b8647a55b

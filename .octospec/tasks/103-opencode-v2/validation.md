@@ -139,6 +139,20 @@ Jerry-Xin 随后在其他 Node 安装上独立复现同 head 的另一个 P2：�
 
 本轮最终 Node concurrency=4 全量 1744 项：1704 通过、40 跳过、0 失败。根命名检查、全仓格式及 diff 检查通过；OctoSpec lint 仍仅有前述 3 个已有 frontmatter 错误。生产 TypeScript、依赖和锁文件未变，构建／类型结果沿用上一轮；新 head 的托管结果不能由上一 head 的绿色代替。
 
+## 最新 main 与环境别名复核
+
+2026-10-24 从 a5f5cac rebase 到 origin/main@c01c0c9144b74028b3f08ab59d9e27ed7ed8a9ff，新增主线 5 个提交，无冲突；8 个 PR 提交经 range-diff 全部保持内容。原始实现提交现为 15575e62f3644f1fcdfb8798cd44c090f863edba；单条历史扫描指纹同步该 SHA，规范化摘要更新为 55a5f30d872a99b923e9ac3de8018e93e5fb90db554cfa8749b4c7e9823bdb75，不扩大例外范围。
+
+新增 Windows 环境别名场景涵盖 Path／Pathext、混合大小写、重复键、空 PATHEXT 及调用方对象不变。按 Node 子进程字典序首项策略选值；POSIX 仍区分大小写。本机不能执行 Windows 专属分支，已纳入同一 Windows Node 24/26 原生路径测试。
+
+普通 ACP 子类回归在修复前确实因 TypeError 原样上抛而失败；修复后验证 Error／TypeError／SyntaxError／RangeError 及 code=undefined 均包装并保留 cause，结构化容量错误及 close 失败保持原对象。最初额外的 OpenCode 注入测试错误地把 acpClientFactory 放入 context，未实际注入，已删除无效测试；不将该失败当作产品缺陷证据。版本 banner 独立回归证明 opencode v2.1.3 已被支持。
+
+- frozen-lockfile 安装 main 新依赖，workspace build、根类型检查、lint、命名、全仓格式、文档检查通过；文档测试 4 项通过。
+- Node concurrency=4 全量 1745 项：1705 通过、40 跳过、0 失败；其中 OpenCode 文件 25 项通过。UI 在更新后的 happy-dom／lucide 依赖上重新执行，35 项通过。
+- 实际 OpenCode 2.1.3／deepseek/deepseek-flash 的 16 个场景重新执行，预期终态全部通过，最终 cleanup=complete；未重复真实 IM 往返，未修改用户 Provider 安装。
+- Standards／Spec 独立审查均无新增发现。diff 检查通过；OctoSpec lint 通过 uv 临时提供 PyYAML 执行，仍仅报告 3 个既有 systemd frontmatter 错误。
+- 新 head 的托管矩阵与 Secret Scan 待推送后验证；本轮未另行运行本机 Gitleaks，不把之前扫描结果当作 rebase 后结果。
+
 ## 证据边界
 
 未在 Windows/Linux 做真实 OpenCode E2E；未测其他 2.x、其他模型、ACP 图片/表单/终端扩展或实际 Electron App。ACP effort setter 尚未实现，CLI 不传 model 时不猜测默认模型来套用 effort。合成子进程回归覆盖版本超时、异常退出及 stop 后非零退出，不能代替相应 OS 上的原生集成证据。Core 对其他未经此 Adapter 收敛的异常仍可能保守报告 incomplete，不将其解释为所有 Provider 清理问题已解决。

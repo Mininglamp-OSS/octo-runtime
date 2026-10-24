@@ -25,7 +25,7 @@ function containsLegacy(value, name) {
 // 任意内容变更都须重新审核，不能把文件或目录整体排除于命名检查之外。
 // 统一 CRLF/LF 后校验，以兼容 Windows checkout；此例外不改变 Gitleaks 扫描规则。
 const historicalEvidence = new Map([
-  [".gitleaksignore", "91c998b5156daffb8479d70b4a5ab785f94eeb3e7fae2a18c2a24f81d9f2abd8"],
+  [".gitleaksignore", "55a5f30d872a99b923e9ac3de8018e93e5fb90db554cfa8749b4c7e9823bdb75"],
   [
     ".octospec/tasks/gitleaks-history-triage/findings.md",
     "df331c61f2eaea9e18a36ae2150ff053f56bd555c11e57df0c2653e809ed7d70"

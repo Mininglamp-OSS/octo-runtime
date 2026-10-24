@@ -107,15 +107,50 @@ test("executable probing uses platform PATH, extension and cwd semantics", async
       });
   }
   for (const { entries, command, expected } of scenarios) {
-    const env = { ...process.env, PATH: entries.join(delimiter), PATHEXT: ".EXE" };
-    const probe = await probeOpenCode(command, env, directory);
-    // PATHEXT 的大小写可与目录项不同；比较文件系统解析后的路径，仍校验目录选择。
-    assert.equal(await realpath(probe.command), await realpath(expected));
-    assert.equal(probe.version, process.versions.node);
-    // Windows 使用原生 exe，POSIX 保持 Node 安装位置；两者都必须明确拒绝 Node 版本。
+    const inherited = Object.fromEntries(
+      Object.entries(process.env).filter(
+        ([key]) => !["PATH", "PATHEXT"].includes(key.toUpperCase())
+      )
+    );
+    const variants = [{ ...inherited, PATH: entries.join(delimiter), PATHEXT: ".EXE" }];
+    if (process.platform === "win32")
+      variants.push(
+        { ...inherited, Path: entries.join(delimiter), Pathext: ".EXE" },
+        { ...inherited, pAtH: entries.join(delimiter), pAtHeXt: ".EXE" },
+        {
+          ...inherited,
+          Path: join(directory, "missing"),
+          PATH: entries.join(delimiter),
+          Pathext: "",
+          PATHEXT: ".EXE"
+        }
+      );
+    for (const env of variants) {
+      const original = Object.entries(env).filter(([key]) =>
+        ["PATH", "PATHEXT"].includes(key.toUpperCase())
+      );
+      const probe = await probeOpenCode(command, env, directory);
+      // PATHEXT 的大小写可与目录项不同；比较文件系统解析后的路径，仍校验目录选择。
+      assert.equal(await realpath(probe.command), await realpath(expected));
+      assert.equal(probe.version, process.versions.node);
+      // Windows 使用原生 exe，POSIX 保持 Node 安装位置；两者都必须明确拒绝 Node 版本。
+      assert.equal(probe.available, false);
+      assert.match(probe.reason, /OPENCODE_VERSION_UNSUPPORTED/);
+      assert.deepEqual(
+        Object.entries(env).filter(([key]) => ["PATH", "PATHEXT"].includes(key.toUpperCase())),
+        original
+      );
+    }
+  }
+  if (process.platform === "win32") {
+    const env = Object.fromEntries(
+      Object.entries(process.env).filter(
+        ([key]) => !["PATH", "PATHEXT"].includes(key.toUpperCase())
+      )
+    );
+    const probe = await probeOpenCode("opencode", { ...env, PATH: bin, Pathext: "" }, directory);
     assert.equal(probe.available, false);
-    assert.match(probe.reason, /OPENCODE_VERSION_UNSUPPORTED/);
-    assert.equal(env.PATH, entries.join(delimiter));
+    assert.equal(probe.reason, "command_not_found");
   }
 });
 for (const version of ["1.18.30", "2.0.0", "2.1.2", "2.1.3-beta", "3.0.0", "unparseable"]) {
@@ -435,34 +470,40 @@ test("V2 ACP usage retains context size and cost", () => {
 });
 
 test("ACP only qualifies ordinary invocation errors after successful transport cleanup", async () => {
-  for (const closeFails of [false, true]) {
-    const providerError = new Error("provider rejected the request");
-    const cleanupError = new Error("cleanup could not finish");
-    const adapter = createAcpAdapter(
-      { type: "fixture", provider: "fixture", command: "unused" },
-      {
-        acpClientFactory: () => ({
-          initialize: async () => {
-            throw providerError;
-          },
-          close: async () => {
-            if (closeFails) throw cleanupError;
-          }
-        })
-      }
-    );
-    await assert.rejects(
-      async () => {
-        for await (const _ of adapter.invoke(invokeRequest({ approvalMode: "ask" }))) {
-          /* drain */
+  for (const providerError of [
+    new Error("provider rejected the request"),
+    new TypeError("invalid provider object"),
+    new SyntaxError("invalid provider response"),
+    new RangeError("invalid provider range"),
+    Object.assign(new TypeError("no structured code"), { code: undefined })
+  ])
+    for (const closeFails of [false, true]) {
+      const cleanupError = new Error("cleanup could not finish");
+      const adapter = createAcpAdapter(
+        { type: "fixture", provider: "fixture", command: "unused" },
+        {
+          acpClientFactory: () => ({
+            initialize: async () => {
+              throw providerError;
+            },
+            close: async () => {
+              if (closeFails) throw cleanupError;
+            }
+          })
         }
-      },
-      (error) =>
-        closeFails
-          ? error === cleanupError
-          : error instanceof AcpInvocationError && error.cause === providerError
-    );
-  }
+      );
+      await assert.rejects(
+        async () => {
+          for await (const _ of adapter.invoke(invokeRequest({ approvalMode: "ask" }))) {
+            /* drain */
+          }
+        },
+        (error) =>
+          closeFails
+            ? error === cleanupError
+            : error instanceof AcpInvocationError && error.cause === providerError
+      );
+    }
   const structured = Object.assign(new Error("capacity exceeded"), {
     code: "STREAM_RAW_MESSAGE_TOO_LARGE",
     limitBytes: 100
@@ -486,4 +527,11 @@ test("ACP only qualifies ordinary invocation errors after successful transport c
     },
     (error) => error === structured
   );
+});
+
+test("OpenCode accepts a version banner after extracting its stable version", posix, async (t) => {
+  const fixture = await executable(t, 'console.log("opencode v2.1.3");');
+  const probe = await probeOpenCode(fixture.command);
+  assert.equal(probe.available, true);
+  assert.equal(probe.version, "2.1.3");
 });

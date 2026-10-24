@@ -66,3 +66,11 @@ Jerry-Xin 在 `1467724` 提出的 P2 成立：将 process.execPath 硬链接或�
 两个独立审查再次分别核对 Standards／Spec。Standards 无需修复问题；Spec 发现 Git 祖先判断的符号链接绕过，改为 realpathSync(root) 后向上查找，并补真实子目录及外部链接（Windows junction）回归；最终复核无剩余可操作问题。
 
 yujiawei 在 `1467724` 已 Approved，附带两个非阻断 P2：README 现已说明 PATH／UNC 行为和未实测共享边界；工具终态原有 completed/error 显式白名单不变，新增回归保证 pending、running、未知或缺失状态均不被误认为工具终态。没有把所有未知状态猜成失败。
+
+## a5f5cac 审查与再次同步 main
+
+2026-10-24 yujiawei 对 a5f5cac 的新审查有两项真实遗漏：Windows 普通环境对象的 Path／Pathext 别名没有参与探测；ACP 的 constructor 判断把 TypeError／SyntaxError／RangeError 等普通内建异常误判为结构化错误。修复为 Windows 探测副本统一 PATH／PATHEXT 别名，重复别名按 Node 子进程字典序取首项；ACP 仅对含字符串或数字 code 的异常保留对象，其余普通异常在 close 成功后包装，close 异常仍原样上抛。
+
+其余意见逐项核对：excluded 实际仅含字面 basename，没有审查所称的 glob；probeCommand 已提取版本 token，新增 opencode v2.1.3 banner 回归通过，预发布拒绝是明确合同；PATH／UNC 的原生规则与未实测边界已公开。没有按错误前提添加 glob 抽象或放宽版本策略。
+
+用户同时要求更新 main，已 rebase 到 c01c0c9144b74028b3f08ab59d9e27ed7ed8a9ff；8 个提交 range-diff 均为等号，新增主线依赖和 setup-go 更新保留。精确历史扫描例外及命名摘要随原始提交新 SHA 同步。以重放后的 ef9c312 为固定点，两个独立子审查分别复核工作区改动及主线集成：Standards 0 个发现，Spec 0 个发现。Windows 运行结果仍须以新 head 的托管测试确认；上一 head 的通过不替代本轮证据。
