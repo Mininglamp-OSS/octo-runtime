@@ -4,7 +4,7 @@
   "generatorHash": "48834f2540fe6d50a12cd2a5d1418b129a0f0fccd04e08fc6c5c03003dd7a4c0",
   "provenance": {
     "schemaCommit": "879163b86a63604622e4bfdf0e962f4bca420d2d",
-    "generatorCommit": null
+    "generatorCommit": "03b5cba9234f6bcd8b0d1fc354d11818ad53ed3e"
   },
   "files": [
     "native/go/generated.go",
