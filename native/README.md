@@ -9,7 +9,7 @@ Go、Python 各自实现原生 SDK 和 CLI demo，直接连接已有 Executor Ke
 
 两套 demo 的命令和输出相同。完整命令见 [playboard 使用说明](examples/README.md)。代码位于本仓库 `native/`，没有外部 demo 仓库依赖。
 
-SDK 运行时按“一份生成代码 + 一份手写代码”组织：Python 为 `generated.py` + `__init__.py`；Go 为 `generated.go` + `client.go`，另有 8 行的 `pipe_windows.go` 绑定 Windows 专用 API，由编译器自动选择。Transport 是手写实现的内部细节，调用方始终使用一个 SDK 包。测试、demo 和包元数据另计；源码注释使用英文。
+SDK 运行时按“一份生成代码 + 一份手写代码”组织：Python 为 `octo_runtime_generated.py` + `client.py`，`__init__.py` 仅导出公开 API；Go 为 `octo_runtime_generated.go` + `client.go`，另有 8 行的 `pipe_windows.go` 绑定 Windows 专用 API，由编译器自动选择。Transport 是手写实现的内部细节，调用方始终使用一个 SDK 包。测试、demo 和包元数据另计；源码注释使用英文。
 
 ## 构建和运行
 

@@ -29,7 +29,7 @@ Issue 明确授权的 `native/` 客户端是 Kernel 的外部消费者，不把 
 
 ## 关键合同
 
-Go/Python 对外均为一个 SDK 包。每语言一份生成源码和一份手写源码，transport、codec、生命周期并入手写实现。Go 为 `generated.go` / `client.go`，仅额外保留 8 行的 `pipe_windows.go` 编译适配；Python 为 `generated.py` / `__init__.py`，私有 transport 在内部选择平台。使用方不得承担平台文件选择或复制。SDK 与 demo 注释使用英文。
+Go/Python 对外均为一个 SDK 包。每语言一份生成源码和一份手写源码，transport、codec、生命周期并入手写实现。Go 为 `octo_runtime_generated.go` / `client.go`，仅额外保留 8 行的 `pipe_windows.go` 编译适配；Python 为 `octo_runtime_generated.py` / `client.py`，另有仅导出公开 API 的 `__init__.py`。私有 transport 内部选择平台，使用方不得承担平台文件选择或复制。SDK 与 demo 注释使用英文。
 
 1. 数据权威源只在 `packages/octo-runtime-protocol/schema/`。开发时生成 wire 类型、校验规则、行为常量和八个 RPC wrapper。生成文件入库；客户端、invoke/恢复/取消/登记和平台 I/O 在各语言包单份手写维护。
 2. 保持 IPC v1、Run 7、Context v3、Adapter transport 2。补齐描述不等于变更 wire。若发现必须改变现有合法行为，先登记差异、影响和迁移条件，再更新设计，不能静默升级或放宽权限。

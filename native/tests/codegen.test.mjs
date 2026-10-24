@@ -32,8 +32,8 @@ test("generation is reproducible, rejects drift/stale outputs and fails before w
     await readFile(join(output, "native/generated-manifest.json"), "utf8")
   );
   assert.deepEqual(manifest.files, [
-    "native/go/generated.go",
-    "native/python/src/octo_runtime/generated.py"
+    "native/go/octo_runtime_generated.go",
+    "native/python/src/octo_runtime/octo_runtime_generated.py"
   ]);
   assert.ok(manifest.files.every((path) => /^native\/(go|python)\//.test(path)));
   for (const commit of Object.values(manifest.provenance))
@@ -97,9 +97,15 @@ test("generation is reproducible, rejects drift/stale outputs and fails before w
     await readFile(join(output, customManifest.files[0]), "utf8"),
     /octo-runtime schema commit: uncommitted or unavailable/
   );
-  for (const file of ["native/go/generated.go", "native/python/src/octo_runtime/generated.py"])
+  for (const file of [
+    "native/go/octo_runtime_generated.go",
+    "native/python/src/octo_runtime/octo_runtime_generated.py"
+  ])
     assert.match(await readFile(join(output, file), "utf8"), /futureOptional/);
-  for (const file of ["native/go/generated.go", "native/python/src/octo_runtime/generated.py"])
+  for (const file of [
+    "native/go/octo_runtime_generated.go",
+    "native/python/src/octo_runtime/octo_runtime_generated.py"
+  ])
     assert.match(await readFile(join(output, file), "utf8"), /test.inspect/);
   const stable = await readFile(join(output, "native/generated-manifest.json"), "utf8");
   wire.definitions.InvokeResult.properties.futureOptional.unsupportedAssertion = true;

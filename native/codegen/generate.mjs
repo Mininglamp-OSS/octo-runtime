@@ -94,7 +94,9 @@ async function findStale(dir) {
     } else if (
       (entry.name.startsWith("generated_") ||
         entry.name === "generated.go" ||
-        entry.name === "generated.py") &&
+        entry.name === "generated.py" ||
+        entry.name === "octo_runtime_generated.go" ||
+        entry.name === "octo_runtime_generated.py") &&
       path !== "native/generated-manifest.json" &&
       !Object.hasOwn(outputs, path)
     )

@@ -144,6 +144,6 @@ export function emitGo(ir) {
     );
   }
   return {
-    "native/go/generated.go": out.join("\n") + "\n"
+    "native/go/octo_runtime_generated.go": out.join("\n") + "\n"
   };
 }

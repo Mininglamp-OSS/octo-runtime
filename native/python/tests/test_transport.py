@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 from octo_runtime import Client, KernelError
-from octo_runtime import _Channel as Channel, BEHAVIOR
+from octo_runtime.client import _Channel as Channel, BEHAVIOR
 
 
 def windows_transport(win32file, pywintypes, win32event=None):
@@ -17,7 +17,7 @@ def windows_transport(win32file, pywintypes, win32event=None):
         "win32event": win32event or types.ModuleType("win32event"),
         "win32con": types.SimpleNamespace(WAIT_TIMEOUT=258),
     }
-    path = Path(__file__).parents[1] / "src/octo_runtime/__init__.py"
+    path = Path(__file__).parents[1] / "src/octo_runtime/client.py"
     # Load the same SDK's Windows branch without a platform-specific script or distribution.
     with patch.dict(sys.modules, modules), patch.object(sys, "platform", "win32"):
         spec = importlib.util.spec_from_file_location(
@@ -49,7 +49,7 @@ class MeasuredBuffer(bytearray):
 
 class TransportTests(unittest.IsolatedAsyncioTestCase):
     async def test_nonreading_peer_does_not_block_timeout_or_client_close(self):
-        import octo_runtime as transport_module
+        import octo_runtime.client as transport_module
 
         peers = []
         server = await asyncio.start_server(
@@ -232,7 +232,7 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
                 )
 
     async def test_platform_selection_uses_one_transport(self):
-        from octo_runtime import _Transport as Transport
+        from octo_runtime.client import _Transport as Transport
 
         reader = types.SimpleNamespace(read=None)
         writer = types.SimpleNamespace(

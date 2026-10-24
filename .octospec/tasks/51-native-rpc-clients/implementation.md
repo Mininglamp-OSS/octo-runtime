@@ -8,9 +8,9 @@ timestamp: 2026-10-24T00:00:00Z
 
 # 当前交付范围
 
-按用户最新要求，每语言只保留一份生成源码和一份手写实现，codec、生命周期及 transport 全部合并。Python 为 `generated.py` + `__init__.py`，transport 类私有；Go 为 `generated.go` + `client.go`，另有 8 行 `pipe_windows.go` 自动绑定 Windows 专用 API。删除独立 rules、transport、codec、lifecycle 等源码文件；使用方始终只导入一个 SDK 包。SDK、demo 和相关代码注释改为英文，保留核心所有权及取消竞态说明。
+按用户最新要求，每语言只保留一份生成源码和一份手写实现，codec、生命周期及 transport 全部合并。Python 为 `octo_runtime_generated.py` + `client.py`，`__init__.py` 仅导出公开 API；Go 为 `octo_runtime_generated.go` + `client.go`，另有 8 行 `pipe_windows.go` 自动绑定 Windows 专用 API。删除独立 rules、transport、codec、lifecycle 等源码文件；同一份完整 SDK 源码全平台使用，使用方不选择或复制平台文件。SDK、demo 和相关代码注释改为英文，保留核心所有权及取消竞态说明。
 
-合并后两语言各完整重跑 45 项测试通过，含每语言 354 条协议样例、仓外安装及包内 demo；Python wheel 断言安装包仅有两个源码文件。Go race、Python 七项单测和生成器两项回归通过。Linux/Windows amd64 全模块交叉编译通过，仅为编译证据。生成源码合并为 2 文件、1959 行；手写实现 Go 1966 行、Python 1218 行，Go 平台适配另 8 行。
+合并后两语言各完整重跑 45 项测试通过，含每语言 354 条协议样例、仓外安装及包内 demo；生成文件改名、Python 实现迁入 client.py 后再次重跑相同套件。Python wheel 断言仅含 client.py、octo_runtime_generated.py 和薄导出 __init__.py，并验证两种公开导入得到同一 Client。Go race 在合并后通过；Python 七项单测和生成器两项回归在迁移后通过。Linux/Windows amd64 全模块交叉编译通过，仅为编译证据。生成源码 2 文件、1959 行；手写实现 Go 1966 行、Python 1218 行，Go 平台适配另 8 行。
 
 2026-10-24 用户最新决定：仅交付完整 Go/Python SDK，移除 Rust SDK、demo、emitter、生成源码、Cargo 锁和工具链要求。生成仅需 Node/gofmt，检查仅需 Node；manifest 当前包含 2 个生成源码。两套示例就是各自语言包中的普通文件：Go 的 `examples/demo_playboard.go`、Python 的 `demo_playboard.py`，不另建 demo 工程。Native 不接入 GitHub CI。当前验收范围见 [brief](brief.md) 和 [plan](plan.md)。
 

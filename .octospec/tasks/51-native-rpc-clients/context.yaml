@@ -89,7 +89,7 @@ decisions:
   - Client-side numeric fidelity does not promise arbitrary precision through the existing TS JSON.parse service.
   - User corrected demo location to this worktree's native directory; Go/Python have package-local demo_playboard source files.
   - Python models use TypedDict; Windows overlapped completion uses bounded event polling rather than an executor thread.
-  - Latest user scope is one generated source and one handwritten source including transport per language. Python uses generated.py and __init__.py with private platform classes; Go uses generated.go and client.go plus an 8-line pipe_windows.go API binding selected by the compiler. Consumers import one SDK package and never choose or copy platform variants.
+  - Latest user scope is one generated source and one handwritten source including transport per language. Generated files are named octo_runtime_generated.go and octo_runtime_generated.py. Python implementation lives in client.py; __init__.py only re-exports public API. Go uses client.go plus an 8-line pipe_windows.go API binding selected by the compiler. The same complete SDK source works on all platforms without consumer-selected or copied platform variants.
   - Fix the four reproduced verified-review defects and add local regressions. Latest user instruction requires English comments throughout native SDK, demo and related code, superseding the earlier Chinese-comment request; retain ownership/cancellation/codec explanations and do not add native CI.
   - Fix all four rereview findings; preserve in-flight OVERLAPPED resources even if cancellation fails, detach observer waiting from cancel ACK, reject malformed Extra Unicode, and validate URL ports/hostname.
   - macOS minimum/current and real Codex text smoke passed; Linux/Windows and full boundary/stress acceptance remain open.
@@ -149,5 +149,5 @@ current_validation:
     result: PASS; 9 tests in each environment; production Git ignore guard retained.
   - scope: Source provenance and generation
     result: PASS; 2 generated sources (1959 lines) carry octo-runtime schema commit and schema/generator SHA-256; deterministic regeneration, custom-input provenance, empty-PATH check and drift detection passed.
-  - scope: Compact SDK layout; Go 3 runtime sources and Python 2 runtime sources; English comments
+  - scope: Compact SDK layout; each language has 2 implementation sources plus 1 package export or OS binding source; English comments
     result: PASS; both languages reran all 45 integration tests after consolidation; Go race, Python 7 unit tests and Linux/Windows amd64 cross-compilation passed. Cross-compilation and API stubs are not real OS IPC acceptance.

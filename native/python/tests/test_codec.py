@@ -3,7 +3,7 @@ import unittest
 from decimal import Decimal
 from unittest.mock import AsyncMock, patch
 from octo_runtime import Client, KernelError, UNSET, encode, loads, dumps
-from octo_runtime import identify
+from octo_runtime.client import identify
 
 
 class CodecTests(unittest.IsolatedAsyncioTestCase):

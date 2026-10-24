@@ -37,8 +37,8 @@ packages/octo-runtime-protocol/schema/
 native/
   README.md
   codegen/{generate.mjs,normalize.mjs,emit-*.mjs}
-  go/{go.mod,go.sum,client.go,generated.go,pipe_windows.go,examples/demo_playboard.go,cmd/interop-driver/}
-  python/{pyproject.toml,uv.lock,src/octo_runtime/{__init__.py,generated.py},demo_playboard.py}
+  go/{go.mod,go.sum,client.go,octo_runtime_generated.go,pipe_windows.go,examples/demo_playboard.go,cmd/interop-driver/}
+  python/{pyproject.toml,uv.lock,src/octo_runtime/{__init__.py,client.py,octo_runtime_generated.py},demo_playboard.py}
   tests/{run.mjs,serve-kernel.mjs,driver-protocol.md,codegen.test.mjs,interop.test.mjs}
 ```
 

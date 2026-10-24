@@ -8,7 +8,7 @@ timestamp: 2026-10-24T00:00:00Z
 
 # 最新范围与复验
 
-最终按“一份生成源码 + 一份手写实现”合并 SDK。Python 仅 `generated.py` / `__init__.py`；Go 仅 `generated.go` / `client.go`，另有 8 行 `pipe_windows.go` 自动绑定平台 API。Transport、codec 和生命周期均是手写实现内部细节，消费者一个包/import；删除独立 rules 等模块。SDK、demo 和相关代码注释使用英文。合并后两语言各完整重跑 45 项本地套件通过，含仓外安装和 demo；Go race、Python 七项单测、生成器两项回归和 Linux/Windows amd64 交叉编译通过，交叉编译不作为实机 IPC 证据。
+最终按“一份生成源码 + 一份手写实现”合并 SDK。生成文件统一命名为 `octo_runtime_generated` 加语言扩展名。Python 实现在 `client.py`，`__init__.py` 仅导出公开 API；Go 实现在 `client.go`，另有 8 行 `pipe_windows.go` 自动绑定平台 API。同一份完整源码全平台使用，调用方不选择或复制平台版本。Transport、codec 和生命周期均是手写实现内部细节；删除独立 rules 等模块。SDK、demo 和相关代码注释使用英文。两语言各完整重跑 45 项本地套件通过，含仓外安装和 demo；Go race、Python 七项单测、生成器两项回归和 Linux/Windows amd64 交叉编译通过，交叉编译不作为实机 IPC 证据。
 
 用户移除 Rust，仅保留完整 Go/Python SDK；示例统一为语言包内的 `demo_playboard.go` / `demo_playboard.py`。生成文件头部携带 octo-runtime Schema commit 与输入/生成器摘要，完整 manifest 记录来源。Native 不接入 GitHub CI。两语言各 45 项/354 协议样例通过，Go race、Python 七项单测及生成/包外/demo 验证通过。
 

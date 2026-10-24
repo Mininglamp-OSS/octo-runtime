@@ -105,7 +105,7 @@ test(`${language} archive consumer runs outside the repository without Node on P
     const location = execute(binary, [
       "-I",
       "-c",
-      "import octo_runtime;from pathlib import Path;assert sorted(p.name for p in Path(octo_runtime.__file__).parent.glob('*.py')) == ['__init__.py', 'generated.py'];print(octo_runtime.__file__)"
+      "import octo_runtime;from octo_runtime.client import Client;from pathlib import Path;assert octo_runtime.Client is Client;assert sorted(p.name for p in Path(octo_runtime.__file__).parent.glob('*.py')) == ['__init__.py', 'client.py', 'octo_runtime_generated.py'];print(octo_runtime.__file__)"
     ]).trim();
     assert.ok(location.startsWith(venv), location);
   } else throw Error("Unknown language");

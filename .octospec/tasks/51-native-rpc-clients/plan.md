@@ -20,9 +20,9 @@ timestamp: 2026-10-24T00:00:00Z
 | M1 生成 | `native/codegen` 只保留 Go/Python emitter；模型、规则、行为常量、RPC 由共享输入生成；客户端/生命周期各语言单份维护 | A09-A12/A37；2 个生成源码和 manifest v2，输入/生成器/各文件 hash 一致；重复生成字节一致，未知关键字与缺工具在写回前失败 |
 | M2 联调 | `native/tests/run.mjs` 默认 all=go+python；共享 driver、TS fixtures、真实 Kernel/fake Provider、故障 relay | 每语言独立报告，缺工具失败；请求计数及 barrier 证明无重发；测试宿主回收自己启动的服务 |
 | M3 Go | `native/go` 完整公共 RPC、lazy Invoke、身份恢复、取消、交互、registry/drain；包内 `examples/demo_playboard.go` | Go race 单测与共享套件通过；module zip 下载至仓外空 cache，独立 demo 在无 Node PATH 下调用真实 Kernel |
-| M5 Python | `native/python` 完整 async SDK；所有手写代码及私有 Unix/Windows transport 统一在 `__init__.py`；包内 `demo_playboard.py` | Python 3.11+ 单测与共享套件通过；wheel/sdist 独立构建，新 venv 隔离运行；UNSET/null、opaque 数字和取消完成边界保持 |
+| M5 Python | `native/python` 完整 async SDK；所有手写代码及私有 Unix/Windows transport 统一在 `client.py`；`__init__.py` 仅导出；包内 `demo_playboard.py` | Python 3.11+ 单测与共享套件通过；wheel/sdist 独立构建，新 venv 隔离运行；UNSET/null、opaque 数字和取消完成边界保持 |
 | M6 平台/包外 | 两语言 × macOS/Linux/Windows 六格；各语言最低/当前版本；显式真实 Provider 验证单列 | A31-A38/A40 有实际证据；交叉编译、API stub、skip 不算平台通过；未执行保持待验 |
-| M7 交付 | SDK/示例 README、当前任务和规则、英文 PR；SDK 核心入口及竞态的英文注释；Go 3 个/Python 2 个运行时源码 | A01-A40 逐项证据；相关生成/文档/diff 检查通过；远端批准与合并状态以 GitHub 为准 |
+| M7 交付 | SDK/示例 README、当前任务和规则、英文 PR；SDK 核心入口及竞态的英文注释；每语言 2 个实现文件及 1 个编译适配或包导出文件 | A01-A40 逐项证据；相关生成/文档/diff 检查通过；远端批准与合并状态以 GitHub 为准 |
 
 # 执行命令
 

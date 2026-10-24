@@ -78,6 +78,6 @@ export function emitPython(ir) {
         `    async def rpc_${snake(m.name)}(self, params: ${nodes[m.paramsId].name}) -> ${nodes[m.resultId].name}:\n        return await self._rpc(${JSON.stringify(m.method)}, params)`
       );
   return {
-    "native/python/src/octo_runtime/generated.py": out.join("\n") + "\n"
+    "native/python/src/octo_runtime/octo_runtime_generated.py": out.join("\n") + "\n"
   };
 }
