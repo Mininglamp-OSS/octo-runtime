@@ -63,8 +63,9 @@ async function cli(account, args, body) {
   } catch (error) {
     let code = "QA_CLI_FAILED";
     try {
-      const candidate = JSON.parse(error.stderr).error.code;
-      if (/^[A-Z0-9_]+$/.test(candidate)) code = candidate;
+      const candidate = JSON.parse(error.stdout || error.stderr).error.code;
+      if (typeof candidate === "string" && /^[A-Za-z0-9_.-]+$/.test(candidate)) code = candidate;
+      else if (Number.isSafeInteger(candidate)) code = `NATIVE_${candidate}`;
     } catch {}
     throw new Error(`${args.slice(0, 2).join(".")}:${code}`);
   }
@@ -275,7 +276,6 @@ OctoConnector.prototype.card = async function (...args) {
         (await runCli(["--home", directory, "extraset", "channel-gateway"], {
           input: Readable.from([
             JSON.stringify({
-              module: options.declaration.module,
               config: options.declaration.config
             })
           ]),
@@ -286,9 +286,9 @@ OctoConnector.prototype.card = async function (...args) {
       const entrypoint = absolute("../apps/cli/dist/index.js");
       const child = spawn(
         process.execPath,
-        [entrypoint, "--home", directory, "channel-gateway", "run"],
+        [entrypoint, "--home", directory, "--json", "channel-gateway", "run"],
         {
-          stdio: ["ignore", "pipe", "ignore"],
+          stdio: ["ignore", "pipe", "pipe"],
           ...(instrumented
             ? {
                 env: {
@@ -301,6 +301,10 @@ OctoConnector.prototype.card = async function (...args) {
       );
       let output = "",
         closing;
+      let stderr = "";
+      child.stderr.on("data", (chunk) => {
+        stderr = (stderr + chunk).slice(-8192);
+      });
       const exited = new Promise((resolve, reject) => {
         child.once("exit", resolve);
         child.once("error", reject);
@@ -330,7 +334,27 @@ OctoConnector.prototype.card = async function (...args) {
         })());
       try {
         await waitFor(() => {
-          ensure(child.exitCode === null, "QA_CLI_EARLY_EXIT");
+          const failure = output
+            .split("\n")
+            .flatMap((line) => {
+              try {
+                return [JSON.parse(line)];
+              } catch {
+                return [];
+              }
+            })
+            .find((value) => value.error)?.error;
+          const code =
+            failure?.cause_code ??
+            failure?.code ??
+            output.match(/"code":\s*"([A-Z0-9_]+)"/)?.[1] ??
+            stderr.match(/\b(?:ERR_|[A-Z]+_)[A-Z_]{3,}\b/)?.[0];
+          ensure(
+            child.exitCode === null,
+            typeof code === "string" && /^[A-Z0-9_]+$/.test(code)
+              ? `QA_CLI_EARLY_EXIT:${code}`
+              : "QA_CLI_EARLY_EXIT"
+          );
           return output.includes('"state":"ready"');
         }, "QA_CLI_START_TIMEOUT");
       } catch (error) {
@@ -341,7 +365,7 @@ OctoConnector.prototype.card = async function (...args) {
         async status() {
           const { stdout } = await execute(
             process.execPath,
-            [entrypoint, "--home", directory, "status"],
+            [entrypoint, "--home", directory, "status", "--json"],
             {
               timeout: 10000,
               maxBuffer: 1 << 20
