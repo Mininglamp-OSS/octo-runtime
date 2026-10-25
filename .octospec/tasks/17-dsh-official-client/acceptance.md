@@ -10,7 +10,7 @@ timestamp: 2026-10-25T00:00:00Z
 
 基线 `982a2fe7b976071f76b9626af4cb65c9d2e50d08`，分支 `fix/17-dsh-official-client`，下列运行结果取自提交前 dirty 工作树。macOS arm64，Node 24.19.0，pnpm 11.19.0。官方 Client/Protocol 与本机 Desktop 的 DSH 均为 0.2.1-rc.3，wire 为 0.0.1。本记录不能证明原生 Windows 或其他 DSH 版本。
 
-使用 verified-review 串行阅读每个源码、配置、测试及知识文件，覆盖 23 个文件；生成的 pnpm-lock.yaml 只核对直接依赖和精确版本，不逐行审查传递依赖。删除的 client.ts 作为替换上下文。检查公开接口、资源所有权、取消/超时首错、通知队列、脱敏、会话恢复、Desktop execve、发行入口、许可证和失败测试。
+使用 verified-review 串行阅读每个源码、配置、测试及知识文件，覆盖 24 个文件；生成的 pnpm-lock.yaml 只核对直接依赖和精确版本，不逐行审查传递依赖。删除的 client.ts 作为替换上下文。检查公开接口、资源所有权、取消/超时首错、通知队列、脱敏、会话恢复、Desktop execve、发行入口、许可证和失败测试。
 
 # 自动化
 
@@ -44,6 +44,10 @@ timestamp: 2026-10-25T00:00:00Z
 用户给定文件是七个 Bot 条目，其中四个提供可用 Bot Token，没有人类网页登录凭据。浏览器停在登录页，消息、卡片、续聊的浏览器操作保持 BLOCKED，不能用上面的 API 验证代替。已向用户请求可网页登录的测试账号文件路径或在可见 Chrome 中登录，凭据不进入本记录。
 
 # 审查结论
+
+首轮托管 CI 在安装阶段因五个未声明策略的 Provider 传递依赖 hook 失败；逐项核对 scripts 后，将精确版本的 dsh-subprocess-local、Google genai、koffi、node-pty、protobufjs 设为 allowBuilds=false。Runtime 不运行 npm 安装的 Provider，实际 Client/Protocol JS 不引用这些 helper；不放开任意安装脚本。修复后本地正常 prepare 构建通过。
+
+首轮 Dependency Review 发现新增依赖的 undici 8.11.2、zod 4.4.3、MCP client 2.2.0、fflate 0.8.2 含公开漏洞。按 GHSA-xjj6-f33q-929c、GHSA-mrhx-c7xc-m3w5、GHSA-6prh-2h8m-c8cw、GHSA-px8p-9vwx-vf98 的修复版本，分别精确 override 为 8.12.2、4.6.6、2.3.0、0.8.3。没有修改官方 Client 源码或版本。重新构建、冻结 lock 安装、格式检查和全量测试通过；Node 仍为 1731 通过、41 跳过，UI 35 通过。新的托管 CI/Dependency Review 待核对，不能将首轮失败写成通过。
 
 发行脚本最初仅写 MIT 名称，遗漏上游完整版权与授权文本；read-confirmed，已在本轮修复：从两个实际 npm 包复制完整 LICENSE，并由发行验收断言授权与版权文字。修复后离线验证通过。
 
