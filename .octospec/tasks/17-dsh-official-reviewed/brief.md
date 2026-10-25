@@ -22,7 +22,9 @@ npm 于 2026-10-25 核对的最高版本仍为 `@deepseek-ai/dsh-sdk-client@0.2.
 
 原版官方库缺少进程树所有权及解析前行预算，因此通过 pnpm patchedDependencies 提交两个与精确版本绑定的补丁，而非另写客户端。补丁与完整 MIT license、变更说明一同保留在发行物。
 
-Client 补丁增加三个可选输入：detached、createProcessCleanup、rawMessageMaxBytes。spawn 捕获本轮清理函数，close 的同一 Promise 在 shutdown 后调用现有 Adapter SDK createProcessCleanup；POSIX 独立进程组不受 leader 已退出影响，TERM/KILL 后确认组消失才允许终态。finally 关闭 transport、订阅和输出流；失败不能报告清理成功。Desktop 入口仍只 execve，保留官方拥有的 PID/stdio。
+Client 补丁增加四个可选输入：detached、createProcessCleanup、rawMessageMaxBytes、maxSessionRelationships。spawn 捕获本轮清理函数，close 的同一 Promise 在 shutdown 后调用现有 Adapter SDK createProcessCleanup；POSIX 独立进程组不受 leader 已退出影响，TERM/KILL 后确认组消失才允许终态。finally 关闭 transport、订阅和输出流；失败不能报告清理成功。Desktop 入口仍只 execve，保留官方拥有的 PID/stdio。
+
+本轮独立 Standards/Spec 审查还复现了 SDK stderr 和关系表的无界路径。补丁将未换行 stderr 后缀限制为 16384 个 UTF-16 code unit（最多 49152 UTF-8 bytes），尾部每行最多 1024 code unit、总量最多 65536 UTF-8 bytes；仅保留诊断后缀，不暴露原文。SDK 的 lineage 在 filter 前最多登记 128 项，每个身份最多 191 字符，超量关闭本轮并返回 STREAM_QUEUE_ITEMS_EXCEEDED。版本探针保留原始 IO cause、安全 errno、数字 exitCode，并在回收失败时聚合首错与清理事实。
 
 Protocol 补丁在 StringDecoder、拼接和 JSON.parse 前按原始分片计数字节，检查所有响应和通知，并覆盖尚无换行的数据。CR 计入预算，LF 分隔符不计入；恰好上限接收，超过一字节即拒绝。拒绝清空缓冲、移除 reader、拒绝 pending 和后续 request，以稳定 PROVIDER_MESSAGE_TOO_LARGE 通知 Client 和 Adapter。原有 RPC 编码、方法、订阅和错误类型继续使用官方实现。
 

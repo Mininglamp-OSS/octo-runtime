@@ -172,6 +172,7 @@ export function createDshAdapter(options: DshAdapterOptions = {}) {
                   killGraceMs: 1000
                 }),
               rawMessageMaxBytes: limits.rawMessageMaxBytes,
+              maxSessionRelationships: 128,
               initializeTimeoutMs,
               requestTimeoutMs,
               shutdownTimeoutMs

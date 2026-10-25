@@ -3,6 +3,7 @@ import { appendFileSync, writeFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 
 if (process.argv.includes("--version")) {
+  if (process.env.OCTO_DSH_FIXTURE === "version-exit") process.exit(23);
   if (process.env.OCTO_DSH_FIXTURE === "version-cancel") {
     writeFileSync(process.env.OCTO_DSH_VERSION_PID, String(process.pid));
     setInterval(() => {}, 1000);
@@ -134,6 +135,20 @@ createInterface({ input: process.stdin }).on("line", (line) => {
   trace(message);
   const { id, method, params } = message;
   if (method === "initialize") {
+    if (mode === "stderr-line" || mode === "stderr-partial") {
+      process.stderr.write("x".repeat(8 * 1024 * 1024) + (mode === "stderr-line" ? "\n" : ""), () =>
+        process.exit(7)
+      );
+      return;
+    }
+    if (mode === "foreign-lineage") {
+      for (let i = 0; i < 2000; i++)
+        send({
+          method: "subagent.started",
+          params: { parentSessionId: "unrelated", childSessionId: `foreign-${i}` }
+        });
+      return;
+    }
     if (mode === "oversized-initialize")
       return result(id, {
         serverInfo: { name: "deepseek-harness-sdk-runtime", version: "0.0.1" },

@@ -4,7 +4,7 @@ import { access, stat } from "node:fs/promises";
 import { delimiter, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createProcessCleanup } from "@mininglamp-oss/octo-runtime-adapter-sdk/process-cleanup";
-import { DSH_VERSION, DshError } from "./errors.js";
+import { DSH_VERSION, DshError, dshError, nativeCode } from "./errors.js";
 
 export interface DshLaunch {
   command: string;
@@ -155,14 +155,29 @@ async function checkVersion(launch: DshLaunch, signal?: AbortSignal): Promise<vo
     await new Promise<void>((resolveVersion, reject) => {
       rejectPending = reject;
       timer = setTimeout(stop, 10000);
-      child.once("error", stop);
-      child.stdout.on("error", stop);
+      const ioFailure = (error: NodeJS.ErrnoException) =>
+        reject(
+          new DshError(
+            "DSH_START_FAILED",
+            {
+              phase: "version",
+              nativeCode: nativeCode(error.code) ?? null
+            },
+            { cause: error }
+          )
+        );
+      child.once("error", ioFailure);
+      child.stdout.on("error", ioFailure);
       child.stdout.on("data", (chunk: Buffer) => {
         bytes += chunk.length;
         if (bytes > 4096) stop();
         else output += chunk.toString("utf8");
       });
-      child.once("close", (code) => (code === 0 ? resolveVersion() : stop()));
+      child.once("close", (code, signal) =>
+        code === 0
+          ? resolveVersion()
+          : reject(new DshError("DSH_START_FAILED", { phase: "version", exitCode: code, signal }))
+      );
       signal?.addEventListener("abort", stop, { once: true });
       if (signal?.aborted) stop();
     });
@@ -175,10 +190,23 @@ async function checkVersion(launch: DshLaunch, signal?: AbortSignal): Promise<vo
     try {
       await cleanup();
     } catch (error) {
+      const primary = failure === undefined ? undefined : dshError(failure, "DSH_START_FAILED");
+      const cleanup = dshError(error, "DSH_CLEANUP_FAILED");
       failure = new DshError(
         "DSH_CLEANUP_FAILED",
-        { phase: "version", pid: child.pid ?? null },
-        { cause: error }
+        {
+          ...primary?.diagnostics,
+          phase: "version",
+          pid: child.pid ?? null,
+          primaryCode: primary?.code ?? "NONE",
+          cleanupCode: cleanup.diagnostics.nativeCode ?? cleanup.code
+        },
+        {
+          cause: new AggregateError(
+            failure === undefined ? [error] : [failure, error],
+            "DSH version probe cleanup failed"
+          )
+        }
       );
     } finally {
       child.stdout.destroy();

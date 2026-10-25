@@ -66,6 +66,8 @@ serveWorker([dshAdapter]);
 
 `session/wait` 使用本轮 runTimeoutMs，未指定时为 120000 毫秒。版本探针有独立 10000 毫秒期限，也观察取消并回收进程树。Adapter 在官方通知回调中同步投影并检查通知大小，canonical 队列沿 Runtime StreamLimitPolicy。
 
+补丁还限制 SDK 自身的诊断与关系表：未换行 stderr 后缀最多 16384 个 UTF-16 code unit，保留尾部总量最多 65536 UTF-8 bytes；SDK lineage 最多 128 项，身份最长 191 字符。无关会话通知同样消耗 SDK 的关系预算，超量以 STREAM_QUEUE_ITEMS_EXCEEDED 失败；不会用 filter 丢弃来掩盖内存增长。
+
 上游原版 SDK 0.2.1-rc.3 没有解析前行字节上限。本项目通过 `pnpm patchedDependencies` 固定两个可审查补丁：Client 接收本轮字节预算和受管进程清理函数；官方 Protocol 在 StringDecoder、字符串拼接和 JSON.parse 之前逐段计数字节，覆盖响应、通知以及尚无换行的数据。超限以 PROVIDER_MESSAGE_TOO_LARGE 失败并关闭本轮传输。CRLF 中的 CR 计入行预算，LF 分隔符不计入；恰好等于上限仍可接收。补丁随源码及发行包保留，不声称这些扩展已经上游发布。非 JSON 行仍按上游行为忽略，无有效初始化响应最终超时失败。订阅过滤回调返回 false，避免在 SDK 内额外积累通知队列。
 
 ## 输出和限制

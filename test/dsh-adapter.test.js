@@ -93,6 +93,7 @@ test("DSH canonical contract: committed stream, Unicode, CRLF, usage and indepen
 });
 
 for (const [mode, code] of [
+  ["foreign-lineage", "STREAM_QUEUE_ITEMS_EXCEEDED"],
   ["provider-error", "DSH_EXECUTION_FAILED"],
   ["no-receipt", "DSH_TRAJECTORY_INVALID"],
   ["no-terminal", "DSH_TRAJECTORY_INVALID"],
@@ -397,6 +398,38 @@ test("DSH version mismatch refuses input; abort also reclaims the version probe"
   assert.equal(terminals(await pending)[0].type, "run.cancelled");
   assert.throws(() => process.kill(pid, 0), /ESRCH/);
 });
+
+test("DSH version probe retains a nonzero process exit independently of the public code", async (t) => {
+  const f = await fixture(t, "version-exit");
+  const failed = terminals(await collect(f.request))[0];
+  assert.equal(failed.payload.code, "DSH_START_FAILED");
+  assert.equal(failed.payload.diagnostics.exitCode, 23);
+  await assert.rejects(f.trace(), { code: "ENOENT" });
+});
+
+test(
+  "DSH version probe retains primary and cleanup errors when process-group confirmation is denied",
+  {
+    skip: process.platform === "win32" ? "POSIX process-group confirmation" : false
+  },
+  async (t) => {
+    const f = await fixture(t, "version");
+    const original = process.kill;
+    process.kill = function (pid, signal) {
+      if (pid < 0 && signal === 0)
+        throw Object.assign(new Error("fixture permission denial"), { code: "EPERM" });
+      return original.call(process, pid, signal);
+    };
+    try {
+      const failed = terminals(await collect(f.request))[0];
+      assert.equal(failed.payload.code, "DSH_CLEANUP_FAILED");
+      assert.equal(failed.payload.diagnostics.primaryCode, "DSH_VERSION_UNSUPPORTED");
+      assert.equal(failed.payload.diagnostics.cleanupCode, "PROCESS_CLEANUP_TIMEOUT");
+    } finally {
+      process.kill = original;
+    }
+  }
+);
 
 test(
   "DSH cancellation reclaims a live native descendant after its parent exits",

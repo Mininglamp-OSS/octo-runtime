@@ -11,6 +11,9 @@ const require = createRequire(adapterRequire.resolve("@deepseek-ai/dsh-sdk-clien
 const { JsonRpcLineTransport } = await import(
   pathToFileURL(require.resolve("@deepseek-ai/dsh-sdk-protocol"))
 );
+const { HarnessClient } = await import(
+  pathToFileURL(require.resolve("@deepseek-ai/dsh-sdk-client"))
+);
 
 function endpoint(t, maxLineBytes, onError) {
   const input = new PassThrough();
@@ -66,4 +69,32 @@ test("official Protocol enforces response limits and stops later notifications i
   );
   await assert.rejects(pending, { code: "PROVIDER_MESSAGE_TOO_LARGE" });
   assert.equal(received, 0);
+});
+
+for (const mode of ["stderr-line", "stderr-partial"])
+  test(`official Client bounds retained ${mode} diagnostics after unexpected process exit`, async () => {
+    const client = new HarnessClient({
+      dshBin: new URL("./fixtures/dsh-runtime.mjs", import.meta.url).pathname,
+      rawMessageMaxBytes: 1024,
+      initializeTimeoutMs: 2000,
+      env: { ...process.env, OCTO_DSH_FIXTURE: mode }
+    });
+    try {
+      await assert.rejects(
+        client.initialize({ cwd: process.cwd(), provider: "fixture", model: "fixture" }),
+        (error) =>
+          error.name === "TransportClosedError" && Buffer.byteLength(error.message) < 70 * 1024
+      );
+    } finally {
+      await client.close();
+    }
+  });
+
+test("official subscription close rejects a pending read immediately", async () => {
+  const client = new HarnessClient();
+  const subscription = client.subscribe(() => false);
+  const pending = subscription.next();
+  subscription.close();
+  await assert.rejects(pending, { name: "TransportClosedError" });
+  await client.close();
 });

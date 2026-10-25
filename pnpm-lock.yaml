@@ -11,7 +11,7 @@ overrides:
   fflate@0.8.2: 0.8.3
 
 patchedDependencies:
-  '@deepseek-ai/dsh-sdk-client@0.2.1-rc.3': addf6ac658279e6ecfc6858301320abf146bad4e41ef1c8a599486b9d58e1d8f
+  '@deepseek-ai/dsh-sdk-client@0.2.1-rc.3': cd39f417b65bb008e42a14c41edbbbe64d42d7a661b1bb24799a7ab4eddbde28
   '@deepseek-ai/dsh-sdk-protocol@0.2.1-rc.3': 04039f27f8ee1b967987e56c91721bd780229dd6eda6df0ff2df6a82f23b1ee0
 
 importers:
@@ -258,7 +258,7 @@ importers:
     dependencies:
       '@deepseek-ai/dsh-sdk-client':
         specifier: 0.2.1-rc.3
-        version: 0.2.1-rc.3(patch_hash=addf6ac658279e6ecfc6858301320abf146bad4e41ef1c8a599486b9d58e1d8f)(f8fac97f3609076422544fbef9523ba3)
+        version: 0.2.1-rc.3(patch_hash=cd39f417b65bb008e42a14c41edbbbe64d42d7a661b1bb24799a7ab4eddbde28)(f8fac97f3609076422544fbef9523ba3)
       '@mininglamp-oss/octo-runtime-adapter-sdk':
         specifier: workspace:*
         version: link:../octo-runtime-adapter-sdk
@@ -7862,7 +7862,7 @@ snapshots:
       - '@deepseek-ai/dsh-tools'
       - '@deepseek-ai/dsh-working-directory'
 
-  '@deepseek-ai/dsh-sdk-client@0.2.1-rc.3(patch_hash=addf6ac658279e6ecfc6858301320abf146bad4e41ef1c8a599486b9d58e1d8f)(f8fac97f3609076422544fbef9523ba3)':
+  '@deepseek-ai/dsh-sdk-client@0.2.1-rc.3(patch_hash=cd39f417b65bb008e42a14c41edbbbe64d42d7a661b1bb24799a7ab4eddbde28)(f8fac97f3609076422544fbef9523ba3)':
     dependencies:
       '@deepseek-ai/cordis': 4.0.5(@deepseek-ai/cordis-plugin-include@1.0.10)(@deepseek-ai/cordis-plugin-loader@1.0.6)
       '@deepseek-ai/dsh': 0.2.1-rc.3(7d0ab15dabde4aabffdbddd687ee809b)
