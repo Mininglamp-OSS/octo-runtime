@@ -78,8 +78,12 @@ serveWorker([dshAdapter]);
 
 本版 SDK 没有交互审批传输，因此只接受调用方明确选择的 full_access，原生权限固定为 danger-full-access；ask/assisted 在启动前拒绝。工作目录不是沙箱。非 default actmode、逐轮 MCP 不支持时明确拒绝；effort 没有 setter，沿统一 notice 回执说明未应用。
 
+失败边界沿现有 Adapter SDK / Core 合同：Core 在接纳调用前检查协议和审批模式，拒绝时 invoke 迭代会抛错且不启动 Provider；直接调用 Adapter 的 ask/assisted 同样抛出 APPROVAL_MODE_UNSUPPORTED。Adapter SDK 的协议和逐轮 MCP 合同检查也允许抛错。调用被接纳后，DSH 自身的 actmode、沙箱、启动参数、恢复会话和会话占用校验返回单个 canonical run.failed；其中配置错误使用 DSH_CONFIG_INVALID，actmode 使用 DSH_ACTMODE_UNSUPPORTED。重复会话的拒绝不会释放正在执行的会话占用。Core 对这些 DSH 失败保持 cleanup=complete；已启动进程的失败仍须先确认回收。
+
 每轮独占一个官方 HarnessClient；取消调用其 close，不终止 Desktop GUI 或兄弟调用。Client 补丁在 spawn 时建立独立 POSIX 进程组并捕获 Adapter SDK 现有 createProcessCleanup；shutdown 后由同一函数完成 TERM、KILL 和退出确认，父进程已退出也继续回收所属组。只有确认后才输出唯一终态；回收失败保留执行和清理两种原因。Windows 使用现有 taskkill /T 路径，真实 Windows DSH 与父进程先退出后的工具回收尚未验收，不将 POSIX 结果推广到 Windows。Session 文件由 DSH 原生管理，Adapter 不另存业务历史。
 
 失败沿共同 FailureEnvelope：公共 OH 分类码在 `payload.failure.code`，DSH 稳定原因在 `payload.failure.reasonCode` 和顶层兼容 `code`。例如 DSH_SESSION_RESUME_FAILED、DSH_INITIALIZE_TIMEOUT、DSH_REQUEST_TIMEOUT、DSH_TRANSPORT_CLOSED、DSH_TRAJECTORY_INVALID、DSH_EXECUTION_FAILED、DSH_NO_FINAL_OUTPUT、DSH_CANCEL_FAILED、DSH_CLEANUP_FAILED。容量超限保留共同 PROVIDER_MESSAGE_TOO_LARGE / STREAM_QUEUE_* 原因码。Core 日志保留公共码与 reason_code；Adapter 经 invocation context 复用同一日志入口，记录有界阶段、时间、原生安全 code，不记录 prompt、凭据、原生 error.message 或 stderr。官方公共 API 不暴露 PID/request ID，故不读取私有字段或解析其错误文本。独立调用可用 `createDshAdapter({log})` 提供同一受控 RuntimeLog；错误不自动重发模型或工具。
 
 源码声明官方 Client 精确生产依赖。构建发行包时，esbuild 按实际 import 收集应用补丁后的官方 Client 和官方 SDK Protocol 的 JavaScript，保留 workspace 依赖为外部包并记录上游版本、补丁和 MIT 许可。Adapter 始终传入显式 dshBin，因此不使用官方 SDK 自动解析 npm Provider 的默认路径；发行包不携带整套 Provider 或平台原生模块，不在消费者安装时下载 Provider。离线包验证覆盖这条路径。
+
+测试沿仓库的构建产物约定：运行 pnpm test 会先清理并构建当前源码，再执行测试；CI 的 pnpm typecheck 同样先构建，随后运行 pnpm test:suites。内部 trajectory 测试读取本轮构建产物，不作为公共 API 导出；官方 Client 测试通过包名解析其公开入口，不依赖 node_modules 内部布局。单独执行 node --test 前需先运行 pnpm build。

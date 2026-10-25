@@ -30,6 +30,23 @@ export interface DshAdapterOptions {
   log?: RuntimeLog;
 }
 
+function failureEvent(
+  error: DshError,
+  diagnostics: Record<string, string | number | null>
+): CanonicalEvent {
+  return {
+    protocolVersion: 2,
+    type: "run.failed",
+    payload: {
+      code: error.code,
+      message: error.message,
+      retryable: false,
+      adapterType: "dsh",
+      diagnostics: { ...diagnostics, ...error.diagnostics }
+    }
+  };
+}
+
 /**
  * SDK/CLI 共用的独立 Adapter。每 invoke 拥有一个 Provider 子进程；资源回收后才发唯一终态。
  * providerSession 来自调用方，跨调用显式 resume；不缓存业务上下文或安装/修改 Provider。
@@ -63,25 +80,34 @@ export function createDshAdapter(options: DshAdapterOptions = {}) {
           throw new Error(
             "APPROVAL_MODE_UNSUPPORTED: DSH SDK 0.2.1-rc.3 has no interactive approval transport; explicitly select full_access"
           );
-        const actmode = contextActmode(request.context);
-        if (actmode !== undefined && actmode !== "default")
-          throw new Error("ACTMODE_UNSUPPORTED: DSH SDK has no actmode setter");
-        if (
-          request.agentConfig.sandbox !== undefined &&
-          request.agentConfig.sandbox !== "danger-full-access"
-        )
-          throw new Error("DSH_CONFIG_INVALID: full_access requires danger-full-access sandbox");
-        const config = request.agentConfig.providerOptions ?? {};
-        if (!record(config))
-          throw new TypeError("DSH_CONFIG_INVALID: providerOptions must be an object");
-        const requestedId = request.providerSession?.sessionId;
-        if (
-          requestedId !== undefined &&
-          (typeof requestedId !== "string" || !requestedId || requestedId.length > 191)
-        )
-          throw new DshError("DSH_SESSION_RESUME_FAILED");
-        const sessionId = requestedId ?? `octo-${randomUUID()}`;
-        if (sessions.has(sessionId)) throw new DshError("DSH_SESSION_BUSY");
+        let config: Record<string, unknown>;
+        let sessionId: string;
+        let requestedId: string | undefined;
+        try {
+          const actmode = contextActmode(request.context);
+          if (actmode !== undefined && actmode !== "default")
+            throw new DshError("DSH_ACTMODE_UNSUPPORTED");
+          if (
+            request.agentConfig.sandbox !== undefined &&
+            request.agentConfig.sandbox !== "danger-full-access"
+          )
+            throw new DshError("DSH_CONFIG_INVALID");
+          const configured = request.agentConfig.providerOptions ?? {};
+          if (!record(configured)) throw new DshError("DSH_CONFIG_INVALID");
+          config = configured;
+          requestedId = request.providerSession?.sessionId;
+          if (
+            requestedId !== undefined &&
+            (typeof requestedId !== "string" || !requestedId || requestedId.length > 191)
+          )
+            throw new DshError("DSH_SESSION_RESUME_FAILED");
+          sessionId = requestedId ?? `octo-${randomUUID()}`;
+          if (sessions.has(sessionId)) throw new DshError("DSH_SESSION_BUSY");
+        } catch (error) {
+          // No session or process is owned yet; a rejected duplicate must not release its owner.
+          yield failureEvent(dshError(error, "DSH_CONFIG_INVALID"), { phase: "preflight" });
+          return;
+        }
         sessions.add(sessionId);
         const started = Date.now();
         let phase = "launch";
@@ -314,26 +340,17 @@ export function createDshAdapter(options: DshAdapterOptions = {}) {
         }
         if (primary) {
           diagnostic(primary.code, primary.diagnostics);
-          yield {
-            protocolVersion: 2,
-            type: "run.failed",
-            payload: {
-              code: primary.code,
-              message: primary.message,
-              retryable: false,
-              adapterType: "dsh",
-              diagnostics: {
-                phase: cleanup ? "cleanup" : (failurePhase ?? phase),
-                durationMs: Date.now() - started,
-                ...primary.diagnostics
-              }
-            }
-          };
+          yield failureEvent(primary, {
+            phase: cleanup ? "cleanup" : (failurePhase ?? phase),
+            durationMs: Date.now() - started
+          });
         } else if (terminal) {
           diagnostic(terminal.type === "run.completed" ? "completed" : "cancelled");
           yield terminal;
         } else {
-          throw new DshError("DSH_TRAJECTORY_INVALID");
+          const failure = new DshError("DSH_TRAJECTORY_INVALID");
+          diagnostic(failure.code);
+          yield failureEvent(failure, { phase, durationMs: Date.now() - started });
         }
       }
     },

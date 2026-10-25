@@ -4,13 +4,26 @@ import { randomUUID } from "node:crypto";
 import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createRequire } from "node:module";
+import { pathToFileURL } from "node:url";
 import { createDshAdapter, dshAdapter } from "@mininglamp-oss/octo-runtime-adapter-dsh";
+// Internal-module tests use the repository's built-artifact contract: pnpm test builds first.
 import { DshTrajectory } from "../packages/octo-runtime-adapter-dsh/dist/trajectory.js";
-import { HarnessClient } from "../packages/octo-runtime-adapter-dsh/node_modules/@deepseek-ai/dsh-sdk-client/lib/index.js";
-import { assertCanonicalEvent, failurePayload } from "@mininglamp-oss/octo-runtime-protocol";
+import {
+  assertCanonicalEvent,
+  failurePayload,
+  invocationInput
+} from "@mininglamp-oss/octo-runtime-protocol";
 import { AgentExecutor } from "@mininglamp-oss/octo-runtime-executor-core";
 import { RuntimeLogging } from "../packages/octo-runtime-adapter-sdk/dist/index.js";
 import { invokeRequest } from "./runtime-fixture.js";
+
+const adapterRequire = createRequire(
+  new URL("../packages/octo-runtime-adapter-dsh/package.json", import.meta.url)
+);
+const { HarnessClient } = await import(
+  pathToFileURL(adapterRequire.resolve("@deepseek-ai/dsh-sdk-client"))
+);
 
 const fixturePath = new URL("./fixtures/dsh-runtime.mjs", import.meta.url).pathname;
 const terminals = (events) =>
@@ -61,8 +74,51 @@ test("DSH accepts the official dshBin module option and rejects conflicting laun
   f.request.agentConfig.providerOptions = { dshBin: fixturePath };
   assert.equal(terminals(await collect(f.request))[0].type, "run.completed");
   f.request.agentConfig.providerOptions.command = process.execPath;
-  assert.equal(terminals(await collect(f.request))[0].type, "run.failed");
+  assert.equal(terminals(await collect(f.request))[0].payload.code, "DSH_CONFIG_INVALID");
 });
+
+for (const [name, options] of [
+  ["conflicting launchers", { dshBin: fixturePath, command: process.execPath }],
+  ["args without command", { args: [fixturePath] }],
+  ["invalid args", { command: process.execPath, args: [null] }],
+  ["empty command", { command: "" }],
+  ["invalid timeout", { dshBin: fixturePath, requestTimeoutMs: 0 }],
+  ["invalid string", { dshBin: fixturePath, dshHome: "\0private-value" }]
+])
+  test(`DSH Core reports ${name} as configuration failure and releases the session`, async (t) => {
+    const f = await fixture(t);
+    f.request.providerSession = { sessionId: "config-recovery" };
+    const validOptions = f.request.agentConfig.providerOptions;
+    f.request.agentConfig.providerOptions = options;
+    const core = new AgentExecutor();
+    core.register(createDshAdapter());
+    const invoke = () =>
+      Array.fromAsync(
+        core.invoke(
+          invocationInput(
+            { ...f.request, invocationId: randomUUID(), runId: randomUUID() },
+            "canonical",
+            "dsh"
+          ),
+          { executionEnvOverrides: f.request.executionEnvOverrides }
+        )
+      );
+    try {
+      const events = await invoke();
+      events.forEach(assertCanonicalEvent);
+      assert.deepEqual(
+        terminals(events).map((event) => event.type),
+        ["run.failed"]
+      );
+      assert.equal(terminals(events)[0].payload.failure.reasonCode, "DSH_CONFIG_INVALID");
+      assert.equal(JSON.stringify(events).includes("private-value"), false);
+      await assert.rejects(f.trace(), { code: "ENOENT" });
+      f.request.agentConfig.providerOptions = validOptions;
+      assert.equal(terminals(await invoke())[0].type, "run.completed");
+    } finally {
+      assert.equal((await core.shutdown()).cleanup, "complete");
+    }
+  });
 
 test("DSH canonical contract: committed stream, Unicode, CRLF, usage and independent execution environment", async (t) => {
   const f = await fixture(t);
@@ -259,9 +315,149 @@ test("DSH same provider session concurrency is rejected without disturbing owner
   f.request.providerSession = { sessionId: "same" };
   const adapter = createDshAdapter();
   const owner = collect(f.request, adapter);
-  await assert.rejects(collect(f.request, adapter), /DSH_SESSION_BUSY/);
+  assert.equal(terminals(await collect(f.request, adapter))[0].payload.code, "DSH_SESSION_BUSY");
   assert.equal(terminals(await owner)[0].type, "run.completed");
 });
+
+const preflightCases = [
+  {
+    name: "actmode",
+    code: "DSH_ACTMODE_UNSUPPORTED",
+    change: (request) =>
+      request.context.items.push({
+        namespace: "octo.execution",
+        name: "actmode",
+        payload: { mode: "plan" }
+      })
+  },
+  {
+    name: "sandbox",
+    code: "DSH_CONFIG_INVALID",
+    change: (request) => {
+      request.agentConfig.sandbox = "read-only";
+    }
+  },
+  {
+    name: "provider options",
+    code: "DSH_CONFIG_INVALID",
+    change: (request) => {
+      request.agentConfig.providerOptions = [];
+    }
+  },
+  {
+    name: "empty session",
+    code: "DSH_SESSION_RESUME_FAILED",
+    change: (request) => {
+      request.providerSession = { sessionId: "" };
+    }
+  },
+  {
+    name: "oversized session",
+    code: "DSH_SESSION_RESUME_FAILED",
+    change: (request) => {
+      request.providerSession = { sessionId: "x".repeat(192) };
+    }
+  }
+];
+
+for (const entry of preflightCases)
+  test(`DSH ${entry.name} preflight produces one safe failure without starting the protocol`, async (t) => {
+    const f = await fixture(t);
+    entry.change(f.request);
+    const events = await collect(f.request);
+    events.forEach(assertCanonicalEvent);
+    assert.deepEqual(
+      terminals(events).map((event) => event.type),
+      ["run.failed"]
+    );
+    assert.equal(terminals(events)[0].payload.code, entry.code);
+    assert.equal(JSON.stringify(events).includes(f.canary), false);
+    await assert.rejects(f.trace(), { code: "ENOENT" });
+  });
+
+for (const entry of preflightCases.slice(0, 2))
+  test(`DSH Core ${entry.name} preflight keeps cleanup complete`, async (t) => {
+    const f = await fixture(t);
+    entry.change(f.request);
+    const core = new AgentExecutor();
+    core.register(createDshAdapter());
+    try {
+      const events = await Array.fromAsync(
+        core.invoke(invocationInput(f.request, "canonical", "dsh"), {
+          executionEnvOverrides: f.request.executionEnvOverrides
+        })
+      );
+      assert.deepEqual(
+        terminals(events).map((event) => event.type),
+        ["run.failed"]
+      );
+      assert.equal(terminals(events)[0].payload.failure.reasonCode, entry.code);
+      await assert.rejects(f.trace(), { code: "ENOENT" });
+    } finally {
+      assert.equal((await core.shutdown()).cleanup, "complete");
+    }
+  });
+
+test("DSH Core rejects duplicate sessions without releasing the active owner", async (t) => {
+  const f = await fixture(t, "cancel");
+  f.request.providerSession = { sessionId: "owned-session" };
+  const core = new AgentExecutor();
+  core.register(createDshAdapter());
+  const invoke = (suffix, request = f.request) =>
+    Array.fromAsync(
+      core.invoke(
+        invocationInput({ ...request, invocationId: suffix, runId: suffix }, "canonical", "dsh"),
+        {
+          executionEnvOverrides: request.executionEnvOverrides
+        }
+      )
+    );
+  const owner = invoke("owner");
+  void owner.catch(() => {});
+  try {
+    await untilFile(join(f.directory, "trace.jsonl"));
+    for (const id of ["duplicate-one", "duplicate-two"]) {
+      const events = await invoke(id);
+      assert.deepEqual(
+        terminals(events).map((event) => event.type),
+        ["run.failed"]
+      );
+      assert.equal(terminals(events)[0].payload.failure.reasonCode, "DSH_SESSION_BUSY");
+    }
+    assert.equal(core.cancel("owner"), true);
+    assert.equal(terminals(await owner)[0].type, "run.cancelled");
+    const recovered = {
+      ...f.request,
+      executionEnvOverrides: { env_variables: [{ key: "OCTO_DSH_FIXTURE", value: "success" }] }
+    };
+    assert.equal(terminals(await invoke("recovered", recovered))[0].type, "run.completed");
+  } finally {
+    core.cancel("owner");
+    await owner.catch(() => {});
+    assert.equal((await core.shutdown()).cleanup, "complete");
+  }
+});
+
+for (const approvalMode of ["ask", "assisted"])
+  test(`DSH Core rejects ${approvalMode} before admission and keeps cleanup complete`, async (t) => {
+    const f = await fixture(t);
+    f.request.approvalMode = approvalMode;
+    const core = new AgentExecutor();
+    core.register(createDshAdapter());
+    try {
+      await assert.rejects(
+        Array.fromAsync(
+          core.invoke(invocationInput(f.request, "canonical", "dsh"), {
+            executionEnvOverrides: f.request.executionEnvOverrides
+          })
+        ),
+        /APPROVAL_MODE_UNSUPPORTED/
+      );
+      await assert.rejects(f.trace(), { code: "ENOENT" });
+    } finally {
+      assert.equal((await core.shutdown()).cleanup, "complete");
+    }
+  });
 
 test("DSH duplicate sequence is ignored, conflicting duplicate fails", () => {
   const trajectory = new DshTrajectory("root", 1024);

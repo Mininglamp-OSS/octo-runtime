@@ -595,6 +595,8 @@ function classify(
   if (explicit && timeouts[explicit]) return result(timeouts[explicit], explicit);
   // DSH 的公开分类复用共同目录，原生阶段仍由稳定 reasonCode 保留。
   const dshCodes: Record<string, PublicFailureCode> = {
+    DSH_CONFIG_INVALID: "OH-ADP-3004",
+    DSH_ACTMODE_UNSUPPORTED: "OH-ADP-3004",
     DSH_EXECUTABLE_NOT_FOUND: "OH-ADP-3002",
     DSH_VERSION_UNSUPPORTED: "OH-ADP-3005",
     DSH_START_FAILED: "OH-ADP-3004",

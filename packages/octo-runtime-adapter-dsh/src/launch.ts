@@ -20,9 +20,9 @@ export async function resolveDshLaunch(
   signal?: AbortSignal
 ): Promise<DshLaunch> {
   if (options.args !== undefined && options.command === undefined)
-    throw new TypeError("DSH_CONFIG_INVALID: args requires command");
+    throw new DshError("DSH_CONFIG_INVALID");
   if (options.command !== undefined && options.desktopPath !== undefined)
-    throw new TypeError("DSH_CONFIG_INVALID: command and desktopPath are exclusive");
+    throw new DshError("DSH_CONFIG_INVALID");
   let command: string | undefined;
   let args: string[] = [];
   let dshBin: string | undefined;
@@ -32,7 +32,7 @@ export async function resolveDshLaunch(
       options.args !== undefined ||
       options.desktopPath !== undefined
     )
-      throw new TypeError("DSH_CONFIG_INVALID: dshBin is exclusive with command/args/desktopPath");
+      throw new DshError("DSH_CONFIG_INVALID");
     dshBin = resolve(stringOption(options, "dshBin", ""));
     try {
       if (!(await stat(dshBin)).isFile()) throw new Error("not a file");
@@ -43,7 +43,7 @@ export async function resolveDshLaunch(
     args = [dshBin];
   } else if (options.command !== undefined) {
     if (typeof options.command !== "string" || !options.command.trim())
-      throw new TypeError("DSH_CONFIG_INVALID: command must be a non-empty string");
+      throw new DshError("DSH_CONFIG_INVALID");
     command = await executable(options.command, env);
     if (!command) throw new DshError("DSH_EXECUTABLE_NOT_FOUND");
     if (options.args !== undefined) {
@@ -52,9 +52,7 @@ export async function resolveDshLaunch(
         options.args.length > 64 ||
         options.args.some((value) => typeof value !== "string" || value.includes("\0"))
       )
-        throw new TypeError(
-          "DSH_CONFIG_INVALID: args must be a string array with at most 64 entries"
-        );
+        throw new DshError("DSH_CONFIG_INVALID");
       args = (options.args as unknown[]).map((value) => value as string);
     }
   } else if (options.desktopPath === undefined) {
@@ -66,10 +64,7 @@ export async function resolveDshLaunch(
       (process.platform === "darwin" ? "/Applications/DeepSeek Harness.app" : undefined);
     if (typeof desktop !== "string" || !isAbsolute(desktop))
       throw new DshError("DSH_EXECUTABLE_NOT_FOUND");
-    if (process.platform !== "darwin")
-      throw new TypeError(
-        "DSH_CONFIG_INVALID: desktopPath discovery currently requires macOS; select command on other platforms"
-      );
+    if (process.platform !== "darwin") throw new DshError("DSH_CONFIG_INVALID");
     command = join(desktop, "Contents/MacOS/DeepSeek Harness");
     const entry = join(
       desktop,
@@ -93,13 +88,11 @@ export async function resolveDshLaunch(
   }
   // Windows 不使用 shell 拼接；宿主可显式选择 Node executable 加 CLI module args。
   if (process.platform === "win32" && /\.(cmd|bat)$/i.test(command))
-    throw new TypeError(
-      "DSH_CONFIG_INVALID: select an executable launcher instead of a Windows batch file"
-    );
+    throw new DshError("DSH_CONFIG_INVALID");
   if (!dshBin) {
     if (args.length === 0) dshBin = command;
     else if (command === process.execPath && args.length === 1) dshBin = resolve(args[0]);
-    else throw new TypeError("DSH_CONFIG_INVALID: select a Node CLI module with dshBin");
+    else throw new DshError("DSH_CONFIG_INVALID");
   }
   const launch = { command, args, env, dshBin };
   await checkVersion(launch, signal);
@@ -230,9 +223,7 @@ export function timeoutOption(
         ? Number(raw)
         : NaN;
   if (!Number.isSafeInteger(value) || value < 1 || value > 86_400_000)
-    throw new TypeError(
-      `DSH_CONFIG_INVALID: ${key} must be an integer in 1..86400000 milliseconds`
-    );
+    throw new DshError("DSH_CONFIG_INVALID");
   return value;
 }
 
@@ -243,6 +234,6 @@ export function stringOption(
 ): string {
   const value = options[key] ?? fallback;
   if (typeof value !== "string" || !value.trim() || value.includes("\0") || value.length > 4096)
-    throw new TypeError(`DSH_CONFIG_INVALID: ${key} must be a non-empty string`);
+    throw new DshError("DSH_CONFIG_INVALID");
   return value;
 }

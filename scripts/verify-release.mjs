@@ -173,6 +173,37 @@ export async function verifyRelease(archiveInput, { expectedCommit, requireClean
           env_variables: [{ key: "OCTO_DSH_FIXTURE", value: mode }, ...extraEnv]
         }
       });
+    for (const [change, expected] of [
+      [
+        (request) => {
+          request.agentConfig.sandbox = "read-only";
+        },
+        "DSH_CONFIG_INVALID"
+      ],
+      [
+        (request) => {
+          request.context.items.push({
+            namespace: "octo.execution",
+            name: "actmode",
+            payload: { mode: "plan" }
+          });
+        },
+        "DSH_ACTMODE_UNSUPPORTED"
+      ],
+      [
+        (request) => {
+          request.agentConfig.providerOptions.requestTimeoutMs = 0;
+        },
+        "DSH_CONFIG_INVALID"
+      ]
+    ]) {
+      const request = dshRequest("success");
+      change(request);
+      const events = await Array.fromAsync(dshModule.createDshAdapter().invoke(request));
+      assert.equal(events.length, 1);
+      assert.equal(events[0].type, "run.failed");
+      assert.equal(events[0].payload.code, expected);
+    }
     for (const mode of ["oversized-initialize", "oversized-fragmented", "raw-no-newline"]) {
       const events = await Array.fromAsync(
         dshModule.createDshAdapter().invoke(dshRequest(mode), {
