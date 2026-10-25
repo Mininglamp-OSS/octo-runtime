@@ -1,3 +1,10 @@
+import {
+  JsonRpcResponseError,
+  RequestTimeoutError,
+  SdkProtocolError,
+  TransportClosedError
+} from "@deepseek-ai/dsh-sdk-client";
+
 export const DSH_VERSION = "0.2.1-rc.3";
 
 const messages = {
@@ -48,6 +55,22 @@ export function nativeCode(value: unknown): string | number | undefined {
 
 export function dshError(error: unknown, fallback: DshErrorCode): DshError {
   if (error instanceof DshError) return error;
+  if (error instanceof RequestTimeoutError)
+    return new DshError(
+      fallback === "DSH_INITIALIZE_TIMEOUT" ? fallback : "DSH_REQUEST_TIMEOUT",
+      {},
+      { cause: error }
+    );
+  if (error instanceof TransportClosedError)
+    return new DshError("DSH_TRANSPORT_CLOSED", {}, { cause: error });
+  if (error instanceof SdkProtocolError)
+    return new DshError("DSH_PROTOCOL_ERROR", {}, { cause: error });
+  if (error instanceof JsonRpcResponseError) {
+    const code = nativeCode(error.code);
+    return new DshError("DSH_RPC_ERROR", code === undefined ? {} : { nativeCode: code }, {
+      cause: error
+    });
+  }
   const code = record(error) ? nativeCode(error.code) : undefined;
   if (typeof code === "string" && Object.hasOwn(messages, code))
     return new DshError(code as DshErrorCode, {}, { cause: error });

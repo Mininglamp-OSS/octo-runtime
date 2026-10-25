@@ -8,6 +8,8 @@ timestamp: 2026-10-24T00:00:00Z
 
 # 基线与环境
 
+> 2026-10-25：本文保留 #173 自实现 Client 的历史证据，不证明官方 Client 替换已通过。当前方案及不同的 SDK 边界见[官方 Client 接入](../17-dsh-official-client/brief.md)。用户要求使用已有好友关系的其他测试账号；原询问建立好友关系的方案不再执行。
+
 基线 `67e2e509ed7a5be03255c76810cdd791b79475ab`，分支 `feat/17-dsh-adapter`。最终代码由本记录所在提交标识。macOS arm64、Node 24.19.0、pnpm 11.19.0；Desktop/runtime 0.2.1-rc.3、Desktop commit `be72761ee1a6736ebcdf4f3739363b083ae53c98`、SDK wire 0.0.1，profile sdk / deepseek-account / deepseek-flash。不安装、修改认证或覆盖用户 profile。
 
 95/100 是实施前准备度自评，见 [assessment.md](assessment.md)，不作为交付完成率。当前实现支持已固定版本和显式 full_access，未声称跨版本、实时逐 token、交互审批或原生 Windows 已验收。

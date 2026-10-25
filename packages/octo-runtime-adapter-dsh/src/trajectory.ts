@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { CanonicalEvent } from "@mininglamp-oss/octo-runtime-protocol";
 import { DshError, nativeCode, record } from "./errors.js";
-import type { DshNotification } from "./client.js";
+import type { HarnessNotification } from "@deepseek-ai/dsh-sdk-client";
 
 function required(value: unknown): asserts value {
   if (!value) throw new DshError("DSH_TRAJECTORY_INVALID");
@@ -51,7 +51,7 @@ export class DshTrajectory {
     return { providerSessionId: sessionId, ...(parentSessionId ? { parentSessionId } : {}) };
   }
 
-  accept(notification: DshNotification): CanonicalEvent[] {
+  accept(notification: HarnessNotification): CanonicalEvent[] {
     const { method, params } = notification;
     if (method === "subagent.started") {
       if (!this.#sessions.has(String(params.parentSessionId))) return [];

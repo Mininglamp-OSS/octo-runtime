@@ -136,7 +136,6 @@ createInterface({ input: process.stdin }).on("line", (line) => {
   if (method === "initialize") {
     if (mode === "startup-timeout") return;
     if (mode === "invalid-json") return process.stdout.write("invalid\n");
-    if (mode === "oversized") return process.stdout.write("x".repeat(10000) + "\n");
     if (mode === "start-error") return error(id);
     console.log("[llm-deepseek-account] fixture catalog info");
     result(id, { serverInfo: { name: "deepseek-harness-sdk-runtime", version: "0.0.1" } });
@@ -147,6 +146,10 @@ createInterface({ input: process.stdin }).on("line", (line) => {
     result(id, { cwd: params.path });
   } else if (method === "session/prompt") {
     root = params.sessionId;
+    if (mode === "oversized") {
+      send({ method: "fixture.oversized", params: { value: "x".repeat(10000) } });
+      return;
+    }
     if (mode === "transport") return process.exit(7);
     if (mode !== "no-receipt")
       notify(root, "agent/inbox/spliced", { inserted: [{ id: "receipt" }] });

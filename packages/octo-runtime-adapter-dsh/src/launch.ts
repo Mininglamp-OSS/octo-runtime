@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { constants } from "node:fs";
 import { access, stat } from "node:fs/promises";
 import { delimiter, isAbsolute, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createProcessCleanup } from "@mininglamp-oss/octo-runtime-adapter-sdk/process-cleanup";
 import { DSH_VERSION, DshError } from "./errors.js";
 
@@ -9,6 +10,7 @@ export interface DshLaunch {
   command: string;
   args: string[];
   env: NodeJS.ProcessEnv;
+  dshBin: string;
 }
 
 /** 宿主选择已安装 Provider；Desktop 只作为发行载体，不控制 GUI 或改写用户 profile。 */
@@ -23,7 +25,23 @@ export async function resolveDshLaunch(
     throw new TypeError("DSH_CONFIG_INVALID: command and desktopPath are exclusive");
   let command: string | undefined;
   let args: string[] = [];
-  if (options.command !== undefined) {
+  let dshBin: string | undefined;
+  if (options.dshBin !== undefined) {
+    if (
+      options.command !== undefined ||
+      options.args !== undefined ||
+      options.desktopPath !== undefined
+    )
+      throw new TypeError("DSH_CONFIG_INVALID: dshBin is exclusive with command/args/desktopPath");
+    dshBin = resolve(stringOption(options, "dshBin", ""));
+    try {
+      if (!(await stat(dshBin)).isFile()) throw new Error("not a file");
+    } catch {
+      throw new DshError("DSH_EXECUTABLE_NOT_FOUND");
+    }
+    command = process.execPath;
+    args = [dshBin];
+  } else if (options.command !== undefined) {
     if (typeof options.command !== "string" || !options.command.trim())
       throw new TypeError("DSH_CONFIG_INVALID: command must be a non-empty string");
     command = await executable(options.command, env);
@@ -65,14 +83,25 @@ export async function resolveDshLaunch(
       throw new DshError("DSH_EXECUTABLE_NOT_FOUND");
     }
     args = [entry];
-    env = { ...env, ELECTRON_RUN_AS_NODE: "1" };
+    dshBin = fileURLToPath(new URL("./desktop-entry.js", import.meta.url));
+    env = {
+      ...env,
+      ELECTRON_RUN_AS_NODE: "1",
+      OCTO_DSH_DESKTOP_BINARY: command,
+      OCTO_DSH_DESKTOP_ENTRY: entry
+    };
   }
   // Windows 不使用 shell 拼接；宿主可显式选择 Node executable 加 CLI module args。
   if (process.platform === "win32" && /\.(cmd|bat)$/i.test(command))
     throw new TypeError(
       "DSH_CONFIG_INVALID: select an executable launcher instead of a Windows batch file"
     );
-  const launch = { command, args, env };
+  if (!dshBin) {
+    if (args.length === 0) dshBin = command;
+    else if (command === process.execPath && args.length === 1) dshBin = resolve(args[0]);
+    else throw new TypeError("DSH_CONFIG_INVALID: select a Node CLI module with dshBin");
+  }
+  const launch = { command, args, env, dshBin };
   await checkVersion(launch, signal);
   return launch;
 }

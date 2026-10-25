@@ -113,6 +113,49 @@ export async function verifyRelease(archiveInput, { expectedCommit, requireClean
     const dshModule = await import(`${pathToFileURL(installed).href}/dist/public/dsh.js`);
     assert.equal(dshModule[dshEntry.export].metadata.type, "dsh");
     assert.deepEqual(dshModule[dshEntry.export].metadata.protocolSupport.modes, ["canonical"]);
+    const dshDirectory = join(installed, "node_modules", dshEntry.module);
+    const dshNotice = await readFile(join(dshDirectory, "dist/dsh-sdk-NOTICE.txt"), "utf8");
+    const dshSource = JSON.parse(
+      await readFile(join(root, "packages/octo-runtime-adapter-dsh/package.json"), "utf8")
+    );
+    assert.ok(
+      dshNotice.includes(
+        `@deepseek-ai/dsh-sdk-client@${dshSource.dependencies["@deepseek-ai/dsh-sdk-client"]}`
+      )
+    );
+    assert.equal(metadata.dependencies["@deepseek-ai/dsh"], undefined);
+    assert.equal(metadata.dependencies["@deepseek-ai/dsh-sdk-client"], undefined);
+    for (const name of ["client", "protocol"]) {
+      const license = await readFile(
+        join(dshDirectory, "dist", `dsh-sdk-${name}-LICENSE.txt`),
+        "utf8"
+      );
+      assert.ok(license.includes("Copyright (c) 2026 DeepSeek"));
+      assert.ok(license.includes("Permission is hereby granted"));
+    }
+    // 在隔离的离线安装目录中执行真实发行 Adapter，证明官方 Client 已随包收集且无需安装 Provider。
+    const dshFixture = join(consumer, "dsh-runtime.mjs");
+    await cp(join(root, "test/fixtures/dsh-runtime.mjs"), dshFixture);
+    const { invokeRequest } = await import(
+      pathToFileURL(join(root, "test/runtime-fixture.js")).href
+    );
+    const dshEvents = await Array.fromAsync(
+      dshModule.createDshAdapter().invoke(
+        invokeRequest({
+          workdir: directory,
+          approvalMode: "full_access",
+          agentConfig: { providerOptions: { dshBin: dshFixture } }
+        })
+      )
+    );
+    assert.equal(dshEvents.at(-1)?.type, "run.completed", JSON.stringify(dshEvents.at(-1)));
+    assert.equal(
+      dshEvents
+        .filter((event) => event.type === "message.delta" && event.payload.channel === "final")
+        .map((event) => event.payload.text)
+        .join(""),
+      "hello 世界"
+    );
     const grokEntry = moduleManifest.adapters.find((entry) => entry.type === "grok-build");
     assert.equal(grokEntry?.module, "@mininglamp-oss/octo-runtime-adapter-grok-build");
     const grokModule = await import(

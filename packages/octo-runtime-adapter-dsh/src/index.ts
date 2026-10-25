@@ -13,7 +13,11 @@ import {
   type AdapterInvocationContext
 } from "@mininglamp-oss/octo-runtime-adapter-sdk";
 import { contextActmode, DEFAULT_STREAM_LIMIT_POLICY } from "@mininglamp-oss/octo-runtime-protocol";
-import { DshClient } from "./client.js";
+import {
+  HarnessClient,
+  type NotificationSubscription,
+  type SdkPromptContentBlock
+} from "@deepseek-ai/dsh-sdk-client";
 import { DshError, dshError, record, DSH_VERSION } from "./errors.js";
 import { resolveDshLaunch, timeoutOption, stringOption } from "./launch.js";
 import { DshTrajectory } from "./trajectory.js";
@@ -81,7 +85,9 @@ export function createDshAdapter(options: DshAdapterOptions = {}) {
         const started = Date.now();
         let phase = "launch";
         let failurePhase: string | undefined;
-        let client: DshClient | undefined;
+        let client: HarnessClient | undefined;
+        let subscription: NotificationSubscription | undefined;
+        let notifications: Promise<void> | undefined;
         let primary: DshError | undefined;
         let cleanup: DshError | undefined;
         let terminal: CanonicalEvent | undefined;
@@ -120,9 +126,9 @@ export function createDshAdapter(options: DshAdapterOptions = {}) {
               duration_ms: Date.now() - started,
               request_id: data.requestId,
               native_code: data.nativeCode,
-              pid: data.pid ?? client?.child.pid,
-              exit_code: data.exitCode ?? client?.child.exitCode,
-              signal: data.signal ?? client?.child.signalCode,
+              pid: data.pid,
+              exit_code: data.exitCode,
+              signal: data.signal,
               primary_code: data.primaryCode,
               cleanup_code: data.cleanupCode
             });
@@ -148,40 +154,56 @@ export function createDshAdapter(options: DshAdapterOptions = {}) {
             });
             if (config.dshHome !== undefined) env.DSH_HOME = stringOption(config, "dshHome", "");
             const launch = await resolveDshLaunch(config, env, request.signal);
-            launch.args.push("--profile", stringOption(config, "profile", "sdk"));
             if (request.signal?.aborted)
               throw new DshError("DSH_TRANSPORT_CLOSED", { phase: "cancel" });
-            client = new DshClient(launch, {
-              cwd: request.workdir,
+            client = new HarnessClient({
+              dshBin: launch.dshBin,
+              profile: stringOption(config, "profile", "sdk"),
+              processCwd: request.workdir,
+              env: launch.env,
+              initializeTimeoutMs,
               requestTimeoutMs,
-              shutdownTimeoutMs,
-              streamLimits: limits,
-              onNotification(notification) {
-                if (phase !== "prompt" && phase !== "wait") return;
-                for (const value of trajectory.accept(notification)) queue.push(value);
-              },
-              onFailure(error) {
-                queue.close(error);
-              }
+              shutdownTimeoutMs
             });
+            // 在官方订阅过滤回调中同步投影，返回 false 避免再积累一份无界通知队列。
+            // 字节检查发生在官方解析之后；本 Adapter 不重写 SDK 的 wire reader。
+            subscription = client.subscribe((notification) => {
+              if (phase !== "prompt" && phase !== "wait") return false;
+              try {
+                if (Buffer.byteLength(JSON.stringify(notification)) > limits.rawMessageMaxBytes)
+                  throw new DshError("PROVIDER_MESSAGE_TOO_LARGE", { phase: "notification_limit" });
+                for (const value of trajectory.accept(notification)) queue.push(value);
+              } catch (error) {
+                primary ??= dshError(error, "DSH_TRAJECTORY_INVALID");
+                failurePhase ??= phase;
+                queue.close(primary);
+                void close().catch(() => {});
+              }
+              return false;
+            });
+            notifications = subscription.next().then(
+              () => {},
+              (error: unknown) => {
+                if (closing) return;
+                primary ??= dshError(error, "DSH_TRANSPORT_CLOSED");
+                failurePhase ??= phase;
+                queue.close(primary);
+              }
+            );
             request.signal?.addEventListener("abort", abort, { once: true });
             if (request.signal?.aborted) abort();
             const owned = client;
             producer = (async () => {
               try {
                 phase = "initialize";
-                const initialization = await owned.request(
-                  "initialize",
-                  {
-                    cwd: request.workdir,
-                    provider: stringOption(config, "provider", "deepseek-account"),
-                    model: request.agentConfig.model ?? "deepseek-flash",
-                    ...(config.maxTokens === undefined
-                      ? {}
-                      : { maxTokens: timeoutOption(config, "maxTokens", 4096) })
-                  },
-                  initializeTimeoutMs
-                );
+                const initialization = await owned.initialize({
+                  cwd: request.workdir,
+                  provider: stringOption(config, "provider", "deepseek-account"),
+                  model: request.agentConfig.model ?? "deepseek-flash",
+                  ...(config.maxTokens === undefined
+                    ? {}
+                    : { maxTokens: timeoutOption(config, "maxTokens", 4096) })
+                });
                 if (
                   !record(initialization) ||
                   !record(initialization.serverInfo) ||
@@ -192,17 +214,10 @@ export function createDshAdapter(options: DshAdapterOptions = {}) {
                 if (requestedId) {
                   phase = "resume";
                   try {
-                    await owned.request("session/resume", { sessionId });
+                    await owned.resumeSession(sessionId);
                     // 先证明原会话恢复，再应用本轮执行目录；不能让 set 隐式创建替代会话。
-                    const directory = await owned.request("session/working-directory/set", {
-                      sessionId,
-                      path: request.workdir
-                    });
-                    if (
-                      !record(directory) ||
-                      typeof directory.cwd !== "string" ||
-                      (await realpath(directory.cwd)) !== (await realpath(request.workdir))
-                    )
+                    const directory = await owned.setWorkingDirectory(sessionId, request.workdir);
+                    if ((await realpath(directory)) !== (await realpath(request.workdir)))
                       throw new DshError("DSH_SESSION_RESUME_FAILED");
                   } catch (error) {
                     throw new DshError(
@@ -223,29 +238,28 @@ export function createDshAdapter(options: DshAdapterOptions = {}) {
                     }
                   }
                 });
-                const contentBlocks = providerInputParts(request).map((part) =>
-                  part.type === "image"
-                    ? { type: "image", mimeType: part.mimeType, data: part.data }
-                    : { type: "text", text: part.text }
+                const contentBlocks: SdkPromptContentBlock[] = providerInputParts(request).map(
+                  (part) =>
+                    part.type === "image"
+                      ? { type: "image", mimeType: part.mimeType, data: part.data }
+                      : { type: "text", text: part.text }
                 );
                 const instructions = initialControlInstructions(request);
                 if (instructions) contentBlocks.unshift({ type: "text", text: instructions });
                 phase = "prompt";
-                const receipt = await owned.request("session/prompt", { sessionId, contentBlocks });
-                if (
-                  !record(receipt) ||
-                  typeof receipt.messageId !== "string" ||
-                  !receipt.messageId ||
-                  receipt.messageId.length > 191
-                )
-                  throw new DshError("DSH_PROTOCOL_ERROR");
-                receiptId = receipt.messageId;
+                const receipt = await owned.prompt(sessionId, contentBlocks);
+                if (!receipt || receipt.length > 191) throw new DshError("DSH_PROTOCOL_ERROR");
+                receiptId = receipt;
                 phase = "wait";
                 await owned.request("session/wait", { sessionId }, runTimeoutMs);
                 terminal = trajectory.finish(receiptId);
                 queue.close();
               } catch (error) {
-                primary ??= dshError(error, "DSH_EXECUTION_FAILED");
+                const failure = dshError(error, "DSH_EXECUTION_FAILED");
+                primary ??=
+                  phase === "initialize" && failure.code === "DSH_REQUEST_TIMEOUT"
+                    ? new DshError("DSH_INITIALIZE_TIMEOUT", {}, { cause: error })
+                    : failure;
                 failurePhase ??= phase;
                 queue.close(primary);
               }
@@ -263,6 +277,8 @@ export function createDshAdapter(options: DshAdapterOptions = {}) {
           } catch (error) {
             cleanup = dshError(error, "DSH_CLEANUP_FAILED");
           }
+          subscription?.close();
+          await notifications;
           await producer;
           request.signal?.removeEventListener("abort", abort);
           queue.close();

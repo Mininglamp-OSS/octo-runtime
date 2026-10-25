@@ -4,9 +4,11 @@
 
 ## 支持版本和入口
 
-当前固定支持 `@deepseek-ai/dsh@0.2.1-rc.3`、SDK wire `deepseek-harness-sdk-runtime/0.0.1`。本机验证的 Desktop commit 为 `be72761ee1a6736ebcdf4f3739363b083ae53c98`。升级后版本检查明确失败，需要重新核对原生合同。
+直接使用官方 `@deepseek-ai/dsh-sdk-client@0.2.1-rc.3` 的 `HarnessClient`，不自行实现 JSON-RPC Client。该版本是 2026-10-25 查询 npm 得到的最高版本，标签为 `next`；上游 `latest` 标签仍指向旧版，故显式锁定版本。
 
-默认优先使用 PATH 中的 `dsh`；macOS 找不到时使用 `/Applications/DeepSeek Harness.app` 内嵌的 CLI。Desktop 通过其 Electron executable、`ELECTRON_RUN_AS_NODE=1` 和 asar 内 CLI 路径运行，以保留原生模块解析。其他安装位置使用 `desktopPath`。Windows/Linux 可以显式选择 executable；本次未验证其真实 DSH 发行版，Windows 回收边界仍跟踪 #14。
+当前支持同版 `@deepseek-ai/dsh@0.2.1-rc.3`、SDK wire `deepseek-harness-sdk-runtime/0.0.1`。本机验证的 Desktop commit 为 `be72761ee1a6736ebcdf4f3739363b083ae53c98`。升级后版本检查明确失败，需要重新核对原生合同。
+
+默认优先使用 PATH 中的 `dsh`；macOS 找不到时使用 `/Applications/DeepSeek Harness.app` 内嵌的 CLI。官方 Client 用 Node 启动 `dshBin`；Desktop 入口通过 `execve` 保留该进程的 PID/stdio，切换到 Electron 和 asar 内 CLI，不另建协议代理。其他安装位置使用 `desktopPath`。Windows/Linux 可以通过 `dshBin` 显式选择 Node CLI module；本次未验证其真实 DSH 发行版。
 
 先在 Desktop 登录，再以同一操作系统账号启动 Runtime。默认 `profile=sdk`、`provider=deepseek-account`、`model=deepseek-flash`，复用 Provider 自己的凭据解析；API key 路径需显式选择 `deepseek-official` 并由宿主准备。默认不会根据缺少某个环境变量猜测登录状态。
 
@@ -51,7 +53,8 @@ serveWorker([dshAdapter]);
 
 | 选项 | 默认值 | 说明 |
 | --- | --- | --- |
-| `command`、`args` | 自动发现 | executable 与独立 argv；禁止 shell 拼接。args 需要 command；command 与 desktopPath 互斥 |
+| `dshBin` | 自动发现 | 官方 Client 的 Node CLI module 路径；与 command/args/desktopPath 互斥 |
+| `command`、`args` | 自动发现 | 保留 Node executable 加单个 CLI module 的旧配置；任意 executable/argv 组合明确拒绝，改用 dshBin |
 | `desktopPath` | macOS 默认安装位置 | 绝对 `.app` 路径；当前仅 macOS |
 | `profile` | `sdk` | 使用已有 SDK profile；自定义 profile 必须暴露同一 RPC 服务 |
 | `dshHome` | Provider 原生默认 | 子进程的 DSH_HOME；宿主负责准备和保护 |
@@ -61,7 +64,9 @@ serveWorker([dshAdapter]);
 | `requestTimeoutMs` | 30000 | 普通 RPC 期限，毫秒 |
 | `shutdownTimeoutMs` | 1000 | shutdown 回执期限，毫秒；随后仍确认拥有进程退出 |
 
-`session/wait` 使用本轮 runTimeoutMs，未指定时为 120000 毫秒。版本探针有独立 10000 毫秒期限，也观察取消并回收进程树。协议行、队列复用 Runtime 的 StreamLimitPolicy，不是整个进程 RSS 保证。
+`session/wait` 使用本轮 runTimeoutMs，未指定时为 120000 毫秒。版本探针有独立 10000 毫秒期限，也观察取消并回收进程树。Adapter 在官方通知回调中同步投影并检查通知大小，canonical 队列沿 Runtime StreamLimitPolicy。
+
+官方 SDK 0.2.1-rc.3 的 reader 没有解析前行字节上限，且忽略非 JSON 行；不能宣称本 Adapter 在解析前执行原始行预算。无有效初始化响应最终按官方初始化超时失败。订阅过滤回调返回 false，避免在 SDK 内额外积累通知队列。
 
 ## 输出和限制
 
@@ -71,8 +76,8 @@ serveWorker([dshAdapter]);
 
 本版 SDK 没有交互审批传输，因此只接受调用方明确选择的 full_access，原生权限固定为 danger-full-access；ask/assisted 在启动前拒绝。工作目录不是沙箱。非 default actmode、逐轮 MCP 不支持时明确拒绝；effort 没有 setter，沿统一 notice 回执说明未应用。
 
-每轮独占一个子进程；取消关闭拥有进程组，不终止 Desktop GUI 或兄弟调用。正常关闭先请求 shutdown，再做有界 TERM/KILL 清理；确认回收后才输出唯一终态。Session 文件由 DSH 原生管理，Adapter 不另存业务历史。
+每轮独占一个官方 HarnessClient；取消调用其 close，不终止 Desktop GUI 或兄弟调用。官方 Client 先请求 shutdown，再沿 EOF/SIGTERM/SIGKILL 阶梯确认直接子进程退出，Adapter 随后输出唯一终态。工具后代由 Harness 自己的 shutdown 管理；本版官方 Client 不拥有独立进程组，不能保证回收父进程异常退出后遗留的孤儿工具进程，该项保持未验收。Session 文件由 DSH 原生管理，Adapter 不另存业务历史。
 
-失败沿共同 FailureEnvelope：公共 OH 分类码在 `payload.failure.code`，DSH 稳定原因在 `payload.failure.reasonCode` 和顶层兼容 `code`。例如 DSH_SESSION_RESUME_FAILED、DSH_INITIALIZE_TIMEOUT、DSH_REQUEST_TIMEOUT、DSH_TRANSPORT_CLOSED、DSH_TRAJECTORY_INVALID、DSH_EXECUTION_FAILED、DSH_NO_FINAL_OUTPUT、DSH_CANCEL_FAILED、DSH_CLEANUP_FAILED。容量超限保留共同 PROVIDER_MESSAGE_TOO_LARGE / STREAM_QUEUE_* 原因码。Core 日志保留公共码与 reason_code；Adapter 经 invocation context 复用同一日志入口，记录有界 state、request_id、native_code、pid、exit_code、signal（可得时），不记录 prompt、凭据、原生 error.message 或 stderr。独立调用可用 `createDshAdapter({log})` 提供同一受控 RuntimeLog sink；原生数值/枚举诊断不会进入公共卡片。错误不自动重发模型或工具。
+失败沿共同 FailureEnvelope：公共 OH 分类码在 `payload.failure.code`，DSH 稳定原因在 `payload.failure.reasonCode` 和顶层兼容 `code`。例如 DSH_SESSION_RESUME_FAILED、DSH_INITIALIZE_TIMEOUT、DSH_REQUEST_TIMEOUT、DSH_TRANSPORT_CLOSED、DSH_TRAJECTORY_INVALID、DSH_EXECUTION_FAILED、DSH_NO_FINAL_OUTPUT、DSH_CANCEL_FAILED、DSH_CLEANUP_FAILED。容量超限保留共同 PROVIDER_MESSAGE_TOO_LARGE / STREAM_QUEUE_* 原因码。Core 日志保留公共码与 reason_code；Adapter 经 invocation context 复用同一日志入口，记录有界阶段、时间、原生安全 code，不记录 prompt、凭据、原生 error.message 或 stderr。官方公共 API 不暴露 PID/request ID，故不读取私有字段或解析其错误文本。独立调用可用 `createDshAdapter({log})` 提供同一受控 RuntimeLog；错误不自动重发模型或工具。
 
-本包直接实现固定版本的原生 JSON-RPC Client，复用 Runtime 的有界 reader、队列和清理实现。官方 `@deepseek-ai/dsh-sdk-client@0.2.1-rc.3` 强制依赖完整 Provider；引入它会使 Runtime 安装时携带 Provider，故不作为生产依赖。
+源码声明官方 Client 精确生产依赖。构建发行包时，esbuild 按实际 import 收集官方 Client 和其官方 SDK Protocol 的 JavaScript，保留 workspace 依赖为外部包并记录上游版本与 MIT 许可。Adapter 始终传入显式 dshBin，因此不使用官方 SDK 自动解析 npm Provider 的默认路径；发行包不携带整套 Provider 或平台原生模块，不在消费者安装时下载 Provider。离线包验证覆盖这条路径。

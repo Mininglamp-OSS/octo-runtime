@@ -9,6 +9,7 @@
     "dist"
   ],
   "dependencies": {
+    "@deepseek-ai/dsh-sdk-client": "0.2.1-rc.3",
     "@mininglamp-oss/octo-runtime-adapter-sdk": "workspace:*",
     "@mininglamp-oss/octo-runtime-protocol": "workspace:*"
   },

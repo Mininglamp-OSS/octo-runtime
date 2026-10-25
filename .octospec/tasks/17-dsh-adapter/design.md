@@ -8,6 +8,8 @@ timestamp: 2026-10-24T00:00:00Z
 
 # 版本与 composition root
 
+> 2026-10-25：本文为 #173 历史设计，用户已否决自实现 Client。当前方案见[官方 Client 接入](../17-dsh-official-client/brief.md)，不继续执行本页的自实现决定。
+
 Desktop `0.2.1-rc.3` / 内嵌 `@deepseek-ai/dsh@0.2.1-rc.3`，commit `be72761ee1a6736ebcdf4f3739363b083ae53c98`。核对 npm `@deepseek-ai/dsh-sdk-client@0.2.1-rc.3` 的 client/api 类型和实现，以及 Desktop 内嵌 dsh-sdk-jsonrpc-server、dsh-agent-loop、dsh-base 源码。最新 master 的 approvalRequests 不能套用到本版。
 
 默认优先 PATH dsh；macOS PATH 缺失时检查 `/Applications/DeepSeek Harness.app`。显式 desktopPath 选择另一安装位置，command 选择已安装 CLI。Desktop 用其 Electron 的 ELECTRON_RUN_AS_NODE 加内嵌 CLI 路径启动，保持其 asar/native modules 解析。此变量只在本次子进程设置。启动前有界检查 --version；只接受已核对版本。SDK/CLI 通过同一 adapter，公开主包 `/adapters/dsh` 导出；CLI 内置 manifest 选用 dshAdapter。
