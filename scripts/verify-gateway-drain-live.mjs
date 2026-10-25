@@ -420,7 +420,12 @@ OctoConnector.prototype.card = async function (...args) {
     })();
     void observing.catch(() => undefined);
     await waitFor(
-      () => observed.some((frame) => frame.event?.type === "tool_call.create"),
+      () => {
+        const failure = observed.find((frame) => frame.event?.type === "run.failed")?.event.payload
+          .failure;
+        ensure(!failure, failure?.reasonCode ?? "QA_MODEL_FAILED");
+        return observed.some((frame) => frame.event?.type === "tool_call.create");
+      },
       "QA_REAL_TOOL_NOT_STARTED",
       90000
     );
