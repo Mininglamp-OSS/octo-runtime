@@ -6,7 +6,7 @@ timestamp: 2026-10-25T02:15:00Z
 
 # Scope and Review
 
-Replacement PR #176 follows withdrawal #175 and supersedes closed #174. The updated withdrawal baseline is `703b69ead2ee0f49a6aa54c9751d4013126ab797`; it removes DSH while preserving generic diagnostics requested by review. Main must receive that withdrawal before the replacement is merged. A merged #173 cannot be withdrawn by editing its GitHub metadata.
+Replacement PR #176 follows withdrawal #175 and supersedes closed #174. Withdrawal #175 merged into main as `a35aeae3a3b5708449bb6ebd77a9094cff705e33` on 2026-10-25. It removes DSH while preserving generic diagnostics and the Windows verification budget requested by review. PR #176 was rebased onto that commit and retargeted to main. Before this baseline-documentation update, its entire tree matched reviewed head `55bab98649a4770cf589f9cb58edb9bee411989e` exactly. A merged #173 cannot be withdrawn by editing its GitHub metadata.
 
 The runtime implementation reviewed and exercised below is `f7a69a800b3a94cbf100f12ddd5ad9ef5c9873cc`. Rebase onto the updated withdrawal produced identical production sources: the only subsequent code differences are two non-DSH logging regressions and stronger offline-release verification. The SDK remains the actual official `HarnessClient@0.2.1-rc.3` with two disclosed downstream safety patches; no custom Client or sink is substituted.
 
@@ -55,4 +55,4 @@ After all five messages the Gateway had zero working/queued tasks. Gateway and K
 
 An empty-cache offline npm installation of the clean `f7a69a8` archive passed public SDK/type/component examples, CLI, native Kernel, independent Extra, status, uninstall-preserved-home and the strengthened installed-DSH checks. The verifier checked the archive's full expected commit and `dirty: false`; both patches matched the tracked source, three oversized raw-input variants failed with the expected reason and the POSIX orphan was gone before its terminal. Final delivery archive identity and hosted CI are recorded in the PR rather than inferred from this earlier archive.
 
-Native Windows DSH and cleanup after its leader exits remain unqualified under #14. Interactive approval, unsupported actmodes and live per-token notifications remain outside the upstream capability contract. #175 and #176 still require their normal GitHub approvals/checks; local success does not override a changes-requested review or imply either PR has merged.
+Native Windows DSH and cleanup after its leader exits remain unqualified under #14. Interactive approval, unsupported actmodes and live per-token notifications remain outside the upstream capability contract. Withdrawal #175 has merged; #176 still requires its normal main-target GitHub approvals/checks. Earlier checks against the stacked base are historical evidence and do not substitute for those checks.

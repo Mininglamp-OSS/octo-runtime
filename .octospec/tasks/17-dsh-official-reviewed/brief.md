@@ -8,7 +8,7 @@ timestamp: 2026-10-25T00:00:00Z
 
 # 目标与基线
 
-用户最新决定：撤回 #173，关闭 #174，基于最新 main 重新提交 PR，并修复之前的 review。回滚 #175 从 main@982a2fe 撤回原实现，附带命名测试真实 Git 元数据和可写目录修复；新分支以该回滚为依赖基线，不通过修改已合并 PR 假装交付代码。
+用户最新决定：撤回 #173，关闭 #174，基于最新 main 重新提交 PR，并修复之前的 review。回滚 #175 已于 2026-10-25 合入 main@a35aeae，保留通用诊断、命名测试和 Windows 验收超时预算；#176 已迁移到该 main 基线。迁移后全树与已审查的 55bab98 一致，再更新本轮基线文档，功能代码没有变化。
 
 npm 于 2026-10-25 核对的最高版本仍为 `@deepseek-ai/dsh-sdk-client@0.2.1-rc.3`，标签 `next`，与本机 Desktop CLI 同版。使用官方公开 HarnessClient 的 initialize、resumeSession、setWorkingDirectory、prompt、request、subscribe、close；没有自建 RPC Client、替代 sink、进程代理或私有字段访问。
 
