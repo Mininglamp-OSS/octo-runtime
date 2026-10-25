@@ -4,6 +4,10 @@
 
 ## 支持版本和入口
 
+运行已安装的 Runtime CLI 或 SDK 需要 **Node.js 24.x 或 26.x**，精确范围为 `^24.0.0 || ^26.0.0`；这也是用户运行环境要求，不只是开发或编译环境要求。Node.js 22 不在支持范围内，请先升级到 Node.js 24；“24+”不代表支持任意更高主版本。
+
+macOS Desktop 入口依赖 Node.js 的 [`process.execve`](https://nodejs.org/api/process.html#processexecvefile-args-env)，用于保留官方 Client 拥有的 PID 和 stdio。该 API 仍标记为 Experimental；当前实现保留此依赖，并在 API 不可用时明确失败。Node.js 24/26 有自动化覆盖，本机真实 Desktop 验收使用 Node.js 24；不声明 Node.js 22 兼容性。
+
 直接使用官方 `@deepseek-ai/dsh-sdk-client@0.2.1-rc.3` 的 `HarnessClient`，不自行实现 JSON-RPC Client。该版本是 2026-10-25 查询 npm 得到的最高版本，标签为 `next`；上游 `latest` 标签仍指向旧版，故显式锁定版本。
 
 当前支持同版 `@deepseek-ai/dsh@0.2.1-rc.3`、SDK wire `deepseek-harness-sdk-runtime/0.0.1`。本机验证的 Desktop commit 为 `be72761ee1a6736ebcdf4f3739363b083ae53c98`。升级后版本检查明确失败，需要重新核对原生合同。

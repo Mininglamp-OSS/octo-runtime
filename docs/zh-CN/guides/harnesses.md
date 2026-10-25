@@ -4,6 +4,8 @@
 
 Harness 是 Adapter 背后实际运行 Agent 的程序，负责模型调用、工具执行和会话管理。请使用运行 Runtime 的操作系统账号安装并登录 Harness；Adapter 本身已包含在 Runtime 中，无需另外全局安装。
 
+运行已安装的 Runtime CLI 或 SDK 需要 Node.js **24.x 或 26.x**（`^24.0.0 || ^26.0.0`），这不是仅针对源码编译的要求。Node.js 22 不在支持范围内，请先升级到 Node.js 24。
+
 ## 选择 Harness
 
 每项简述安装配置方式，并附官网链接。“Runtime 启动方式”记录当前源码默认使用的命令，协议参数和任务内容由 Runtime 提供。

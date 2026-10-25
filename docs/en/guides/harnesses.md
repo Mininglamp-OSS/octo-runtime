@@ -4,6 +4,8 @@
 
 A Harness is the Agent program behind an Adapter: it manages model calls, tools, and sessions. Install and authenticate the Harness under the operating-system account that runs Runtime; the Adapter itself is bundled with Runtime and needs no separate global installation.
 
+Running the installed Runtime CLI or SDK requires Node.js **24.x or 26.x** (`^24.0.0 || ^26.0.0`), not just when compiling from source. Node.js 22 is unsupported; upgrade to Node.js 24 first.
+
 ## Choose a Harness
 
 Each row gives a short setup summary and the official documentation. The launch column records this source revision's default command; Runtime supplies the protocol flags and task content.
