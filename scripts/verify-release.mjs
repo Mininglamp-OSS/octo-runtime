@@ -132,6 +132,11 @@ export async function verifyRelease(archiveInput, { expectedCommit, requireClean
       );
       assert.ok(license.includes("Copyright (c) 2026 DeepSeek"));
       assert.ok(license.includes("Permission is hereby granted"));
+      const patch = `@deepseek-ai__dsh-sdk-${name}@${dshSource.dependencies["@deepseek-ai/dsh-sdk-client"]}.patch`;
+      assert.equal(
+        await readFile(join(dshDirectory, "dist", patch), "utf8"),
+        await readFile(join(root, "patches", patch), "utf8")
+      );
     }
     // 在隔离的离线安装目录中执行真实发行 Adapter，证明官方 Client 已随包收集且无需安装 Provider。
     const dshFixture = join(consumer, "dsh-runtime.mjs");
@@ -156,6 +161,45 @@ export async function verifyRelease(archiveInput, { expectedCommit, requireClean
         .join(""),
       "hello 世界"
     );
+    const { DEFAULT_STREAM_LIMIT_POLICY } = await import(
+      `${pathToFileURL(installed).href}/dist/public/protocol.js`
+    );
+    const dshRequest = (mode, extraEnv = []) =>
+      invokeRequest({
+        workdir: directory,
+        approvalMode: "full_access",
+        agentConfig: { providerOptions: { dshBin: dshFixture } },
+        executionEnvOverrides: {
+          env_variables: [{ key: "OCTO_DSH_FIXTURE", value: mode }, ...extraEnv]
+        }
+      });
+    for (const mode of ["oversized-initialize", "oversized-fragmented", "raw-no-newline"]) {
+      const events = await Array.fromAsync(
+        dshModule.createDshAdapter().invoke(dshRequest(mode), {
+          streamLimits: { ...DEFAULT_STREAM_LIMIT_POLICY, rawMessageMaxBytes: 1024 }
+        })
+      );
+      assert.equal(events.at(-1)?.payload.code, "PROVIDER_MESSAGE_TOO_LARGE", mode);
+    }
+    if (process.platform !== "win32") {
+      const pidFile = join(directory, "dsh-child.pid");
+      try {
+        const events = await Array.fromAsync(
+          dshModule
+            .createDshAdapter()
+            .invoke(dshRequest("tree-exit", [{ key: "OCTO_DSH_CHILD_PID", value: pidFile }]))
+        );
+        assert.equal(events.at(-1)?.payload.code, "DSH_TRANSPORT_CLOSED");
+        const pid = Number(await readFile(pidFile, "utf8"));
+        assert.throws(() => process.kill(pid, 0), { code: "ESRCH" });
+      } finally {
+        try {
+          process.kill(Number(await readFile(pidFile, "utf8")), "SIGKILL");
+        } catch (error) {
+          if (error.code !== "ESRCH" && error.code !== "ENOENT") throw error;
+        }
+      }
+    }
     const grokEntry = moduleManifest.adapters.find((entry) => entry.type === "grok-build");
     assert.equal(grokEntry?.module, "@mininglamp-oss/octo-runtime-adapter-grok-build");
     const grokModule = await import(
