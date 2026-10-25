@@ -16,6 +16,8 @@ npm 于 2026-10-25 核对的最高版本仍为 `@deepseek-ai/dsh-sdk-client@0.2.
 
 业务方提供模型、Provider、目录、Home、profile、权限和显式 Provider session。Adapter 仅映射本轮输入和原生轨迹，不补历史、不默认 reset、不安装 Provider、不修改认证或 GUI。CLI 与 SDK 经同一 Adapter；Channel Gateway 保持公共事件投影，不解析 DSH。
 
+Provider 兼容边界：不把 Provider 内部实现习惯升级为 Runtime 的强制协议。DSH 原生 seq 只用于按会话去重，允许非零起点和向前跳号，不因跳号单独判失败；未映射的原生事件类型忽略。Core 独立生成 Runtime HostFrame seq，两种序号不耦合。强制校验限于正确关联和映射结果、确认执行终态、资源预算与清理所需的合同。仍需 receipt、root turn/end、非空 committed answer、session/wait 和清理完成证据；明确失败、必要证据缺失或矛盾、传输中断和资源超限不能伪装成功。验收应同时证明原生跳号可正常完成、HostFrame 序号连续，以及真实失败仍被正确报告。
+
 官方高层 run 保留整轮数组，本接入使用低层订阅同步投影到已有有界 DriverQueue，回调返回 false，避免额外无界队列。新会话才发送控制指令；原会话先恢复再设置本轮目录，失败不能另建替代。
 
 # 两项 P1 的修复设计

@@ -14,17 +14,20 @@ if (process.argv.includes("--version")) {
 }
 const mode = process.env.OCTO_DSH_FIXTURE ?? "success";
 const send = (value) => process.stdout.write(JSON.stringify({ jsonrpc: "2.0", ...value }) + "\r\n");
-let seq = 0;
+const sequences = new Map();
 let root;
 let waiter;
-const notify = (sessionId, type, data) =>
+const notify = (sessionId, type, data) => {
+  const seq = sequences.get(sessionId) ?? 0;
+  sequences.set(sessionId, seq + 1);
   send({
     method: "session.event",
     params: {
       sessionId,
-      event: { type, seq: seq++, time: Date.now(), data }
+      event: { type, seq, time: Date.now(), data }
     }
   });
+};
 const result = (id, value = {}) => send({ id, result: value });
 const error = (id) =>
   send({ id, error: { code: -32000, message: process.env.OCTO_DSH_CANARY ?? "fixture failure" } });
@@ -57,6 +60,7 @@ const terminal = () => {
   if (waiter) result(waiter);
 };
 const answer = () => {
+  if (mode === "sequence-jump") sequences.set(root, sequences.get(root) + 1);
   notify(root, "step/start", { turn: 0, step: 0 });
   if (mode === "tool") {
     notify(root, "tool/call", {

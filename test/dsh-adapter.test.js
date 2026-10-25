@@ -471,6 +471,71 @@ test("DSH duplicate sequence is ignored, conflicting duplicate fails", () => {
   assert.throws(() => trajectory.accept(notification), /DSH_TRAJECTORY_INVALID/);
 });
 
+test("DSH accepts forward sequence jumps after an arbitrary initial resume offset", () => {
+  const trajectory = new DshTrajectory("root", 1024);
+  const notify = (type, seq, data) => ({
+    method: "session.event",
+    params: { sessionId: "root", event: { type, seq, time: 1, data } }
+  });
+  assert.equal(trajectory.accept(notify("turn/start", 40, { turn: 0 })).length, 1);
+  assert.equal(trajectory.accept(notify("step/start", 42, { turn: 0, step: 0 })).length, 1);
+});
+
+test("DSH sequence tracking is independent for interleaved parent and child sessions", () => {
+  const trajectory = new DshTrajectory("root", 1024);
+  trajectory.accept({
+    method: "subagent.started",
+    params: { parentSessionId: "root", childSessionId: "child" }
+  });
+  for (const [sessionId, seq, type] of [
+    ["root", 40, "turn/start"],
+    ["child", 7, "turn/start"],
+    ["root", 43, "step/start"],
+    ["child", 10, "step/start"]
+  ])
+    assert.equal(
+      trajectory.accept({
+        method: "session.event",
+        params: { sessionId, event: { type, seq, time: 1, data: { turn: 0, step: 0 } } }
+      }).length,
+      1
+    );
+});
+
+for (const path of ["Adapter", "Core"])
+  test(`DSH ${path} accepts native sequence jumps and completes cleanup`, async (t) => {
+    const f = await fixture(t, "sequence-jump");
+    const core = new AgentExecutor();
+    core.register(createDshAdapter());
+    try {
+      let events;
+      if (path === "Adapter") events = await collect(f.request);
+      else {
+        const frames = await Array.fromAsync(
+          core.invokeFrames(invocationInput(f.request, "canonical", "dsh"), {
+            executionEnvOverrides: f.request.executionEnvOverrides
+          })
+        );
+        assert.deepEqual(
+          frames.map((frame) => frame.seq),
+          frames.map((_, index) => index + 1)
+        );
+        events = frames.filter((frame) => frame.kind === "canonical").map((frame) => frame.event);
+      }
+      events.forEach(assertCanonicalEvent);
+      assert.deepEqual(
+        terminals(events).map((event) => event.type),
+        ["run.completed"]
+      );
+      assert.equal(text(events), "hello 世界");
+      assert.equal(JSON.stringify(events).includes(f.canary), false);
+      const pid = (await f.trace())[0].pid;
+      assert.throws(() => process.kill(pid, 0), { code: "ESRCH" });
+    } finally {
+      assert.equal((await core.shutdown()).cleanup, "complete");
+    }
+  });
+
 test("DSH cleanup failure suppresses completed and retains primary plus cleanup failures", async (t) => {
   const f = await fixture(t, "provider-error");
   const original = HarnessClient.prototype.close;

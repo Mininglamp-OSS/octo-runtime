@@ -204,6 +204,10 @@ export async function verifyRelease(archiveInput, { expectedCommit, requireClean
       assert.equal(events[0].type, "run.failed");
       assert.equal(events[0].payload.code, expected);
     }
+    const jumpedEvents = await Array.fromAsync(
+      dshModule.createDshAdapter().invoke(dshRequest("sequence-jump"))
+    );
+    assert.equal(jumpedEvents.at(-1)?.type, "run.completed", "native sequence jump");
     for (const mode of ["oversized-initialize", "oversized-fragmented", "raw-no-newline"]) {
       const events = await Array.fromAsync(
         dshModule.createDshAdapter().invoke(dshRequest(mode), {

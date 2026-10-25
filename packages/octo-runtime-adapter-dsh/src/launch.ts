@@ -6,6 +6,13 @@ import { fileURLToPath } from "node:url";
 import { createProcessCleanup } from "@mininglamp-oss/octo-runtime-adapter-sdk/process-cleanup";
 import { DSH_VERSION, DshError, dshError, nativeCode } from "./errors.js";
 
+const VERSION_PROBE_TIMEOUT_MS = 10_000;
+const VERSION_PROBE_MAX_BYTES = 4096;
+const MAX_LAUNCH_ARGS = 64;
+const MAX_TIMEOUT_MS = 86_400_000;
+const MAX_OPTION_STRING_LENGTH = 4096;
+export const DSH_PROCESS_GRACE_MS = 1000;
+
 export interface DshLaunch {
   command: string;
   args: string[];
@@ -49,7 +56,7 @@ export async function resolveDshLaunch(
     if (options.args !== undefined) {
       if (
         !Array.isArray(options.args) ||
-        options.args.length > 64 ||
+        options.args.length > MAX_LAUNCH_ARGS ||
         options.args.some((value) => typeof value !== "string" || value.includes("\0"))
       )
         throw new DshError("DSH_CONFIG_INVALID");
@@ -133,8 +140,8 @@ async function checkVersion(launch: DshLaunch, signal?: AbortSignal): Promise<vo
   const cleanup = createProcessCleanup(child, {
     processGroup: process.platform !== "win32",
     processTree: true,
-    termGraceMs: 1000,
-    killGraceMs: 1000
+    termGraceMs: DSH_PROCESS_GRACE_MS,
+    killGraceMs: DSH_PROCESS_GRACE_MS
   });
   let output = "";
   let bytes = 0;
@@ -147,7 +154,7 @@ async function checkVersion(launch: DshLaunch, signal?: AbortSignal): Promise<vo
   try {
     await new Promise<void>((resolveVersion, reject) => {
       rejectPending = reject;
-      timer = setTimeout(stop, 10000);
+      timer = setTimeout(stop, VERSION_PROBE_TIMEOUT_MS);
       const ioFailure = (error: NodeJS.ErrnoException) =>
         reject(
           new DshError(
@@ -163,7 +170,7 @@ async function checkVersion(launch: DshLaunch, signal?: AbortSignal): Promise<vo
       child.stdout.on("error", ioFailure);
       child.stdout.on("data", (chunk: Buffer) => {
         bytes += chunk.length;
-        if (bytes > 4096) stop();
+        if (bytes > VERSION_PROBE_MAX_BYTES) stop();
         else output += chunk.toString("utf8");
       });
       child.once("close", (code, signal) =>
@@ -222,7 +229,7 @@ export function timeoutOption(
       : typeof raw === "number" || (typeof raw === "string" && /^\d+$/.test(raw))
         ? Number(raw)
         : NaN;
-  if (!Number.isSafeInteger(value) || value < 1 || value > 86_400_000)
+  if (!Number.isSafeInteger(value) || value < 1 || value > MAX_TIMEOUT_MS)
     throw new DshError("DSH_CONFIG_INVALID");
   return value;
 }
@@ -233,7 +240,12 @@ export function stringOption(
   fallback: string
 ): string {
   const value = options[key] ?? fallback;
-  if (typeof value !== "string" || !value.trim() || value.includes("\0") || value.length > 4096)
+  if (
+    typeof value !== "string" ||
+    !value.trim() ||
+    value.includes("\0") ||
+    value.length > MAX_OPTION_STRING_LENGTH
+  )
     throw new DshError("DSH_CONFIG_INVALID");
   return value;
 }

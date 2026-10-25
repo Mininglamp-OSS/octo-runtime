@@ -20,7 +20,7 @@ import {
   type SdkPromptContentBlock
 } from "@deepseek-ai/dsh-sdk-client";
 import { DshError, dshError, record, DSH_VERSION } from "./errors.js";
-import { resolveDshLaunch, timeoutOption, stringOption } from "./launch.js";
+import { resolveDshLaunch, timeoutOption, stringOption, DSH_PROCESS_GRACE_MS } from "./launch.js";
 import { DshTrajectory } from "./trajectory.js";
 
 export { DshError, DSH_VERSION } from "./errors.js";
@@ -194,8 +194,8 @@ export function createDshAdapter(options: DshAdapterOptions = {}) {
                 createProcessCleanup(child, {
                   processGroup: process.platform !== "win32",
                   processTree: true,
-                  termGraceMs: 1000,
-                  killGraceMs: 1000
+                  termGraceMs: DSH_PROCESS_GRACE_MS,
+                  killGraceMs: DSH_PROCESS_GRACE_MS
                 }),
               rawMessageMaxBytes: limits.rawMessageMaxBytes,
               maxSessionRelationships: 128,

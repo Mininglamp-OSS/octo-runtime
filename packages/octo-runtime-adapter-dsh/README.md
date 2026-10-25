@@ -20,7 +20,7 @@ macOS Desktop 入口依赖 Node.js 的 [`process.execve`](https://nodejs.org/api
 octo-runtime adapter probe dsh
 ```
 
-probe 只证明兼容入口可运行，不证明账户、模型或工具可用。真实验证入口：仓库构建后运行 `node scripts/verify-dsh-live.mjs`，会调用模型并在临时工作目录写入验证文件。
+probe 只证明兼容入口可运行，不证明账户、模型或工具可用。真实验证入口：仓库构建后运行 `node scripts/verify-dsh-live.mjs`，会调用模型并在临时工作目录写入验证文件。该脚本是依赖本机已安装且配置完成的 DSH 的手动验收，不作为普通 CI 门禁；CI 使用可控 fixture，不能替代真实 Desktop 验收。
 
 ## SDK 与 CLI
 
@@ -78,6 +78,10 @@ serveWorker([dshAdapter]);
 
 原生 prompt 回执只表示入队。成功还需关联 receipt、root turn/end=completed、非空 committed answer、session/wait 成功，以及拥有进程清理完成。只收到 idle、空回答、EOF 或 enqueue ACK 都不会报成功。
 
+DSH 原生事件 seq 用于按会话去重，允许非零起点和向前跳号；相同序号的完全相同事件去重，冲突重复仍报错。执行是否成功由上述完成证据判定，不因原生序号不连续而失败。Runtime HostFrame 的 seq 由 Core 独立生成，与 DSH 原生序号无关。
+
+Provider 兼容原则：Adapter 的强制校验限于正确映射结果、确认执行终态和完成资源清理所需的合同，以及已有资源预算。未映射的原生事件类型忽略，不因内部编号习惯或与结果无关的事件差异中断整轮执行。重复事件去重；但明确的执行失败、传输中断、必要完成证据缺失或相互矛盾、资源超限和清理失败仍须按对应状态处理，不能以兼容为由补造结果或报告成功。DSH seq 不连续本身不是完成证据缺失。
+
 本版 SDK 在消息提交后转发 compact text-chunks，Adapter 重放这些增量并与 committed snapshot 对账；这不是实时逐 token 流。工具参数从原生 JSON 字符串解析，结果使用 toolCallId 关联；单工具失败不替代 root 的终态。Child 仅在发现原生 lineage 后纳入，文本使用 commentary，不混入 root final。原生 reasoning 标记 analysis/private_reasoning 和来源，公共卡片不能展示该内容。usage 只传递已报告的数值，不估算 token。
 
 本版 SDK 没有交互审批传输，因此只接受调用方明确选择的 full_access，原生权限固定为 danger-full-access；ask/assisted 在启动前拒绝。工作目录不是沙箱。非 default actmode、逐轮 MCP 不支持时明确拒绝；effort 没有 setter，沿统一 notice 回执说明未应用。
@@ -91,3 +95,7 @@ serveWorker([dshAdapter]);
 源码声明官方 Client 精确生产依赖。构建发行包时，esbuild 按实际 import 收集应用补丁后的官方 Client 和官方 SDK Protocol 的 JavaScript，保留 workspace 依赖为外部包并记录上游版本、补丁和 MIT 许可。Adapter 始终传入显式 dshBin，因此不使用官方 SDK 自动解析 npm Provider 的默认路径；发行包不携带整套 Provider 或平台原生模块，不在消费者安装时下载 Provider。离线包验证覆盖这条路径。
 
 测试沿仓库的构建产物约定：运行 pnpm test 会先清理并构建当前源码，再执行测试；CI 的 pnpm typecheck 同样先构建，随后运行 pnpm test:suites。内部 trajectory 测试读取本轮构建产物，不作为公共 API 导出；官方 Client 测试通过包名解析其公开入口，不依赖 node_modules 内部布局。单独执行 node --test 前需先运行 pnpm build。
+
+解析前预算依赖上述两个下游补丁，通知回调中的对象大小检查不能替代它。源码安装使用 pnpm install --frozen-lockfile 应用锁定补丁；Protocol 边界测试检查超量数据在 JSON.parse 调用前被拒绝。发行验证对离线安装后的公共 Adapter 再执行超大响应、分段帧和无换行数据测试，并核对随包补丁与仓库字节一致；macOS、Linux 和 Windows CI 都执行该发行验证。
+
+源码依赖图包含官方 Client 声明的同版 Provider 依赖，因此 lockfile 明显增大。默认 CLI 内置 DSH，暂不改成可选 Adapter 安装；消费者发行包只收集实际使用的 Client/Protocol JavaScript，不携带该 Provider 依赖图。构建脚本禁止误收集 Provider，离线验证检查发行主包不声明官方 Provider/Client npm 依赖；不能通过手工裁剪 lockfile 减少这部分源码依赖。

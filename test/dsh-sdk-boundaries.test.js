@@ -71,6 +71,25 @@ test("official Protocol enforces response limits and stops later notifications i
   assert.equal(received, 0);
 });
 
+test("official Protocol rejects oversized input before invoking JSON.parse", (t) => {
+  const failures = [];
+  const { input } = endpoint(t, 32, (error) => failures.push(error));
+  const original = JSON.parse;
+  let parses = 0;
+  JSON.parse = (...args) => {
+    parses++;
+    return original(...args);
+  };
+  try {
+    input.write(Buffer.from(JSON.stringify({ padding: "x".repeat(33) }) + "\n"));
+  } finally {
+    JSON.parse = original;
+  }
+  assert.equal(parses, 0);
+  assert.equal(failures.length, 1);
+  assert.equal(failures[0].code, "PROVIDER_MESSAGE_TOO_LARGE");
+});
+
 for (const mode of ["stderr-line", "stderr-partial"])
   test(`official Client bounds retained ${mode} diagnostics after unexpected process exit`, async () => {
     const client = new HarnessClient({
