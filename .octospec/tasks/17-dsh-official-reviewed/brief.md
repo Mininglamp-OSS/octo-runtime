@@ -28,7 +28,7 @@ Client 补丁增加四个可选输入：detached、createProcessCleanup、rawMes
 
 Protocol 补丁在 StringDecoder、拼接和 JSON.parse 前按原始分片计数字节，检查所有响应和通知，并覆盖尚无换行的数据。CR 计入预算，LF 分隔符不计入；恰好上限接收，超过一字节即拒绝。拒绝清空缓冲、移除 reader、拒绝 pending 和后续 request，以稳定 PROVIDER_MESSAGE_TOO_LARGE 通知 Client 和 Adapter。原有 RPC 编码、方法、订阅和错误类型继续使用官方实现。
 
-旧 review 的其他项：命名测试在回滚中修复；官方 subscription.close 同步拒绝 pending next，故 finally 的等待有确定退出路径并有回归；打包依据实际 require.resolve 路径核对入口，不再固定 lib/index.js 布局。回滚中删除的 context.log/native_code 由本次新集成完整引入并测试，其他原有 Adapter 无此依赖。
+旧 review 的其他项：命名测试在回滚中修复；官方 subscription.close 同步拒绝 pending next，故 finally 的等待有确定退出路径并有回归；打包依据实际 require.resolve 路径核对入口，不再固定 lib/index.js 布局。回滚后续审查要求保留公共诊断，因此 #175 的 703b69e 保留 context.log、通用安全字段、Core reason_code 和 QA CLI 配置及错误诊断，并增加独立于 DSH 的回归；本次新集成以该提交为基线。
 
 # 实施准备度与验收
 

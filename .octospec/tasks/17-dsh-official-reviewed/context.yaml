@@ -1,6 +1,6 @@
 task: 17-dsh-official-reviewed
 withdrawal: 175
-baseline: c83dbae0fa132fb208a5e3fd15713afc2dc20ff2
+baseline: 703b69ead2ee0f49a6aa54c9751d4013126ab797
 read:
   - AGENTS.md
   - .octospec/rules/_index.yaml
