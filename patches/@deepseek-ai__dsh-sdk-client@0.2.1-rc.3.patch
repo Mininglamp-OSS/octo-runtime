@@ -1,0 +1,105 @@
+diff --git a/lib/index.js b/lib/index.js
+index 1e67eff824edf1e51333a41ff5a004a986a23c68..3b8186026989050365478be097b0ca681178a9fb 100644
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -339,6 +339,8 @@ var HarnessClient = class {
+ 	spawnError;
+ 	streamsSettled = Promise.resolve();
+ 	closeTask;
++	processCleanup;
++	transportFailure;
+ 	constructor(options = {}, runtime) {
+ 		this.options = options;
+ 		this.runtime = runtime ?? resolveDshLaunch(options);
+@@ -352,6 +354,7 @@ var HarnessClient = class {
+ 		if (this.child !== void 0) return;
+ 		const child = spawn(this.runtime.command, this.runtime.args, {
+ 			cwd: this.runtime.cwd,
++			detached: this.options.detached ?? false,
+ 			env: this.runtime.environment(),
+ 			stdio: [
+ 				"pipe",
+@@ -360,6 +363,7 @@ var HarnessClient = class {
+ 			]
+ 		});
+ 		this.child = child;
++		this.processCleanup = this.options.createProcessCleanup?.(child);
+ 		child.once("error", (error) => {
+ 			this.spawnError = error;
+ 			this.transport?.close();
+@@ -402,7 +406,13 @@ var HarnessClient = class {
+ 		child.once("close", () => {
+ 			this.transport?.close();
+ 		});
+-		const transport = new JsonRpcLineTransport(child.stdout, child.stdin);
++		const transport = new JsonRpcLineTransport(child.stdout, child.stdin, {
++			maxLineBytes: this.options.rawMessageMaxBytes,
++			onError: (error) => {
++				this.transportFailure ??= error;
++				this.failSubscriptions(error);
++			}
++		});
+ 		transport.onNotification((method, params) => {
+ 			this.dispatchNotification({
+ 				method,
+@@ -484,6 +494,7 @@ var HarnessClient = class {
+ 	*/
+ 	async request(method, params, timeoutMs) {
+ 		this.start();
++		if (this.transportFailure !== void 0) throw this.transportFailure;
+ 		if (this.exitCode !== void 0 || this.spawnError !== void 0) {
+ 			await this.settleStreams();
+ 			throw this.closedError("DeepSeek Harness runtime is not running");
+@@ -505,6 +516,7 @@ var HarnessClient = class {
+ 				clearTimeout(timer);
+ 			}
+ 		} catch (error) {
++			if (this.transportFailure !== void 0) throw this.transportFailure;
+ 			if (error instanceof JsonRpcResponseError$1 || error instanceof RequestTimeoutError) throw error;
+ 			await this.settleStreams();
+ 			throw this.closedError(errorMessage(error));
+@@ -571,12 +583,21 @@ var HarnessClient = class {
+ 		} catch (error) {
+ 			this.appendStderr([`shutdown request failed: ${errorMessage(error)}`]);
+ 		}
+-		await disposeRuntimeProcess(child, {
+-			disposeEofGraceMs: this.runtime.disposeEofGraceMs ?? 6e3,
+-			disposeGraceMs: this.runtime.disposeGraceMs ?? 3e3
+-		});
+-		this.transport?.close();
+-		this.failSubscriptions(this.closedError("DeepSeek Harness runtime closed"));
++		try {
++			// The owner captures the process group at spawn; leader exit is not tree exit.
++			if (this.processCleanup) await this.processCleanup();
++			else await disposeRuntimeProcess(child, {
++				disposeEofGraceMs: this.runtime.disposeEofGraceMs ?? 6e3,
++				disposeGraceMs: this.runtime.disposeGraceMs ?? 3e3
++			});
++		} finally {
++			this.transport?.close();
++			this.failSubscriptions(this.closedError("DeepSeek Harness runtime closed"));
++			child.stdout.destroy();
++			child.stderr.destroy();
++			this.sessionParents.clear();
++			this.stderrTail.length = 0;
++		}
+ 	}
+ 	dispatchNotification(notification) {
+ 		this.recordSessionRelationship(notification);
+diff --git a/lib/types/types.d.ts b/lib/types/types.d.ts
+index e8b4b15c3be69d0c1c16bd95422a543345617dfd..dbfc4ef15d99eb5d7a8537f927c2851d6496f725 100644
+--- a/lib/types/types.d.ts
++++ b/lib/types/types.d.ts
+@@ -18,6 +18,12 @@ export interface HarnessNotification {
+ export type NotificationFilter = (notification: HarnessNotification) => boolean;
+ /** Launch and timeout options for {@link HarnessClient}. */
+ export interface HarnessClientOptions {
++    /** Downstream extension: isolate the owned POSIX process group. */
++    detached?: boolean;
++    /** Downstream extension: create a confirmed cleanup for this invocation's child/tree. */
++    createProcessCleanup?: (child: import('node:child_process').ChildProcess) => () => Promise<void>;
++    /** Downstream extension: maximum inbound line bytes, including a partial line, before decoding. */
++    rawMessageMaxBytes?: number;
+     /** Absolute or caller-relative dsh CLI module; omitted resolves this package's same-version dependency. */
+     dshBin?: string;
+     /** Named profile serving the SDK protocol (default `sdk`). */
