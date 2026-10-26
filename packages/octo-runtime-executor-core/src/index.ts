@@ -53,6 +53,7 @@ import { InvocationExperience } from "./experience.js";
 import { withModelContexts } from "./model-input.js";
 import { noopRuntimeLog, type RuntimeLog } from "@mininglamp-oss/octo-runtime-adapter-sdk";
 import { AdapterWatchdogTimeoutError, InvocationWatchdog } from "./watchdog.js";
+import { watchdogLogData } from "./watchdog-log.js";
 export type {
   AdapterInvocationContext,
   AdapterOutput,
@@ -434,6 +435,7 @@ export class AgentExecutor {
     };
     let state: (HostControl & { type: "state" }) | undefined;
     let failureCode: string | undefined;
+    let diagnosticId: string | undefined;
     let failureReasonCode: string | undefined;
     const pendingInteractions = new Set<string | number>();
     const source =
@@ -450,10 +452,13 @@ export class AgentExecutor {
         const output = next.value;
         if (!("kind" in output) && output.type === "run.failed") {
           failureCode = output.payload.failure?.code;
+          diagnosticId = output.payload.failure?.diagnosticId;
           failureReasonCode = output.payload.failure?.reasonCode;
         }
-        if ("kind" in output && output.kind === "control" && output.control.type === "error")
+        if ("kind" in output && output.kind === "control" && output.control.type === "error") {
           failureCode = output.control.code;
+          diagnosticId = output.control.failure?.diagnosticId;
+        }
         if (
           "kind" in output &&
           output.kind === "control" &&
@@ -532,6 +537,7 @@ export class AgentExecutor {
             }
           ).failure
         : undefined;
+      diagnosticId = failure?.diagnosticId;
       for (const requestId of pendingInteractions)
         yield {
           ...receipt,
@@ -569,6 +575,7 @@ export class AgentExecutor {
         if (state?.state === "failed")
           this.#log("error", "invoke.failed", {
             ...identity,
+            diagnostic_id: diagnosticId,
             code: failureCode ?? "EXECUTION_FAILED",
             reason_code: failureReasonCode
           });
@@ -663,12 +670,14 @@ export class AgentExecutor {
     const watchdog = new InvocationWatchdog(request.runtimeLimits, controller, (diagnostic) =>
       this.#log("warn", "invoke.watchdog", {
         ...identity,
+        ...watchdogLogData(diagnostic),
         code: diagnostic.event
       })
     );
     let iterator: AsyncIterator<AdapterOutput> | undefined;
     let nextFailed = false;
     let iteratorDone = false;
+    let executionStopped: "completed" | "failed" | "cancelled" | undefined;
     let cleanupWait: Promise<void> | undefined;
     let cleanupDeadline: number | undefined;
     const beginCleanup = (): number =>
@@ -719,7 +728,11 @@ export class AgentExecutor {
           );
         conversions++;
       },
-      reportActivity: (activity) => watchdog.activity(activity)
+      reportActivity: (activity) => watchdog.activity(activity),
+      // Provider 实际停止与本地 Adapter 清理分别记录，避免把代理退出误当作后台任务停止。
+      reportExecutionStopped: (outcome) => {
+        executionStopped = outcome;
+      }
     };
 
     // A provider may emit only deltas; here the host fills in the message lifecycle and stabilizes the messageId.
@@ -972,6 +985,17 @@ export class AgentExecutor {
       watchdog.dispose();
       if (!controller.signal.aborted) controller.abort(error);
       await waitCleanup().catch(() => undefined);
+      // boundedCleanup 到期也会 resolve；只有 owner 被成功清理路径移除才确认完成。
+      const executionCleanup =
+        this.#owners.get(request.invocationId) === owner ? "incomplete" : "complete";
+      // 超时只结束本次观察；分别报告本地清理和真实执行事实，不据此授权重放或新执行。
+      if (error instanceof AdapterWatchdogTimeoutError)
+        failure.failure.params = {
+          ...failure.failure.params,
+          executionCleanup,
+          executionStopped: executionStopped ? "confirmed" : "unknown",
+          ...(executionStopped ? { executionStoppedState: executionStopped } : {})
+        };
       if (protocolMode === "native") {
         const nativeFailureCode = errorCode(error);
         if (!userCancelled)

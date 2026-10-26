@@ -152,6 +152,16 @@ node scripts/verify-release.mjs dist/release/mininglamp-oss-octo-runtime-0.0.0.t
 
 可复现的真实 IM 检查见 [验收脚本](scripts/verify-gateway-drain-live.mjs)：通过环境变量 OCTO_CHANNEL_QA_ACCOUNTS 指定受保护账号文件；默认验证 SDK，--cli 验证 CLI，--fail-delivery 在实际 WebSocket 文本发送边界注入失败。脚本仅使用 im-test 及指定账号共同加入的 Channel_QA_ 测试群，报告不含凭据。
 
+## 原任务观察与模型静默策略
+
+任务仍在后台运行时，重新连接应恢复原执行的观察，不能发送“继续”、重放用户请求或创建新 turn。Kernel 的已有源流恢复使用原身份和原游标；Provider 代理背后的产品专属观察方法由宿主 Adapter 显式适配，Gateway 不猜测、调用或持久化这些私有接口。
+
+Generic Runtime 的模型静默默认仍为 enforce。产品明确需要持续观察长任务时，可通过既有 `octo.execution/limits` 的 `model_idle_policy: "observe"` 显式选择仅观测模型静默；模型静默会留下诊断，不触发该项预算的 abort。工具、任务总期限与用户主动停止仍按原合同生效。不得以伪造 turn_progress 心跳冒充真实模型进展。
+
+代理退出、连接关闭和 `turn/interrupt` ACK 均不证明真实后台执行停止。Core 超时诊断分别携带 `executionCleanup` 与 `executionStopped`；后者只有 Adapter 从匹配的真实执行终态确认时才为 confirmed。观察未知不能作为新执行授权，也不能由取消受理补造成实际失败或成功。
+
+这个产品接线路径可使用当前已有 observe 合同，不以发布本 PR 或迁移 Kernel/Host SDK 为前提。本 PR 不增加自动续接或产品私有 daemon 重订阅实现；Client 的观察适配与真实 IM 验收由配套 MR 单独记录。
+
 ## 配置和业务责任
 
 Gateway 默认通过本轮 `extra.im/artifact-delivery` 建立文件交付约定：Agent 成功 final 中的本地 Markdown 链接/图片由固定 workflow 上传到 IM，再替换目标并计算 mention 后发送同一条 final。普通文件链接额外发送原生文件卡（type=8，带文件名、类型、字节数和下载地址）；final Markdown 中的链接文字及附件地址同时保留，二者不是二选一。图片使用 Markdown 图片语法内嵌展示，仅图片引用不另发文件卡；同图另有下载链接时共用一次上传并发送一张文件卡。

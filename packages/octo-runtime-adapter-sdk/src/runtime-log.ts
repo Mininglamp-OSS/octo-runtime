@@ -31,7 +31,13 @@ const strings = new Set([
   "signal",
   "endpoint_id",
   "state",
-  "protocol_mode"
+  "protocol_mode",
+  "phase",
+  "last_method",
+  "activity_support",
+  "model_idle_policy",
+  "timeout_stage",
+  "timeout_reason"
 ]);
 const numbers = new Set([
   "duration_ms",
@@ -47,7 +53,18 @@ const numbers = new Set([
   "frame_count",
   "conversion_count",
   "working_tasks",
-  "queued_tasks"
+  "queued_tasks",
+  "elapsed_ms",
+  "phase_age_ms",
+  "last_canonical_age_ms",
+  "last_progress_age_ms",
+  "last_transport_age_ms",
+  "max_canonical_gap_ms",
+  "max_progress_gap_ms",
+  "open_tool_count",
+  "pending_interaction_count",
+  "retry_count",
+  "timeout_ms"
 ]);
 
 export function assertRuntimeLogging(options?: RuntimeLoggingOptions): void {

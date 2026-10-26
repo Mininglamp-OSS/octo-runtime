@@ -67,7 +67,7 @@ Octo 和 WeCom 默认各自使用有界内存会话映射，具体容量及 rese
 
 ## 受管日志
 
-F31 已实施统一内核与 Extra 元数据日志。SDK Extra 显式指定 logging.directory，worker 可通过 OCTO_RUNTIME_LOGS_DIRECTORY 配置；当前 CLI 使用 home/logs，不提供 --logs-dir。未配置的 SDK 实例不创建日志资源。Extra 经加载器绑定来源的 ctx.log 输出事件，内核只记生命周期、身份、稳定错误码和本轮输入/非 Adapter Context 项数，Adapter 只记安全执行选择。正文、原始错误、完整配置、凭据、预览及内容哈希均不记录。SDK/launcher 不重复落盘原始进程输出。
+F31 已实施统一内核与 Extra 元数据日志。SDK Extra 显式指定 logging.directory，worker 可通过 OCTO_RUNTIME_LOGS_DIRECTORY 配置；当前 CLI 使用 home/logs，不提供 --logs-dir。未配置的 SDK 实例不创建日志资源。Extra 经加载器绑定来源的 ctx.log 输出事件，内核只记生命周期、身份、稳定错误码和本轮输入/非 Adapter Context 项数，Adapter 只记安全执行选择。watchdog 日志可记录已白名单化的阶段、时长、最后进展、工具数量与重试计数，invoke.failed 携带 diagnostic_id 以关联用户诊断号。正文、原始错误、完整配置、凭据、预览及内容哈希均不记录。SDK/launcher 不重复落盘原始进程输出。
 
 F31 已确认并实施：按 UTC 小时命名，每序列保留最近 3 个实际文件（包含当前文件），单文件 100 MiB；不按最近 3 小时年龄删除，跨天停机后仍保留最后文件。新小时实际写入第四个文件时淘汰最旧归档，不创建无日志小时的空文件。专用 Worker 隔离磁盘写入，每进程最多 128 条在途和 128 个序列，满额、锁竞争或写入失败可丢诊断，不保证审计完整性；关闭最多等待 1 秒，不影响 Agent 执行。轮转沿用非等待互斥和普通文件校验，不删除身份、Provider 文件、用户文件或旧固定日志。详情与原生服务定义更新见[运维](../guides/operations.md)及[实施记录](../tasks/gateway-august-feature-assessment/implementation.md#f31-核心改造已实施)。
 

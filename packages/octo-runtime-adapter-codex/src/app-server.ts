@@ -1,3 +1,4 @@
+import { CodexTurnStopEvidence } from "./turn-stop-evidence.js";
 import {
   actmodeEvidence,
   invocationEnvs,
@@ -1204,6 +1205,7 @@ class CodexAppServerClient {
   #closing = false;
   #exited = false;
   #terminal = false;
+  readonly #turnStop = new CodexTurnStopEvidence();
   #activeThreadId?: string;
   #activeTurnId?: string;
   #lastUsage = -1;
@@ -1409,10 +1411,12 @@ class CodexAppServerClient {
 
   setActiveThread(threadId: string): void {
     this.#activeThreadId = threadId;
+    this.#turnStop.thread(threadId);
   }
 
   setActiveTurn(turnId: string): void {
     this.#activeTurnId = turnId;
+    this.#turnStop.turn(turnId);
   }
 
   events(): AsyncIterable<AdapterOutput> {
@@ -1636,6 +1640,8 @@ class CodexAppServerClient {
    */
   close(): Promise<void> {
     return (this.#closePromise ??= (async () => {
+      // 取消先观察真实 turn/completed，再关闭代理读端；超时只清理本地资源，不补造停止证据。
+      if (this.#signal?.aborted) await this.#turnStop.wait(APP_SERVER_CLOSE_GRACE_MS);
       this.#closed = true;
       this.#clearFinalizationTimer();
       if (this.#finalizationGraceTimer) clearTimeout(this.#finalizationGraceTimer);
@@ -1708,6 +1714,8 @@ class CodexAppServerClient {
     )
       return;
     if (!this.#acceptNotification(params)) return;
+    const stopped = this.#turnStop.observe(method, params);
+    if (stopped) this.context?.reportExecutionStopped?.(stopped);
     this.#reportNotificationActivity(method, params);
     this.#watchFinalization(method, params);
     if (this.#native) {
