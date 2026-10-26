@@ -124,6 +124,8 @@ IM 附件使用当前连接 Bot 获取 `GET /v1/bot/upload/presigned` 凭据，�
 
 成功替换先于 mention 偏移计算，同 realpath 只上传一次，发送重试复用相同 effect 的完整准备结果，不补发卡片。文件卡失败或结果未知在同条 final 明确标记，同时保留可下载地址，不把 unknown 当作已确认。部分上传失败保留成功云地址，未成功的原目标不改成伪造云链接；不重跑模型或更改生成终态。stop/reset 可取消交付，旧代次 final 不发送；reset 不取消原模型或切换目录。shutdown 沿原有 3 秒 drain 和宿主共享期限结束。实现与实际验证边界见 [任务](../tasks/182-channel-artifact-delivery/brief.md)。
 
+2026-10-26 PR #187 产品决策：`/stop`、`/cancel` 在本轮最终交付完成前继续有效。模型完成后，Gateway 必须在移除执行登记前注册最终交付取消控制器，并在等待 `presentation.finish()` 后复用同一取消状态；等待期间收到停止命令，后续不得启动产物准备、文件卡或 final 发送。执行终态与业务交付分开：已经确认的 `completed` 不改为 `cancelled`，不再次取消或重跑已完成模型，也不回滚已完成的上传或已发送消息。停止只取消剩余交付，不承诺强制终止尚未返回的展示清理；交付结束后释放取消登记。该决策沿用原有停止合同，避免用户在收尾阶段看到“无可停止执行”后仍发生自动上传；不新增模型完成后忽略 stop 的阶段规则。
+
 工具调用不稳定时，在业务方拥有的 Context、提示词、技能与工具说明处对齐；工具或身份合同实际有缺陷时修复其责任模块，不能在 Channel 特殊处理来代执行。Context 的生成和发送仍由业务发起方决定，不要求框架自动注入或每轮重复。Channel 继续按标准合同负责 IM 准入、输入/Context 接线、CanonicalEvent 展示、交互回传和当前会话最终回复。已存在的 CLI/tool call 能力计入目标覆盖，不因 Channel 未重复实现 API 而扣分；本轮未独立复测与功能未实现分别记录。见[架构决定](../journal/shared/2026-10-16-agent-toolcall-channel-boundary.md)。
 
 ## Octo CLI 的渠道执行环境

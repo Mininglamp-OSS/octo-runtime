@@ -643,3 +643,126 @@ for (const command of ["/stop", "/reset", "shutdown"]) {
     );
   });
 }
+
+for (const scenario of ["/stop", "/reset", "shutdown", "finish-error-stop", "complete"]) {
+  test(`presentation cleanup retains final-delivery cancellation ownership: ${scenario}`, async (t) => {
+    const { workspace } = await fixture(t);
+    await writeFile(join(workspace, "game.html"), "game");
+    let receive,
+      release,
+      finishing = false,
+      calls = 0,
+      cancellations = 0,
+      uploads = 0,
+      cards = 0;
+    const gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    const replies = [],
+      finals = [],
+      snapshots = [],
+      terminals = [];
+    t.mock.method(GatewayTransport.prototype, "start", async function () {
+      receive = (message) => this.callbacks.onMessage(message);
+    });
+    t.mock.method(GatewayTransport.prototype, "close", async () => {});
+    const runtime = new ImRuntime(config(workspace), {
+      kernel: {
+        async *invoke() {
+          calls++;
+          yield {
+            protocolVersion: 2,
+            type: "message.delta",
+            payload: { channel: "final", text: "[Game](game.html)" }
+          };
+          yield { protocolVersion: 2, type: "run.completed", payload: {} };
+        },
+        async cancelInvocation() {
+          cancellations++;
+          return { accepted: false };
+        }
+      },
+      log(_level, event, data) {
+        if (event === "agent_run.finished") terminals.push(data.status);
+      }
+    });
+    t.after(async () => {
+      release();
+      await runtime.close().catch(() => {});
+    });
+    await runtime.start();
+    const message = {
+      messageId: "create",
+      senderId: "owner",
+      conversationId: "owner",
+      conversationKind: "direct",
+      text: "create a game",
+      async buildContext() {
+        return { schema, items: [] };
+      },
+      async reply(text) {
+        replies.push(text);
+      },
+      beginPresentation() {
+        return {
+          update(snapshot) {
+            snapshots.push(snapshot);
+          },
+          async finish() {
+            finishing = true;
+            await gate;
+            if (scenario === "finish-error-stop") throw new Error("synthetic finish failure");
+          }
+        };
+      },
+      async replyFinal(text, _key, options) {
+        options.signal.throwIfAborted();
+        assert.equal(options.obsolete(), false);
+        const prepared = await prepareArtifactReply(
+          text,
+          options.artifacts,
+          options.signal,
+          async (_bytes, name) => {
+            uploads++;
+            return `https://cdn.example.com/${name}`;
+          }
+        );
+        cards += prepared.files.length;
+        finals.push(prepared.text);
+      }
+    };
+    receive(message);
+    await waitFor(() => finishing);
+    assert.deepEqual(terminals, ["completed"]);
+    assert.equal(snapshots.at(-1).terminal, "completed");
+    assert.deepEqual(runtime.status.tasks, []);
+    assert.equal(runtime.status.sessions[0].active, false);
+    assert.equal(uploads, 0);
+    if (scenario === "shutdown") await assert.rejects(runtime.close(), /IM_DISPOSE_FAILED/);
+    else if (scenario !== "complete") {
+      receive({
+        ...message,
+        messageId: "control",
+        text: scenario === "finish-error-stop" ? "/stop" : scenario
+      });
+      await waitFor(() => replies.length > 0);
+    }
+    release();
+    await waitFor(() => runtime.status.sessions.length === 0);
+    assert.equal(calls, 1);
+    assert.equal(cancellations, 0, "a confirmed completed execution must not be cancelled again");
+    assert.deepEqual(terminals, ["completed"]);
+    assert.equal(uploads, scenario === "complete" ? 1 : 0);
+    assert.equal(cards, scenario === "complete" ? 1 : 0);
+    assert.equal(finals.length, scenario === "complete" ? 1 : 0);
+    if (scenario === "complete")
+      assert.equal(finals[0], "[Game](https://cdn.example.com/game.html)");
+    if (scenario !== "shutdown") {
+      if (scenario === "/stop" || scenario === "finish-error-stop")
+        assert.ok(replies.includes("已请求停止本轮执行。"));
+      receive({ ...message, messageId: "after", text: "/stop" });
+      await waitFor(() => replies.at(-1) === "当前没有可停止的执行。");
+      await runtime.close();
+    }
+  });
+}

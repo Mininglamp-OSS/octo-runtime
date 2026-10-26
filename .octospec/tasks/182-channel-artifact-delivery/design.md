@@ -28,7 +28,7 @@ tags: [channel, delivery, testing]
 | A08 | traversal/symlink/FIFO/目录/缺失/大小/MIME | 不读取或上传被拒绝目标 |
 | A09 | Windows/file URL/相对路径/远程 Provider | 本机语义与明确不可读 |
 | A10 | mention 与转换顺序 | UTF-16 偏移仍指向正确名称 |
-| A11 | stop/reset/shutdown | 取消在途上传，旧 final 不发送、有界退出 |
+| A11 | stop/reset/shutdown | 等待展示收尾及上传期间均可取消交付，旧 final 不发送、有界退出；已确认模型终态保持 |
 | A12 | 线上 HTML 与图片往返 | 匿名收件侧下载、内容核对、消息历史与图片呈现分别记录 |
 | A13 | HTML / Markdown 普通文件 | IM 附件和原生 type=8 文件卡，不受企业服务部署影响 |
 | A14 | 链接与卡片同时保留 | final 保留原链接文字与附件地址；图片语法不变 |
@@ -40,6 +40,14 @@ tags: [channel, delivery, testing]
 用户复核产品意图后撤销自动企业服务路由：群里发文件不应新增文档 ACL、后加入成员和转发访问障碍；服务部署只表示能力，不表示协作意图。删除企业服务开关、探测、创建/导入、授权及相关专项脚本和测试。在线协作只走明确的 LLM ToolCall。最终 Markdown 的附件链接与原生文件卡同时存在，图片内嵌展示。
 
 原生文件消息合同经 octo-web FileContent 和 File 渲染器确认：type=8，包含 url/name/size/extension；不是 type=17 互动卡或 type=18 文档分享卡。上传采用已验证的预签名 PUT/独立 downloadUrl，文件卡沿原 WS 发送机制确认，不另建 REST 重试体系。
+
+## PR #187：完成后的停止行为
+
+用户确认采用最小修复，沿用最终交付完成前可停止的行为。模型终态 `completed` 只证明执行完成，不代表自动上传、文件卡及最终文本已经交付。`/stop`、`/cancel` 在展示收尾和后续交付期间取消剩余交付；不撤销已经确认的模型终态，不再次调用模型取消，也不回滚已经完成的上传或消息。最终交付完成后，停止命令沿用“当前没有可停止的执行”反馈。
+
+实现只调整执行登记到交付登记的交接顺序：先登记交付 controller，再移除 task 和 active invocation，然后等待 `presentation.finish()`；返回后检查同一 controller，已取消则退出。所有提前退出均释放该 controller。展示清理可以继续返回或报错，不以清理结束重新创建可用交付资格。reset 的代次隔离和 shutdown 的共享有界 drain 保持既有合同。
+
+验收用 gate 延迟 `presentation.finish()`，在其等待期间触发 `/stop`、reset、shutdown 或 stop 后展示清理报错：后续上传、文件卡及 final 数量均为 0，模型调用为 1，已完成模型取消调用为 0，执行终态仍为 `completed`；正常对照应交付一次且释放取消登记。既有执行中与上传中取消测试继续验证相邻阶段。
 
 ## 可执行性：96/100
 

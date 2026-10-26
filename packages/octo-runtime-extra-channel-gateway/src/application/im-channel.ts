@@ -1088,6 +1088,7 @@ export class ImRuntime {
     let executionStarted = false;
     let presentationFailed = false;
     let localFailure: FailureEnvelope | undefined;
+    const delivery = new AbortController();
     try {
       presentation = message.beginPresentation?.(
         rootRunId,
@@ -1282,6 +1283,8 @@ export class ImRuntime {
         session_id: request.sessionId,
         status: localFailure ? "not_submitted" : (projector.snapshot().terminal ?? "unknown")
       });
+      // 移除执行身份前移交收尾/产物投递的取消权；finish 等待期间的 stop 不能落入空窗。
+      if (!localFailure) this.#finalDeliveries.set(key, delivery);
       this.#tasks.delete(key);
       try {
         // 长任务结束后重新开始终态去重窗口，保留有界尝试身份，避免立即重复执行。
@@ -1318,20 +1321,19 @@ export class ImRuntime {
         this.#finalizationFailed("IM_PRESENTATION_FAILED", request.runId);
       }
     }
-    if (localFailure) return;
-    if (this.#closed || this.#signal.aborted) return;
-    const { text, allowMention } = projector.finalReply;
-    const obsolete = () => {
-      const binding = this.#sessionStore.read(key);
-      return binding?.id !== request.sessionId || binding.generation !== request.sessionGeneration;
-    };
-    // reset 不取消原模型执行，但旧代次的结果不能启动上传或继续最终消息重试。
-    if (allowMention && obsolete()) return;
-    const delivery = new AbortController();
-    this.#finalDeliveries.set(key, delivery);
-    const deliverySignal = AbortSignal.any([this.#signal, delivery.signal]);
-    // 最终文本拥有独立投递身份，即使进度卡投递失败，也必须尝试回复用户。
     try {
+      if (localFailure || this.#closed || this.#signal.aborted || delivery.signal.aborted) return;
+      const { text, allowMention } = projector.finalReply;
+      const obsolete = () => {
+        const binding = this.#sessionStore.read(key);
+        return (
+          binding?.id !== request.sessionId || binding.generation !== request.sessionGeneration
+        );
+      };
+      // reset 不取消原模型执行，但旧代次的结果不能启动上传或继续最终消息重试。
+      if (allowMention && obsolete()) return;
+      const deliverySignal = AbortSignal.any([this.#signal, delivery.signal]);
+      // 最终文本拥有独立投递身份，即使进度卡投递失败，也必须尝试回复用户。
       await this.#reply(
         message,
         text,

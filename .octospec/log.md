@@ -2,6 +2,8 @@
 
 ## 2026-10-26
 
+- [PR #187 P2](journal/shared/2026-10-26-182-channel-artifact-delivery.md#pr-187-p2展示收尾期间的停止空窗)：用户确认最终交付完成前 stop 仍有效，保留已确认模型终态；提前注册交付取消控制器，补上 presentation finish 等待空窗。旧实现 2 条 stop 用例失败，修复后 5/5 通过，全量 Node 1868 通过、54 跳过；产品决策见[设计](tasks/182-channel-artifact-delivery/design.md#pr-187完成后的停止行为)。
+
 - [PR #187](https://github.com/Mininglamp-OSS/octo-runtime/pull/187) 合入最新 main@167205c，知识日志冲突保留双方记录，产品代码无冲突。同步后类型、lint、格式、命名、开发文档与全量 Node（1863 通过、54 跳过）通过，见[同步记录](journal/shared/2026-10-26-182-channel-artifact-delivery.md#pr-187-同步最新-main)。
 
 - 按用户复核后的 [Issue 182](tasks/182-channel-artifact-delivery/brief.md) 收敛固定输出 workflow：删除企业服务开关、探测、文档创建/导入及授权。普通文件交付 IM 附件与原生文件卡，最终 Markdown 保留同一附件的链接；图片内嵌展示。避免群聊增加文档 ACL、新成员及转发访问障碍，在线协作走明确 ToolCall。保留目录核验、预签名直传、去重、重试缓存、部分失败及生命周期约束，见[实施与验证](journal/shared/2026-10-26-182-channel-artifact-delivery.md)。

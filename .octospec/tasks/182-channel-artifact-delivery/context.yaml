@@ -43,7 +43,14 @@ product_decision:
   local_image: im_attachment_inline_markdown_image
   online_collaboration: explicit_llm_toolcall_only
   enterprise_service_routing: removed
+  post_terminal_stop: cancel_remaining_delivery_preserve_confirmed_execution_terminal
 validation:
+  p2_review_baseline: ede73df23b68d8b720876e0de5e7b833d195a014
+  p2_delayed_finish_before: 3_passed_2_failed_stop_started_upload
+  p2_delayed_finish_after: 5_passed_0_failed
+  p2_node_suite: 1868_passed_54_skipped_0_failed
+  p2_typecheck_lint_names_docs_format: passed
+  p2_verified_review: 7_files_reviewed_no_unresolved_medium_or_above_findings
   main_sync_node_suite: 1863_passed_54_skipped_0_failed
   main_sync_typecheck_lint_names_docs_format: passed
   main_sync_review: log_conflict_preserves_both_sides_no_product_code_conflicts
@@ -61,4 +68,4 @@ validation:
   prior_webui_suite: 35_passed
   prior_live_upload_and_anonymous_download: passed_html_and_png
   prior_browser: passed_640x360_inline_image
-  verified_review: 31_files_reviewed_no_unresolved_medium_or_above_findings
+  initial_verified_review: 31_files_reviewed_before_external_p2_cancellation_window_finding

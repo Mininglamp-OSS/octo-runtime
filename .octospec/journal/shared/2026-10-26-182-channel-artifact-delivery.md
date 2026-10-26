@@ -55,3 +55,19 @@ Markdown AST 选择有效引用，token 源区间替换地址，保留正文、�
 已提交 `9314195` 并建立 [PR #187](https://github.com/Mininglamp-OSS/octo-runtime/pull/187)。用户要求解决最新 main 冲突，本轮合并 `origin/main@167205ccd113e0795a7f7d9c5c24beeba9c56e5d`，唯一冲突为 `.octospec/log.md` 同一天新增记录，保留双方内容。知识目录、Channel 规则及产品代码自动合并；保留 main 的规范 `OCTO_TOKEN` 注入、CLI/IPC 和 Windows 控制台修复。附件交付、正文下载链接和内嵌图片合同不变，不改写已有提交。
 
 同步后 `pnpm typecheck`、lint、命名、格式与开发文档检查全部通过；全量 Node 1863 通过、54 跳过、0 失败（并发 4），包含文件卡 failed/unknown 回执、链接保留、mention、去重、取消和工具身份回归。`git diff --cached --check` 通过，OKF 仍仅有前述 7 个基线 frontmatter 错误。按 verified-review 复核冲突解法及自动合并的 Channel 规则；上游工具环境、CLI/Kernel 文件与 main 一致，没有额外产品代码改写或未处理的 medium 及以上问题。本轮不重复未变更的线上测试或 WebUI 检查；Windows 专属检查未在本机执行。使用英文 merge commit 和普通 push 更新同一个 PR。
+
+## PR #187 P2：展示收尾期间的停止空窗
+
+Jerry-Xin 对 `ede73df23b68d8b720876e0de5e7b833d195a014` 提出 changes-requested：`presentation.finish()` 等待前已移除 task 和 active invocation，而交付 controller 等待后才注册，导致期间 `/stop` 回复无可停止执行，之后却继续自动上传。意见位于 review 正文，没有行内待解决线程。此问题已复现，前述初次本地审查未覆盖该时间窗口，不能用原无发现结论替代本次整改。
+
+用户讨论后授权最小修复及公开产品决策：最终交付完成前的 `/stop`、`/cancel` 取消本轮剩余工作，模型终态和交付状态独立。模型已经 `completed` 时不再次请求取消、不改写终态、不重跑；已经上传的文件和已发送消息不回滚。等待展示收尾期间也必须有可取消的交付登记，不新增“模型完成后忽略 stop”的产品阶段。原因是行为一致性与改动范围：用户不应在收到无可停止反馈后继续遭遇自动上传，也无需为模型完成后另设停止规则。决策同步到 Channel 规则和任务设计，并按用户要求在 GitHub PR 使用英文评论。
+
+修复只将交付 controller 的登记提前至 task 删除前，并在 `finish()` 后检查同一取消状态；提前退出也进入 finally 清理。执行中的取消、reset 不取消原模型、代次保护和共享 shutdown drain 沿用既有路径。展示 finish 自身不保证可强制中断，其延迟或报错不能恢复已撤销的交付资格。
+
+验证基线为上述完整 SHA 的 dirty 工作区，Darwin arm64 / Node v24.19.0。新增 gate 用例延迟真实 Runtime 所调用的 presentation finish，通过实际 `prepareArtifactReply` 核验本地 game.html；模型源、展示、上传及发送为受控替身，不代表真实 IM 或客户端视觉验收。
+
+- 同一命令 `node --test --test-name-pattern='presentation cleanup' test/im-artifact-delivery.test.js` 在旧实现 3 通过、2 失败（退出 1）：`/stop` 与 finish 报错后 stop 两条都启动了 1 次上传，期望为 0。证据 `/tmp/octo-runtime-187-p2-before.log`。早期夹具曾错误要求 workingTasks 为 0；该指标包含尚未完成的 session tail，移除该错误断言后才执行上述有效复现。
+- 修复后同组 5/5 通过（退出 0）：stop/reset/shutdown/finish 报错后 stop 均不启动上传、文件交付或 final，模型只调用一次、已完成模型取消调用为 0、终态仍 completed；正常对照完成一次交付且链接保留。再次 stop 反馈无可停止执行，证明交付登记已释放。
+- `pnpm typecheck`、`pnpm lint`、`pnpm lint:names`、`pnpm format:check` 通过；`pnpm docs:check` 包含 4/4 运行用例通过。全量 `node --test --test-concurrency=4 test/*.test.js packages/octo-runtime-protocol/test/*.test.js`：1868 通过、54 跳过、0 失败，退出 0，67.56 秒；包含原有执行中及上传中取消等相邻入口。日志 `/tmp/octo-runtime-187-p2-node.log`。
+- 本地 verified-review 只针对本次增量 7/7 文件，无跳过；复核计划为登记交接、stop/reset/shutdown 调用方、异常与提前退出清理、已确认执行终态、测试故障注入及规则、设计、验证记录、日志与上下文的一致性。逐文件和二次风险复查后，没有未处理的 medium 及以上发现；这不是对整个 PR 新增的一次完整独立审查。
+- `git diff --check` 通过；OKF 校验仍为前述 7 个基线 frontmatter 错误，本轮无新增。本轮没有重新运行真实 IM、WebUI 或 Windows 文件系统测试，既有客户端原生卡片视觉缺口保持未完成。GitHub APPROVED 必须由后续真实 review 确认，不由本地检查替代。
