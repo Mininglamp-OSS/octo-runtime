@@ -52,3 +52,17 @@ SDK启动/WS恢复观察为17287/26053毫秒，CLI为17156/26092毫秒；仍是�
 沿用verified-review串行复审本轮变更：检查新增探针入口及实际runner调用、成功/失败/超时资源释放、暂态与fatal边界、fd类型/权限/容量/身份校验、读失败状态、消息匹配与凭据输出，另逐文件核对测试及知识变更。没有medium及以上未处置问题；已知Low主线程限制仍有真实Worker回归。GitHub新head的CI及yujiawei复审另行确认，没有自行批准或合并。
 
 本轮相对`b515aa0`的9个变更文件全部复审，没有跳过。整个PR的17个文件中9个OKF单元、11条规则指纹及本地链接检查通过；PR文件、英文PR正文及四次trial产物共45个常规文件与受保护Bot/UK凭据逐值比对，零命中。
+
+# 默认账号库意见与用户架构
+
+Jerry-Xin 对 `f16550c` 的[复审](https://github.com/Mininglamp-OSS/octo-runtime/pull/181#pullrequestreview-5647738445)可复现，不能仅靠删除 `OCTO_CONFIG_DIR`：旧 CLI 会回退到 HOME 中的账号库。实际安装的 CLI 为 v0.18.0、commit `d564a63bbd8ec2dd4305a40a64fe0179ca9c667f`。在独占临时账号库中用 CLI 自己的 `auth login --with-token` 保存运行时生成的虚构 user-bot，再传入另一个 UK，`config show` 仍返回 `profile:saved` / user_bot，证明预检缺陷真实；没有读取操作者账号库或调用网络。
+
+验证工具现为每次 trial 创建独占 `0700` 空目录，并在环境白名单后显式设置 `OCTO_CONFIG_DIR`，所有 `octo()` 调用共用该目录，finally 删除。普通 unit 覆盖环境边界；显式指定 CLI 的离线测试使用真实 CLI、真实加密账号库存储，覆盖默认 HOME 与显式目录的 0/1/2 个保存账号、Bot/UK 两种凭据及原账号库逐字节不变。命令：`OCTO_RECOVERY_QA_CLI=<v0.18.0 executable> OCTO_CHANNEL_QA_CLI=<current-main executable> node --unhandled-rejections=strict --test test/recovery-cli-credentials.test.js`。未提供工具时两项明确 skip，不将普通 CI 的 skip 写成跨工具通过。
+
+用户再次明确：ACP、Codex、Claude Code 等逐轮执行以当前 Channel Bot 注入的身份为准；OpenClaw 保留实例固定环境例外。产品只补齐 Gateway 的规范 `OCTO_TOKEN`，与已有 `OCTO_BOT_TOKEN` 指向同一连接凭据，不改产品账号库、服务拓扑、默认配置或 OpenClaw dotenv。真实 Host/worker 子进程回归在旧构建复现 `canonicalMatches:false`，新构建通过两个并发 Bot 隔离与 Context/日志保护。Codex shell/MCP 接线和 CC/ACP 共享环境调用均有源码核对；不宣称已调用真实 CC/ACP 模型。
+
+CLI [main@8c5b416](https://github.com/Mininglamp-OSS/octo-cli/blob/8c5b416f9ba7155be54ad6c5a63cfd133df5a1c5/internal/cmdutil/factory.go)已实现无显式选择时环境凭据优先于默认账号库。本轮在仓库外 clone 此固定版本构建，未升级操作者 CLI。两套 CLI 离线回归共 8 项通过、零 skip，分别证明旧版 QA 隔离和新版产品优先级。旧 v0.18.0 的产品文件优先行为不因 QA 通过而变成合规；最新 main 构建也不是已发布版本验收。
+
+yujiawei 对 `f16550c` 的[复审已批准](https://github.com/Mininglamp-OSS/octo-runtime/pull/181#pullrequestreview-5647759703)，附带的建议仍逐条核对：外部凭据路径和 preload 环境均由当前 OS 用户显式指定，自动启用只在主线程，实际 runner 始终创建独占私有目录；未证明跨账号任意读写的路径。测试站 origin 固定，AppleScript 未来可配置后的注入属于尚不存在的分支。保留建议但不把这三项写成已复现安全故障，也不让其改变用户架构或人为撤销 review。
+
+当前本地基线为 `f16550c` 加 `main@6bbbd91` 和本轮修改（dirty）。70 项恢复/环境针对测试、12 项工具测试、构建/类型、lint、命名、格式及文档检查通过。两次全量 Node 运行各为 1818 通过、42 skip、1 失败，均是未修改 DSH cancellation 的 `ENOTEMPTY`；同一用例独立运行通过。原始输出保留在 `/tmp/or-pr181-node-suite.log`、`/tmp/or-pr181-node-suite-rerun.log`，不将重跑或旧 head 的 CI 绿灯当作当前全量成功。SDK 的 browser trial 在预检因 Chrome 中测试页缺失退出，`/tmp/or-recovery-live-fOmQE6/report.json` 保留，未启动服务且 trial CLI 目录已删；后续验证另记。

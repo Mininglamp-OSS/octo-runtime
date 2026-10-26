@@ -18,7 +18,8 @@ import {
   waitFor as waitForProbe,
   inspectStatus,
   historyMessages,
-  childEnvironment
+  childEnvironment,
+  octoEnvironment
 } from "../test-support/recovery-live-probes.mjs";
 
 const execute = promisify(execFile);
@@ -28,6 +29,7 @@ const mode = process.argv.includes("--cli") ? "cli" : "sdk";
 const directory = await mkdtemp("/tmp/or-recovery-live-");
 await chmod(directory, 0o700);
 const reportFile = join(directory, "report.json");
+const cliDirectory = join(directory, "octo-cli");
 const report = {
   mode,
   endpoint: endpointOrigin,
@@ -64,11 +66,7 @@ async function waitFor(predicate, reason, timeout = 30000) {
   });
 }
 async function octo(token, args, body) {
-  const env = {
-    ...childEnvironment(process.env),
-    OCTO_TOKEN: token,
-    OCTO_API_BASE_URL: endpointOrigin
-  };
+  const env = octoEnvironment(process.env, { token, configDirectory: cliDirectory });
   try {
     const { stdout } = await execute(
       "octo-cli",
@@ -177,6 +175,7 @@ end tell`;
 }
 try {
   check(process.platform !== "win32", "QA_POSIX_RUNNER_REQUIRED");
+  await mkdir(cliDirectory, { mode: 0o700 });
   check(
     process.env.OCTO_CHANNEL_QA_ACCOUNTS && process.env.OCTO_CHANNEL_QA_USER,
     "QA_ACCOUNT_PATHS_REQUIRED"
@@ -618,6 +617,8 @@ try {
   report.cleanup = cleanup;
   if (cleanup.some((entry) => !entry.complete)) report.pass = false;
   await rm(join(directory, "extras"), { recursive: true, force: true });
+  await rm(cliDirectory, { recursive: true, force: true });
+  report.cliConfigRemoved = true;
   report.finished = new Date().toISOString();
   await writeFile(reportFile, JSON.stringify(report, null, 2) + "\n", { mode: 0o600 });
   console.log(

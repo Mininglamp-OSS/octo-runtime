@@ -1,4 +1,5 @@
 import net from "node:net";
+import { isAbsolute } from "node:path";
 import { setTimeout as pause } from "node:timers/promises";
 
 const transientCodes = new Set([
@@ -151,4 +152,16 @@ export function childEnvironment(source, { provider = false } = {}) {
       ([key]) => environmentKeys.has(key) || (provider && providerKeys.has(key))
     )
   );
+}
+
+/** CLI 的文件凭据优先于环境 token，必须显式选择 trial 独占的空账号库。 */
+export function octoEnvironment(source, { token, configDirectory }) {
+  if (typeof configDirectory !== "string" || !isAbsolute(configDirectory))
+    throw new Error("QA_CLI_CONFIG_DIRECTORY_REQUIRED");
+  return {
+    ...childEnvironment(source),
+    OCTO_TOKEN: token,
+    OCTO_CONFIG_DIR: configDirectory,
+    OCTO_API_BASE_URL: "https://im-test.deepminer.com.cn"
+  };
 }

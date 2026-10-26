@@ -24,7 +24,8 @@ import {
   waitFor,
   inspectStatus,
   historyMessages,
-  childEnvironment
+  childEnvironment,
+  octoEnvironment
 } from "../test-support/recovery-live-probes.mjs";
 
 const options = { interval: 10 };
@@ -298,6 +299,72 @@ test("child environments exclude unrelated credentials, profiles and inherited N
     OPENAI_API_KEY: source.OPENAI_API_KEY,
     CODEX_HOME: source.CODEX_HOME
   });
+});
+
+test("CLI credentials always select the trial store instead of operator profiles", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "recovery-cli-env-"));
+  const configDirectory = join(directory, "trial");
+  try {
+    await mkdir(configDirectory, { mode: 0o700 });
+    for (const count of [0, 1, 2]) {
+      const operator = join(directory, `operator-${count}`);
+      await mkdir(operator);
+      const metadata = JSON.stringify({
+        profiles: Object.fromEntries(
+          Array.from({ length: count }, (_, i) => [`profile-${i}`, { bot_kind: "user_bot" }])
+        )
+      });
+      await writeFile(join(operator, "config.json"), metadata);
+      for (const prefix of ["bf_", "uk_"]) {
+        const token = prefix + randomUUID();
+        const env = octoEnvironment(
+          {
+            ...process.env,
+            HOME: directory,
+            OCTO_CONFIG_DIR: operator,
+            OCTO_PROFILE: "profile-0",
+            OCTO_BOT_TOKEN: randomUUID(),
+            OCTO_TOKEN: randomUUID()
+          },
+          { token, configDirectory }
+        );
+        assert.equal(env.OCTO_TOKEN, token);
+        const { stdout } = await promisify(execFile)(
+          process.execPath,
+          [
+            "--input-type=module",
+            "-e",
+            `
+            import { readdir } from "node:fs/promises";
+            process.stdout.write(JSON.stringify({
+              directory: process.env.OCTO_CONFIG_DIR,
+              entries: await readdir(process.env.OCTO_CONFIG_DIR),
+              selected: process.env.OCTO_TOKEN.startsWith(process.argv[1]),
+              profile: process.env.OCTO_PROFILE,
+              otherToken: process.env.OCTO_BOT_TOKEN
+            }));
+          `,
+            prefix
+          ],
+          { env, timeout: 5000 }
+        );
+        assert.deepEqual(JSON.parse(stdout), {
+          directory: configDirectory,
+          entries: [],
+          selected: true
+        });
+      }
+      assert.equal(await readFile(join(operator, "config.json"), "utf8"), metadata);
+    }
+    for (const configDirectory of [undefined, "", "relative"]) {
+      assert.throws(
+        () => octoEnvironment({}, { token: randomUUID(), configDirectory }),
+        /QA_CLI_CONFIG_DIRECTORY_REQUIRED/
+      );
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test("fault controls reject unsafe files, invalid schema and oversized inputs before patching", async () => {

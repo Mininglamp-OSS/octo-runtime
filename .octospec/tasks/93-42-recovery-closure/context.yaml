@@ -1,11 +1,11 @@
 task: 93-42-recovery-closure
-phase: awaiting-pr-review
+phase: validating-review-follow-up
 review_baseline: b515aa0fe12dae26855f49201daf15659817d44a
 read_at: '2026-10-26'
 baseline: 2634d28c7eea2bc9531b2ec578cf4af145839132
 post_main_validation_baseline: 0189eabb3d25fc07b3f9eb8b0e463d85a1c8a6d7
 previous_validation_baseline: 8af836068780ebb76581225254ad7bef18cc8170
-upstream_main: 78bb88a154700bdd9cd0eda8c3624a8db2a89c1b
+upstream_main: 6bbbd91b01cb2867ef09d526f2326edf1641b11c
 initial_baseline: a35aeae3a3b5708449bb6ebd77a9094cff705e33
 branch: codex/93-42-recovery-plan
 worktree: /Users/lvsijia/github.com/Mininglamp-OSS/octo-runtime-93-42-recovery-plan
@@ -51,13 +51,13 @@ rules:
   - {id: runtime-protocol-design, path: .octospec/rules/protocol-design.md, sha256: 5b2abad6e825bce94701e3378ee33a4b027b6f30a3ca4a4bf4231d8f1351d578}
   - {id: runtime-local-execution, path: .octospec/rules/local-execution.md, sha256: d2371e2dd4c048f863cb7391ef2279e2ffebc3ec54bfcd36f3733020d7f633f5}
   - {id: runtime-lifecycle, path: .octospec/rules/runtime-lifecycle.md, sha256: ef10905f49b3febf7f1332d7bc825bb3ca04afe80c345ae775f92d466bd6b172}
-  - {id: runtime-channel, path: .octospec/rules/channel-integration.md, sha256: d767ec1613c7192f365768914e76a35629c8ebc3fdbe2256730ece0c8c98ee84}
+  - {id: runtime-channel, path: .octospec/rules/channel-integration.md, sha256: f97a4d0b6759770f01c66df9e7c983c0153d7d83019183ac9c45d85e135706d0}
   - {id: runtime-extras, path: .octospec/rules/extras.md, sha256: c188c835c918e7ed1abff014da9f921538b8119e1bfb62c3552fa13d6c1ba6b2}
   - {id: runtime-stateless, path: .octospec/rules/stateless-execution.md, sha256: 1bd283b6728c70529ef9680114b46925be15e4399d43f86152c9ff4c59816c1b}
   - {id: runtime-engineering, path: .octospec/rules/engineering.md, sha256: b69834decca9cf61d6c9094665dac9c00bc5e3304c22552711e33086e41d0fb5}
   - {id: commit, path: .octospec/rules/collaboration.md, sha256: fe77443e68003d2c93506ee8fa4f2fd376145d57ace4d7e1b6034a4dbb7785f3}
   - {id: runtime-invoke-input, path: .octospec/rules/invoke-input.md, sha256: 9a3e9300666879256065e6b825aa8705a66e9bf20afce91ad0457d5eafe2dc9d}
-  - {id: runtime-environment, path: .octospec/rules/environment.md, sha256: 56b4daa4c856d76d8967f1b9b6ff3468e36be18c64267124c0ce693a77c1e28f}
+  - {id: runtime-environment, path: .octospec/rules/environment.md, sha256: 498ffb25c51b1b3ada22b810dee7baa77d6b14382e8786d1247d198e870f8d50}
 source_reads:
   - packages/octo-runtime-extra-channel-gateway/src/application/im-channel.ts
   - packages/octo-runtime-extra-channel-gateway/src/ports.ts
@@ -85,6 +85,11 @@ source_reads:
   - test-support/recovery-live-probes.mjs
   - test-support/recovery-live-worker.mjs
   - test/recovery-live-probe.test.js
+  - test/recovery-cli-credentials.test.js
+  - packages/octo-runtime-extra-channel-gateway/src/execution/tool-environment.ts
+  - packages/octo-runtime-adapter-sdk/src/environment.ts
+  - packages/octo-runtime-adapter-claude-code/src/index.ts
+  - packages/octo-runtime-adapter-codex/src/environment.ts
   - SDK_NATIVE_INTEGRATION_FULL_GUIDE.md
 source_read_scope: Full reads and targeted excerpts/searches; background sources are not a whole-repository code review.
 external_reads:
@@ -94,6 +99,8 @@ external_reads:
   pull_requests: [96, 181]
   reviews:
     - {pr: 181, id: 5647456719, author: yujiawei, head: b515aa0fe12dae26855f49201daf15659817d44a}
+    - {pr: 181, id: 5647738445, author: Jerry-Xin, head: f16550c4057e3fa62b3434975c3300dcf6a69651}
+    - {pr: 181, id: 5647759703, author: yujiawei, head: f16550c4057e3fa62b3434975c3300dcf6a69651}
   prior_local_im_source: Historical task reference only; not reread or verified against deployment this turn.
 authorization:
   worktree: true
