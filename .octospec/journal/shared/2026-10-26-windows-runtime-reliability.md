@@ -32,3 +32,9 @@ rebase 后 29 项定向回归、5 项原生任务测试及工程/文档检查通
 `5049add` 六组托管 CI 及 CI Gate 全通过，已在 PR 逐项回复三位 reviewer。新 review 又确认 OpenCode 内联配置与 ZCode 桌面路径的直接大写读取遗漏；同类排查补齐 Codex Home，并使其固定环境合并保持唯一键。确认文件在成功恢复/回收/close 后尽力清理，归档保留；模块清单参数只选择模块，帮助与指南明确状态仍在 Home/run，三条路径共用派生值。源头超时扫描无实际 diff，不修改既有 40 秒预算。
 
 新增 9 项全部通过，定向 38 项通过；完整 Node 1682 通过、94 失败、70 跳过，UI 35 通过，失败集合与上一轮一致。四组原生任务矩阵和编码迁移、类型、lint、命名、格式、docs 通过；OctoSpec 无新增错误。用户授权每 15 分钟跟进并统一 commit/push、英文回复，直到 review 通过；新 head 必须独立验证 CI，合并仍按保护规则。
+
+# 同步 main 6bbbd91
+
+用户再次要求 PR #179 更新 main 并解决冲突。原 head 为 `622ab0a`，fetch 后 main 为 `6bbbd91`（PR #180）。已 rebase 三个提交；每次冲突均只在 `.octospec/log.md`，完整保留上游 #117/#118 与 Windows 专项记录。产品代码及 CI 自动合并，range-diff 仅显示日志冲突上下文与上游新增导出的上下文差异；本专项的环境、回收和服务产品实现与原 head 相同。新 head 重新验证，原 CI 和批准不冒充新提交的验收。
+
+本次 `pnpm typecheck`（含全仓构建）、独立最终 TypeScript 检查、lint、format 和 diff 检查通过。五个 Windows/调用定向文件及上游 `failure.test.js`、`im-pre-execution-failure.test.js` 共 82 项全部通过，0 失败、0 跳过。未重新运行完整 Windows 套件，前文全量和原 head 的 CI 均仅为历史证据。日志位于 worktree 外的 `windows-runtime-main6bb-{typecheck,lint,format,tests}.log`；推送后新 head 的托管 CI 与复审仍须独立通过。
