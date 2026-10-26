@@ -8,7 +8,7 @@ timestamp: 2026-10-26T00:00:00Z
 
 # 目标与当前交付
 
-首轮交付为新增规划及其 verified-review 验证。基线为 `8af836068780ebb76581225254ad7bef18cc8170`，分支 `codex/93-42-recovery-plan`，独立 worktree 为 `octo-runtime-93-42-recovery-plan`。初始从当时最新的`a35aeae`创建，主线新增DSH集成后已快进同步并重新验证。随后用户提供受保护Bot账号文件与UK用户凭据，明确授权连接`https://im-test.deepminer.com.cn/`做端到端测试；据此新增恢复验证入口、使用真实Provider并执行测试消息。凭据及聊天正文不入库。本轮不修改产品逻辑，不创建 commit、push 或 PR；旧任务授权不延伸为本轮提交授权。
+首轮交付为新增规划及其 verified-review 验证。基线为 `8af836068780ebb76581225254ad7bef18cc8170`，分支 `codex/93-42-recovery-plan`，独立 worktree 为 `octo-runtime-93-42-recovery-plan`。初始从当时最新的`a35aeae`创建，主线新增DSH集成后已快进同步并重新验证。随后用户提供受保护Bot账号文件与UK用户凭据，明确授权连接`https://im-test.deepminer.com.cn/`做端到端测试；据此新增恢复验证入口、使用真实Provider并执行测试消息。凭据及聊天正文不入库。前两轮没有提交授权；用户随后明确授权修复Low、提交、同步最新main及创建英文PR。交付已纳入`main@78bb88a`，合并后验证基线为`0189eabb3d25fc07b3f9eb8b0e463d85a1c8a6d7`，仍不修改产品逻辑，实际合并需另按用户指令执行。
 
 [Issue 93](https://github.com/Mininglamp-OSS/octo-runtime/issues/93) 要求睡眠、断网和离线启动后，CLI 与原生 SDK 都能恢复新任务的完整执行链。[Issue 42](https://github.com/Mininglamp-OSS/octo-runtime/issues/42) 要求消除网络恢复后在线但无响应的状态，并验证消息接收、执行和回复。两者在本次读取时均为 OPEN。
 

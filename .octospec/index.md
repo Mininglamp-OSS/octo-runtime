@@ -52,7 +52,7 @@
 
 ## 当前任务
 
-- [Issue 93/42：恢复缺口收敛](tasks/93-42-recovery-closure/brief.md)：独立worktree基线`main@8af8360`。PR96已合入，新增规划及真实恢复入口；用户提供账号后，CLI/SDK各九项真实Codex恢复断言、UK回读及网页DM通过，见[live验证](tasks/93-42-recovery-closure/live-verification.md)。[M0-M6](tasks/93-42-recovery-closure/plan.md)、[G01-G12门槛](tasks/93-42-recovery-closure/acceptance.md)与[首轮审查](tasks/93-42-recovery-closure/verification.md)保留；95/100是准备度，部署reason12、原事故和完整现场矩阵未关闭。
+- [Issue 93/42：恢复缺口收敛](tasks/93-42-recovery-closure/brief.md)：独立worktree首轮验证基线`main@8af8360`，交付已同步`main@78bb88a`。PR96已合入，新增规划及真实恢复入口；Low修复后48项恢复测试及CLI/SDK各九项真实Codex断言、UK回读、网页DM重跑通过，见[live验证](tasks/93-42-recovery-closure/live-verification.md)。[M0-M6](tasks/93-42-recovery-closure/plan.md)、[G01-G12门槛](tasks/93-42-recovery-closure/acceptance.md)与[首轮审查](tasks/93-42-recovery-closure/verification.md)保留；95/100是准备度，部署reason12、原事故和完整现场矩阵未关闭。
 
 - [DSH 改用未修改的官方 SDK](tasks/dsh-upstream-sdk/brief.md)：用户要求移除两个下游依赖补丁，保留实验性 DSH 接入并接受上游当前稳定性、内存与后代回收限制；[上游反馈 #11031](https://github.com/deepseek-ai/deepseek-harness/discussions/11031) 已附完整历史 diff 与回归参考。当前验证见本任务记录。
 

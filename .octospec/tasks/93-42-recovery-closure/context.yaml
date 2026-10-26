@@ -1,7 +1,9 @@
 task: 93-42-recovery-closure
 phase: pr-preparation
 read_at: '2026-10-26'
-baseline: 8af836068780ebb76581225254ad7bef18cc8170
+baseline: 0189eabb3d25fc07b3f9eb8b0e463d85a1c8a6d7
+previous_validation_baseline: 8af836068780ebb76581225254ad7bef18cc8170
+upstream_main: 78bb88a154700bdd9cd0eda8c3624a8db2a89c1b
 initial_baseline: a35aeae3a3b5708449bb6ebd77a9094cff705e33
 branch: codex/93-42-recovery-plan
 worktree: /Users/lvsijia/github.com/Mininglamp-OSS/octo-runtime-93-42-recovery-plan

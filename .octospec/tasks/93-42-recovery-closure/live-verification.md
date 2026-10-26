@@ -10,7 +10,7 @@ timestamp: 2026-10-26T03:20:00Z
 
 用户在规划交付后提供受保护Bot账号Markdown、UK用户权限JSON及`https://im-test.deepminer.com.cn/`，明确要求端到端测试。使用现有专用QA群（指纹`d010c2b3cd5a`）、`orbtex-codex`和另一个测试Bot，UK仅用于用户权限下的限定群搜索回读；网页使用已有登录态和已有Bot好友关系。没有创建好友、强制抢占owner、更新Token、修改共享服务或提交代码。
 
-源码基线`8af836068780ebb76581225254ad7bef18cc8170`，分支`codex/93-42-recovery-plan`，dirty为本任务文档和验证工具。环境：Darwin/arm64、Node.js`24.19.0`、pnpm`11.19.0`、真实Codex CLI`0.164.0`、octo-cli`0.18.0`（commit`d564a63bbd8ec2dd4305a40a64fe0179ca9c667f`）、Chrome`155.0.8059.86`。没有修改产品逻辑。
+首轮真实验证源码基线`8af836068780ebb76581225254ad7bef18cc8170`，分支`codex/93-42-recovery-plan`，dirty为本任务文档和验证工具。环境：Darwin/arm64、Node.js`24.19.0`、pnpm`11.19.0`、真实Codex CLI`0.164.0`、octo-cli`0.18.0`（commit`d564a63bbd8ec2dd4305a40a64fe0179ca9c667f`）、Chrome`155.0.8059.86`。没有修改产品逻辑。
 
 SDK通过主包公共服务工厂在当前进程直接构造Kernel和Gateway；自有worker原生import Codex Adapter并调用公共`serveWorker`，没有manifest或CLI代启。CLI通过实际`executor-kernel run`、`channel-gateway run`两个进程构造服务。两模式均以公共`KernelClient.invoke`执行真实Codex；测试输入构造复用仓库fixture及workspace协议整理函数，不声称该整理函数是主包公开导出。
 
@@ -27,7 +27,7 @@ node --unhandled-rejections=strict scripts/verify-recovery-live.mjs --cli --brow
 
 控制和原始结果置于本次独占的0700临时目录，配置为0600。凭据只进入内存、octo-cli子进程环境和CLI的临时Extra配置；结束后删除临时Extra配置。只对本验证进程的测试站鉴权请求注入失联，并终止该进程捕获的实际WS；不改变系统网络。SDK/CLI共用同一账号，必须串行执行。
 
-# 当前结果
+# 8af8360 基线结果
 
 | 模式 | 九项恢复断言 | UK同一回复回读 | 网页DM | 原服务保持/worker代次增加 | 清理 | 总结果 |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -62,6 +62,25 @@ CLI最终报告位于`/tmp/or-recovery-live-7NmH9r/report.json`，2026-10-26 03:
 用户追问medium以下问题后补查确认一项Low：`recovery-live-faults.mjs`的自动安装仅检查环境变量，日志worker继承`NODE_OPTIONS`时也安装轮询。原CLI报告实际记录同次drop的`sockets:0`与`sockets:1`两条事件；前者不代表真实连接断开，属于证据日志噪声。原真实断线和恢复结论保留，不把该Low写成产品恢复缺陷。
 
 用户随后授权修复、提交、同步最新main并创建英文PR，尚未授权执行合并。自动安装现增加`isMainThread`限制；显式调用的SDK注入入口不变。新增测试启动真实Node子进程，以`NODE_OPTIONS --import`预加载，再启动继承该配置的真实Worker；同一drop只允许主线程记录一次。`node --unhandled-rejections=strict --test test/recovery-live-probe.test.js`两项通过，定向Prettier通过。纯格式Low按技能规则省略，此前未保存完整Low清单；这项已确认Low已修复并有回归覆盖。
+
+# 同步 main 后的交付验证
+
+用户授权后以英文提交`92093c7`保存规划、验证入口及Low修复，再将`main@78bb88a154700bdd9cd0eda8c3624a8db2a89c1b`合入，得到`0189eabb3d25fc07b3f9eb8b0e463d85a1c8a6d7`。唯一冲突是知识索引，保留本任务入口与主线最新DSH条目。两项提交均保留配置的Git作者，包含一次Codex协作trailer。
+
+以下真实重跑均以`0189eab`、clean工作区开始，环境及命令同前：
+
+| 模式 | 报告 | UTC 时间 | 结果 |
+| --- | --- | --- | --- |
+| SDK | `/tmp/or-recovery-live-UJ14Tt/report.json` | 04:14:30至04:16:22 | 九项断言、UK回读、网页DM、身份保持及清理均PASS，exit 0 |
+| CLI | `/tmp/or-recovery-live-UGrt2X/report.json` | 04:16:31至04:18:32 | 九项断言、UK回读、网页DM、身份保持及清理均PASS，exit 0 |
+
+两份报告均仅一条`drop`且`sockets:1`，没有日志worker产生的`sockets:0`噪声。旧Run均为`RUN_OUTCOME_UNKNOWN`且`resubmitted:false`；两个模式结束后均没有本轮残留进程，临时凭据配置已删除。SDK启动/WS恢复观察为18819/25505毫秒，CLI为17248/28824毫秒；计时边界仍不是正式G02或生产SLA。
+
+本轮首次带网页的重跑`/tmp/or-recovery-live-Zjfp9u/report.json`在preflight失败，零项恢复断言、没有启动服务；原测试站标签已关闭。重新打开测试站、确认已有登录态并打开现有Bot会话后，上述两个完整trial通过。保留这次失败，不计为恢复缺陷或通过证据。
+
+同步后重新冻结安装，`pnpm typecheck`（含完整build）、`pnpm lint`、`pnpm format:check`、命名检查、`pnpm docs:check`及八文件恢复测试48项全部通过。首次lint与清理构建并行，遇到构建产物暂时缺失导致1120个类型解析错误；构建完成后独立重跑通过，不归为源码缺陷。知识lint为7个缺失frontmatter，逐文件核对均存在于`origin/main@78bb88a`，新增3个来自主线DSH文档；本任务未引入新知识链接错误。
+
+verified-review在前轮15文件逐文件审查基础上，复核主线程限制、真实子进程/Worker回归、索引冲突和本轮交付说明；没有跳过新增差异。已确认Low修复完成，没有medium及以上未处置问题。当前15个变更文件的8个OKF单元、11条规则指纹及本地链接检查通过；变更文件、三次trial产物和PR正文共31个常规文件与实际凭据逐值比对，零命中。真实睡眠及部署边界仍按下节保留，PR关联两个P0，不自动关闭。
 
 # 未验收边界
 
