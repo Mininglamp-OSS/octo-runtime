@@ -1,5 +1,6 @@
 task: 184-ci-ipc-reliability
 baseline: 81284c9ed92066ce7cf34c1b84b608b9336279bf
+synchronized_main: 79b11aadfb77ab1955d5f361d49d9615beb73414
 workflow: .claude/skills/octospec-workflow/SKILL.md
 issue: 184
 read:
@@ -15,3 +16,4 @@ read:
   - .octospec/rules/protocol-design.md
   - .octospec/rules/invoke-input.md
   - .octospec/rules/openclaw.md
+  - .octospec/rules/environment.md

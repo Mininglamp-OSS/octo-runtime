@@ -44,9 +44,16 @@ node --test --test-name-pattern='Playboard temporary IPC ignores|Ctrl\+C cancels
 
 OKF 既有失败为 `tasks/dsh-upstream-sdk/{brief,upstream-feedback}.md`、`tasks/systemd-directive-paths/{brief,review}.md`、`journal/shared/2026-10-22-systemd-directive-paths.md`、`journal/shared/2026-10-24-124-sass-build-fix.md`、`journal/shared/2026-10-26-dsh-upstream-sdk.md`。本次不顺带修改其他任务历史文件。
 
+## PR 与最新 main 同步
+
+- [PR #186](https://github.com/Mininglamp-OSS/octo-runtime/pull/186) 的初始 head `5883a32d06b70aa014da0f8ee40a4ec3cc73984f` 已通过 [CI run 40280785379](https://github.com/Mininglamp-OSS/octo-runtime/actions/runs/40280785379)：Linux/macOS/Windows 的 Node 24/26 六组与 CI Gate 全通过，包含 Windows 新增长 Unicode 临时根回归。
+- 用户要求更新最新 main；合入 `79b11aadfb77ab1955d5f361d49d9615beb73414`（#181）。仅索引与日志追加位置冲突，完整保留两边记录，产品代码无冲突，新增上游凭据环境及恢复验证代码保持原样。
+- 合并工作区再次执行 `pnpm typecheck`、`pnpm lint`、`pnpm lint:names`、`pnpm format:check`、`pnpm docs:check`，均通过；`pnpm test:suites` 为 Node 1845 通过、52 跳过、0 失败，WebUI 35 通过。本机日志前缀为 `/tmp/octo-184-sync-`。
+- 最新合并提交仍需其自身的 CI 和正式 GitHub approval；初始 head 通过不能替代新 head 的门禁。
+
 ## 尚未执行或不在本机覆盖
 
-- PR 的 macOS/Linux Node 24/26、Windows Node 24/26 长临时根回归及干净发行包验证待 CI；通过后以远端最终 head 的结果为准。
+- 同步 main 后最终 head 的 macOS/Linux Node 24/26、Windows Node 24/26 长临时根回归及干净发行包验证待 CI；通过后以远端最终 head 的结果为准。
 - #183 的控制台关闭、cleanup-failure 注入不在本分支；#183 更新基线后继续使用本修复。
 - 强杀 Playboard 自身不能执行 finally，仍不承诺这种情形没有临时残留；未修改该产品保证。
 - 审查及最终交付见 [review](review.md) 和后续 GitHub PR；本记录不以本地全绿替代托管平台验证。
