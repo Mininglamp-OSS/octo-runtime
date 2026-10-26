@@ -52,6 +52,12 @@
 
 ## 当前任务
 
+- [Issue 58：Windows CLI 兼容修复](tasks/58-windows-cli-signals/brief.md)：修复 foreground/module-loading/Playboard 的真实控制台测试、worker 关闭竞态及 Playboard 清理覆盖主结果；SDK 公共接口保持。验证结果见[实施记录](tasks/58-windows-cli-signals/implementation.md)。
+
+- [Issue 184：Playboard 短临时 IPC 与测试竞态](tasks/184-ci-ipc-reliability/brief.md)：常驻 Home 和端点保持现状；Unix Playboard 使用固定短 `/tmp` 私有目录，并修复 ready JSON 发布与 DSH 后代清理时序。实施准备度见 [97/100 评估](tasks/184-ci-ipc-reliability/assessment.md)。
+
+- [Issue 93/42：恢复缺口收敛](tasks/93-42-recovery-closure/brief.md)：交付已同步`main@81284c9`。PR96已合入，新增规划及真实恢复入口；PR181审查后隔离QA CLI账号库，并按用户设计补齐普通执行的规范token注入，OpenClaw保持例外。主线更新后Node 1843项与WebUI 35项通过，真实恢复及审查事实边界见[整改记录](tasks/93-42-recovery-closure/review-remediation.md)。[M0-M6](tasks/93-42-recovery-closure/plan.md)、[G01-G12门槛](tasks/93-42-recovery-closure/acceptance.md)与[首轮审查](tasks/93-42-recovery-closure/verification.md)保留；95/100是准备度，部署reason12、原事故和完整现场矩阵未关闭。
+
 - [Issue 117/118：准确反馈本轮执行是否已提交](tasks/117-118-turn-failure/brief.md)：基于 `origin/main@8af8360` 实现双渠道会话读取、展示初始化及可信接纳拒绝反馈，注册 `OH-RUN-2010` / `2011` / `2012`，统一投影与普通日志关联。实现合同、审查修复与测试边界见[验证记录](tasks/117-118-turn-failure/validation.md)；Gateway 真实 IM 缺 QA 账号路径，WeCom 真实验收按用户要求跳过。
 
 - [Issue 182：渠道本地产物交付](tasks/182-channel-artifact-delivery/brief.md)：同步 main@81284c9，区分工具主动上传与固定 workflow；用户复核后撤销自动企业文档路由。普通文件使用 IM 原生文件卡，最终 Markdown 同时保留链接文字及附件地址；图片内嵌。目录约束、去重、取消和投递确认由 Gateway 持有，在线协作与文档授权走明确的 ToolCall。[设计与可执行性 96/100](tasks/182-channel-artifact-delivery/design.md)，实际证据及收敛后的验证见[实施记录](journal/shared/2026-10-26-182-channel-artifact-delivery.md)。
@@ -80,7 +86,7 @@
 
 - [Issue 40：OpenClaw 7.1 至当前稳定版兼容](tasks/40-openclaw-compatibility/brief.md)：从 `origin/main@88fa71d` 创建独立 worktree，已实施真实握手合同选择、旧创建＋会话权限 patch、ask→full 回退与桥接、终态及取消对账。追加用户提供的 6.11 后，27 标签、54 条模式流程自动化通过，OpenClaw 92 通过／1 跳过；追加前全量 Node 1562 通过／34 跳过、UI 35 通过。真实 6.11 的 probe、文本、工具和取消，以及真实 9.4 的文本和取消通过。见[6.11 验证](tasks/40-openclaw-compatibility/remote-6.11-validation.md)、[实施记录](tasks/40-openclaw-compatibility/implementation.md)、[版本矩阵](tasks/40-openclaw-compatibility/compatibility-matrix.md)和[journal](journal/shared/2026-10-22-40-openclaw-compatibility-implementation.md)。内网地址脱敏；用户接受代表验收并授权交付，其他真实 reviewer／harness、事故 build 和 IM 保留后续覆盖。
 
-- [Issue 93：CLI/SDK 睡眠和网络恢复](tasks/93-sleep-wake-recovery/brief.md)：独立分支已rebase到 `main@d076474`，共享层恢复和有界Extra状态日志已实施，[PR #96](https://github.com/Mininglamp-OSS/octo-runtime/pull/96)原提交通过全部平台门禁及审查，按P3补充Windows测试选择。用户要求5/10/15/15秒重试、仅服务状态日志，merge由用户手动操作。见[实施记录](tasks/93-sleep-wake-recovery/implementation.md)、[双模式验收](tasks/93-sleep-wake-recovery/acceptance.md)及[95分规划评估](tasks/93-sleep-wake-recovery/assessment.md)；原事故根因、reason12部署语义及真实矩阵仍待取证，不关闭P0。
+- [Issue 93：CLI/SDK 睡眠和网络恢复](tasks/93-sleep-wake-recovery/brief.md)：共享层恢复和有界Extra状态日志由[PR #96](https://github.com/Mininglamp-OSS/octo-runtime/pull/96)于2026-10-22合入main，含5/10/15/15秒重试和Windows测试选择。见[历史实施记录](tasks/93-sleep-wake-recovery/implementation.md)及[双模式验收](tasks/93-sleep-wake-recovery/acceptance.md)；原事故根因、reason12部署语义及真实矩阵仍待取证，后续以[93/42收敛规划](tasks/93-42-recovery-closure/brief.md)推进，不关闭P0。
 
 - [Issue 85：Adapter/Extra 解耦与双模式载入](tasks/85-provider-decoupling/brief.md)：起始基线 `origin/main@d064cfe`，交付时更新到 `main@318b0f2`，分支 `fix/85-provider-decoupling`。默认发行全量，SDK 原生 import、调用进程装配、无 manifest，CLI 内置与 Home 双清单按原始来源解析；FDE 自行复制及管理依赖。[17 项验收及边界](tasks/85-provider-decoupling/implementation.md)、[双语文档](../docs/zh-CN/concepts/module-loading.md)及[架构约束](rules/architecture.md#cli-与-sdk-的-adapterextra-装配约束)已同步。[本地审查](tasks/85-provider-decoupling/review.md)两项发现均修复复审通过；全量回归和实际 tgz 验证通过，按后续授权进入 PR 合并流程，未发布 npm。
 

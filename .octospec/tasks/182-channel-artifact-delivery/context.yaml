@@ -1,9 +1,10 @@
-status: implemented_verified_pending_pr
+status: pr_open_review_pending
 recorded_on: 2026-10-26
 baseline: 78bb88a
-synchronized_main: 81284c9
+synchronized_main: 167205c
 branch: feat/182-channel-artifact-delivery
 issue: https://github.com/Mininglamp-OSS/octo-runtime/issues/182
+pull_request: https://github.com/Mininglamp-OSS/octo-runtime/pull/187
 rules:
   - runtime-architecture
   - runtime-protocol-design
@@ -43,6 +44,9 @@ product_decision:
   online_collaboration: explicit_llm_toolcall_only
   enterprise_service_routing: removed
 validation:
+  main_sync_node_suite: 1863_passed_54_skipped_0_failed
+  main_sync_typecheck_lint_names_docs_format: passed
+  main_sync_review: log_conflict_preserves_both_sides_no_product_code_conflicts
   native_card_suite: 25_passed_0_failed
   node_suite: 1846_passed_50_skipped_0_failed
   typecheck_lint_names_docs_format: passed

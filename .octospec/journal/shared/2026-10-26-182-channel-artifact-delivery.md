@@ -49,3 +49,9 @@ Markdown AST 选择有效引用，token 源区间替换地址，保留正文、�
 # GitHub 交付
 
 用户授权本地 verified-review 通过后提交并建立本需求自己的 PR。GitHub 内容和 commit message 使用英文，保留配置作者，只添加一次 Codex trailer。创建 PR 后将每 15 分钟跟进固定到该 PR，处理有效意见并汇总 commit/普通 push，直到 APPROVED 且无待处理 changes-requested；不改写其他人改动、不强推、不自行合并。
+
+## PR #187 同步最新 main
+
+已提交 `9314195` 并建立 [PR #187](https://github.com/Mininglamp-OSS/octo-runtime/pull/187)。用户要求解决最新 main 冲突，本轮合并 `origin/main@167205ccd113e0795a7f7d9c5c24beeba9c56e5d`，唯一冲突为 `.octospec/log.md` 同一天新增记录，保留双方内容。知识目录、Channel 规则及产品代码自动合并；保留 main 的规范 `OCTO_TOKEN` 注入、CLI/IPC 和 Windows 控制台修复。附件交付、正文下载链接和内嵌图片合同不变，不改写已有提交。
+
+同步后 `pnpm typecheck`、lint、命名、格式与开发文档检查全部通过；全量 Node 1863 通过、54 跳过、0 失败（并发 4），包含文件卡 failed/unknown 回执、链接保留、mention、去重、取消和工具身份回归。`git diff --cached --check` 通过，OKF 仍仅有前述 7 个基线 frontmatter 错误。按 verified-review 复核冲突解法及自动合并的 Channel 规则；上游工具环境、CLI/Kernel 文件与 main 一致，没有额外产品代码改写或未处理的 medium 及以上问题。本轮不重复未变更的线上测试或 WebUI 检查；Windows 专属检查未在本机执行。使用英文 merge commit 和普通 push 更新同一个 PR。
