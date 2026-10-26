@@ -2,6 +2,8 @@
 
 ## 2026-10-26
 
+- PR #180 按用户要求合入 `main@78bb88a`，解决唯一的 OctoSpec 目录冲突，同时保留 #117/#118 与 main 的 DSH 最新入口；产品代码无冲突。新依赖与全量回归、旧/新 head 的审查和 CI 证据分别记录于[验证记录](tasks/117-118-turn-failure/validation.md#pr-180-同步-main)。
+
 - 实施 [Issue 117/118](tasks/117-118-turn-failure/validation.md)：统一 OH-RUN-2010/2011/2012、可信本地未提交判断、双渠道投影/文本/日志关联、attempt/occurrence 事实及有界收尾。verified-review 复现并修复源流失败残留重试入口、finish 超时关闭遗漏和 drain 展示错误回归；本地与托管测试、线上验收边界以验证记录为准。用户要求普通 PR 合并，禁止 Auto Merge；WeCom 真实平台验收明确跳过。
 
 - 按用户要求补齐 [Issue 117/118 实施合同](tasks/117-118-turn-failure/implementation-plan.md)：固定日志安全字段及普通/状态日志边界、可信本地未提交判断、not_submitted 与 drain 收尾分类、展示三个阶段失败策略，拆分 M1–M5 和 V01–V10。规划准备度自评由 92 提高到 98；仍仅文档，未实施代码或运行产品验收。

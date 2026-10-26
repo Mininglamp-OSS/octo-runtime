@@ -3,6 +3,10 @@ status: implemented-local-verification-passed-pending-remote-delivery
 date: 2026-10-26
 baseline: 8af836068780ebb76581225254ad7bef18cc8170
 branch: codex/117-118-turn-failure-analysis
+main_sync:
+  base: 78bb88a154700bdd9cd0eda8c3624a8db2a89c1b
+  method: merge-preserve-existing-history
+  conflict: .octospec/index.md
 issues:
   - https://github.com/Mininglamp-OSS/octo-runtime/issues/117
   - https://github.com/Mininglamp-OSS/octo-runtime/issues/118

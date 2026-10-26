@@ -81,3 +81,13 @@ this.#diagnostic("IM_PRESENTATION_FAILED", request.runId);
 线上 Gateway：BLOCKED，当前未配置 `OCTO_CHANNEL_QA_ACCOUNTS`，已请求受保护账号文件路径但尚未收到；没有执行真实 IM 发信或 Provider 调用。线上 WeCom：用户明确要求“不测试wecom”，跳过真实平台验收，本地双渠道故障测试仍执行。其他 OS/Node 版本以当前 PR 的托管 CI 结果为准。
 
 远端交付：待本地最终检查后创建 PR，正文包含 `Closes #117`、`Closes #118`。main 的保护要求 CI Gate、最新基线和一名独立 approving review；按普通合并执行，不启用 Auto Merge，不绕过保护。
+
+# PR 180 同步 main
+
+2026-10-26 用户要求从 main 更新并处理冲突。将 `origin/main@78bb88a154700bdd9cd0eda8c3624a8db2a89c1b` 合入原分支，保留原提交历史；仅 `.octospec/index.md` 冲突。解决时保留 #117/#118 入口，并采用 main 新增的 DSH 官方 SDK 任务入口及 Issue 17 最新说明。双渠道、Kernel、错误目录及本 PR 测试相对原 head 无改动。
+
+新 main 包含 DSH 官方 SDK 调整和 happy-dom 更新，已按新锁文件执行 `pnpm install --frozen-lockfile --ignore-scripts`，并重新运行全量 `pnpm test`。同步后 OctoSpec lint 为七项缺 frontmatter：原四项加 main 新引入的 DSH brief、upstream-feedback 和 journal；这三份文件的 origin/main 版本已核对，没有 frontmatter，不归因于本次冲突解决。
+
+同步后全量通过：Node 1802 通过、40 跳过、0 失败，WebUI 35 通过；`pnpm lint`、`pnpm docs:check` 和 diff 空白检查通过。测试数量以新 main 的测试集合为准，与上文原 head 的结果分开记录。
+
+原 head `6da72f269254d9de6ef4952e33af1335e2081443` 已获得 yujiawei APPROVED，六组跨平台 CI 和 CI Gate 全通过；新合并提交的托管检查及审查状态须重新以 GitHub 为准。
