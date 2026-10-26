@@ -29,3 +29,9 @@ timestamp: 2026-10-26T04:50:49Z
 `node --unhandled-rejections=strict --test test/recovery-live-probe.test.js`共11项通过、零失败/跳过。包含真实进程、真实Worker和loopback socket，但不调用真实模型。八文件恢复集合57项通过，耗时36972.8毫秒；`pnpm lint`、TypeScript no-emit及全仓格式检查通过。CLI/SDK测试站E2E正在按当前改动重新验证，结果随后追加；不沿用旧head的CI成功作为新head结果。
 
 四项P1意见与三项P2建议均已有对应修改或事实澄清；review状态和main保护仍以GitHub为准。原两个P0的现场验收缺口继续保持开放。
+
+# 第一轮真实复跑与提示边界
+
+`cf1f45e6de6116c2432d70ed5aaf38bda3ada9dd`的SDK完整trial通过：`/tmp/or-recovery-live-TLFSZR/report.json`，04:52:29Z至04:54:15Z。CLI的`/tmp/or-recovery-live-SwT3iO/report.json`只通过前三项，在WS恢复后的direct续接以`QA_DIRECT_RESULT_INVALID`失败，两进程均完整退出。只核对该trial独占cwd的Provider session记录，两次执行均完成；基线回复精确匹配，续接回复包含相同marker但额外增加一个句号。没有把此trial写成通过或产品恢复失败。
+
+原初始化提示中的marker后紧跟句号，现改为独占一行，并在初始/续接提示中明确不允许标点、引号或格式；续接提示仍不提供marker值。精确回复、Provider session ID和resumeOutcome断言保持，旧Run不自动重提。失败报告新增终态、是否精确匹配/包含marker、是否存在Provider session的布尔诊断，不记录实际回复或session ID。最终使用新trial重跑，不覆盖原失败结果。

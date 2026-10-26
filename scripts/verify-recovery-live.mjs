@@ -373,8 +373,8 @@ try {
     logicalSession = randomUUID();
   const direct = async (observer, name, providerSession, sessionId = logicalSession) => {
     const prompt = providerSession
-      ? `Reply exactly with the marker I asked you to remember. Do not use tools.`
-      : `Remember ${remembered}. Reply exactly ${remembered}. Do not use tools.`;
+      ? "Reply with only the exact marker I asked you to remember, without punctuation, quotes, formatting, or explanation. Do not use tools."
+      : `Remember this exact marker:\n${remembered}\nReply with only that marker, without punctuation, quotes, formatting, or explanation. Do not use tools.`;
     const input = invocationInput(
       invokeRequest({
         invocationId: randomUUID(),
@@ -402,10 +402,20 @@ try {
       if (["run.completed", "run.failed", "run.cancelled"].includes(event.type))
         terminal = event.type;
     }
-    check(
-      terminal === "run.completed" && answer.trim() === remembered && actualSession?.sessionId,
-      "QA_DIRECT_RESULT_INVALID"
-    );
+    if (!(
+      terminal === "run.completed" &&
+      answer.trim() === remembered &&
+      actualSession?.sessionId
+    )) {
+      report.directFailure = {
+        name,
+        terminal: terminal ?? "missing",
+        exactMarkerMatch: answer.trim() === remembered,
+        containsMarker: answer.includes(remembered),
+        providerSessionPresent: !!actualSession?.sessionId
+      };
+      throw new Error("QA_DIRECT_RESULT_INVALID");
+    }
     if (providerSession)
       check(
         actualSession.sessionId === providerSession.sessionId &&
