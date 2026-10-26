@@ -1,8 +1,9 @@
 task: 93-42-recovery-closure
-phase: review-remediation
+phase: awaiting-pr-review
 review_baseline: b515aa0fe12dae26855f49201daf15659817d44a
 read_at: '2026-10-26'
-baseline: 0189eabb3d25fc07b3f9eb8b0e463d85a1c8a6d7
+baseline: 2634d28c7eea2bc9531b2ec578cf4af145839132
+post_main_validation_baseline: 0189eabb3d25fc07b3f9eb8b0e463d85a1c8a6d7
 previous_validation_baseline: 8af836068780ebb76581225254ad7bef18cc8170
 upstream_main: 78bb88a154700bdd9cd0eda8c3624a8db2a89c1b
 initial_baseline: a35aeae3a3b5708449bb6ebd77a9094cff705e33
@@ -90,7 +91,9 @@ external_reads:
   method: gh read-only issue and PR queries
   full_issue_bodies: [93, 42, 78, 30, 47, 48, 49, 71, 118, 120, 139, 142, 134]
   metadata_only: [14, 131]
-  pull_requests: [96]
+  pull_requests: [96, 181]
+  reviews:
+    - {pr: 181, id: 5647456719, author: yujiawei, head: b515aa0fe12dae26855f49201daf15659817d44a}
   prior_local_im_source: Historical task reference only; not reread or verified against deployment this turn.
 authorization:
   worktree: true

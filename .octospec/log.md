@@ -2,7 +2,7 @@
 
 ## 2026-10-26
 
-- 处理PR181的yujiawei审查：统一status探针完成路径、按条件等待、仅重试明确暂态、控制文件描述符校验和异常退避，并落实三项P2输入/环境建议。新增共享探针测试入口，验证工具11项及恢复集合57项通过；真实E2E重跑与更新PR待本轮收尾，见[审查整改](tasks/93-42-recovery-closure/review-remediation.md)。
+- 处理PR181的yujiawei审查：统一status探针完成路径、按条件等待、仅重试明确暂态、控制文件描述符校验和异常退避，并落实三项P2输入/环境建议。验证工具11项及恢复集合57项通过；最终`2634d28`的CLI/SDK各九项真实恢复断言、UK及网页DM再次通过，保留中间失败和提示词澄清，见[审查整改](tasks/93-42-recovery-closure/review-remediation.md)。修复提交更新同一PR，正式复审仍待确认。
 - 恢复规划分支已提交并合入`main@78bb88a`；合并后48项恢复测试及CLI/SDK真实E2E重跑均通过，两个模式各仅一条实际socket drop，Low不再复现。完整build/类型、lint、格式、命名及开发文档检查通过；知识lint现为7个已核对的主线既有错误，交付证据见[live记录](tasks/93-42-recovery-closure/live-verification.md)。
 - 按用户授权修复恢复验证器的Low：限制故障自动安装到主线程，避免日志worker继承预加载后重复写drop；真实子进程/Worker回归及既有隔离测试共两项通过。进入提交、同步main及英文PR交付流程，见[live记录](tasks/93-42-recovery-closure/live-verification.md)；两个P0继续开放。
 - 新建[Issue 93/42恢复收敛规划](tasks/93-42-recovery-closure/brief.md)，独立worktree已同步main@8af8360；核实PR96已合入，新增工具前置、部署合同、最小修复和CLI/SDK真实验收门槛。当前构建与46项受控回归通过，规划逐文件verified-review结果及四个既有知识lint错误见[验证记录](tasks/93-42-recovery-closure/verification.md)。仅文档，未提交或线上操作，两个P0现场门槛保持开放。
