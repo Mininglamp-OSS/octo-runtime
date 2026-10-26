@@ -4,6 +4,7 @@ export type {
   CreateSessionStore,
   ImSessionStore,
   ImSessionBinding,
+  ImTaskState,
   ImSessionOccurrence,
   ImGapMetadata,
   ImGapTurnToken,

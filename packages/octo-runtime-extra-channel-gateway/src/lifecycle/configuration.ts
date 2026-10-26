@@ -125,9 +125,14 @@ export function validateImConfig(config: ImBotConfig): void {
     const retry = config.codex_retry;
     if (!retry || typeof retry !== "object" || Array.isArray(retry))
       throw new Error("IM_RETRY_CONFIG_INVALID");
-    if (retry.enabled !== undefined && typeof retry.enabled !== "boolean")
+    if (
+      (retry.enabled !== undefined && typeof retry.enabled !== "boolean") ||
+      (retry.resume_on_model_silence !== undefined &&
+        typeof retry.resume_on_model_silence !== "boolean")
+    )
       throw new Error("IM_RETRY_CONFIG_INVALID");
     const bounds = {
+      max_model_silence_resumes: [0, 5],
       max_consecutive_retries: [0, 100],
       max_total_retries: [0, 100],
       recovery_timeout_ms: [100, 3_600_000],

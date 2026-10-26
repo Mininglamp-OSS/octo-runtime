@@ -52,6 +52,8 @@
 
 ## 当前任务
 
+- [助理模型静默自动续接](tasks/assistant-auto-recovery/brief.md)：显式启用、确认清理后原会话续接，绑定逻辑任务投影；Client 接入仍依赖新版 SDK。
+
 - [Issue 58：Windows CLI 兼容修复](tasks/58-windows-cli-signals/brief.md)：修复 foreground/module-loading/Playboard 的真实控制台测试、worker 关闭竞态及 Playboard 清理覆盖主结果；SDK 公共接口保持。验证结果见[实施记录](tasks/58-windows-cli-signals/implementation.md)。
 
 - [Issue 184：Playboard 短临时 IPC 与测试竞态](tasks/184-ci-ipc-reliability/brief.md)：常驻 Home 和端点保持现状；Unix Playboard 使用固定短 `/tmp` 私有目录，并修复 ready JSON 发布与 DSH 后代清理时序。实施准备度见 [97/100 评估](tasks/184-ci-ipc-reliability/assessment.md)。

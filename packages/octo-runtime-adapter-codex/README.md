@@ -16,6 +16,14 @@ Codex 采用自有的会话（thread）概念与一套双向 JSON-RPC 协议，�
 
 组件测试位于 `test/adapter-multimodal.test.js`。启用 `OCTO_CODEX_MULTIMODAL_LIVE=1` 后，测试使用本机 Codex 登录状态发送三张自制 PNG，并验证识图结果及原生输入摘要；可用 `OCTO_CODEX_MULTIMODAL_MODEL` 指定测试模型。该测试会调用真实模型。
 
+## 严格续接与真实停止证据
+
+普通续聊保留既有的新会话 fallback。业务方自动续接尚未完成任务时，可在公开 ProviderSession 的 Codex 扩展中显式设置 `codexRequireResume: true`。此时 `thread/resume` 失败、返回其他 thread 或 `turn/start` 报告旧 thread 不存在均直接失败，不新建空会话；`resumable: false` 明确拒绝。
+
+取消可以先收敛本地事件；这不等于后台任务已停止。Adapter 在关闭读端前最多观察 250ms 的真实尾流，仅匹配当前 thread/turn 且含终态 status 的 `turn/completed` 通过 `AdapterInvocationContext.reportExecutionStopped(outcome)` 确认执行停止。`turn/interrupt` ACK、代理进程退出与本地合成 `run.cancelled` 均不确认。Core 分别报告本地清理与实际停止，未确认时自动续接关闭。
+
+该证据适用于真实 Provider 和本地代理，但不提供产品私有 daemon 的断流重订阅；OctoBuddy 的旧任务可能仍在 daemon 中运行，宿主需接回原订阅。
+
 ## 工作原理
 
 与单向读取 stdout 的 `codex exec --json` 不同，本适配器使用 `codex app-server` 的双向 JSON-RPC 2.0：Octo Runtime 既主动发起请求，也应答 Codex 反向发来的请求。一次调用对应一个子进程，执行完成后即回收。

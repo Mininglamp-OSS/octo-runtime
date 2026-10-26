@@ -152,6 +152,14 @@ node scripts/verify-release.mjs dist/release/mininglamp-oss-octo-runtime-0.0.0.t
 
 可复现的真实 IM 检查见 [验收脚本](scripts/verify-gateway-drain-live.mjs)：通过环境变量 OCTO_CHANNEL_QA_ACCOUNTS 指定受保护账号文件；默认验证 SDK，--cli 验证 CLI，--fail-delivery 在实际 WebSocket 文本发送边界注入失败。脚本仅使用 im-test 及指定账号共同加入的 Channel_QA_ 测试群，报告不含凭据。
 
+## 模型静默后的逻辑任务投影
+
+`codex_retry.resume_on_model_silence` 默认关闭；显式启用时，最多按 `max_model_silence_resumes`（默认 2，范围 0..5）续接。只有真实 Provider 取消终态、原流正常耗尽、本地资源清理完成且原会话可用才允许新尝试；已完成工具不重放，未决工具/交互或实际停止未知时禁止。
+
+`ImSessionBinding.task` 只包含逻辑 taskRunId、当前 run/invocation、attempt、revision、status 和 updatedAt。宿主消费 running/recovering 与最终结果，不能把单次 Adapter 的失败直接当作整个任务结束。unknown 是观察不完整，不是实际任务失败，宿主可用同一 Provider thread 的可信实时状态修正。
+
+此能力尚未接通 OctoBuddy 私有共享 daemon 的旧 stream 重新订阅。中断代理可能只断开观察，不能据此重发原请求。Client 必须另行连接原执行的 stream/subscribe；升级新 SDK 与打包真实验收仍由宿主完成。
+
 ## 配置和业务责任
 
 Gateway 默认通过本轮 `extra.im/artifact-delivery` 建立文件交付约定：Agent 成功 final 中的本地 Markdown 链接/图片由固定 workflow 上传到 IM，再替换目标并计算 mention 后发送同一条 final。普通文件链接额外发送原生文件卡（type=8，带文件名、类型、字节数和下载地址）；final Markdown 中的链接文字及附件地址同时保留，二者不是二选一。图片使用 Markdown 图片语法内嵌展示，仅图片引用不另发文件卡；同图另有下载链接时共用一次上传并发送一张文件卡。

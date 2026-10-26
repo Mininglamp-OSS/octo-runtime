@@ -1,0 +1,20 @@
+rules:
+  - runtime-architecture
+  - runtime-channel
+  - runtime-session-reset
+  - runtime-stateless
+  - runtime-local-execution
+  - runtime-engineering
+  - runtime-invoke-input
+  - runtime-output-protocol
+  - commit
+sources:
+  - .octospec/rules/architecture.md
+  - .octospec/rules/channel-integration.md
+  - .octospec/rules/session-reset.md
+  - .octospec/rules/stateless-execution.md
+  - .octospec/rules/local-execution.md
+  - .octospec/rules/engineering.md
+  - .octospec/rules/invoke-input.md
+  - .octospec/rules/output-protocol.md
+  - .octospec/rules/collaboration.md

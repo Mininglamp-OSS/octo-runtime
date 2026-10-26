@@ -171,6 +171,18 @@
                     "default": true,
                     "description": "可选。是否启用此 Extra 的 Codex 自动恢复及恢复预算；false 不会关闭 Provider 自身的原生网络恢复，也不改变其他 Adapter。"
                   },
+                  "resume_on_model_silence": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "显式授权在原 Codex 会话续接模型静默超时；须确认真实执行已取消、本地清理完成且无未决工具或交互，不重放原输入，禁止回退新会话。"
+                  },
+                  "max_model_silence_resumes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 5,
+                    "default": 2,
+                    "description": "单个逻辑任务的模型静默续接总次数上限，成功进度不重置。"
+                  },
                   "max_consecutive_retries": {
                     "type": "integer",
                     "minimum": 0,

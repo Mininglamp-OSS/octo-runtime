@@ -53,7 +53,7 @@ ACP 的每个 session 更新队列、ZCode 的每次客户端事件队列复用 
 
 Gateway 的 cardDeliveries、Gateway/WeCom 的 deliveries 仅输出当前保留回执的总数，直接读取 Map.size，不复制或公开 effectKey/messageId 明细；不是累计发送量。原有投递重试与每个投递器最多 512 条的防重回执缓存保持不变。512 是当前容量选择而非协议常量；此上限不等同于整个进程 RSS 上限或重启后恰好一次投递。用户于 2026-10-21 明确本项只调整状态展示，不借此改造投递机制。
 
-Octo 和 WeCom 默认各自使用有界内存会话映射，具体容量及 reset 见 [会话合同](session-reset.md)。Octo Gateway 可显式消费宿主 createSessionStore 返回的句柄，数据仍属于宿主；整个 Runtime 不依赖 SQLite、不提供适配、表结构或迁移。这些业务映射不属于通用 Host 的持久历史。默认映射失效后创建新会话；宿主持久 binding 也不等于 Provider 会话必定恢复或旧 Run 可继续执行。
+Octo 和 WeCom 默认各自使用有界内存会话映射，具体容量及 reset 见 [会话合同](session-reset.md)。Octo Gateway 可显式消费宿主 createSessionStore 返回的句柄，数据仍属于宿主；整个 Runtime 不依赖 SQLite、不提供适配、表结构或迁移。这些业务映射不属于通用 Host 的持久历史。binding.task 只附加当前逻辑任务的身份、有限计数和状态，不缓存模型输入或历史；它不是可重放业务请求。默认映射失效后创建新会话；宿主持久 binding 也不等于 Provider 会话必定恢复或旧 Run 可继续执行。
 
 2026-10-15 用户对 Channel Gateway 再次确认：不新增 Context、聊天正文、输入图片、业务 Provider binding 或投递账本的本地持久化，不在 Adapter 建业务状态库；在途与连接状态保持有界内存。需要新会话背景时由 Channel 调用 API 获取当前频道此前 15 条并显式提交 extra Context；此策略于 2026-10-16 实施，一次资格保存在现有有界 binding 中。Provider 原生存储、现有身份和配置不因本决策删除或重置。依据、代价与验收见[不持久化决策](../tasks/channel-no-context-persistence/brief.md)及[历史 Context 专项](../tasks/channel-new-session-history/brief.md)。
 
@@ -67,7 +67,7 @@ Octo 和 WeCom 默认各自使用有界内存会话映射，具体容量及 rese
 
 ## 受管日志
 
-F31 已实施统一内核与 Extra 元数据日志。SDK Extra 显式指定 logging.directory，worker 可通过 OCTO_RUNTIME_LOGS_DIRECTORY 配置；当前 CLI 使用 home/logs，不提供 --logs-dir。未配置的 SDK 实例不创建日志资源。Extra 经加载器绑定来源的 ctx.log 输出事件，内核只记生命周期、身份、稳定错误码和本轮输入/非 Adapter Context 项数，Adapter 只记安全执行选择。正文、原始错误、完整配置、凭据、预览及内容哈希均不记录。SDK/launcher 不重复落盘原始进程输出。
+F31 已实施统一内核与 Extra 元数据日志。SDK Extra 显式指定 logging.directory，worker 可通过 OCTO_RUNTIME_LOGS_DIRECTORY 配置；当前 CLI 使用 home/logs，不提供 --logs-dir。未配置的 SDK 实例不创建日志资源。Extra 经加载器绑定来源的 ctx.log 输出事件，内核只记生命周期、身份、稳定错误码和本轮输入/非 Adapter Context 项数，Adapter 只记安全执行选择。watchdog 日志可记录已白名单化的阶段、时长、最后进展、工具数量与重试计数，invoke.failed 携带 diagnostic_id 以关联用户诊断号。正文、原始错误、完整配置、凭据、预览及内容哈希均不记录。SDK/launcher 不重复落盘原始进程输出。
 
 F31 已确认并实施：按 UTC 小时命名，每序列保留最近 3 个实际文件（包含当前文件），单文件 100 MiB；不按最近 3 小时年龄删除，跨天停机后仍保留最后文件。新小时实际写入第四个文件时淘汰最旧归档，不创建无日志小时的空文件。专用 Worker 隔离磁盘写入，每进程最多 128 条在途和 128 个序列，满额、锁竞争或写入失败可丢诊断，不保证审计完整性；关闭最多等待 1 秒，不影响 Agent 执行。轮转沿用非等待互斥和普通文件校验，不删除身份、Provider 文件、用户文件或旧固定日志。详情与原生服务定义更新见[运维](../guides/operations.md)及[实施记录](../tasks/gateway-august-feature-assessment/implementation.md#f31-核心改造已实施)。
 

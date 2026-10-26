@@ -13,7 +13,19 @@ export interface ImSessionOccurrence {
   /** 仅整轮没有已执行或未知尝试时保存；旧记录缺省不推测执行事实。 */
   notSubmittedFailure?: FailureEnvelope;
 }
+/** 逻辑任务投影；不包含输入、Context 或工具结果，业务持久化仍由宿主拥有。 */
+export interface ImTaskState {
+  version: 1;
+  taskRunId: string;
+  runId: string;
+  invocationId: string;
+  attempt: number;
+  revision: number;
+  status: "running" | "recovering" | "completed" | "failed" | "cancelled" | "unknown";
+  updatedAt: number;
+}
 export interface ImSessionBinding {
+  task?: ImTaskState;
   id?: string;
   generation: number;
   providerSession?: ProviderSession;

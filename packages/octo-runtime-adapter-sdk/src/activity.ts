@@ -23,4 +23,9 @@ export interface AdapterInvocationContext {
   log?: RuntimeLog;
   reportConversion?(): void;
   reportActivity?(activity: ProviderActivity): void;
+  /**
+   * Adapter 仅在收到属于当前真实 Provider 执行的终态时确认停止。
+   * 代理/子进程退出、连接关闭、取消 ACK 或本地合成终态不能调用；未报告时保持未知。
+   */
+  reportExecutionStopped?(outcome: "completed" | "failed" | "cancelled"): void;
 }

@@ -223,6 +223,8 @@ IM 默认总时限为一天，工具无输出时限也为一天；本轮 Context
 | 字段 | 默认值 | 有效范围 |
 | --- | --- | --- |
 | `enabled` | `true` | 布尔值；关闭 Extra 的自动恢复及恢复预算 |
+| `resume_on_model_silence` | `false` | 显式启用模型静默后的严格原会话续接 |
+| `max_model_silence_resumes` | `2` | `0..5`；每个逻辑任务的静默续接总次数，进度不重置 |
 | `max_consecutive_retries` | `5` | `0..100`；连续故障段内的重试次数，不含首次调用 |
 | `max_total_retries` | `20` | `0..100`；本轮累计重试次数，不随恢复进度归零 |
 | `recovery_timeout_ms` | `120000` | `100..3600000`；连续故障恢复时限，与一天任务总时限独立 |
@@ -232,6 +234,10 @@ IM 默认总时限为一天，工具无输出时限也为一天；本轮 Context
 原生 `run.notice/retry_scheduled` 和 Extra 新建尝试共用上述次数与恢复预算。通知表示 Provider 仍在同一次调用内恢复，Extra 此时不会再次 invoke。非空文本增量或工具完成结束连续故障段；心跳、usage、会话更新和重试通知不会刷新恢复时限。退避增加最多 20% 抖动并遵守统一失败中的 `retryAfterMs`；当前错误目录给暂态故障默认 30 秒提示，因此实际等待可能长于 2 秒。等待无法放入剩余预算时直接结束。
 
 Extra 只对 Codex 结构化暂态限流或不可用失败（`OH-PRV-4005/4006` 且 `retryable`）创建新尝试，并等待上次流结束。首期限定在本轮未出现任何工具或交互之前；出现后仍允许 Provider 自身恢复，但不自动重放业务请求。认证、额度、配置、输入错误和未知结果不自动重跑。Extra 与 Host 断流时尽力取消并提示结果未知，不把卡片重试提示当作恢复成功。
+
+模型静默 `OH-ADP-3008` 的续接须显式启用，且原流正常耗尽、Core 确认本地清理完成、Adapter 收到匹配原生执行的真实取消终态、原 Provider session 可恢复、没有未完成/失败工具或交互。代理退出和 `turn/interrupt` ACK 均不能证明真实后台任务停止。续接发送新指令而不重放原用户请求，并携带 `providerSession.codexRequireResume: true`：Codex 在旧线程丢失或恢复返回其他线程时直接失败，禁止 fresh fallback。实际 turn 已成功完成时不另起续接。未确认停止只投影 `unknown`，不提交新执行。
+
+`binding.task` 提供稳定 `taskRunId`、当前尝试身份、递增 `revision` 与 `running/recovering/终态/unknown`，宿主可以据此合并两端状态，不保存输入或 Context。reset 后旧代次不得覆盖新绑定。此合同不包含 OctoBuddy 私有共享 daemon 的旧执行重新订阅；该产品路径仍须接回原 `stream/subscribe`，不能把新一轮 invoke 当作重新连接。
 
 一次业务请求维持一张进度卡和一个逻辑最终回复；各尝试保留独立身份及终态，不拼接失败尝试的半截答案。`/stop` 或卡片停止作用于当前尝试，也能停止退避；`/reset` 阻止旧任务继续自动尝试，保留正在执行的调用。任务在途保持去重，结束后重新开始既有的 120 秒终态去重窗口；卡片按钮在任务期间有效，结束后保留 30 分钟。状态 `tasks[].attempts` 提供运行中尝试，终态尝试有界保存在 occurrence 中，不承诺进程重启后恢复或副作用恰好一次。
 
