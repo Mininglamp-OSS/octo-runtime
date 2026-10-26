@@ -2,6 +2,8 @@
 
 ## 2026-10-26
 
+- 按用户复核后的 [Issue 182](tasks/182-channel-artifact-delivery/brief.md) 收敛固定输出 workflow：删除企业服务开关、探测、文档创建/导入及授权。普通文件交付 IM 附件与原生文件卡，最终 Markdown 保留同一附件的链接；图片内嵌展示。避免群聊增加文档 ACL、新成员及转发访问障碍，在线协作走明确 ToolCall。保留目录核验、预签名直传、去重、重试缓存、部分失败及生命周期约束，见[实施与验证](journal/shared/2026-10-26-182-channel-artifact-delivery.md)。
+
 - PR #180 处理 Jerry-Xin 与 yujiawei 新审查：真实 Kernel IPC 复现展示取消中止观察 signal、丢弃已确认终态的问题，新增仅取消执行并阻止重试的入口及真实 IPC 对照；显式恢复 occurrence mock。复现、修复及重验见[记录](tasks/117-118-turn-failure/validation.md#jerry-xin-与-yujiawei-后续审查)。用户要求推送后新增评论请求两位重新审查。
 
 - PR #180 按用户要求合入 `main@78bb88a`，解决唯一的 OctoSpec 目录冲突，同时保留 #117/#118 与 main 的 DSH 最新入口；产品代码无冲突。新依赖与全量回归、旧/新 head 的审查和 CI 证据分别记录于[验证记录](tasks/117-118-turn-failure/validation.md#pr-180-同步-main)。
