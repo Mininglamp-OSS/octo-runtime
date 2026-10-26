@@ -88,6 +88,8 @@ yujiawei针对`b515aa0`提出的四项P1及三项P2已逐项核对并修改，�
 
 # 未验收边界
 
+2026-10-26 后续审查新增QA账号库隔离和普通Gateway规范token覆盖，OpenClaw保持特殊合同。主线已同步至`81284c9`，全量Node1843通过/52条件skip、WebUI35通过，真实双版本CLI离线8项通过。新主线CLI的九项恢复、UK回读及真实网页DM通过；SDK新主线网页trial在九项及UK回读之后因未发出草稿失败，随后网页关闭导致预检失败。最新SDK无网页trial九项恢复、UK回读、身份保持及清理通过。精确基线、报告、失败、清理和review事实核对见[审查整改](review-remediation.md)，不将旧head网页通过挪作新head证据。
+
 S01仅覆盖真实在线控制，S08仅覆盖本进程连接关闭与鉴权失联，S10仅覆盖活动direct中的worker丢失；不将部分场景写成整行PASS。无真实睡眠、合盖一小时、过夜、系统断网/IP/VPN切换、内核整体终止、登录自启、10轮、四Bot、128容量、部署reason12、服务端presence TTL、ACK/replay、卡片、群thread或其他Provider/平台证据。G01旧脚本迁移、无网preflight和手动checkpoint未全部实现，M1/M5保持部分完成。
 
 两个P0保持开放；95/100仍为准备度自评。已有账号及当前macOS/Provider消除了部分环境缺口，部署revision及完整现场执行条件尚未落实，E20仍为0分。

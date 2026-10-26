@@ -10,7 +10,7 @@ timestamp: 2026-10-26T04:50:49Z
 
 审查来源为[PR 181 的 yujiawei review](https://github.com/Mininglamp-OSS/octo-runtime/pull/181#pullrequestreview-5647456719)，审查head为`b515aa0fe12dae26855f49201daf15659817d44a`。用户要求核对并修复，沿用本任务提交和更新PR授权；不执行合并，不自行撤销review。下表P1/P2沿用审查者分级，不将全部意见写成已复现产品故障。
 
-修改只在恢复验证工具及其测试中。独立的`recovery-live-probes.mjs`供runner和回归共同调用，便于测试真实探针实现，而非复制一套测试实现。产品公共合同、服务拓扑、重试和Run语义不变。
+本节记录的首轮整改只修改恢复验证工具及其测试。独立的`recovery-live-probes.mjs`供runner和回归共同调用，便于测试真实探针实现，而非复制一套测试实现。后续用户要求的产品 token 优先级修复另见下文；产品公共协议、服务拓扑、重试和Run语义不变。
 
 # 逐项处置
 
@@ -66,3 +66,28 @@ CLI [main@8c5b416](https://github.com/Mininglamp-OSS/octo-cli/blob/8c5b416f9ba71
 yujiawei 对 `f16550c` 的[复审已批准](https://github.com/Mininglamp-OSS/octo-runtime/pull/181#pullrequestreview-5647759703)，附带的建议仍逐条核对：外部凭据路径和 preload 环境均由当前 OS 用户显式指定，自动启用只在主线程，实际 runner 始终创建独占私有目录；未证明跨账号任意读写的路径。测试站 origin 固定，AppleScript 未来可配置后的注入属于尚不存在的分支。保留建议但不把这三项写成已复现安全故障，也不让其改变用户架构或人为撤销 review。
 
 当前本地基线为 `f16550c` 加 `main@6bbbd91` 和本轮修改（dirty）。70 项恢复/环境针对测试、12 项工具测试、构建/类型、lint、命名、格式及文档检查通过。两次全量 Node 运行各为 1818 通过、42 skip、1 失败，均是未修改 DSH cancellation 的 `ENOTEMPTY`；同一用例独立运行通过。原始输出保留在 `/tmp/or-pr181-node-suite.log`、`/tmp/or-pr181-node-suite-rerun.log`，不将重跑或旧 head 的 CI 绿灯当作当前全量成功。SDK 的 browser trial 在预检因 Chrome 中测试页缺失退出，`/tmp/or-recovery-live-fOmQE6/report.json` 保留，未启动服务且 trial CLI 目录已删；后续验证另记。
+
+# 最新 main 同步
+
+先在 `70a2252e022e3f9c770d055cd2ba107cb5edbef4` 提交本轮修复并合入 `6bbbd91`，索引和日志两处冲突均保留双方内容。用户追加要求后再次 fetch，发现 `81284c9ed92066ce7cf34c1b84b608b9336279bf` 的 Windows 可靠性更新；正常 merge 自动合并索引、日志及环境规则，无新增冲突。没有 rebase、强推或删除任一主线任务记录。
+
+最新验证基线为 `70a2252` 加上述 `81284c9` merge tree（dirty）；重新构建/类型检查通过。`pnpm test:suites` 的 `/tmp/or-pr181-latest-suite.log` 为 Node 1843 通过、52 skip、零失败，45526.4毫秒；WebUI 35项通过。旧基线两次 DSH cleanup 失败仍保留，不能据此保证该用例永久无竞态。两套真实 CLI 的离线凭据验证在新主线再次8项通过、零skip；不访问真实账号库或网络。
+
+# 本轮真实测试与复审边界
+
+所有 trial 使用用户指定的外部账号和测试站，不修改或读取操作者的 CLI 账号库。以下报告均保留原结果，所有 trial 独占 CLI 配置和临时凭据配置均已删除：
+
+| 模式与基线 | 报告 | UTC 时间 | 结果 |
+| --- | --- | --- | --- |
+| SDK，`f16550c` 加 `6bbbd91` 及修复，dirty | `/tmp/or-recovery-live-A5OB6G/report.json` | 05:36:29至05:38:42 | 九项恢复、UK回读、服务身份保持和清理PASS；未启用网页步骤 |
+| SDK，`70a2252` 加 `81284c9`，dirty | `/tmp/or-recovery-live-S3kwmB/report.json` | 05:40:18至05:44:10 | 九项恢复及UK回读通过，但网页发送后未见回复，`QA_BROWSER_REPLY_MISSING`；整个trial为FAIL，清理完整 |
+| CLI，`70a2252` 加 `81284c9`，dirty | `/tmp/or-recovery-live-a0hKPV/report.json` | 05:54:31至05:58:39 | 九项恢复、UK同一回复回读、真实网页DM、服务身份保持及清理均PASS，exit 0 |
+| SDK，`70a2252` 加 `81284c9`，dirty | `/tmp/or-recovery-live-aJOIw9/report.json` | 06:03:07至06:05:35 | 九项恢复、UK同一回复回读、服务身份保持及清理均PASS，exit 0；未启用网页步骤 |
+
+失败 SDK trial 收尾后确认测试草稿仍在 composer，未把发送动作或回复写成通过；只清除本工具独占 marker 草稿后另开新 trial。随后 `/tmp/or-recovery-live-LqLjX9/report.json` 因 Chrome 中测试页已关闭在预检失败，零项检查、未启动服务、清理完整。浏览器测试依赖实际外部 Chrome 页面和焦点，保留该人工界面限制。
+
+CLI 和最新 SDK 通过 trial 各仅一次drop、一个真实socket、无control_error，worker代次增加，旧Run为`RUN_OUTCOME_UNKNOWN`且未重提。CLI启动/WS恢复观察为65118/102683毫秒，最新SDK无网页trial为18751/42494毫秒；观察包含调度及Provider耗时，不是正式G02或生产SLA。
+
+沿用 verified-review 串行检查整个PR相对 `origin/main@81284c9` 的24个文件，旧规划与工具的既有逐文件审查继续保留，本轮复核所有新增差异：规范token的连接归属、Host/Adapter覆盖及并发Bot隔离、OpenClaw排除、QA目录创建/所有CLI调用/清理、真实CLI测试和知识合同。没有跳过本轮差异，没有medium及以上未处置代码问题。浏览器失败、普通CI的可选CLI skip、真实CC/ACP模型及原事故矩阵未验项继续明示，不以本地复审代替当前head的GitHub批准。
+
+仓库规定的`pnpm format:check`通过；额外直接对知识文件运行Prettier提示4个文件格式不匹配，此范围不在仓库格式脚本内，沿用现有OKF排版，不改写知识文件全文。知识lint的7个主线frontmatter错误仍保留。

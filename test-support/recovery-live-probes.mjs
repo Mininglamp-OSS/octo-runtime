@@ -154,7 +154,7 @@ export function childEnvironment(source, { provider = false } = {}) {
   );
 }
 
-/** CLI 的文件凭据优先于环境 token，必须显式选择 trial 独占的空账号库。 */
+/** 兼容旧版 CLI 的文件凭据优先行为，显式选择 trial 独占的空账号库。 */
 export function octoEnvironment(source, { token, configDirectory }) {
   if (typeof configDirectory !== "string" || !isAbsolute(configDirectory))
     throw new Error("QA_CLI_CONFIG_DIRECTORY_REQUIRED");
