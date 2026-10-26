@@ -21,6 +21,7 @@ interface ManifestFile {
   kernelPid: number;
   updatedAt: string;
   worker?: WorkerIdentity;
+  cleanupIncomplete?: true;
   invocations: InvocationManifestEntry[];
 }
 
@@ -28,7 +29,12 @@ export interface OrphanReapResult {
   found: boolean;
   reaped: boolean;
   pid?: number;
-  reason?: "kernel_alive" | "host_missing" | "identity_mismatch" | "unsupported_identity";
+  reason?:
+    | "kernel_alive"
+    | "host_missing"
+    | "identity_mismatch"
+    | "unsupported_identity"
+    | "cleanup_incomplete";
 }
 
 /**
@@ -49,7 +55,11 @@ export class InvocationManifest {
     path: string
   ): Promise<{ manifest: InvocationManifest; reap: OrphanReapResult }> {
     const reap = await reapOrphanedInvocationManifest(path);
-    if (reap.reason === "kernel_alive" || reap.reason === "unsupported_identity") {
+    if (
+      reap.reason === "kernel_alive" ||
+      reap.reason === "unsupported_identity" ||
+      reap.reason === "cleanup_incomplete"
+    ) {
       throw new Error(`cannot replace live or unverifiable invocation manifest (${reap.reason})`);
     }
     const manifest = new InvocationManifest(path);
@@ -96,17 +106,7 @@ export class InvocationManifest {
       invocations: [...this.#invocations.values()].map((entry) => ({ ...entry }))
     };
     this.#writes = this.#writes.then(async () => {
-      await mkdir(dirname(this.#path), { recursive: true, mode: 0o700 });
-      const temporary = `${this.#path}.${process.pid}.${randomUUID()}.tmp`;
-      try {
-        await writeFile(temporary, `${JSON.stringify(snapshot)}\n`, {
-          encoding: "utf8",
-          mode: 0o600
-        });
-        await rename(temporary, this.#path);
-      } finally {
-        await rm(temporary, { force: true });
-      }
+      await writeManifest(this.#path, snapshot);
     });
     return this.#writes;
   }
@@ -134,6 +134,9 @@ export async function reapOrphanedInvocationManifest(path: string): Promise<Orph
   }
   const host = parsed.worker;
   if (!host || !Number.isSafeInteger(host.pid) || host.pid < 1 || !processAlive(host.pid)) {
+    if (parsed.cleanupIncomplete) {
+      return { found: true, reaped: false, pid: host?.pid, reason: "cleanup_incomplete" };
+    }
     await rm(path, { force: true });
     return { found: true, reaped: false, reason: "host_missing" };
   }
@@ -142,12 +145,31 @@ export async function reapOrphanedInvocationManifest(path: string): Promise<Orph
     return { found: true, reaped: false, pid: host.pid, reason: "unsupported_identity" };
   }
   if (currentIdentity !== host.started) {
+    if (parsed.cleanupIncomplete) {
+      return { found: true, reaped: false, pid: host.pid, reason: "cleanup_incomplete" };
+    }
     await rm(path, { force: true });
     return { found: true, reaped: false, pid: host.pid, reason: "identity_mismatch" };
   }
-  await terminateProcessGroup(host.pid);
+  // 必须在 leader 仍可识别时回收 Windows 树；失败保留证据，禁止覆盖清单并启动替代 worker。
+  if (!(await terminateProcessGroup(host.pid))) {
+    // 失败事实必须跨重启保留；leader 后来消失或 PID 复用不能抹去未确认的后代归属。
+    await writeManifest(path, { ...parsed, cleanupIncomplete: true });
+    return { found: true, reaped: false, pid: host.pid, reason: "cleanup_incomplete" };
+  }
   await rm(path, { force: true });
   return { found: true, reaped: true, pid: host.pid };
+}
+
+async function writeManifest(path: string, snapshot: ManifestFile): Promise<void> {
+  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+  const temporary = `${path}.${process.pid}.${randomUUID()}.tmp`;
+  try {
+    await writeFile(temporary, `${JSON.stringify(snapshot)}\n`, { encoding: "utf8", mode: 0o600 });
+    await rename(temporary, path);
+  } finally {
+    await rm(temporary, { force: true });
+  }
 }
 
 /** 查询系统启动时间以区分 PID 复用；失败时不返回可用于回收的身份，绝不以 PID 本身兜底。 */
@@ -221,16 +243,28 @@ async function queryProcessStartIdentity(pid: number): Promise<string | undefine
   return undefined;
 }
 
-async function terminateProcessGroup(pid: number): Promise<void> {
+async function terminateProcessGroup(pid: number): Promise<boolean> {
+  if (process.platform === "win32") {
+    const terminated = await new Promise<boolean>((resolve) => {
+      execFile(
+        "taskkill.exe",
+        ["/PID", String(pid), "/T", "/F"],
+        { windowsHide: true, timeout: 5_000 },
+        (error) => resolve(!error)
+      );
+    });
+    // taskkill 失败即使 leader 随后消失，也不能证明后代已回收。
+    return terminated && (await waitForExit(pid, 1_000));
+  }
   signalProcessGroup(pid, "SIGTERM");
-  if (await waitForExit(pid, 1_000)) return;
+  if (await waitForExit(pid, 1_000)) return true;
   signalProcessGroup(pid, "SIGKILL");
-  await waitForExit(pid, 1_000);
+  return waitForExit(pid, 1_000);
 }
 
 function signalProcessGroup(pid: number, signal: NodeJS.Signals): void {
   try {
-    process.kill(process.platform === "win32" ? pid : -pid, signal);
+    process.kill(-pid, signal);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
   }
