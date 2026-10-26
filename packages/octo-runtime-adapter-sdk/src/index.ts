@@ -5,12 +5,21 @@ import { delimiter, isAbsolute, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { promisify } from "node:util";
 import type { AdapterInvocationContext } from "./activity.js";
-import { invocationEnvironment, mergeProcessEnvironment } from "./environment.js";
+import {
+  invocationEnvironment,
+  mergeProcessEnvironment,
+  processEnvironmentValue
+} from "./environment.js";
 import { createProcessCleanup } from "./process-cleanup.js";
 import { watchLineLimit } from "./line-limit.js";
 import { mapReasoningEffort, reasoningLevelMap, type ReasoningLevelMap } from "./reasoning.js";
 export type { AdapterInvocationContext, ProviderActivity } from "./activity.js";
-export { invocationEnvironment, invocationEnvs } from "./environment.js";
+export {
+  invocationEnvironment,
+  invocationEnvs,
+  mergeProcessEnvironment,
+  processEnvironmentValue
+} from "./environment.js";
 export { invocationMcpServers, expandMcpValue, assertMcpOptions } from "./mcp.js";
 export { actmodeEvidence } from "./actmode.js";
 
@@ -425,10 +434,13 @@ export async function probeCommand(
   const candidates =
     isAbsolute(command) || command.includes("/") || command.includes("\\")
       ? [command]
-      : (env.PATH ?? "").split(delimiter).flatMap((directory) => {
+      : (processEnvironmentValue(env, "PATH") ?? "").split(delimiter).flatMap((directory) => {
           const extensions =
             process.platform === "win32" && !/\.[^\\/]+$/.test(command)
-              ? ["", ...(env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM").split(";")]
+              ? [
+                  "",
+                  ...(processEnvironmentValue(env, "PATHEXT") ?? ".EXE;.CMD;.BAT;.COM").split(";")
+                ]
               : [""];
           return extensions.map((extension) => resolve(directory, command + extension));
         });

@@ -6,6 +6,8 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   attachKernel,
+  acknowledgeOrphanCleanup,
+  inspectOrphanCleanup,
   createKernelService,
   type KernelService,
   readAdapterConfigurations
@@ -60,6 +62,11 @@ export async function runCli(args: string[], dependencies: CliDependencies = {})
   let statusOutput: StatusOutput | undefined;
   try {
     const { flags, positional } = parse(args);
+    if (
+      flags["acknowledge-orphan-cleanup"] !== undefined &&
+      !(positional[0] === "executor-kernel" && positional[1] === "recover")
+    )
+      throw new Error("INVALID_ARGUMENTS");
     if ((flags.lines !== undefined || flags.follow !== undefined) && positional[1] !== "logs")
       throw new Error("INVALID_ARGUMENTS");
     json = Boolean(flags.json);
@@ -77,6 +84,29 @@ export async function runCli(args: string[], dependencies: CliDependencies = {})
       return 0;
     }
     const home = resolve(flags.home ?? defaultRuntimeHome(dependencies.env, dependencies.platform));
+    // 恢复确认不加载 Provider 或访问服务管理器；原记录继续保留，下一次启动校验摘要后替换。
+    if (positional[0] === "executor-kernel" && positional[1] === "recover") {
+      context = { component: "executor-kernel", action: "recover", logs: join(home, "logs") };
+      if (
+        positional.length !== 2 ||
+        flags["acknowledge-orphan-cleanup"] !== "true" ||
+        flags.autostart !== undefined
+      )
+        throw new Error("INVALID_ARGUMENTS");
+      const recovery = await withSetupLock(
+        {
+          ...runtimePaths(home, "default", dependencies.platform),
+          setupLock: join(home, "run", "executor-kernel.setup.lock")
+        },
+        () => acknowledgeOrphanCleanup(join(home, "run", "kernel-invocations.json"))
+      );
+      output(
+        json
+          ? JSON.stringify(recovery)
+          : `Orphan cleanup acknowledged. Evidence: ${recovery.archivePath}\nStart executor-kernel again using the same --home.`
+      );
+      return 0;
+    }
     // Route logs before config/module/manager access so offline failures remain diagnosable.
     if (positional[1] === "logs") {
       const extra = positional[0];
@@ -242,13 +272,16 @@ export async function runCli(args: string[], dependencies: CliDependencies = {})
       const manager = await service.backend.probe();
       const status = await snapshots(componentNames);
       const checks = Object.entries(status).map(([component, value]) => ({ component, ...value }));
+      const recovery = await inspectOrphanCleanup(join(home, "run", "kernel-invocations.json"));
       publish(
-        { manager, checks },
+        { manager, checks, recovery },
         `Manager: ${manager.manager} (${manager.supported ? "available" : "unavailable"})\n\n${Object.entries(
           status
         )
           .map(([name, value]) => formatStatus(name, value))
-          .join("\n\n")}`
+          .join(
+            "\n\n"
+          )}\n\nOrphan cleanup: ${recovery.state}\nManifest: ${recovery.manifestPath}${recovery.state === "cleanup_incomplete" ? "\nStop all orphan tools, then run executor-kernel recover --acknowledge-orphan-cleanup with the same --home." : ""}`
       );
       return 0;
     }
@@ -518,15 +551,18 @@ function parse(args: string[]) {
         "version",
         "autostart",
         "lines",
-        "follow"
+        "follow",
+        "acknowledge-orphan-cleanup"
       ].includes(match[1]) ||
       Object.hasOwn(flags, match[1])
     )
       throw new Error("INVALID_ARGUMENTS");
     const key = match[1];
-    flags[key] = ["json", "help", "version", "follow"].includes(key)
+    flags[key] = ["json", "help", "version", "follow", "acknowledge-orphan-cleanup"].includes(key)
       ? "true"
       : (match[2] ?? args[++i]);
+    if (key === "acknowledge-orphan-cleanup" && match[2] !== undefined)
+      throw new Error("INVALID_ARGUMENTS");
     if (
       !flags[key] ||
       flags[key].startsWith("--") ||

@@ -1,4 +1,8 @@
-import { hasImageInput, invocationEnvironment } from "@mininglamp-oss/octo-runtime-adapter-sdk";
+import {
+  hasImageInput,
+  invocationEnvironment,
+  processEnvironmentValue
+} from "@mininglamp-oss/octo-runtime-adapter-sdk";
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
@@ -176,9 +180,9 @@ export function createZcodeGuiAdapter({
 function findOnPath(command: string, env: NodeJS.ProcessEnv): string | undefined {
   const extensions =
     process.platform === "win32"
-      ? ["", ...(env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM").split(";")]
+      ? ["", ...(processEnvironmentValue(env, "PATHEXT") ?? ".EXE;.CMD;.BAT;.COM").split(";")]
       : [""];
-  for (const directory of (env.PATH ?? "").split(delimiter)) {
+  for (const directory of (processEnvironmentValue(env, "PATH") ?? "").split(delimiter)) {
     if (!directory) continue;
     for (const extension of extensions) {
       const candidate = resolve(directory, command + extension);

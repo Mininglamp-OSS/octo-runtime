@@ -1,5 +1,6 @@
 task: windows-runtime-reliability
 baseline: 8af8360
+rebased_main: 78bb88a
 workflow: .claude/skills/octospec-workflow/SKILL.md
 read:
   - AGENTS.md

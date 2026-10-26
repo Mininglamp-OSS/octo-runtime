@@ -180,6 +180,7 @@ jobs:
           test/spawn-json-lines-errors.test.js
           test/kernel-spawn-isolation.test.js
           test/context-envs.test.js
+          test/windows-review-regressions.test.js
           test/cross-service-windows-native.test.js
       - name: Verify Host logging on Windows
         run: node --test --test-name-pattern="F31 Host logging|F31 unavailable" test/runtime-debug.test.js

@@ -13,7 +13,7 @@ tags: [runtime, lifecycle, adapter, envs, installation, testing]
 
 这是 Runtime 自身的进程、传输、安装与环境映射责任；宿主继续决定 Provider、配置、认证来源和服务部署。显式输入沿用 manifest 身份、CommandSpec、ServiceSpec、Context envs 与 executionEnvOverrides，不增加业务协议或宿主平台开关。
 
-服务拓扑保持宿主直接构造 Kernel -> 内部独立 worker -> Provider/工具后代。Kernel 拥有 worker 与身份清单；Adapter 拥有本次 Provider 和管道；CLI/SDK 服务后端拥有本次命名计划任务与 XML。公共 API 和 composition root 不变，不增加外部 Node launcher、原生二进制、Job Object broker 或业务持久化。
+服务拓扑保持宿主直接构造 Kernel -> 内部独立 worker -> Provider/工具后代。Kernel 拥有 worker 与身份清单；Adapter 拥有本次 Provider 和管道；CLI/SDK 服务后端拥有本次命名计划任务与 XML。业务协议和 composition root 不变；评审后补充只读恢复诊断、显式确认 API/CLI 及共享环境读写助手，见[评审修复](review-fixes.md)。不增加外部 Node launcher、原生二进制、Job Object broker 或业务持久化。
 
 ## 根因与实施方案
 

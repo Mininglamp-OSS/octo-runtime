@@ -55,9 +55,11 @@ test("failed Windows tree cleanup preserves evidence across a later leader exit 
     ...original,
     cleanupIncomplete: true
   });
+  assert.equal((await reapOrphanedInvocationManifest(path)).reason, "cleanup_incomplete");
+  assert.equal(kills, 2, "a still-identifiable worker is retried on the next recovery attempt");
   leaderAlive = false;
-  await assert.rejects(InvocationManifest.open(path), /cleanup_incomplete/);
-  assert.equal(kills, 1);
+  await assert.rejects(InvocationManifest.open(path), { code: "ORPHAN_CLEANUP_INCOMPLETE" });
+  assert.equal(kills, 2);
   assert.equal(JSON.parse(await readFile(path, "utf8")).cleanupIncomplete, true);
 });
 

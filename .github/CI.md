@@ -37,7 +37,9 @@ The CLI signal-injection variant and POSIX process-group cleanup injection retai
 their platform-specific skips; the SDK recovery trial runs on Windows.
 The Windows matrix also verifies invocation-local spawn/pipe failures, mixed-case
 environment overrides and native scheduled-task installation through both SDK and
-CLI. Task tests use unique names and temporary ASCII or Unicode/space paths, cover
+CLI. Review regressions cover environment consumers and ACP/Grok spawns, explicit
+orphan-cleanup acknowledgement with preserved evidence, and unknown account identity.
+Task tests use unique names and temporary ASCII or Unicode/space paths, cover
 both autostart values, and remove their registrations after verification.
 Windows cleanup of descendants
 whose process leader has already exited still lacks a Job Object-level guarantee;

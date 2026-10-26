@@ -37,3 +37,14 @@ export function mergeProcessEnvironment<T>(...layers: Record<string, T>[]): Reco
   }
   return Object.fromEntries(entries.values());
 }
+
+/** 读取实际进程环境时沿用平台键身份；只读自有属性，Windows 后写别名优先。 */
+export function processEnvironmentValue(env: NodeJS.ProcessEnv, name: string): string | undefined {
+  if (process.platform !== "win32") return Object.hasOwn(env, name) ? env[name] : undefined;
+  const identity = name.toUpperCase();
+  let value: string | undefined;
+  for (const key of Object.keys(env)) {
+    if (key.toUpperCase() === identity) value = env[key];
+  }
+  return value;
+}

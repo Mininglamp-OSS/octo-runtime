@@ -54,7 +54,30 @@ node --unhandled-rejections=strict --test --test-name-pattern='Windows|environme
 - `.octospec/journal/shared/2026-10-22-systemd-directive-paths.md`
 - `.octospec/journal/shared/2026-10-24-124-sass-build-fix.md`
 
-已有 Windows Node 24/26 CI 增加显式专项步骤，运行管道错误、共享 worker、环境覆盖和真实任务安装；原有 manifest 身份步骤继续覆盖新增进程树回归。此次未推送，因此没有新的托管 CI 运行结论。
+已有 Windows Node 24/26 CI 增加显式专项步骤，运行管道错误、共享 worker、环境覆盖和真实任务安装；原有 manifest 身份步骤继续覆盖新增进程树回归。首版后续已推送并创建正式 PR；其 CI 与本轮评审修复分开记录如下。
+
+# 评审修复与最新 main 验收
+
+正式 [PR #179](https://github.com/Mininglamp-OSS/octo-runtime/pull/179) 的首版 `6e2f54b` 经六个 OS/Node 组合及 CI Gate 验证通过，见 [run 40261795168](https://github.com/Mininglamp-OSS/octo-runtime/actions/runs/40261795168)。三份评审已按[逐项处置](review-fixes.md)处理；新增环境消费者、ACP/Grok、恢复确认和 SID 状态回归。
+
+本轮 `git rebase --autostash origin/main` 同步至 `78bb88a`，唯一冲突为知识目录，已保留双方条目。主仓库同样 fast-forward 到该提交并保持干净。两个 checkout 均重新 `pnpm install --frozen-lockfile`，使用上游未修改的官方 DSH SDK。
+
+| 检查 | rebase 后实际结果 |
+| --- | --- |
+| frozen install/build、TypeScript、lint、命名、format | 通过；另单独检查最终 `.github/CI.md` 格式。 |
+| `pnpm docs:check` | 通过，包含示例、静态检查及 4 项文档回归。 |
+| 五个定向文件，严格 unhandled rejection | 29 通过，0 失败，0 跳过。 |
+| 原生服务矩阵 | 完整测试中 5 项通过；包含 ASCII/Unicode 与空格路径、两种自启值的真实 SDK/CLI 安装查询删除。 |
+| 修复分支全量 | UI 35 通过；Node 1837 项，1673 通过、94 失败、70 跳过、0 取消。 |
+| 未修改 `main@78bb88a` 全量 | UI 35 通过；Node 1812 项，1647 通过、95 失败、70 跳过、0 取消。 |
+| 失败集合 | 分支 94 项全部出现在基线；没有分支独有失败。基线额外一项 `Windows Host readiness timeout retains direct startup rollback` 在资源竞争时超过 2 秒，单独重跑 1 项通过（469 ms）。没有把两次全量的失败集合写成完全相同。 |
+| 新增回归 | 相对最新 main 新增 25 项，全部通过。 |
+| OctoSpec lint | 两边均为相同 7 处缺少 frontmatter，无新增错误。上游 #178 新增 3 处：`tasks/dsh-upstream-sdk/brief.md`、`tasks/dsh-upstream-sdk/upstream-feedback.md`、`journal/shared/2026-10-26-dsh-upstream-sdk.md`。 |
+| diff | 通过；新 head 托管 CI 必须独立执行，不能沿用首版结果。 |
+
+本轮日志位于 worktree 外的 `D:/github.com/Mininglamp-OSS/.worktree/`：`windows-runtime-rebased-tests.log`、`windows-runtime-latest-main-tests.log`、`windows-runtime-review-install.log`、`windows-runtime-latest-main-install.log`、`windows-runtime-rebased-format.log` 和 `windows-runtime-review-docs.log`。
+
+恢复命令的确认只表示操作者已停止未知后代，不代表 Runtime 已自行验证整树为空；真实整机重启、Session 0 控制台编码、离线域控延迟及真实 Codex 白名单行为尚未验收。合并继续要求最新 head CI Gate 与 reviewer 批准。
 
 # 边界
 
