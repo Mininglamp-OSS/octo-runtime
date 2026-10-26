@@ -2,6 +2,8 @@
 
 ## 2026-10-26
 
+- [Issue 184](tasks/184-ci-ipc-reliability/brief.md)：保持常驻 Home/端点不变，固定 Playboard 短临时 Unix socket；修复进程 fixture ready 发布与后代/目录清理顺序。规划准备度 97/100，原实现回归 3 项失败、修复后 focused 87 与全量 Node1833/UI35 通过；verified-review 无 medium 及以上发现，既有 OKF 与托管平台边界见[验证](tasks/184-ci-ipc-reliability/validation.md)及[journal](journal/shared/2026-10-26-184-ci-ipc-reliability.md)。
+
 - PR #180 处理 Jerry-Xin 与 yujiawei 新审查：真实 Kernel IPC 复现展示取消中止观察 signal、丢弃已确认终态的问题，新增仅取消执行并阻止重试的入口及真实 IPC 对照；显式恢复 occurrence mock。复现、修复及重验见[记录](tasks/117-118-turn-failure/validation.md#jerry-xin-与-yujiawei-后续审查)。用户要求推送后新增评论请求两位重新审查。
 
 - PR #180 按用户要求合入 `main@78bb88a`，解决唯一的 OctoSpec 目录冲突，同时保留 #117/#118 与 main 的 DSH 最新入口；产品代码无冲突。新依赖与全量回归、旧/新 head 的审查和 CI 证据分别记录于[验证记录](tasks/117-118-turn-failure/validation.md#pr-180-同步-main)。
