@@ -1,5 +1,6 @@
 task: 93-42-recovery-closure
-phase: pr-preparation
+phase: review-remediation
+review_baseline: b515aa0fe12dae26855f49201daf15659817d44a
 read_at: '2026-10-26'
 baseline: 0189eabb3d25fc07b3f9eb8b0e463d85a1c8a6d7
 previous_validation_baseline: 8af836068780ebb76581225254ad7bef18cc8170
@@ -80,6 +81,7 @@ source_reads:
   - scripts/verify-gateway-drain-live.mjs
   - scripts/verify-recovery-live.mjs
   - test-support/recovery-live-faults.mjs
+  - test-support/recovery-live-probes.mjs
   - test-support/recovery-live-worker.mjs
   - test/recovery-live-probe.test.js
   - SDK_NATIVE_INTEGRATION_FULL_GUIDE.md
@@ -112,3 +114,4 @@ unresolved:
   - Dedicated sleep/reboot and cross-platform targets, other incident Provider configurations and assigned deployment maintainers; test accounts are now supplied.
 validation_record: verification.md
 live_validation_record: live-verification.md
+review_remediation_record: review-remediation.md

@@ -4,7 +4,6 @@ import { chmod, mkdtemp, mkdir, readFile, rename, rm, writeFile } from "node:fs/
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
-import net from "node:net";
 import {
   createKernelService,
   createExtraService,
@@ -15,6 +14,12 @@ import { invocationInput } from "@mininglamp-oss/octo-runtime-protocol";
 import * as gatewayModule from "@mininglamp-oss/octo-runtime/extras/channel-gateway";
 import { invokeRequest } from "../test/runtime-fixture.js";
 import { recoveryLiveFaults } from "../test-support/recovery-live-faults.mjs";
+import {
+  waitFor as waitForProbe,
+  inspectStatus,
+  historyMessages,
+  childEnvironment
+} from "../test-support/recovery-live-probes.mjs";
 
 const execute = promisify(execFile);
 const absolute = (name) => fileURLToPath(new URL(name, import.meta.url));
@@ -51,26 +56,19 @@ const safeCode = (error) => {
     : "QA_UNCLASSIFIED_ERROR";
 };
 async function waitFor(predicate, reason, timeout = 30000) {
-  const until = Date.now() + timeout;
-  do {
-    for (const entry of children)
-      check(entry.child.exitCode === null && entry.child.signalCode === null, "QA_CHILD_EXITED");
-    const result = await predicate();
-    if (result) return result;
-    await pause(200);
-  } while (Date.now() < until);
-  throw new Error(reason);
+  return waitForProbe(predicate, reason, timeout, {
+    beforeAttempt: () => {
+      for (const entry of children)
+        check(entry.child.exitCode === null && entry.child.signalCode === null, "QA_CHILD_EXITED");
+    }
+  });
 }
 async function octo(token, args, body) {
-  const env = { ...process.env, OCTO_TOKEN: token, OCTO_API_BASE_URL: endpointOrigin };
-  for (const key of [
-    "OCTO_BOT_TOKEN",
-    "OCTO_BOT_ID",
-    "OCTO_PROFILE",
-    "OCTO_CREDENTIAL_MODE",
-    "OCTO_TASK_TOKEN"
-  ])
-    delete env[key];
+  const env = {
+    ...childEnvironment(process.env),
+    OCTO_TOKEN: token,
+    OCTO_API_BASE_URL: endpointOrigin
+  };
   try {
     const { stdout } = await execute(
       "octo-cli",
@@ -81,35 +79,23 @@ async function octo(token, args, body) {
     check(result.ok, "QA_CLI_NOT_OK");
     return result;
   } catch (error) {
-    let code = "QA_CLI_FAILED";
+    let code = "QA_CLI_FAILED",
+      retryable = error.code === "ETIMEDOUT" || error.killed === true;
     try {
-      code = safeCode(JSON.parse(error.stderr).error);
+      const detail = JSON.parse(error.stderr).error;
+      code = safeCode(detail);
+      retryable =
+        ["network", "rate_limited"].includes(detail.type) ||
+        (detail.type === "api_error" && ["INTERNAL_ERROR", "UPSTREAM_UNAVAILABLE"].includes(code));
     } catch {}
-    throw new Error(`${args.slice(0, 2).join(".")}:${code}`);
+    throw Object.assign(new Error(`${args.slice(0, 2).join(".")}:${code}`), { retryable });
   }
 }
-async function inspect(endpoint) {
-  return new Promise((resolve, reject) => {
-    const socket = net.createConnection(endpoint);
-    let text = "";
-    socket.setTimeout(3000, () => socket.destroy(new Error("QA_STATUS_TIMEOUT")));
-    socket.once("error", reject);
-    socket.once("close", () => reject(new Error("QA_STATUS_CLOSED")));
-    socket.once("connect", () => socket.write('{"jsonrpc":"2.0","id":"qa","method":"status"}\n'));
-    socket.on("data", (chunk) => {
-      text += chunk;
-      if (text.includes("\n")) {
-        try {
-          resolve(JSON.parse(text.split("\n")[0]).result);
-        } catch (error) {
-          reject(error);
-        }
-        socket.destroy();
-      }
-    });
-  });
-}
-async function launch(component, args = [], env = process.env) {
+async function launch(
+  component,
+  args = [],
+  env = childEnvironment(process.env, { provider: component === "executor-kernel" })
+) {
   const child = spawn(
     process.execPath,
     [
@@ -259,14 +245,7 @@ try {
         limit: 100
       })
     ).data;
-    return (data.messages ?? []).map((message) => ({
-      ...message,
-      id: String(message.message_idstr ?? message.message_id),
-      payload:
-        typeof message.payload === "string"
-          ? JSON.parse(Buffer.from(message.payload, "base64").toString("utf8"))
-          : message.payload
-    }));
+    return historyMessages(data.messages ?? []);
   };
   const send = (content) =>
     octo(sender.token, ["message", "send"], {
@@ -333,23 +312,16 @@ try {
     );
     await launch("executor-kernel");
     client = attachKernel({ endpoint });
-    await waitFor(
-      () =>
-        client.status().then(
-          (s) => s.execution_ready,
-          () => false
-        ),
-      "QA_KERNEL_START_FAILED"
-    );
+    await waitFor(async () => (await client.status()).execution_ready, "QA_KERNEL_START_FAILED");
     await launch("channel-gateway", [], {
-      ...process.env,
-      NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ""} --import=${pathToFileURL(absolute("../test-support/recovery-live-faults.mjs")).href}`,
+      ...childEnvironment(process.env),
+      NODE_OPTIONS: `--import=${pathToFileURL(absolute("../test-support/recovery-live-faults.mjs")).href}`,
       OCTO_RECOVERY_QA_CONTROL: controlFile,
       OCTO_RECOVERY_QA_EVENTS: eventsFile
     });
   }
   client ??= attachKernel({ endpoint });
-  const extraStatus = () => inspect(extraEndpoint);
+  const extraStatus = () => inspectStatus(extraEndpoint);
   const ready = async () => (await extraStatus()).status.bots[0].state === "online";
   await waitFor(
     async () => (await faults()).filter((e) => e.event === "blocked_auth").length >= 2,
