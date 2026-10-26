@@ -35,8 +35,6 @@ export function codexAppServerFixture({
   method = "item/commandExecution/requestApproval",
   holdResponseWrites = false,
   turnStartError,
-  threadResumeError,
-  resumedThreadId = "thread-fixture",
   skills = [],
   config = {}
 } = {}) {
@@ -75,12 +73,7 @@ export function codexAppServerFixture({
       writes.push(message);
       if (message.method === "initialize") send({ id: message.id, result: {} });
       if (message.method === "config/read") send({ id: message.id, result: { config } });
-      if (message.method === "thread/resume") {
-        if (threadResumeError)
-          send({ id: message.id, error: { code: -32000, message: threadResumeError } });
-        else send({ id: message.id, result: { thread: { id: resumedThreadId } } });
-      }
-      if (message.method === "thread/start")
+      if (["thread/start", "thread/resume"].includes(message.method))
         send({ id: message.id, result: { thread: { id: "thread-fixture" } } });
       if (["skills/extraRoots/set", "skills/config/write"].includes(message.method))
         send({ id: message.id, result: {} });

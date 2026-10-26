@@ -1,25 +1,21 @@
-# IM 助理模型静默后的自动续接
+# 助理原任务观察与诊断
 
-用户要求：连接的助理遇到 OH-ADP-3008 后自动中断并在原会话继续，桌面和 IM 显示同一逻辑任务；提交 Runtime PR 和 Client MR。
+用户明确要求：两边同步即可，不发送“继续执行”之类的输入。恢复观察必须针对原任务、原 thread/turn，不能重放原请求或新起执行。
 
-## 交付边界（草稿）
+## 产品意图与职责
 
-已完成严格停止证据、安全续接与逻辑状态合同。**尚未接通已复现产品路径中的共享 daemon 原任务重订阅，也未完成 Client 新 SDK 迁移；不能把原断联事故写成已修复。** 代理退出只结束观察连接，真实后台任务可能继续。重新连接应订阅原执行，不是创建新 turn。
+- 产品决定观察策略。Client 可显式使用当前 SDK 已支持的 `octo.execution/limits.model_idle_policy: observe`，使模型静默只留下诊断，不取消观察；工具/总期限和主动停止仍按原合同生效。
+- Generic Runtime 默认 enforce 保持。Core 接收已经准备的单次请求，不替宿主查询产品私有 daemon，也不决定业务续接。
+- Kernel 使用原身份/游标修复自己的源观察窗口；产品 Provider 代理的重订阅由 Client Adapter 显式适配。仍 running 时订阅原流，已结束时读取同一执行的真实结果，不重新 invoke。
+- 代理退出与本地清理完成不等于真实执行停止。Adapter 仅以匹配当前 thread/turn 的原生终态报告停止；取消 ACK、乐观 run.cancelled、清理超时和代理退出均不补造停止证据。
+- 日志只记录白名单安全测量及诊断编号，不记录输入、正文、原始错误、Context 或凭据。
 
-## 产品意图归属
+## 本 PR 的最终范围
 
-- 宿主显式配置 `codex_retry.resume_on_model_silence`；缺省 false，不改变其他 SDK 产品和 Adapter。
-- Channel 的 ImTask 决定是否续接、累计次数、退避和逻辑任务终态；Core 只提供本次清理事实，仍只执行一次 invoke。
-- `max_model_silence_resumes` 默认 2、范围 0..5，另受已有总次数、连续恢复预算和任务总期限限制。
-- 续接必须在原流正常耗尽后，具有可恢复原 Provider session、本次 Core 的 `executionCleanup: complete`、Adapter 从匹配原生 thread/turn 得到的 `executionStopped: confirmed` 且 `executionStoppedState: cancelled`、模型静默证据与零开放工具。取消 ACK 或代理进程清理不能替代实际停止。工具失败、取消、缺失 create 的更新及交互均禁止续接。已经完成的工具不重放原用户输入。续接显式使用 Codex 的 `providerSession.codexRequireResume`，旧会话丢失时禁止回退新会话。
-- 同一逻辑 taskRunId 保持，续接生成新的 runId/invocationId；通过 binding.task 发布 running/recovering 和最终结果。reset 后旧任务不得覆盖新代次。
-- 断流或状态未知不重新提交，不把取消受理当成停止；Kernel 既有订阅修复保持原职责。进程重启后的自动业务恢复不在本次范围。
-- 元数据不含正文、输入、工具结果、凭据；可选宿主 store 决定持久化，默认内存容量保持。
+只增加通用真实停止/本地清理证据、安全 watchdog 日志，以及既有 enforce/observe 合同的同一执行验证。不增加业务执行策略或未来 SDK 准备逻辑。既有工具前 503/限流重试不属于本次需求，不改动。
 
-## 验收
+## 产品接线与验收边界
 
-覆盖实际清理成功/超时、原会话续接、工具安全门、退出/重置、预算和次数、终态后传输错误、宿主状态写入失败、单一逻辑终态。记录本地检查与未做的真实 Provider/IM 联调，不以 fake 代替现场事故诊断。
+配套 Client MR 使用当前固定 SDK 的 observe 合同与产品专属原任务订阅，不依赖本 PR 新版本发布或无关 SDK 大迁移。本仓不实现 OctoBuddy 私有 daemon 方法，也不声称本 PR 单独修复产品重订阅。
 
-## 集成约束
-
-OctoBuddy 当前仍固定内部旧 daemon SDK，而 GitHub main 使用 Kernel/Host SDK。配套 Client MR 是依赖本 PR 的接入准备；必须在 Runtime 合入并发布后完成 SDK 迁移、固定真实版本和打包联调，不能声称旧版本已生效。原截图的空模型目录错误是独立 CLI 问题，不纳入此 PR。
+验收覆盖：模型静默 enforce 与 observe 的差异、同一输入仅执行一次、代理清理与实际停止分离、匹配 thread/turn 的真实终态、取消 ACK 不能证明停止、日志关联与隐私。真实 daemon + fake Provider 的隔离实验与真实 IM/模型联调分别记录；不是原事故复现。

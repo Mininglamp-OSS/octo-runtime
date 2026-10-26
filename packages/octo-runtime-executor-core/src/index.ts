@@ -988,7 +988,7 @@ export class AgentExecutor {
       // boundedCleanup 到期也会 resolve；只有 owner 被成功清理路径移除才确认完成。
       const executionCleanup =
         this.#owners.get(request.invocationId) === owner ? "incomplete" : "complete";
-      // 超时终态并不证明资源已释放；业务续接只能消费本层实际清理结果。
+      // 超时只结束本次观察；分别报告本地清理和真实执行事实，不据此授权重放或新执行。
       if (error instanceof AdapterWatchdogTimeoutError)
         failure.failure.params = {
           ...failure.failure.params,

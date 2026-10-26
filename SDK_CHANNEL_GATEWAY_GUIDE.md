@@ -152,13 +152,15 @@ node scripts/verify-release.mjs dist/release/mininglamp-oss-octo-runtime-0.0.0.t
 
 可复现的真实 IM 检查见 [验收脚本](scripts/verify-gateway-drain-live.mjs)：通过环境变量 OCTO_CHANNEL_QA_ACCOUNTS 指定受保护账号文件；默认验证 SDK，--cli 验证 CLI，--fail-delivery 在实际 WebSocket 文本发送边界注入失败。脚本仅使用 im-test 及指定账号共同加入的 Channel_QA_ 测试群，报告不含凭据。
 
-## 模型静默后的逻辑任务投影
+## 原任务观察与模型静默策略
 
-`codex_retry.resume_on_model_silence` 默认关闭；显式启用时，最多按 `max_model_silence_resumes`（默认 2，范围 0..5）续接。只有真实 Provider 取消终态、原流正常耗尽、本地资源清理完成且原会话可用才允许新尝试；已完成工具不重放，未决工具/交互或实际停止未知时禁止。
+任务仍在后台运行时，重新连接应恢复原执行的观察，不能发送“继续”、重放用户请求或创建新 turn。Kernel 的已有源流恢复使用原身份和原游标；Provider 代理背后的产品专属观察方法由宿主 Adapter 显式适配，Gateway 不猜测、调用或持久化这些私有接口。
 
-`ImSessionBinding.task` 只包含逻辑 taskRunId、当前 run/invocation、attempt、revision、status 和 updatedAt。宿主消费 running/recovering 与最终结果，不能把单次 Adapter 的失败直接当作整个任务结束。unknown 是观察不完整，不是实际任务失败，宿主可用同一 Provider thread 的可信实时状态修正。
+Generic Runtime 的模型静默默认仍为 enforce。产品明确需要持续观察长任务时，可通过既有 `octo.execution/limits` 的 `model_idle_policy: "observe"` 显式选择仅观测模型静默；模型静默会留下诊断，不触发该项预算的 abort。工具、任务总期限与用户主动停止仍按原合同生效。不得以伪造 turn_progress 心跳冒充真实模型进展。
 
-此能力尚未接通 OctoBuddy 私有共享 daemon 的旧 stream 重新订阅。中断代理可能只断开观察，不能据此重发原请求。Client 必须另行连接原执行的 stream/subscribe；升级新 SDK 与打包真实验收仍由宿主完成。
+代理退出、连接关闭和 `turn/interrupt` ACK 均不证明真实后台执行停止。Core 超时诊断分别携带 `executionCleanup` 与 `executionStopped`；后者只有 Adapter 从匹配的真实执行终态确认时才为 confirmed。观察未知不能作为新执行授权，也不能由取消受理补造成实际失败或成功。
+
+这个产品接线路径可使用当前已有 observe 合同，不以发布本 PR 或迁移 Kernel/Host SDK 为前提。本 PR 不增加自动续接或产品私有 daemon 重订阅实现；Client 的观察适配与真实 IM 验收由配套 MR 单独记录。
 
 ## 配置和业务责任
 

@@ -10,7 +10,6 @@ export { MemoryImSessionStore } from "./application/session-store.js";
 export type {
   ImSessionStore,
   ImSessionBinding,
-  ImTaskState,
   ImSessionOccurrence
 } from "./application/session-store.js";
 export type { ImGapMetadata, ImGapTurnToken } from "./application/context-gap.js";

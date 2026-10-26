@@ -14,14 +14,10 @@ import {
   type CanonicalEvent,
   type InvokeEnvironment
 } from "@mininglamp-oss/octo-runtime-protocol";
-import type { ImTaskState } from "../application/session-store.js";
-import { ModelSilenceRecovery } from "./model-silence-recovery.js";
 import type { ImBotConfig, ImTaskAttempt } from "../contracts.js";
 
 export const DEFAULT_CODEX_RETRY = Object.freeze({
   enabled: true,
-  resume_on_model_silence: false,
-  max_model_silence_resumes: 2,
   max_consecutive_retries: 5,
   max_total_retries: 20,
   recovery_timeout_ms: 120_000,
@@ -71,10 +67,6 @@ export class ImTask {
   #recoveryStarted?: number;
   #recoveryTimer?: () => void;
   #replaySafe = true;
-  readonly #silence = new ModelSilenceRecovery();
-  #revision = 0;
-  #stateRequest: ImInvocationInput;
-  #finalState = false;
   #started = false;
   #draining = false;
   stopReason?: string;
@@ -85,10 +77,8 @@ export class ImTask {
     config: ImBotConfig,
     readonly environment: InvokeEnvironment,
     readonly onAttempt: (request: ImInvocationInput) => void,
-    readonly time: ImTaskClock = clock,
-    readonly onState?: (state: ImTaskState) => void
+    readonly time: ImTaskClock = clock
   ) {
-    this.#stateRequest = request;
     this.#policy = { ...DEFAULT_CODEX_RETRY, ...config.codex_retry };
     this.#signal = AbortSignal.any([
       this.#abort.signal,
@@ -168,37 +158,7 @@ export class ImTask {
     this.#total++;
     return true;
   }
-  #state(status: ImTaskState["status"]): void {
-    this.onState?.({
-      version: 1,
-      taskRunId: this.request.runId,
-      runId: this.#stateRequest.runId,
-      invocationId: this.#stateRequest.invocationId,
-      attempt: Math.max(1, this.attempts.length),
-      revision: ++this.#revision,
-      status,
-      updatedAt: Date.now()
-    });
-    this.#finalState = !["running", "recovering"].includes(status);
-  }
-  #terminal(event: CanonicalEvent): CanonicalEvent {
-    const stoppedUnknown =
-      event.type === "run.failed" &&
-      event.payload.failure?.params?.timeoutReason === "model_silence" &&
-      event.payload.failure.params.executionStopped !== "confirmed";
-    this.#state(
-      stoppedUnknown
-        ? "unknown"
-        : event.type === "run.completed"
-          ? "completed"
-          : event.type === "run.cancelled"
-            ? "cancelled"
-            : "failed"
-    );
-    return event;
-  }
   #observe(event: CanonicalEvent): void {
-    this.#silence.observe(event);
     // 工具和交互可能产生外部副作用；首次出现后不再自动重放本轮。
     if (event.type.startsWith("tool_call.") || event.type === "interaction.requested")
       this.#replaySafe = false;
@@ -217,6 +177,7 @@ export class ImTask {
     if (
       this.adapterType !== "codex" ||
       !this.#policy.enabled ||
+      !this.#replaySafe ||
       this.#retryStop.signal.aborted ||
       this.#signal.aborted ||
       event.type !== "run.failed"
@@ -224,15 +185,10 @@ export class ImTask {
       return;
     const failure = event.payload.failure;
     // 只消费统一错误证据；retryable 本身不是自动重放授权。
-    const resume =
-      this.#policy.resume_on_model_silence &&
-      this.#silence.canResume(event, this.#stateRequest, this.#policy.max_model_silence_resumes);
     if (
-      !resume &&
-      (!this.#replaySafe ||
-        !failure?.retryable ||
-        failure.source.adapter !== "codex" ||
-        !["OH-PRV-4005", "OH-PRV-4006"].includes(failure.code))
+      !failure?.retryable ||
+      failure.source.adapter !== "codex" ||
+      !["OH-PRV-4005", "OH-PRV-4006"].includes(failure.code)
     )
       return;
     this.#recovering();
@@ -242,7 +198,7 @@ export class ImTask {
       this.#policy.initial_delay_ms * 2 ** Math.min(this.#consecutive - 1, 16)
     );
     return Math.max(
-      failure?.retryAfterMs ?? 0,
+      failure.retryAfterMs ?? 0,
       Math.min(this.#policy.max_delay_ms, Math.ceil(backoff * (1 + this.time.random() * 0.2)))
     );
   }
@@ -273,7 +229,6 @@ export class ImTask {
         for (const item of request.contexts.items)
           if (item.namespace === "octo.execution" && item.name === "limits")
             item.payload.run_timeout_ms = remaining;
-        this.#stateRequest = request;
         this.onAttempt(request);
         let finish!: (completion: AttemptCompletion) => void;
         const active: ActiveAttempt = {
@@ -293,7 +248,6 @@ export class ImTask {
         let terminal: CanonicalEvent | undefined;
         let completion: AttemptCompletion = "unresolved";
         try {
-          this.#state("running");
           for await (const event of this.kernel.invoke(request, {
             ...this.environment,
             signal: this.#signal
@@ -305,7 +259,6 @@ export class ImTask {
                 ...request,
                 providerSession: structuredClone(event.payload.providerSession)
               };
-            this.#stateRequest = request;
             if (["run.completed", "run.failed", "run.cancelled"].includes(event.type))
               terminal = event;
             else yield event;
@@ -344,22 +297,21 @@ export class ImTask {
           attempt.diagnosticId = terminal.payload.failure?.diagnosticId;
         }
         if (this.#signal.aborted) {
-          yield this.#terminal(terminal.type === "run.completed" ? terminal : this.#stoppedEvent());
+          yield terminal.type === "run.completed" ? terminal : this.#stoppedEvent();
           return;
         }
         const waitMs = this.#retryDelay(terminal);
         if (waitMs === undefined) {
-          yield this.#terminal(terminal);
+          yield terminal;
           return;
         }
         const recoveryLeft =
           this.#policy.recovery_timeout_ms - (this.time.now() - this.#recoveryStarted!);
         if (waitMs >= Math.min(deadline - this.time.now(), recoveryLeft)) {
           this.stopReason = "IM_RETRY_WAIT_EXCEEDS_BUDGET";
-          yield this.#terminal(terminal);
+          yield terminal;
           return;
         }
-        this.#state("recovering");
         yield {
           protocolVersion: 2,
           type: "run.notice",
@@ -373,24 +325,15 @@ export class ImTask {
         try {
           await this.time.wait(waitMs, AbortSignal.any([this.#signal, this.#retryStop.signal]));
         } catch {
-          yield this.#terminal(this.#signal.aborted ? this.#stoppedEvent() : terminal);
+          yield this.#signal.aborted ? this.#stoppedEvent() : terminal;
           return;
         }
         if (this.#retryStop.signal.aborted) {
-          yield this.#terminal(terminal);
+          yield terminal;
           return;
         }
-        // 续接不重放用户原始输入；原 Provider thread 保留已确认的工具结果。
-        const resume =
-          this.#policy.resume_on_model_silence &&
-          this.#silence.canResume(terminal, request, this.#policy.max_model_silence_resumes);
         request = {
           ...request,
-          inputs: resume ? this.#silence.resumeInputs() : request.inputs,
-          // ProviderSession 的 Codex 扩展禁止 Adapter 将续接指令放入空的新会话。
-          ...(resume
-            ? { providerSession: { ...request.providerSession!, codexRequireResume: true } }
-            : {}),
           runId: `run_${randomUUID()}`,
           invocationId: `invoke_${randomUUID()}`,
           runMetadata: {
@@ -400,12 +343,10 @@ export class ImTask {
           }
         };
       }
-      yield this.#terminal(this.#stoppedEvent());
+      yield this.#stoppedEvent();
     } finally {
       clearDeadline();
       this.#recoveryTimer?.();
-      // 断流、未耗尽或宿主展示失败均不冒充真实终态，不在此重新提交。
-      if (!this.#finalState) this.#state(this.notSubmittedFailure ? "failed" : "unknown");
     }
   }
   #stoppedEvent(): CanonicalEvent {

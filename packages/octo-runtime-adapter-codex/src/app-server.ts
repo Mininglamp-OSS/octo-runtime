@@ -170,9 +170,6 @@ export async function* runCodexAppServerTurn({
     responder: ((response: NativeInteractionResponse) => Promise<void>) | undefined
   ) => void;
 }): AsyncGenerator<AdapterOutput> {
-  // 自动恢复续接只有原线程上下文才有意义；这是 ProviderSession 的 Codex 专属扩展。
-  // 普通续聊保持既有 fresh fallback，显式严格续接必须在发送 turn 前拒绝上下文丢失。
-  const requireResume = request.providerSession?.codexRequireResume === true;
   const requestTimeoutMs = appServerRequestTimeout(request);
   const interactive = request.approvalMode !== "full_access";
   let client = new CodexAppServerClient(
@@ -190,11 +187,6 @@ export async function* runCodexAppServerTurn({
 
   try {
     throwIfAborted(request.signal);
-    if (
-      requireResume &&
-      (!request.providerSession?.sessionId || request.providerSession.resumable === false)
-    )
-      throw new Error("CODEX_RESUME_REQUIRED: original Provider session is unavailable");
 
     // Phase 1: negotiate the experimental app-server API first; no thread request is sent until initialize completes.
     try {
@@ -272,8 +264,6 @@ export async function* runCodexAppServerTurn({
         );
         resumed = true;
       } catch (error) {
-        // 续接输入不包含原任务；严格模式不得在恢复失败后创建空会话。
-        if (requireResume) throw error;
         // A failed resume does not abort this turn; record a low-cardinality reason and fall back to a fresh thread.
         resumeFallback = rpcFailureReason(error);
       }
@@ -288,8 +278,6 @@ export async function* runCodexAppServerTurn({
 
     let threadId = extractThreadId(threadResult);
     if (!threadId) throw new Error("codex thread start/resume returned no thread id");
-    if (requireResume && threadId !== requestedSessionId)
-      throw new Error("CODEX_RESUME_REQUIRED: Provider returned a different thread");
     client.setActiveThread(threadId);
     const requestedMode = contextActmode(request.context);
     let collaborationMode: JsonRecord | undefined;
@@ -327,7 +315,7 @@ export async function* runCodexAppServerTurn({
       });
     } catch (error) {
       // Some corrupt sessions pass thread/resume but only reveal the missing rollout at turn/start.
-      if (requireResume || !resumed || !isThreadNotFound(error)) throw error;
+      if (!resumed || !isThreadNotFound(error)) throw error;
       resumeFallback = "turn_start_thread_not_found";
       resumed = false;
       threadResult = await client.request(

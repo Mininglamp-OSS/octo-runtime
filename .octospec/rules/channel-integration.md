@@ -36,7 +36,9 @@ Channel Gateway 是长期 IM Agent 的业务入口，管理固定 Agent workdir�
 
 2026-10-15 用户明确：Octo IM 的主要场景是长任务，约一分钟的短任务很少。Channel Gateway 已把默认总时限从 120 秒改为一天，Bot 配置范围与协议一致为 100..86400000 ms。任务总期限与连续故障恢复预算分开，业务重试由 Extra 决策，Adapter 提供结构化证据，Host 保持单次执行合同。首期针对 Codex，不自动扩展到其他 Extra。
 
-具体改造见 [IM 长任务与 Codex 重试方案](../tasks/im-long-running-retry/brief.md)。已实现工具或交互出现前、明确 Codex 暂态失败的有界重试；原生提示仍不触发第二次 invoke，但纳入 Extra 恢复预算。宿主可显式设置 `codex_retry.resume_on_model_silence: true`：仅在原流正常耗尽、Core 确认本地清理完成、Adapter 收到匹配真实 Provider 执行的取消终态、原 Provider 会话可恢复且没有未决或失败工具/交互时，发送严格原会话续接输入；不重放原用户输入，不允许旧线程丢失时 fallback 新线程。取消 ACK 或代理退出不作为执行停止证据，未知结果不另起执行。默认关闭，累计最多续接两次（可配 0..5），仍受原恢复和总期限约束。`binding.task` 投影稳定 taskRunId、尝试身份、递增 revision 与 running/recovering/终态；reset 后旧任务不得覆盖新代次。断流修复归 Kernel 现有订阅，结果未知不盲目重跑。源码默认值不能作为已部署或真实持续一天运行的证据；验证范围见任务记录。
+具体改造见 [IM 长任务与 Codex 重试方案](../tasks/im-long-running-retry/brief.md)。已实现工具或交互出现前、明确 Codex 暂态失败的有界重试；原生提示仍不触发第二次 invoke，但纳入 Extra 恢复预算。工具执行后的安全恢复与 Host 断流续流仍待实施，结果未知不盲目重跑。源码默认值不能作为已部署或真实持续一天运行的证据；验证范围见任务记录。
+
+2026-10-26，本次助理问题的用户目标明确为两边同步原任务：恢复观察与真实最终结果，不发送继续指令、不自动另起 turn。宿主可显式选择既有 model_idle_policy=observe，避免模型无输出时取消观察连接；Generic 默认 enforce、工具预算、总期限与主动停止保持。产品专属代理的原任务订阅由宿主 Adapter 实现，不将私有协议塞入 Gateway；本次不新增自动续接策略，既有工具前暂态失败重试合同不变。
 
 Octo 与 WeCom 使用各自的可选 Extra 包，在宿主进程原生装配，通过指定 Kernel endpoint 执行。仅保留默认函数式 Extra 入口；旧对象式 daemon module 工厂已删除。宿主通过 createExtraService 显式携带模块、配置和依赖并 initialize，不要求云端注册。CLI 各组件的独立进程属于部署，SDK 不另起顶层服务。
 

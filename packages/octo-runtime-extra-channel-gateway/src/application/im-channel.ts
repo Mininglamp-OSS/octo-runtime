@@ -1074,19 +1074,6 @@ export class ImRuntime {
           session.lastRunId = request.runId;
           this.#saveBinding(key, session);
         } else task.stopRetries();
-      },
-      undefined,
-      (state) => {
-        if (this.#closed) return;
-        const current = this.#sessionStore.read(key);
-        // reset 后旧任务只完成原卡片，不覆盖新代次的桌面投影。
-        if (
-          !current ||
-          current.id !== executionSession.id ||
-          current.generation !== executionSession.generation
-        )
-          return;
-        this.#sessionStore.save(key, { ...current, task: state });
       }
     );
     this.#tasks.set(key, { rootInvocationId: request.invocationId, task });
@@ -1374,12 +1361,6 @@ export class ImRuntime {
       lastEventId: session.lastEventId,
       lastRunId: session.lastRunId,
       initialContextPrepared: session.initialization?.attempted === true,
-      ...(binding &&
-      binding.id === session.id &&
-      binding.generation === session.generation &&
-      binding.task
-        ? { task: binding.task }
-        : {}),
       ...(binding?.id === session.id &&
       binding?.generation === session.generation &&
       binding.rulesContext

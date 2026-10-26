@@ -1,31 +1,33 @@
 ---
 type: Journal
-title: 助理静默超时恢复的安全边界与逻辑状态投影
-description: 记录实际执行停止证明、严格原线程续接及共享 daemon 原流恢复的未完成边界。
-tags: [channel, recovery, session, testing]
+title: 助理原任务观察、停止证据与诊断
+description: 记录仅同步原执行的职责边界、模型静默观测策略及真实执行停止证据。
+tags: [channel, observation, session, testing]
 timestamp: 2026-10-26T00:00:00Z
 ---
 
-# 范围与实际问题
+# 当前需求与范围
 
-本分支基于 GitHub main `13f05e0`，对应[任务](../../tasks/assistant-auto-recovery/brief.md)。提供严格停止证据、安全续接、逻辑任务合同及日志关联；**仍为草稿，不宣称修复 OctoBuddy 私有共享 daemon 的断订阅。** Client 当前内部旧 SDK 与 GitHub Kernel/Host SDK 的迁移尚未完成。
+基于 GitHub main `13f05e0`，对应[任务](../../tasks/assistant-auto-recovery/brief.md)。用户明确只要两边同步，不发送继续输入；本 PR 不新增自动执行或业务续接策略。产品专属原任务观察由配套 Client MR 接线，Generic Runtime 不调用私有 daemon 方法。
 
-排查得到：service 模式启动的是连接共享 daemon 的代理，代理退出可能仅删除订阅者，后台任务继续。父任务使用已打包 CLI 的真实 daemon-service 与临时 fake Provider 隔离实验：turn/interrupt 仅 ACK、关闭代理后，另一客户端查原 thread 仍 running；stream/subscribe 读到 2 条 backlog，新订阅者最终收到 turn/completed。另一个固定 SDK ImRuntime + fake GatewayTransport/Provider 实验中，一次 OH-ADP-3008 后仍 connected/online，transportStarts=1、transportCloses=0，第二条正常执行。这些是实现行为证据，不是原事故复现；未找到用户两个诊断号的现场日志。
+本分支保留真实停止与本地清理的独立证据、watchdog 安全测量和诊断编号关联，并验证既有 enforce/observe 合同。Generic 默认 enforce 不变；宿主显式选择 observe 时模型静默不再 abort，但工具、总期限和主动停止保持。不使用假的 turn_progress 心跳。
 
-因此 Runtime 超时不能推导 IM 渠道离线，也不能将本地清理完成视为真实任务停止。后续产品恢复必须接回原 thread/status 与 stream/subscribe；旧任务仍运行时不提交新 turn。
+# 实现事实
 
-# 实施与安全复核
+Core 超时诊断分别保留 executionCleanup 与 executionStopped/outcome。Codex 只有匹配当前 thread/turn、含真实终态 status 的 turn/completed 才确认执行停止。关闭前最多 250ms 观察尾流；中断 ACK、乐观 run.cancelled、代理退出或清理成功均不证明后台执行停止。停止未知不作为重放或新执行授权。
 
-Core 新增 Adapter 上报真实执行停止的可选边界，分别记录 executionCleanup 与 executionStopped/outcome。Codex 仅对匹配当前 thread/turn、含真实终态 status 的 turn/completed 确认；中断 ACK、乐观 run.cancelled 与子进程退出不确认。关闭前保留有界尾流观察，不以未观察到的结果补造成功。
+watchdog 日志仅扩展已白名单化的阶段、时长、进展/传输间隔、工具与重试计数；invoke.failed 的 diagnostic_id 可关联用户诊断号。不写正文、原始错误、完整配置或凭据。日志继续遵守现有队列、容量与轮转边界。
 
-ImTask 的模型静默续接默认关闭，宿主显式授权后也须同时满足真实 cancelled、本地清理成功、原流正常耗尽、原会话可恢复及无未决/失败工具或交互。最多两次，仍受旧预算限制。续接不用原输入，携带 Codex 严格恢复标志，旧线程丢失/恢复返回其他线程时拒绝 fresh fallback；原 turn 实际已完成时不另起任务。任务状态未知时不重新提交。
+# 隔离实验与未覆盖边界
 
-复核修复了：boundedCleanup 到期仍 resolve 不代表成功；resumable:false 不能续接；工具重复身份/缺帧/容量不足关闭续接；相同 task revision 不能丢弃 Provider binding 补写；关闭后禁止 task 状态尾写；Client 侧同进程租约结束与跨进程重启撤销旧 active 投影；unknown 不能冒充真实失败。task 只包含身份、计数和状态，不含原输入、Context、工具结果或凭据。
+父任务使用已打包 CLI 的真实 daemon-service 与临时 fake Provider 隔离实验：turn/interrupt 仅 ACK、关闭代理后，另一客户端查原 thread 仍 running；stream/subscribe 读到 2 条 backlog，新订阅者最终收到 turn/completed。固定旧 SDK ImRuntime + fake GatewayTransport/Provider 实验中，一次准确分类的 OH-ADP-3008 后仍 connected/online，transportStarts=1、transportCloses=0，第二条正常执行。这些证明任务失败、观察中断与渠道断线不同，不是原事故复现。
 
-# 验证
+Client 可使用当前 SDK 已支持的 observe 和产品专属 Adapter 恢复原观察，不以本 PR 发布或 Kernel/Host SDK 迁移为前提。实际双端状态与最终结果验收由 Client 记录；本仓没有完成真实 IM/模型联调，也未发布任何版本。
 
-- `pnpm typecheck`、`pnpm lint` 通过。
-- `pnpm test:suites`：Node 1958 项，1904 通过、54 跳过、0 失败；WebUI 35/35 通过。
-- 严格恢复、取消真实证明、ImTask/ImRuntime 单卡片/一次 final、stop/reset/unknown、清理证据和受管日志专项通过。Core 清理测试明确验证代理清理成功但实际停止未知时，不能据此续接。
-- Client 配套工作区相关单测 112 项和定向 Electron E2E 4 项通过；其全量 E2E 17 通过、4 失败、687 未跑，因账号菜单/退出/导航失败停止长跑，未作为全量通过。
-- 未完成真实 Provider/IM 与已打包新版 SDK 联调；未完成私有 daemon 原任务重新订阅；不发布版本、不更新到不存在的依赖。
+# 本次验证
+
+- `pnpm typecheck`、`pnpm lint`、`pnpm docs:check`、`pnpm format:check` 通过；docs 行为检查 4/4。
+- `pnpm test:suites`：Node 共 1931 项，1877 通过、54 跳过、0 失败；WebUI 35/35。
+- 停止/清理/日志/静默策略及既有 IM 重试专项 74/74。新增 enforce/observe 实例测试中，Provider 在 250ms 后结束、模型静默预算为 100ms：enforce 返回 OH-ADP-3008，observe 返回原执行 run.completed，二者都只接纳一次原输入。
+- 源码复核确认本次不修改 Gateway 的配置、ImTask、binding 或公开 Gateway 导出；本次没有新增继续输入、业务重放或执行尝试。
+- 上述自动化使用 fake Provider；本仓未做真实模型或真实 IM 联调，不将其表述为原事故复现。

@@ -43,9 +43,6 @@ export interface ImCommonConfig {
   /** Codex 专用的故障恢复预算；不会让其他 Adapter 自动重跑。 */
   codex_retry?: {
     enabled?: boolean;
-    /** 宿主显式授权：确认清理且无未决工具后，在原 Codex 会话发送续接输入。 */
-    resume_on_model_silence?: boolean;
-    max_model_silence_resumes?: number;
     max_consecutive_retries?: number;
     max_total_retries?: number;
     recovery_timeout_ms?: number;

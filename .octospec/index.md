@@ -52,7 +52,7 @@
 
 ## 当前任务
 
-- [助理模型静默自动续接](tasks/assistant-auto-recovery/brief.md)：显式启用、确认清理后原会话续接，绑定逻辑任务投影；Client 接入仍依赖新版 SDK。
+- [助理原任务观察与诊断](tasks/assistant-auto-recovery/brief.md)：区分观察连接、本地清理与真实执行停止，补齐安全诊断；产品显式 observe 与原流重订阅归 Client，不新增执行。
 
 - [Issue 58：Windows CLI 兼容修复](tasks/58-windows-cli-signals/brief.md)：修复 foreground/module-loading/Playboard 的真实控制台测试、worker 关闭竞态及 Playboard 清理覆盖主结果；SDK 公共接口保持。验证结果见[实施记录](tasks/58-windows-cli-signals/implementation.md)。
 

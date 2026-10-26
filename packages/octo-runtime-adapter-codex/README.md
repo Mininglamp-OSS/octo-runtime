@@ -16,13 +16,13 @@ Codex 采用自有的会话（thread）概念与一套双向 JSON-RPC 协议，�
 
 组件测试位于 `test/adapter-multimodal.test.js`。启用 `OCTO_CODEX_MULTIMODAL_LIVE=1` 后，测试使用本机 Codex 登录状态发送三张自制 PNG，并验证识图结果及原生输入摘要；可用 `OCTO_CODEX_MULTIMODAL_MODEL` 指定测试模型。该测试会调用真实模型。
 
-## 严格续接与真实停止证据
+## 观察连接与真实执行停止
 
-普通续聊保留既有的新会话 fallback。业务方自动续接尚未完成任务时，可在公开 ProviderSession 的 Codex 扩展中显式设置 `codexRequireResume: true`。此时 `thread/resume` 失败、返回其他 thread 或 `turn/start` 报告旧 thread 不存在均直接失败，不新建空会话；`resumable: false` 明确拒绝。
+一次 Adapter 调用可以通过宿主提供的代理连接实际 Provider；本地代理进程退出不保证后台 turn 停止。取消可以先收敛本地事件，但 `turn/interrupt` ACK 和本地合成 `run.cancelled` 也不是实际停止证明。
 
-取消可以先收敛本地事件；这不等于后台任务已停止。Adapter 在关闭读端前最多观察 250ms 的真实尾流，仅匹配当前 thread/turn 且含终态 status 的 `turn/completed` 通过 `AdapterInvocationContext.reportExecutionStopped(outcome)` 确认执行停止。`turn/interrupt` ACK、代理进程退出与本地合成 `run.cancelled` 均不确认。Core 分别报告本地清理与实际停止，未确认时自动续接关闭。
+Adapter 在关闭读端前最多观察 250ms 的真实尾流，仅匹配当前 thread/turn 且含终态 status 的 `turn/completed` 通过 `AdapterInvocationContext.reportExecutionStopped(outcome)` 确认执行停止。Core 分别报告本地清理与真实停止；未收到匹配终态则保持 unknown，不由代理退出推断。这个证据用于诊断和状态解释，不授权重放请求或新建执行。
 
-该证据适用于真实 Provider 和本地代理，但不提供产品私有 daemon 的断流重订阅；OctoBuddy 的旧任务可能仍在 daemon 中运行，宿主需接回原订阅。
+产品如需重新连接仍运行中的任务，应在宿主专属观察适配中恢复原流，不发送“继续”输入。Generic Adapter 不调用产品私有订阅接口，也不改变已有普通续聊的行为。
 
 ## 工作原理
 
