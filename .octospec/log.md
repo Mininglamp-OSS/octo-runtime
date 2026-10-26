@@ -1,5 +1,11 @@
 # 工程知识变更记录
 
+## 2026-10-26
+
+- 按用户授权修复恢复验证器的Low：限制故障自动安装到主线程，避免日志worker继承预加载后重复写drop；真实子进程/Worker回归及既有隔离测试共两项通过。进入提交、同步main及英文PR交付流程，见[live记录](tasks/93-42-recovery-closure/live-verification.md)；两个P0继续开放。
+- 新建[Issue 93/42恢复收敛规划](tasks/93-42-recovery-closure/brief.md)，独立worktree已同步main@8af8360；核实PR96已合入，新增工具前置、部署合同、最小修复和CLI/SDK真实验收门槛。当前构建与46项受控回归通过，规划逐文件verified-review结果及四个既有知识lint错误见[验证记录](tasks/93-42-recovery-closure/verification.md)。仅文档，未提交或线上操作，两个P0现场门槛保持开放。
+- 用户随后提供Bot及UK账号并授权测试站E2E；新增公共SDK/真实CLI恢复入口，双模式各九项真实Codex恢复断言、用户回读及实际网页DM通过，服务清理完整。工具初期导出、搜索参数/索引延迟及合成按键问题修正后重跑，见[live验证](tasks/93-42-recovery-closure/live-verification.md)。未改产品逻辑、未提交；真实睡眠及部署合同仍未验收。
+
 ## 2026-10-24
 
 - Issue 51 按用户最新决定仅保留完整 Go/Python SDK，移除 Rust SDK、emitter、生成产物、工具链与测试入口；两套包内示例统一命名 `demo_playboard.py` / `demo_playboard.go`，本地验证不接入 native CI，见[当前规划](tasks/51-native-rpc-clients/plan.md)。

@@ -52,6 +52,8 @@
 
 ## 当前任务
 
+- [Issue 93/42：恢复缺口收敛](tasks/93-42-recovery-closure/brief.md)：独立worktree基线`main@8af8360`。PR96已合入，新增规划及真实恢复入口；用户提供账号后，CLI/SDK各九项真实Codex恢复断言、UK回读及网页DM通过，见[live验证](tasks/93-42-recovery-closure/live-verification.md)。[M0-M6](tasks/93-42-recovery-closure/plan.md)、[G01-G12门槛](tasks/93-42-recovery-closure/acceptance.md)与[首轮审查](tasks/93-42-recovery-closure/verification.md)保留；95/100是准备度，部署reason12、原事故和完整现场矩阵未关闭。
+
 - [Issue 17：撤回后使用官方 DSH Client 重新接入](tasks/17-dsh-official-reviewed/brief.md)：依赖 #175 回滚，以官方 Client 加版本锁定的生命周期/字节预算补丁修复 #174 审查；当前验收单独记录。
 
 - [Issue 17：官方 DSH TypeScript Client](tasks/17-dsh-official-client/brief.md)：以 `main@982a2fe` 替换 #173 的自实现 Client，锁定 npm 当前最高版本 `0.2.1-rc.3`；官方 SDK、Desktop、真实群聊及离线发行验证见[验收记录](tasks/17-dsh-official-client/acceptance.md)。浏览器已进入测试站统一登录页，指定账号文件只有 Bot Token，缺少网页登录凭据，消息 UI 与已有好友 DM 未验收；孤儿工具回收、解析前字节上限及原生 Windows 仍有明确限制。
@@ -72,7 +74,7 @@
 
 - [Issue 40：OpenClaw 7.1 至当前稳定版兼容](tasks/40-openclaw-compatibility/brief.md)：从 `origin/main@88fa71d` 创建独立 worktree，已实施真实握手合同选择、旧创建＋会话权限 patch、ask→full 回退与桥接、终态及取消对账。追加用户提供的 6.11 后，27 标签、54 条模式流程自动化通过，OpenClaw 92 通过／1 跳过；追加前全量 Node 1562 通过／34 跳过、UI 35 通过。真实 6.11 的 probe、文本、工具和取消，以及真实 9.4 的文本和取消通过。见[6.11 验证](tasks/40-openclaw-compatibility/remote-6.11-validation.md)、[实施记录](tasks/40-openclaw-compatibility/implementation.md)、[版本矩阵](tasks/40-openclaw-compatibility/compatibility-matrix.md)和[journal](journal/shared/2026-10-22-40-openclaw-compatibility-implementation.md)。内网地址脱敏；用户接受代表验收并授权交付，其他真实 reviewer／harness、事故 build 和 IM 保留后续覆盖。
 
-- [Issue 93：CLI/SDK 睡眠和网络恢复](tasks/93-sleep-wake-recovery/brief.md)：独立分支已rebase到 `main@d076474`，共享层恢复和有界Extra状态日志已实施，[PR #96](https://github.com/Mininglamp-OSS/octo-runtime/pull/96)原提交通过全部平台门禁及审查，按P3补充Windows测试选择。用户要求5/10/15/15秒重试、仅服务状态日志，merge由用户手动操作。见[实施记录](tasks/93-sleep-wake-recovery/implementation.md)、[双模式验收](tasks/93-sleep-wake-recovery/acceptance.md)及[95分规划评估](tasks/93-sleep-wake-recovery/assessment.md)；原事故根因、reason12部署语义及真实矩阵仍待取证，不关闭P0。
+- [Issue 93：CLI/SDK 睡眠和网络恢复](tasks/93-sleep-wake-recovery/brief.md)：共享层恢复和有界Extra状态日志由[PR #96](https://github.com/Mininglamp-OSS/octo-runtime/pull/96)于2026-10-22合入main，含5/10/15/15秒重试和Windows测试选择。见[历史实施记录](tasks/93-sleep-wake-recovery/implementation.md)及[双模式验收](tasks/93-sleep-wake-recovery/acceptance.md)；原事故根因、reason12部署语义及真实矩阵仍待取证，后续以[93/42收敛规划](tasks/93-42-recovery-closure/brief.md)推进，不关闭P0。
 
 - [Issue 85：Adapter/Extra 解耦与双模式载入](tasks/85-provider-decoupling/brief.md)：起始基线 `origin/main@d064cfe`，交付时更新到 `main@318b0f2`，分支 `fix/85-provider-decoupling`。默认发行全量，SDK 原生 import、调用进程装配、无 manifest，CLI 内置与 Home 双清单按原始来源解析；FDE 自行复制及管理依赖。[17 项验收及边界](tasks/85-provider-decoupling/implementation.md)、[双语文档](../docs/zh-CN/concepts/module-loading.md)及[架构约束](rules/architecture.md#cli-与-sdk-的-adapterextra-装配约束)已同步。[本地审查](tasks/85-provider-decoupling/review.md)两项发现均修复复审通过；全量回归和实际 tgz 验证通过，按后续授权进入 PR 合并流程，未发布 npm。
 
