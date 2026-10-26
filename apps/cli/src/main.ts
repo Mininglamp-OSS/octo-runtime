@@ -84,6 +84,9 @@ export async function runCli(args: string[], dependencies: CliDependencies = {})
       return 0;
     }
     const home = resolve(flags.home ?? defaultRuntimeHome(dependencies.env, dependencies.platform));
+    // 模块清单不决定运行状态位置；前台 Kernel、doctor 和恢复确认共用 Home 下的同一路径。
+    const kernelStateDirectory = join(home, "run");
+    const kernelInvocationManifest = join(kernelStateDirectory, "kernel-invocations.json");
     // 恢复确认不加载 Provider 或访问服务管理器；原记录继续保留，下一次启动校验摘要后替换。
     if (positional[0] === "executor-kernel" && positional[1] === "recover") {
       context = { component: "executor-kernel", action: "recover", logs: join(home, "logs") };
@@ -96,9 +99,9 @@ export async function runCli(args: string[], dependencies: CliDependencies = {})
       const recovery = await withSetupLock(
         {
           ...runtimePaths(home, "default", dependencies.platform),
-          setupLock: join(home, "run", "executor-kernel.setup.lock")
+          setupLock: join(kernelStateDirectory, "executor-kernel.setup.lock")
         },
-        () => acknowledgeOrphanCleanup(join(home, "run", "kernel-invocations.json"))
+        () => acknowledgeOrphanCleanup(kernelInvocationManifest)
       );
       output(
         json
@@ -272,7 +275,7 @@ export async function runCli(args: string[], dependencies: CliDependencies = {})
       const manager = await service.backend.probe();
       const status = await snapshots(componentNames);
       const checks = Object.entries(status).map(([component, value]) => ({ component, ...value }));
-      const recovery = await inspectOrphanCleanup(join(home, "run", "kernel-invocations.json"));
+      const recovery = await inspectOrphanCleanup(kernelInvocationManifest);
       publish(
         { manager, checks, recovery },
         `Manager: ${manager.manager} (${manager.supported ? "available" : "unavailable"})\n\n${Object.entries(
@@ -319,7 +322,7 @@ export async function runCli(args: string[], dependencies: CliDependencies = {})
         const config = await readJsonFile<ProfileConfiguration>(paths.profileConfig);
         handle = createKernelService({
           endpoint,
-          stateDirectory: join(home, "run"),
+          stateDirectory: kernelStateDirectory,
           workerEntrypoint: fileURLToPath(new URL("./worker.js", import.meta.url)),
           adapterModules: resolveAdapterModules(manifest),
           adapterConfigurations: readAdapterConfigurations(paths.profileRoot, config?.adapters),

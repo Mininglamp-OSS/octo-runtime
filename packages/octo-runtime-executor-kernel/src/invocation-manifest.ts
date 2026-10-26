@@ -70,6 +70,7 @@ export class InvocationManifest {
     }
     const manifest = new InvocationManifest(path);
     await manifest.#persist();
+    await removeAcknowledgement(path);
     return { manifest, reap };
   }
 
@@ -101,6 +102,7 @@ export class InvocationManifest {
   async close(): Promise<void> {
     await this.#writes;
     await rm(this.#path, { force: true });
+    await removeAcknowledgement(this.#path);
   }
 
   #persist(): Promise<void> {
@@ -129,8 +131,12 @@ export async function reapOrphanedInvocationManifest(path: string): Promise<Orph
     source = await readFile(path, "utf8");
     parsed = JSON.parse(source) as ManifestFile;
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return { found: false, reaped: false };
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      await removeAcknowledgement(path);
+      return { found: false, reaped: false };
+    }
     await rm(path, { force: true });
+    await removeAcknowledgement(path);
     return { found: true, reaped: false, reason: "host_missing" };
   }
   if (
@@ -153,6 +159,7 @@ export async function reapOrphanedInvocationManifest(path: string): Promise<Orph
       };
     }
     await rm(path, { force: true });
+    await removeAcknowledgement(path);
     return { found: true, reaped: false, reason: "host_missing" };
   }
   const currentIdentity = await processStartIdentity(host.pid);
@@ -171,6 +178,7 @@ export async function reapOrphanedInvocationManifest(path: string): Promise<Orph
       };
     }
     await rm(path, { force: true });
+    await removeAcknowledgement(path);
     return { found: true, reaped: false, pid: host.pid, reason: "identity_mismatch" };
   }
   // 必须在 leader 仍可识别时回收 Windows 树；失败保留证据，禁止覆盖清单并启动替代 worker。
@@ -180,7 +188,16 @@ export async function reapOrphanedInvocationManifest(path: string): Promise<Orph
     return { found: true, reaped: false, pid: host.pid, reason: "cleanup_incomplete" };
   }
   await rm(path, { force: true });
+  await removeAcknowledgement(path);
   return { found: true, reaped: true, pid: host.pid };
+}
+
+async function removeAcknowledgement(path: string): Promise<void> {
+  try {
+    await rm(`${path}.acknowledgement`, { force: true });
+  } catch {
+    // 旧确认已因清单删除或替换而失效；辅助文件清理失败不能阻止启动，原始归档始终保留。
+  }
 }
 
 /** 只读恢复诊断，不回收进程、不改写清单；用于 doctor 及 SDK 运维界面。 */

@@ -43,7 +43,7 @@ const DEFAULT_APP_SERVER_ARGS = [
 
 /** Resolve the CLI embedded in ZCode Desktop when no PATH command is installed. */
 export function discoverZcodeBin(env: NodeJS.ProcessEnv = process.env): string | undefined {
-  const configured = nonEmptyString(env.ZCODE_BIN);
+  const configured = nonEmptyString(processEnvironmentValue(env, "ZCODE_BIN"));
   if (configured) return resolve(configured);
 
   const pathCommand = findOnPath("zcode", env);
@@ -54,7 +54,7 @@ export function discoverZcodeBin(env: NodeJS.ProcessEnv = process.env): string |
     process.platform === "win32"
       ? [
           join(
-            env.LOCALAPPDATA ?? join(home, "AppData", "Local"),
+            processEnvironmentValue(env, "LOCALAPPDATA") ?? join(home, "AppData", "Local"),
             "Programs",
             "ZCode",
             "resources",

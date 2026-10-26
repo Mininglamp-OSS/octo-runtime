@@ -79,6 +79,14 @@ node --unhandled-rejections=strict --test --test-name-pattern='Windows|environme
 
 恢复命令的确认只表示操作者已停止未知后代，不代表 Runtime 已自行验证整树为空；真实整机重启、Session 0 控制台编码、离线域控延迟及真实 Codex 白名单行为尚未验收。合并继续要求最新 head CI Gate 与 reviewer 批准。
 
+# 5049add 后续评审验收
+
+按[后续评审处置](review-fixes.md#5049add-后续评审)补齐 OpenCode/ZCode 环境消费者，并在同类检查中修复 Codex Home；明确模块清单参数的既有作用，清理已失效确认文件。新增 9 项，总定向回归 38 项全部通过。测试验证命令构建和真实临时桌面入口文件发现，不将其表述为真实 OpenCode/ZCode/Codex Provider 调用。
+
+构建、最终源代码类型检查、lint、命名、format、docs 和 diff 检查通过；OctoSpec 为同样 7 处基线错误。完整 UI 35 通过，Node 1846 项：1682 通过、94 失败、70 跳过、0 取消；失败名称与 `5049add` 的 94 项完全相同，没有分支独有失败。相对最新 main 新增共 34 项全部通过；main 原全量额外 1 项启动预算断言的单独复验结果沿用上节记录，不重复把全量记成通过。5 项原生服务测试全部通过。
+
+日志保存为 `D:/github.com/Mininglamp-OSS/.worktree/windows-runtime-review-round3-{typecheck,tests,lint,names,format,docs}.log`。新提交必须重新跑六组 CI；`5049add` 已通过的 run 40268347106 仅作为上一轮历史证据。用户已授权每 15 分钟检查新增 review、集中修复提交推送并评论，直到 review 通过；不得自行撤销他人的反对评审或绕过保护。
+
 # 边界
 
 - [97/100 评估](assessment.md)是实施准备度，不能当作全仓通过率或统计可靠性保证。

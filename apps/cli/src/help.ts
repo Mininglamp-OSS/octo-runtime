@@ -72,6 +72,7 @@ Commands:
 ${component === "executor-kernel" ? "  recover       Acknowledge a blocked orphan cleanup after stopping all orphan tools\n" : "  logs          Tail service status logs (no conversation content)\n"}
 
 Flags: --home <path> --profile <name> --manifest <path> --json --help
+--manifest selects Provider/Extra modules; invocation state stays in --home/run.
 Install: --autostart=true|false
 ${component === "executor-kernel" ? "Recover: --acknowledge-orphan-cleanup (retains evidence; refuses a live owner)\n" : ""}
 ${component === "executor-kernel" ? "" : "Logs: --lines <1..10000> (default 200) --follow --json (NDJSON)\n"}
@@ -95,6 +96,7 @@ octo-runtime extraget <name>
 octo-runtime playboard < request.json
 
 Flags: --home <path> --profile <name> --manifest <path> --json
+--manifest selects Provider/Extra modules; invocation state stays in --home/run.
 Install: --autostart=true|false (defaults to true)
 Extras: channel-gateway, channel-wecom, webui, or a name saved by extraset.
 Components:

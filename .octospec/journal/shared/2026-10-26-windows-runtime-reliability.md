@@ -26,3 +26,9 @@ Windows Node 24/26 CI 已纳入显式专项回归，本地验收时尚未推送�
 提交前再次 fetch，发现 main 已有 #177/#178，已将当前分支 rebase 至 `78bb88a`，保留上游 DSH 官方 SDK 变更并重新 frozen install/build；主仓库 main 同步至该提交。新基线对照与当前 head CI 单独验收，不能复用首版 CI 作为通过证明。合并仍受至少一位 reviewer 批准与 CI Gate 约束。
 
 rebase 后 29 项定向回归、5 项原生任务测试及工程/文档检查通过。完整 Node 1673 通过、94 失败、70 跳过，UI 35 通过；最新 main 为 1647 通过、95 失败、70 跳过。分支失败全部属于基线，基线额外 1 项 2 秒超时断言单独重跑通过；相对新 main 新增 25 项全部通过。OctoSpec 检查两边同为 7 处基线 frontmatter 错误。全量仍非全绿，见[验收](../../tasks/windows-runtime-reliability/validation.md)。
+
+# 持续复审与消费者补齐
+
+`5049add` 六组托管 CI 及 CI Gate 全通过，已在 PR 逐项回复三位 reviewer。新 review 又确认 OpenCode 内联配置与 ZCode 桌面路径的直接大写读取遗漏；同类排查补齐 Codex Home，并使其固定环境合并保持唯一键。确认文件在成功恢复/回收/close 后尽力清理，归档保留；模块清单参数只选择模块，帮助与指南明确状态仍在 Home/run，三条路径共用派生值。源头超时扫描无实际 diff，不修改既有 40 秒预算。
+
+新增 9 项全部通过，定向 38 项通过；完整 Node 1682 通过、94 失败、70 跳过，UI 35 通过，失败集合与上一轮一致。四组原生任务矩阵和编码迁移、类型、lint、命名、格式、docs 通过；OctoSpec 无新增错误。用户授权每 15 分钟跟进并统一 commit/push、英文回复，直到 review 通过；新 head 必须独立验证 CI，合并仍按保护规则。

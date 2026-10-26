@@ -11,6 +11,9 @@ import {
   probeCommand
 } from "../packages/octo-runtime-adapter-sdk/dist/index.js";
 import { buildClaudeCommand } from "../packages/octo-runtime-adapter-claude-code/dist/index.js";
+import { buildCodexCommand } from "../packages/octo-runtime-adapter-codex/dist/index.js";
+import { buildOpenCodeCommand } from "../packages/octo-runtime-adapter-opencode/dist/index.js";
+import { buildZcodeCommand } from "../packages/octo-runtime-adapter-zcode-gui/dist/index.js";
 import { resolveDshLaunch } from "../packages/octo-runtime-adapter-dsh/dist/launch.js";
 import { spawnAcpClient } from "../packages/octo-runtime-acp-client/dist/index.js";
 import { spawnGrokBuildAcpClient } from "../packages/octo-runtime-adapter-grok-build/dist/client.js";
@@ -50,6 +53,98 @@ test("environment consumers share platform key identity without reading inherite
   assert.equal(processEnvironmentValue(env, "PATH"), undefined);
   assert.equal(processEnvironmentValue(env, "Path"), "native");
 });
+
+for (const platform of ["win32", "linux"]) {
+  test(`${platform} Codex preserves the selected home without adding Windows aliases`, () => {
+    const original = Object.getOwnPropertyDescriptor(process, "platform");
+    Object.defineProperty(process, "platform", { ...original, value: platform });
+    try {
+      const context = join(tmpdir(), "context codex");
+      const override = join(tmpdir(), "override codex");
+      const req = request({ CODEX_HOME: context });
+      req.executionEnvOverrides = payload({ codex_home: override });
+      const command = buildCodexCommand(req, process.execPath, [], {});
+      assert.equal(command.env.CODEX_HOME, platform === "win32" ? override : context);
+      assert.equal(
+        Object.keys(command.env).filter((key) => key.toUpperCase() === "CODEX_HOME").length,
+        platform === "win32" ? 1 : 2
+      );
+    } finally {
+      Object.defineProperty(process, "platform", original);
+    }
+  });
+
+  test(`${platform} OpenCode preserves inline configuration across environment aliases`, async (t) => {
+    const original = Object.getOwnPropertyDescriptor(process, "platform");
+    Object.defineProperty(process, "platform", { ...original, value: platform });
+    t.after(() => Object.defineProperty(process, "platform", original));
+    const config = (label) => ({
+      instructions: [`${label}.md`],
+      provider: { sample: { name: label } },
+      mcp: { servers: { sample: { type: "remote", url: `https://example.invalid/${label}` } } }
+    });
+    const req = request({ OPENCODE_CONFIG_CONTENT: JSON.stringify(config("context")) });
+    req.approvalMode = "full_access";
+    req.controlInstructions = "Runtime instructions";
+    req.executionEnvOverrides = payload({
+      opencode_config_content: JSON.stringify(config("override"))
+    });
+    const before = structuredClone(req);
+    const command = await buildOpenCodeCommand(req);
+    t.after(() => command.cleanup());
+    const actual = JSON.parse(command.env.OPENCODE_CONFIG_CONTENT);
+    const expected = config(platform === "win32" ? "override" : "context");
+    assert.deepEqual(actual.provider, expected.provider);
+    assert.deepEqual(actual.mcp, expected.mcp);
+    assert.equal(actual.instructions[0], expected.instructions[0]);
+    assert.equal(actual.instructions.length, 2);
+    assert.equal(await readFile(actual.instructions[1], "utf8"), "Runtime instructions");
+    assert.deepEqual(req, before);
+
+    req.executionEnvOverrides = payload({ opencode_config_content: "invalid-json" });
+    if (platform === "win32")
+      await assert.rejects(buildOpenCodeCommand(req), /OPENCODE_CONFIG_INVALID/);
+    else {
+      const exact = await buildOpenCodeCommand(req);
+      await exact.cleanup();
+    }
+  });
+
+  test(`${platform} ZCode preserves explicit desktop selection across environment aliases`, () => {
+    const original = Object.getOwnPropertyDescriptor(process, "platform");
+    Object.defineProperty(process, "platform", { ...original, value: platform });
+    try {
+      const context = join(tmpdir(), "context desktop", "zcode.cjs");
+      const override = join(tmpdir(), "override desktop", "zcode.cjs");
+      const req = request({ ZCODE_BIN: context });
+      req.executionEnvOverrides = payload({ zcode_bin: override });
+      const before = structuredClone(req);
+      const command = buildZcodeCommand(req);
+      assert.equal(command.command, process.execPath);
+      assert.equal(command.args[0], platform === "win32" ? override : context);
+      assert.deepEqual(req, before);
+    } finally {
+      Object.defineProperty(process, "platform", original);
+    }
+  });
+}
+
+test(
+  "native Windows ZCode discovers Desktop through a mixed-case LOCALAPPDATA override",
+  { skip: process.platform !== "win32" },
+  async (t) => {
+    const directory = await mkdtemp(join(tmpdir(), "octo-zcode-review-"));
+    t.after(() => rm(directory, { recursive: true, force: true }));
+    const entry = join(directory, "Programs", "ZCode", "resources", "glm", "zcode.cjs");
+    await mkdir(dirname(entry), { recursive: true });
+    await writeFile(entry, "// fixture\n");
+    const req = request({ ZCODE_BIN: "", PATH: "", LOCALAPPDATA: join(directory, "missing") });
+    req.executionEnvOverrides = payload({ localappdata: directory });
+    const command = buildZcodeCommand(req);
+    assert.equal(command.command, process.execPath);
+    assert.equal(command.args[0], entry);
+  }
+);
 
 test(
   "native Windows MCP, Claude, shared probe and DSH consume mixed-case overrides",
@@ -154,8 +249,34 @@ test("explicit orphan recovery keeps evidence, rejects a live owner and permits 
   const { manifest: opened, reap } = await InvocationManifest.open(path);
   assert.equal(reap.reason, "cleanup_acknowledged");
   assert.equal(reap.reaped, false, "operator acknowledgement is not verified tree cleanup");
+  await assert.rejects(readFile(`${path}.acknowledgement`), { code: "ENOENT" });
+  await writeFile(`${path}.acknowledgement`, "stale confirmation");
   await opened.close();
+  await assert.rejects(readFile(`${path}.acknowledgement`), { code: "ENOENT" });
   assert.equal(await readFile(recovery.archivePath, "utf8"), source);
+});
+
+test("reaping removes stale confirmation but preserves its original evidence archive", async (t) => {
+  const { path, manifest } = await incompleteFixture(t);
+  const source = await readFile(path, "utf8");
+  const { archivePath } = await acknowledgeOrphanCleanup(path);
+  delete manifest.cleanupIncomplete;
+  await writeFile(path, JSON.stringify(manifest));
+  assert.equal((await reapOrphanedInvocationManifest(path)).reason, "host_missing");
+  await assert.rejects(readFile(path), { code: "ENOENT" });
+  await assert.rejects(readFile(`${path}.acknowledgement`), { code: "ENOENT" });
+  assert.equal(await readFile(archivePath, "utf8"), source);
+});
+
+test("unremovable stale confirmation does not block a new manifest or clean close", async (t) => {
+  const { path, manifest } = await incompleteFixture(t);
+  delete manifest.cleanupIncomplete;
+  await writeFile(path, JSON.stringify(manifest));
+  await mkdir(`${path}.acknowledgement`);
+  const { manifest: opened } = await InvocationManifest.open(path);
+  assert.equal((await inspectOrphanCleanup(path)).state, "available");
+  await opened.close();
+  assert.equal((await inspectOrphanCleanup(path)).state, "missing");
 });
 
 test("acknowledgement requires the same manifest and an intact evidence archive", async (t) => {
@@ -181,6 +302,9 @@ test("Windows incomplete evidence does not introduce a POSIX startup latch", asy
 
 test("CLI recover requires acknowledgement and doctor exposes the manifest path", async (t) => {
   const { home, path } = await incompleteFixture(t);
+  const modules = join(home, "module-selection.json");
+  const moduleSource = await readFile(new URL("../apps/cli/dist/manifest.json", import.meta.url));
+  await writeFile(modules, moduleSource);
   let output = "";
   const capture = {
     output: (value) => {
@@ -198,12 +322,32 @@ test("CLI recover requires acknowledgement and doctor exposes the manifest path"
       drift: []
     })
   };
-  assert.equal(await runCli(["doctor", "--home", home, "--json"], { ...capture, backend }), 0);
+  for (const args of [["--help"], ["executor-kernel", "--help"]]) {
+    assert.equal(await runCli(args, capture), 0);
+    assert.match(output, /--manifest selects Provider\/Extra modules/);
+    assert.match(output, /invocation state stays in --home\/run/);
+  }
+  assert.equal(
+    await runCli(["doctor", "--home", home, "--manifest", modules, "--json"], {
+      ...capture,
+      backend
+    }),
+    0
+  );
   assert.equal(JSON.parse(output).recovery.manifestPath, path);
   assert.equal(JSON.parse(output).recovery.state, "cleanup_incomplete");
   assert.equal(
     await runCli(
-      ["executor-kernel", "recover", "--acknowledge-orphan-cleanup", "--home", home, "--json"],
+      [
+        "executor-kernel",
+        "recover",
+        "--acknowledge-orphan-cleanup",
+        "--home",
+        home,
+        "--manifest",
+        modules,
+        "--json"
+      ],
       capture
     ),
     0
@@ -211,6 +355,8 @@ test("CLI recover requires acknowledgement and doctor exposes the manifest path"
   const recovery = JSON.parse(output);
   assert.equal(recovery.manifestPath, path);
   assert.equal(JSON.parse(await readFile(recovery.archivePath, "utf8")).cleanupIncomplete, true);
+  assert.deepEqual(await readFile(modules), moduleSource);
+  await assert.rejects(readFile(`${modules}.acknowledgement`), { code: "ENOENT" });
 });
 
 for (const [matches, actual, expectedState] of [
