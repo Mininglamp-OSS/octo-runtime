@@ -55,3 +55,5 @@ timestamp: 2026-10-26T00:00:00Z
 用户已授权先按 verified-review 本地审查，再提交、推送、创建 PR 并合入 main。OSS 提交及 PR 使用英文，保持 Git 作者配置，附 Codex 协作 trailer。PR 只关联 #15。遵守 main 的 required checks 与审阅要求，不绕过分支保护；如合并受外部审批阻挡，明确报告实际状态。
 
 审查覆盖包 README、根指南整合、公开 API 删除、CI 与回归检查。修正示例审批模式、失败清理、事件终态、独立 Extra 启动描述，并将旧指南中的源码 submodule 接入步骤迁移至双语 SDK 入门。验证记录见[本地审查记录](../../journal/shared/2026-10-26-package-readmes-review.md)。
+
+PR 的 Ubuntu CI 暴露 main 已有的 systemd 测试隔离问题：宿主 unit 的弃用警告触发 stderr 空值断言。交付时修正该测试的 unit 搜索目录，保留全部正例严格校验，并增加非法 WorkingDirectory 负例；不修改生产服务实现或降低检查要求。Linux 原生结果以托管 CI 为准。

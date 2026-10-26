@@ -31,3 +31,11 @@ timestamp: 2026-10-26T10:00:00Z
 - 原有 OKF frontmatter 基线限制见[README 阶段记录](2026-10-26-package-readmes.md)；本轮未扩大到无关历史任务。
 
 CLI/SDK 实际 tgz 验证与 Windows 适用范围见[启动器移除记录](2026-10-26-remove-native-component.md)。提交后的 clean release、远端 CI 与合并状态以 PR 和交付时的实际结果为准，本条记录不将未执行的跨平台或线上检查表述为通过。
+
+# 首轮远端 CI 与环境隔离
+
+提交 `cc5d1767b486c10ea987c026ba9196b7686153d2` 后重新构建，并通过实际 tgz 的 `--expected-commit` 与 `--require-clean` 验证。PR #191 首轮 CI run `40349164977` 中，macOS 和 Windows 的 Node 24/26 四组均通过；Ubuntu 两组仅失败于 `cross-service-systemd-native`：本机 `/usr/lib/systemd/system/` 下三个既有服务的 CPUAccounting 废弃警告触发 stderr 必须为空的断言。同一基线 main 的 run `40320086849` 有相同失败，相关生产源码和测试在文档提交中均未修改。
+
+修复仅限测试：`SYSTEMD_UNIT_PATH` 指向独占临时目录，提供解析所需的最小 target，继续验证真实渲染 unit 的退出码与空 stderr，不过滤警告文本。追加非法相对 WorkingDirectory 的负例，确保原生解析错误仍会失败。该变量覆盖 unit 搜索路径的行为见 [systemd-analyze 官方说明](https://www.freedesktop.org/software/systemd/man/latest/systemd-analyze.html)。本机没有可用 Linux systemd，原生通过结果以修复后的托管 CI 为准。
+
+用户问及此前 macOS 失败：run `40293575316` 两组均在约 30 秒的原生大 socket 容量测试中得到 KERNEL_TIMEOUT。main 的 #189 已改为受控 Duplex 分块来验证容量，仍保留真实大文本、UTF-8 拆包及后续连接恢复。该修复已包含在本分支基线，当前 macOS CI 均通过，本次不再次修改该用例。
