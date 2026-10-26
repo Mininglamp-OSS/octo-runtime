@@ -58,7 +58,7 @@ serveWorker([dshAdapter]);
 | 选项 | 默认值 | 说明 |
 | --- | --- | --- |
 | `dshBin` | 自动发现 | 官方 Client 的 Node CLI module 路径；与 command/args/desktopPath 互斥 |
-| `command`、`args` | 自动发现 | 保留 Node executable 加单个 CLI module 的旧配置；任意 executable/argv 组合明确拒绝，改用 dshBin |
+| `command`、`args` | 自动发现 | 保留 Node executable 加单个 CLI module 的旧配置；显式 arg 最多 4096 UTF-8 bytes，超量在探针前拒绝；任意 executable/argv 组合明确拒绝，改用 dshBin |
 | `desktopPath` | macOS 默认安装位置 | 绝对 `.app` 路径；当前仅 macOS |
 | `profile` | `sdk` | 使用已有 SDK profile；自定义 profile 必须暴露同一 RPC 服务 |
 | `dshHome` | Provider 原生默认 | 子进程的 DSH_HOME；宿主负责准备和保护 |
@@ -68,11 +68,11 @@ serveWorker([dshAdapter]);
 | `requestTimeoutMs` | 30000 | 普通 RPC 期限，毫秒 |
 | `shutdownTimeoutMs` | 1000 | shutdown 回执期限，毫秒；随后仍确认拥有进程退出 |
 
-`session/wait` 使用本轮 runTimeoutMs，未指定时为 120000 毫秒。版本探针有独立 10000 毫秒期限，也观察取消并回收进程树。Adapter 在官方通知回调中同步投影并检查通知大小，canonical 队列沿 Runtime StreamLimitPolicy。
+`session/wait` 使用本轮 runTimeoutMs，未指定时为 120000 毫秒。版本探针有独立 10000 毫秒期限，也观察取消并回收进程树。原始通知大小由 Protocol 在解码前检查，Adapter 在官方通知回调中同步投影；投影后的 canonical 事件和队列沿 Runtime StreamLimitPolicy 的独立预算。
 
 补丁还限制 SDK 自身的诊断与关系表：未换行 stderr 后缀最多 16384 个 UTF-16 code unit，保留尾部总量最多 65536 UTF-8 bytes；SDK lineage 最多 128 项，身份最长 191 字符。无关会话通知同样消耗 SDK 的关系预算，超量以 STREAM_QUEUE_ITEMS_EXCEEDED 失败；不会用 filter 丢弃来掩盖内存增长。
 
-上游原版 SDK 0.2.1-rc.3 没有解析前行字节上限。本项目通过 `pnpm patchedDependencies` 固定两个可审查补丁：Client 接收本轮字节预算和受管进程清理函数；官方 Protocol 在 StringDecoder、字符串拼接和 JSON.parse 之前逐段计数字节，覆盖响应、通知以及尚无换行的数据。超限以 PROVIDER_MESSAGE_TOO_LARGE 失败并关闭本轮传输。CRLF 中的 CR 计入行预算，LF 分隔符不计入；恰好等于上限仍可接收。补丁随源码及发行包保留，不声称这些扩展已经上游发布。非 JSON 行仍按上游行为忽略，无有效初始化响应最终超时失败。订阅过滤回调返回 false，避免在 SDK 内额外积累通知队列。
+上游原版 SDK 0.2.1-rc.3 没有解析前行字节上限。本项目通过 `pnpm patchedDependencies` 固定两个可审查补丁：Client 接收本轮字节预算和受管进程清理函数；官方 Protocol 在 StringDecoder、字符串拼接和 JSON.parse 之前逐段计数字节，覆盖响应、通知以及尚无换行的数据。超限以 PROVIDER_MESSAGE_TOO_LARGE 失败并关闭本轮传输。CRLF 中的 CR 计入行预算，LF 分隔符不计入；恰好等于上限仍可接收。补丁随源码及发行包保留，不声称这些扩展已经上游发布。非 JSON 行仍按上游行为忽略，无有效初始化响应最终超时失败。订阅过滤回调返回 false，避免在 SDK 内额外积累通知队列；pending next 只监听订阅失败，不因首条通知完成，关闭会拒绝该等待。
 
 ## 输出和限制
 
@@ -88,6 +88,8 @@ Provider 兼容原则：Adapter 的强制校验限于正确映射结果、确认
 
 失败边界沿现有 Adapter SDK / Core 合同：Core 在接纳调用前检查协议和审批模式，拒绝时 invoke 迭代会抛错且不启动 Provider；直接调用 Adapter 的 ask/assisted 同样抛出 APPROVAL_MODE_UNSUPPORTED。Adapter SDK 的协议和逐轮 MCP 合同检查也允许抛错。调用被接纳后，DSH 自身的 actmode、沙箱、启动参数、恢复会话和会话占用校验返回单个 canonical run.failed；其中配置错误使用 DSH_CONFIG_INVALID，actmode 使用 DSH_ACTMODE_UNSUPPORTED。重复会话的拒绝不会释放正在执行的会话占用。Core 对这些 DSH 失败保持 cleanup=complete；已启动进程的失败仍须先确认回收。
 
+恢复后的工作目录须与本轮请求经 realpath 解析为同一目录，符号链接别名可接受；仅返回请求根下的其他子目录仍报 DSH_SESSION_RESUME_FAILED，避免在错误目录执行。大小写别名在支持的文件系统上通过真实目录回归验证，不把字符串统一转小写当成跨平台等价规则。
+
 每轮独占一个官方 HarnessClient；取消调用其 close，不终止 Desktop GUI 或兄弟调用。Client 补丁在 spawn 时建立独立 POSIX 进程组并捕获 Adapter SDK 现有 createProcessCleanup；shutdown 后由同一函数完成 TERM、KILL 和退出确认，父进程已退出也继续回收所属组。只有确认后才输出唯一终态；回收失败保留执行和清理两种原因。Windows 使用现有 taskkill /T 路径，真实 Windows DSH 与父进程先退出后的工具回收尚未验收，不将 POSIX 结果推广到 Windows。Session 文件由 DSH 原生管理，Adapter 不另存业务历史。
 
 失败沿共同 FailureEnvelope：公共 OH 分类码在 `payload.failure.code`，DSH 稳定原因在 `payload.failure.reasonCode` 和顶层兼容 `code`。例如 DSH_SESSION_RESUME_FAILED、DSH_INITIALIZE_TIMEOUT、DSH_REQUEST_TIMEOUT、DSH_TRANSPORT_CLOSED、DSH_TRAJECTORY_INVALID、DSH_EXECUTION_FAILED、DSH_NO_FINAL_OUTPUT、DSH_CANCEL_FAILED、DSH_CLEANUP_FAILED。容量超限保留共同 PROVIDER_MESSAGE_TOO_LARGE / STREAM_QUEUE_* 原因码。Core 日志保留公共码与 reason_code；Adapter 经 invocation context 复用同一日志入口，记录有界阶段、时间、原生安全 code，不记录 prompt、凭据、原生 error.message 或 stderr。官方公共 API 不暴露 PID/request ID，故不读取私有字段或解析其错误文本。独立调用可用 `createDshAdapter({log})` 提供同一受控 RuntimeLog；错误不自动重发模型或工具。
@@ -96,6 +98,6 @@ Provider 兼容原则：Adapter 的强制校验限于正确映射结果、确认
 
 测试沿仓库的构建产物约定：运行 pnpm test 会先清理并构建当前源码，再执行测试；CI 的 pnpm typecheck 同样先构建，随后运行 pnpm test:suites。内部 trajectory 测试读取本轮构建产物，不作为公共 API 导出；官方 Client 测试通过包名解析其公开入口，不依赖 node_modules 内部布局。单独执行 node --test 前需先运行 pnpm build。
 
-解析前预算依赖上述两个下游补丁，通知回调中的对象大小检查不能替代它。源码安装使用 pnpm install --frozen-lockfile 应用锁定补丁；Protocol 边界测试检查超量数据在 JSON.parse 调用前被拒绝。发行验证对离线安装后的公共 Adapter 再执行超大响应、分段帧和无换行数据测试，并核对随包补丁与仓库字节一致；macOS、Linux 和 Windows CI 都执行该发行验证。
+解析前预算依赖上述两个下游补丁，不对解析后的通知重复 JSON.stringify 再套用原始预算：科学计数法等表示在重新序列化后可能变长，但不代表原始帧超量。源码安装使用 pnpm install --frozen-lockfile 应用锁定补丁；Protocol 边界测试检查超量数据在 JSON.parse 调用前被拒绝。发行验证对离线安装后的公共 Adapter 再执行超大响应、分段帧、无换行数据和合法数字表示展开测试，并核对随包补丁与仓库字节一致；macOS、Linux 和 Windows CI 都执行该发行验证。
 
 源码依赖图包含官方 Client 声明的同版 Provider 依赖，因此 lockfile 明显增大。默认 CLI 内置 DSH，暂不改成可选 Adapter 安装；消费者发行包只收集实际使用的 Client/Protocol JavaScript，不携带该 Provider 依赖图。构建脚本禁止误收集 Provider，离线验证检查发行主包不声明官方 Provider/Client npm 依赖；不能通过手工裁剪 lockfile 减少这部分源码依赖。

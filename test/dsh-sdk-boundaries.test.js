@@ -90,6 +90,23 @@ test("official Protocol rejects oversized input before invoking JSON.parse", (t)
   assert.equal(failures[0].code, "PROVIDER_MESSAGE_TOO_LARGE");
 });
 
+test("official Protocol budgets raw bytes rather than reserialized numeric values", (t) => {
+  const failures = [];
+  const { input, transport } = endpoint(t, 1024, (error) => failures.push(error));
+  const frame =
+    '{"jsonrpc":"2.0","method":"fixture.metric","params":{"values":[' +
+    Array(100).fill("1e20").join(",") +
+    "]}}\r";
+  let notification;
+  transport.onNotification((method, params) => {
+    notification = { method, params };
+  });
+  input.write(frame + "\n");
+  assert.equal(Buffer.byteLength(frame), 566);
+  assert.equal(Buffer.byteLength(JSON.stringify(notification)), 2249);
+  assert.equal(failures.length, 0);
+});
+
 for (const mode of ["stderr-line", "stderr-partial"])
   test(`official Client bounds retained ${mode} diagnostics after unexpected process exit`, async () => {
     const client = new HarnessClient({
@@ -116,4 +133,45 @@ test("official subscription close rejects a pending read immediately", async () 
   subscription.close();
   await assert.rejects(pending, { name: "TransportClosedError" });
   await client.close();
+});
+
+test("official false-filter subscription processes all notifications and keeps next pending until close", async () => {
+  const client = new HarnessClient({
+    dshBin: new URL("./fixtures/dsh-runtime.mjs", import.meta.url).pathname,
+    initializeTimeoutMs: 2000,
+    requestTimeoutMs: 2000,
+    shutdownTimeoutMs: 500,
+    env: { ...process.env, OCTO_DSH_FIXTURE: "child" }
+  });
+  let received = 0;
+  let settled = false;
+  const subscription = client.subscribe(() => {
+    received++;
+    return false;
+  });
+  const pending = subscription.next().then(
+    () => {
+      settled = true;
+      return undefined;
+    },
+    (error) => {
+      settled = true;
+      return error;
+    }
+  );
+  try {
+    await client.initialize({ cwd: process.cwd(), provider: "fixture", model: "fixture" });
+    await client.prompt("subscription-review", [{ type: "text", text: "hello" }]);
+    await client.request("session/wait", { sessionId: "subscription-review" }, 2000);
+    assert.equal(received, 15);
+    assert.equal(settled, false);
+    assert.equal(subscription.tryNext(), undefined);
+  } finally {
+    try {
+      await client.close();
+    } finally {
+      subscription.close();
+    }
+  }
+  assert.equal((await pending).name, "TransportClosedError");
 });

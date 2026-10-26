@@ -61,6 +61,12 @@ const terminal = () => {
 };
 const answer = () => {
   if (mode === "sequence-jump") sequences.set(root, sequences.get(root) + 1);
+  if (mode === "numeric-notification")
+    process.stdout.write(
+      '{"jsonrpc":"2.0","method":"fixture.metric","params":{"values":[' +
+        Array(100).fill("1e20").join(",") +
+        "]}}\r\n"
+    );
   notify(root, "step/start", { turn: 0, step: 0 });
   if (mode === "tool") {
     notify(root, "tool/call", {
@@ -178,7 +184,9 @@ createInterface({ input: process.stdin }).on("line", (line) => {
     if (mode === "resume-error") error(id);
     else result(id);
   } else if (method === "session/working-directory/set") {
-    result(id, { cwd: params.path });
+    result(id, {
+      cwd: mode === "resume-directory" ? process.env.OCTO_DSH_RETURNED_CWD : params.path
+    });
   } else if (method === "session/prompt") {
     root = params.sessionId;
     if (mode === "oversized") {

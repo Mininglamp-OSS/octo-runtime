@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, stat, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRequire } from "node:module";
@@ -11,6 +11,7 @@ import { createDshAdapter, dshAdapter } from "@mininglamp-oss/octo-runtime-adapt
 import { DshTrajectory } from "../packages/octo-runtime-adapter-dsh/dist/trajectory.js";
 import {
   assertCanonicalEvent,
+  DEFAULT_STREAM_LIMIT_POLICY,
   failurePayload,
   invocationInput
 } from "@mininglamp-oss/octo-runtime-protocol";
@@ -81,6 +82,8 @@ for (const [name, options] of [
   ["conflicting launchers", { dshBin: fixturePath, command: process.execPath }],
   ["args without command", { args: [fixturePath] }],
   ["invalid args", { command: process.execPath, args: [null] }],
+  ["oversized arg", { command: process.execPath, args: ["x".repeat(512 * 1024)] }],
+  ["oversized UTF-8 arg", { command: process.execPath, args: ["界".repeat(1366)] }],
   ["empty command", { command: "" }],
   ["invalid timeout", { dshBin: fixturePath, requestTimeoutMs: 0 }],
   ["invalid string", { dshBin: fixturePath, dshHome: "\0private-value" }]
@@ -148,6 +151,34 @@ test("DSH canonical contract: committed stream, Unicode, CRLF, usage and indepen
   assert.throws(() => process.kill(trace[0].pid, 0), /ESRCH/);
 });
 
+for (const path of ["Adapter", "Core"])
+  test(`DSH ${path} accepts a raw-budget notification whose normalized numbers grow`, async (t) => {
+    const f = await fixture(t, "numeric-notification");
+    const limits = { ...DEFAULT_STREAM_LIMIT_POLICY, rawMessageMaxBytes: 1024 };
+    const core = new AgentExecutor();
+    core.register(createDshAdapter());
+    try {
+      const events = await (path === "Adapter"
+        ? Array.fromAsync(createDshAdapter().invoke(f.request, { streamLimits: limits }))
+        : Array.fromAsync(
+            core.invoke(invocationInput(f.request, "canonical", "dsh"), {
+              executionEnvOverrides: f.request.executionEnvOverrides,
+              streamLimits: limits
+            })
+          ));
+      events.forEach(assertCanonicalEvent);
+      assert.deepEqual(
+        terminals(events).map((event) => event.type),
+        ["run.completed"]
+      );
+      assert.equal(text(events), "hello 世界");
+      const pid = (await f.trace())[0].pid;
+      assert.throws(() => process.kill(pid, 0), { code: "ESRCH" });
+    } finally {
+      assert.equal((await core.shutdown()).cleanup, "complete");
+    }
+  });
+
 for (const [mode, code] of [
   ["foreign-lineage", "STREAM_QUEUE_ITEMS_EXCEEDED"],
   ["provider-error", "DSH_EXECUTION_FAILED"],
@@ -205,6 +236,47 @@ test("DSH successful follow-up uses original session and omits first-session con
   assert.equal(trace[2].params.path, f.directory);
   assert.equal(trace.find((e) => e.method === "session/prompt").params.contentBlocks.length, 1);
 });
+
+for (const kind of ["symlink", "case", "subdirectory"])
+  test(`DSH resume directory comparison handles ${kind} without changing the requested root`, async (t) => {
+    const f = await fixture(t, "resume-directory");
+    const directory = join(f.directory, "MixedCase");
+    await mkdir(directory);
+    let returned;
+    if (kind === "symlink") {
+      returned = join(f.directory, "alias");
+      await symlink(directory, returned, process.platform === "win32" ? "junction" : "dir");
+    } else if (kind === "case") {
+      returned = join(f.directory, "mixedcase");
+      try {
+        const requested = await stat(directory, { bigint: true });
+        const alternative = await stat(returned, { bigint: true });
+        assert.equal(alternative.dev, requested.dev);
+        assert.equal(alternative.ino, requested.ino);
+      } catch (error) {
+        if (error.code !== "ENOENT") throw error;
+        t.skip("The test volume is case-sensitive.");
+        return;
+      }
+    } else {
+      returned = join(directory, "child");
+      await mkdir(returned);
+    }
+    f.request.workdir = directory;
+    f.request.providerSession = { sessionId: "existing-session", resumable: true };
+    f.request.executionEnvOverrides.env_variables.push({
+      key: "OCTO_DSH_RETURNED_CWD",
+      value: returned
+    });
+    const events = await collect(f.request);
+    if (kind === "subdirectory") {
+      assert.equal(terminals(events)[0].payload.code, "DSH_SESSION_RESUME_FAILED");
+      assert.equal(
+        (await f.trace()).some((entry) => entry.method === "session/prompt"),
+        false
+      );
+    } else assert.equal(terminals(events)[0].type, "run.completed");
+  });
 
 test("DSH child lineage and failed tool remain scoped and do not fail successful root", async (t) => {
   const child = await fixture(t, "child");

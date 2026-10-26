@@ -9,6 +9,7 @@ import { DSH_VERSION, DshError, dshError, nativeCode } from "./errors.js";
 const VERSION_PROBE_TIMEOUT_MS = 10_000;
 const VERSION_PROBE_MAX_BYTES = 4096;
 const MAX_LAUNCH_ARGS = 64;
+const MAX_LAUNCH_ARG_BYTES = 4096;
 const MAX_TIMEOUT_MS = 86_400_000;
 const MAX_OPTION_STRING_LENGTH = 4096;
 export const DSH_PROCESS_GRACE_MS = 1000;
@@ -57,7 +58,13 @@ export async function resolveDshLaunch(
       if (
         !Array.isArray(options.args) ||
         options.args.length > MAX_LAUNCH_ARGS ||
-        options.args.some((value) => typeof value !== "string" || value.includes("\0"))
+        options.args.some(
+          (value) =>
+            typeof value !== "string" ||
+            value.length > MAX_LAUNCH_ARG_BYTES ||
+            value.includes("\0") ||
+            Buffer.byteLength(value) > MAX_LAUNCH_ARG_BYTES
+        )
       )
         throw new DshError("DSH_CONFIG_INVALID");
       args = (options.args as unknown[]).map((value) => value as string);

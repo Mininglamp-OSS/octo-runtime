@@ -204,12 +204,10 @@ export function createDshAdapter(options: DshAdapterOptions = {}) {
               shutdownTimeoutMs
             });
             // 在官方订阅过滤回调中同步投影，返回 false 避免再积累一份无界通知队列。
-            // 原始行预算在官方 Protocol 的补丁中、解码前检查；此处保留投影对象检查。
+            // 原始行预算由 Protocol 在解码前检查；重新序列化会改变数字表示，不能复用原始字节预算。
             subscription = client.subscribe((notification) => {
               if (phase !== "prompt" && phase !== "wait") return false;
               try {
-                if (Buffer.byteLength(JSON.stringify(notification)) > limits.rawMessageMaxBytes)
-                  throw new DshError("PROVIDER_MESSAGE_TOO_LARGE", { phase: "notification_limit" });
                 for (const value of trajectory.accept(notification)) queue.push(value);
               } catch (error) {
                 primary ??= dshError(error, "DSH_TRAJECTORY_INVALID");
@@ -219,6 +217,7 @@ export function createDshAdapter(options: DshAdapterOptions = {}) {
               }
               return false;
             });
+            // filter 恒为 false，next 不消费通知，只等待订阅失败；close 会同步拒绝 pending next。
             notifications = subscription.next().then(
               () => {},
               (error: unknown) => {
@@ -231,6 +230,7 @@ export function createDshAdapter(options: DshAdapterOptions = {}) {
             request.signal?.addEventListener("abort", abort, { once: true });
             if (request.signal?.aborted) abort();
             const owned = client;
+            // 任务内部把失败写入 primary/queue；finally 再等待涵盖取消或消费者提前退出。
             producer = (async () => {
               try {
                 phase = "initialize";

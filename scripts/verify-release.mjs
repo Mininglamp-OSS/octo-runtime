@@ -195,6 +195,12 @@ export async function verifyRelease(archiveInput, { expectedCommit, requireClean
           request.agentConfig.providerOptions.requestTimeoutMs = 0;
         },
         "DSH_CONFIG_INVALID"
+      ],
+      [
+        (request) => {
+          request.agentConfig.providerOptions.args = ["界".repeat(1366)];
+        },
+        "DSH_CONFIG_INVALID"
       ]
     ]) {
       const request = dshRequest("success");
@@ -208,6 +214,12 @@ export async function verifyRelease(archiveInput, { expectedCommit, requireClean
       dshModule.createDshAdapter().invoke(dshRequest("sequence-jump"))
     );
     assert.equal(jumpedEvents.at(-1)?.type, "run.completed", "native sequence jump");
+    const numericEvents = await Array.fromAsync(
+      dshModule.createDshAdapter().invoke(dshRequest("numeric-notification"), {
+        streamLimits: { ...DEFAULT_STREAM_LIMIT_POLICY, rawMessageMaxBytes: 1024 }
+      })
+    );
+    assert.equal(numericEvents.at(-1)?.type, "run.completed", "raw-budget numeric notification");
     for (const mode of ["oversized-initialize", "oversized-fragmented", "raw-no-newline"]) {
       const events = await Array.fromAsync(
         dshModule.createDshAdapter().invoke(dshRequest(mode), {
