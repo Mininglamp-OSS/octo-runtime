@@ -111,6 +111,11 @@ export class ImTask {
   }
   async cancel(reason = "IM user stop"): Promise<boolean> {
     this.#abort.abort(reason);
+    return this.cancelExecution(reason);
+  }
+  /** 展示故障只请求停止执行及重试，保留观察 signal；返回取消受理结果，不代表执行终态。 */
+  async cancelExecution(reason: string): Promise<boolean> {
+    this.stopRetries();
     if (!this.#active || this.#active.completion === "not_submitted") return true;
     this.#cancelPending ??= this.kernel.cancelInvocation(this.#active.invocationId, reason);
     try {

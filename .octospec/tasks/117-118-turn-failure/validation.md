@@ -91,3 +91,28 @@ this.#diagnostic("IM_PRESENTATION_FAILED", request.runId);
 同步后全量通过：Node 1802 通过、40 跳过、0 失败，WebUI 35 通过；`pnpm lint`、`pnpm docs:check` 和 diff 空白检查通过。测试数量以新 main 的测试集合为准，与上文原 head 的结果分开记录。
 
 原 head `6da72f269254d9de6ef4952e33af1335e2081443` 已获得 yujiawei APPROVED，六组跨平台 CI 和 CI Gate 全通过；新合并提交的托管检查及审查状态须重新以 GitHub 为准。
+
+# Jerry-Xin 与 yujiawei 后续审查
+
+审查基线为 `7e0355104569c01652cead113b1450377ef5d75f`，main 为 `78bb88a154700bdd9cd0eda8c3624a8db2a89c1b`；本地 macOS arm64、Node.js v24.19.0、pnpm 11.19.0。两位审查正文均从 GitHub 读取，行内评论列表为空。用户授权修复后新增英文评论并请两位重新审查。
+
+Jerry-Xin 的 P2 已复现。原 Gateway 展示更新失败分支为：
+
+```ts
+void task
+  .cancel("IM presentation failed")
+```
+
+`ImTask.cancel()` 中止传入 KernelClient.invoke 的本地 signal。公共 `createInputInvoke` 在源流正常耗尽后检查该 signal 并抛其 reason，因此真实 Kernel 已输出 completed/cancelled 仍被 ImTask 当成源流异常，缓存的终态被丢弃。旧 generator stub 没有公共包装器的尾部检查，之前的通过不能覆盖该链路。
+
+新增真实 Kernel/worker/IPC 回归，原实现上正常展示对照通过，三个展示失败场景的观察 signal 断言失败（actual=true、expected=false）。命令：`node --test --test-name-pattern='real Kernel presentation cancellation' test/im-pre-execution-failure.test.js`。证据等级 reproduced，属于已确认缺陷，取代此前“无待修复问题”的阶段性结论。
+
+修复在 ImTask 增加 `cancelExecution(reason)`：停止后续重试，复用当前取消 Promise，只请求 Kernel 取消，不中止观察 signal。展示失败分支使用此入口，继续耗尽同一原流。取消 ACK 不被当成终态，缺终态和终态后源错误的 unknown 规则不变；没有修改公共 invoke 包装器或降低其错误检查。
+
+回归验证包含四个真实 IPC 场景：正常对照、完成先于取消、在途执行被取消、真实终态后源错误。完成场景显式控制取消与终态的顺序，避免依赖主机调度速度；取消场景实际向 Kernel 请求在途取消。修复后四项通过，真实终态分别保存为 run.completed/run.cancelled，源错误保存 unknown。另补单测验证观察 signal 未中止、取消请求合并为一次、暂态失败不进入自动重试。相关 Channel、ImTask、drain 和 Kernel 消费者组共 72 项通过。
+
+yujiawei 的 occurrence mock 建议已落实：第二次发送使用 try/finally 显式恢复 `occurrence.mock`；现有 Node test 的每测试清理机制也继续有效。其 Gate Summary 备注不是当前 diff 的代码生成或门禁放宽问题：PR 的 CI 修改仍仅增加 Windows 故障回归文件，没有修改门禁条件、豁免或生成代码。
+
+本轮源码复核覆盖展示失败调用方、取消 Promise 归属、公共 invoke 尾部检查、自动重试及 drain 清理。每个本轮变更文件独立检查，无生成文件或依赖文件需跳过。完整验证与新 head 托管状态在交付时分别记录，不沿用旧 head 的绿色检查。
+
+本轮 `pnpm typecheck`（含全量构建）与 `pnpm test:suites` 通过：Node 1807 通过、40 跳过、0 失败，WebUI 35 通过；`pnpm lint`、`pnpm format:check`、`pnpm lint:names`、`pnpm docs:check` 通过。固定取消顺序后的四项真实 IPC 回归再次全部通过。OctoSpec lint 仍只有同步 main 后已有的七项 frontmatter 错误，diff 空白检查通过。本轮没有真实 IM 发信或真实模型调用，WeCom 真实验收继续按用户要求跳过。

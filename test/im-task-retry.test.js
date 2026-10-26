@@ -350,6 +350,33 @@ test("retry policy excludes credentials, unknown failure, cancellation and unsaf
   }
 });
 
+test("display cancellation preserves observation and suppresses transient-failure retries", async () => {
+  let observer;
+  const f = fixture(async function* ({ signal }) {
+    observer = signal;
+    yield progress();
+    yield failed();
+    signal.throwIfAborted();
+  });
+  const iterator = f.task.events();
+  await iterator.next();
+  assert.deepEqual(
+    await Promise.all([
+      f.task.cancelExecution("display failed"),
+      f.task.cancelExecution("display failed again")
+    ]),
+    [true, true]
+  );
+  assert.equal(observer.aborted, false);
+  assert.equal((await iterator.next()).value.type, "run.failed");
+  assert.equal((await iterator.next()).done, true);
+  assert.equal(f.task.attempts[0].outcome, "run.failed");
+  assert.equal(f.calls.length, 1);
+  assert.equal(f.cancellations.length, 1);
+  assert.deepEqual(f.waits, []);
+  assert.equal(f.timers.size, 0);
+});
+
 test("unknown stream result never causes another invocation", async () => {
   const f = fixture(async function* () {
     yield progress();

@@ -28,3 +28,5 @@ tags: [channel, delivery, session, invocation, testing]
 用户随后授权开始实施、verified-review 审查修复、创建带 Closes #117/#118 的 PR 并普通合并 main，明确禁止 Auto Merge。已实现共享三码、Kernel 本地可信证据、双渠道独立反馈、Gateway not_submitted attempt、兼容 occurrence 字段和普通日志安全字段。展示故障保留原流消费，真实未知不得重新执行。
 
 审查运行复现并修复了流失败残留重试入口、finish 超时未保留关闭失败、drain 期间展示更新错误被吞三项问题。具体前后结果、命令及本地/线上证据边界见[验证记录](../../tasks/117-118-turn-failure/validation.md)。Gateway 真实 IM 缺 QA 账号文件路径；WeCom 真实验收按用户明确指示跳过，不能将本地投影测试写成真实卡片送达。
+
+后续处理 Jerry-Xin/yujiawei 对 `7e03551` 的审查，真实 IPC 复现展示取消导致观察 signal 中止、已确认终态被丢弃。展示故障改用仅取消执行及后续重试的入口，保留原观察；补齐四个真实 IPC 对照和暂态重试回归，显式恢复 occurrence mock。全量 Node 1807 通过/40 跳过、WebUI 35 通过，类型/lint/命名/格式/文档检查通过；用户授权推送后新增英文评论请求两位重新审查，详细证据见验证记录的后续审查章节。

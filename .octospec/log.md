@@ -2,6 +2,8 @@
 
 ## 2026-10-26
 
+- PR #180 处理 Jerry-Xin 与 yujiawei 新审查：真实 Kernel IPC 复现展示取消中止观察 signal、丢弃已确认终态的问题，新增仅取消执行并阻止重试的入口及真实 IPC 对照；显式恢复 occurrence mock。复现、修复及重验见[记录](tasks/117-118-turn-failure/validation.md#jerry-xin-与-yujiawei-后续审查)。用户要求推送后新增评论请求两位重新审查。
+
 - PR #180 按用户要求合入 `main@78bb88a`，解决唯一的 OctoSpec 目录冲突，同时保留 #117/#118 与 main 的 DSH 最新入口；产品代码无冲突。新依赖与全量回归、旧/新 head 的审查和 CI 证据分别记录于[验证记录](tasks/117-118-turn-failure/validation.md#pr-180-同步-main)。
 
 - 实施 [Issue 117/118](tasks/117-118-turn-failure/validation.md)：统一 OH-RUN-2010/2011/2012、可信本地未提交判断、双渠道投影/文本/日志关联、attempt/occurrence 事实及有界收尾。verified-review 复现并修复源流失败残留重试入口、finish 超时关闭遗漏和 drain 展示错误回归；本地与托管测试、线上验收边界以验证记录为准。用户要求普通 PR 合并，禁止 Auto Merge；WeCom 真实平台验收明确跳过。

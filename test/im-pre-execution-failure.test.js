@@ -62,7 +62,7 @@ async function fixture(t, suffix, options = {}) {
       ...(suffix === "gateway"
         ? { api_url: "https://im-test.deepminer.com.cn/api" }
         : { app_secret: randomBytes(16).toString("hex") }),
-      adapter: { adapter_type: "codex", workdir: process.cwd() },
+      adapter: { adapter_type: options.adapterType ?? "codex", workdir: process.cwd() },
       ...(suffix === "gateway" ? { codex_retry: { initial_delay_ms: 100, max_delay_ms: 100 } } : {})
     },
     {
@@ -82,8 +82,9 @@ async function fixture(t, suffix, options = {}) {
             yield event("run.completed");
           }
         },
-        async cancelInvocation(id) {
+        async cancelInvocation(id, reason) {
           cancellations.push(id);
+          if (options.cancelInvocation) return options.cancelInvocation(id, reason);
           return { accepted: true };
         },
         async respondInteraction() {}
@@ -207,9 +208,13 @@ for (const suffix of ["gateway", "wecom"]) {
       t.mock.timers.tick(120_001);
       // An external host may retain occurrence records beyond the built-in TTL.
       const prior = f.saved.at(-1);
-      t.mock.method(f.store, "occurrence", () => structuredClone(prior));
-      f.send({ messageId: "not-submitted" });
-      await until(() => f.replies.length === 2);
+      const occurrence = t.mock.method(f.store, "occurrence", () => structuredClone(prior));
+      try {
+        f.send({ messageId: "not-submitted" });
+        await until(() => f.replies.length === 2);
+      } finally {
+        occurrence.mock.restore();
+      }
       assert.match(f.replies[1].text, /原消息尚未提交/);
       assert.doesNotMatch(f.replies[1].text, /已经提交/);
       assert.match(f.replies[1].text, new RegExp(prior.notSubmittedFailure.diagnosticId));
@@ -298,6 +303,57 @@ for (const suffix of ["gateway", "wecom"]) {
         f.failures[0].payload.failure.diagnosticId
       );
     }
+  });
+}
+
+for (const mode of ["control", "completed", "cancelled", "source-error"]) {
+  test(`Gateway: real Kernel presentation cancellation preserves observation: ${mode}`, async (t) => {
+    const k = await kernelFixture(t, { manifest: resolve("test/fixtures/invoke-adapters.json") });
+    const source = [];
+    let observedSignal;
+    const f = await fixture(t, "gateway", {
+      adapterType: "test",
+      invoke: async function* (input, environment) {
+        observedSignal = environment.signal;
+        for await (const value of k.client.invoke(input, environment)) {
+          source.push(value.type);
+          yield value;
+        }
+        if (mode === "source-error") throw new Error("fixture post-terminal source failure");
+      },
+      cancelInvocation: async (id, reason) => {
+        // 固定取消与完成的先后关系；cancelled 场景另验真实在途执行取消。
+        if (mode !== "cancelled") await until(() => source.includes("run.completed"));
+        return k.client.cancelInvocation(id, reason);
+      }
+    });
+    let updates = 0;
+    f.send({
+      text: mode === "cancelled" ? "wait-for-cancel" : "complete",
+      beginPresentation: () => ({
+        update() {
+          if (++updates === 2 && mode !== "control") throw new Error("fixture display failure");
+        },
+        async finish() {}
+      })
+    });
+    await f.done();
+    assert.equal(f.calls.length, 1);
+    const terminal = mode === "cancelled" ? "run.cancelled" : "run.completed";
+    assert.ok(source.includes(terminal), source.join(","));
+    assert.equal(
+      f.saved.at(-1).attempts[0].outcome,
+      mode === "source-error" ? "unknown" : terminal
+    );
+    assert.equal(observedSignal.aborted, false, "display cancellation must retain the observer");
+    if (mode === "source-error") assert.match(f.replies.at(-1).text, /结果未知/);
+    else {
+      assert.doesNotMatch(f.replies.at(-1).text, /结果未知/);
+      assert.equal(f.diagnostics.includes("IM_EXECUTION_RESULT_UNKNOWN"), false);
+      assert.equal(f.cancellations.length, mode === "control" ? 0 : 1);
+      if (mode !== "cancelled") assert.equal(f.replies.at(-1).text, "answer");
+    }
+    assert.deepEqual(k.client.invocations.snapshot(), []);
   });
 }
 

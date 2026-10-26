@@ -50,11 +50,13 @@ evidence:
   current_source: reviewed
   issue_bodies_and_comments: read-via-gh
   current_baseline_dynamic_reproduction: three-review-defects-reproduced-and-fixed
-  product_tests: focused-41-passed-node-1809-passed-40-skipped-webui-35-passed
+  product_tests: followup-focused-72-passed-node-1807-passed-40-skipped-webui-35-passed
   real_gateway: blocked-missing-qa-account-path
   real_wecom: skipped-user-instruction
   review: verified-review-serial-source-and-runtime
   implementation_record: .octospec/tasks/117-118-turn-failure/validation.md
+  followup_review_baseline: 7e0355104569c01652cead113b1450377ef5d75f
+  followup_review_fix: retain-observation-signal-during-display-cancellation
 validation:
   octospec_baseline: four-existing-frontmatter-errors
   octospec_after: same-four-baseline-errors-no-new-errors

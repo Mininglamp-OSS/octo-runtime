@@ -1199,7 +1199,7 @@ export class ImRuntime {
             // 展示故障不关闭原迭代器；请求停止后仍由同一消费者确认真实终态。
             if (!projector.snapshot().terminal)
               void task
-                .cancel("IM presentation failed")
+                .cancelExecution("IM presentation failed")
                 .catch(() => this.#diagnostic("IM_CANCEL_FAILED", request.runId));
           }
         }
