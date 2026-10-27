@@ -349,6 +349,55 @@ test("Extra boolean options preserve literal names without injecting negation de
   assert.equal((await cli(["custom-service", "check", "--no-cache", "--no-cache"])).code, 2);
 });
 
+test("Sibling Extra commands validate only their own options and global flags", async (t) => {
+  for (const reversed of [false, true]) {
+    const definitions = [
+      `{name:"check",description:"Check flags",options:[{name:"mode",type:"boolean",description:"Check mode"}],async run(ctx,input){return {value:input.options};}}`,
+      `{name:"configure",description:"Set mode",options:[{name:"mode",type:"string",required:true,description:"Mode value"},{name:"label",type:"string",description:"Configuration label"}],async run(ctx,input){return {value:input.options};}}`
+    ];
+    if (reversed) definitions.reverse();
+    const commands = definitions.join(",");
+    const { home, cli } = await fixture(
+      t,
+      `export default {apiVersion:1,commands:[${commands},{name:"account",description:"Nested commands",commands:[${commands}]}]};`
+    );
+    for (const path of [["custom-service"], ["custom-service", "account"]]) {
+      for (const args of [
+        [...path, "check", "--mode"],
+        [...path, "check", "--mode", "--json"],
+        [...path, "--json", "check", "--mode"],
+        ["--json", ...path, "check", "--mode"]
+      ]) {
+        const result = await cli(args);
+        assert.equal(result.code, 0, `${args.join(" ")}: ${result.errors}`);
+        assert.deepEqual(JSON.parse(result.output), { mode: true });
+      }
+      for (const args of [
+        [...path, "check", "--mode", "--help"],
+        ["help", ...path, "check", "--mode"]
+      ]) {
+        const result = await cli(args);
+        assert.equal(result.code, 0, `${args.join(" ")}: ${result.errors}`);
+        assert.match(result.output, /--mode\s+Check mode/);
+        assert.doesNotMatch(result.output, /--mode <value>/);
+        assert.doesNotMatch(result.output, /--label/);
+      }
+      assert.equal((await cli([...path, "check", "--label", "other-command"])).code, 2);
+      const configured = await cli([...path, "configure", "--mode", "fast"]);
+      assert.equal(configured.code, 0, configured.errors);
+      assert.deepEqual(JSON.parse(configured.output), { mode: "fast" });
+      for (const args of [
+        [...path, "configure"],
+        [...path, "configure", "--mode"],
+        [...path, "configure", "--mode", "--json", "fast"],
+        [...path, "configure", "--mode", "fast", "--mode", "slow"]
+      ])
+        assert.equal((await cli(args)).code, 2, args.join(" "));
+    }
+    await assert.rejects(access(join(home, "extras")));
+  }
+});
+
 test("Extra option names do not inherit values or conflicts from Object.prototype", async (t) => {
   const { cli } = await fixture(
     t,

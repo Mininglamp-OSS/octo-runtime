@@ -93,3 +93,11 @@ Examples 统一置于 Usage 后的独立区块，根示例只依据当前有效�
 同步后重新执行 `pnpm test`：完整 workspace 构建通过，WebUI 35 项通过，Node 2055 项中 2000 通过、55 跳过、0 失败。TypeScript noEmit、ESLint、命名、格式、docs:check、生成协议无漂移及 git diff --check 通过；OctoSpec lint 通过，计 421 个 OKF 单元、20 条规则、3076 个本地文件链接。平台为 macOS / Node 24，其他平台以 PR CI 为准。
 
 远端 main 保护要求 CI Gate 通过、至少一位 reviewer 批准且讨论已解决；不绕过保护。提交和 PR 使用英文，保留已配置作者及 Codex trailer；不发布 npm。
+
+## PR 206 参数校验范围修复
+
+reviewer 在 `138a74c` 指出 P2：装配所选 Extra 的整个命令树时，每个字符串选项都扫描本次调用的全部原始参数，导致未选中兄弟命令的同名字符串选项误拒绝当前命令的布尔开关。用户明确每个子命令只使用自己的参数和全局参数，并要求修复后重新提交。
+
+新增回归先在旧实现复现 `custom-service check --mode` 返回退出码 2。现将原始缺值边界检查移至选项的 argParser，仅在 Commander 实际消费本命令选项时触发；构建兄弟命令不再校验当前输入。仍保留原始 token 边界，以拒绝祖先参数被取走后将 `--port --home X 123` 拼成合法输入；重复参数、必填和显式等号值规则不变。
+
+回归覆盖同名布尔/字符串选项的两种声明顺序、直接和嵌套路径、普通与别名帮助、全局 JSON 参数穿插，以及兄弟专属选项不得出现在当前帮助或被接受。CLI 构建、TypeScript noEmit、ESLint、命名与改动文件格式检查通过。6 个相关测试文件共 90 项，86 通过、4 项平台条件跳过、0 失败；本轮不重复全量 suite，跨平台验证以新提交的 PR CI 为准。

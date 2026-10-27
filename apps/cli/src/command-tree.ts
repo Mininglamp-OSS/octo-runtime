@@ -165,20 +165,21 @@ function option(
     // constructor 也是合法业务键；显式空值避免继承原型属性并误通过必填检查。
     cmd.setOptionValue(value.name(), undefined);
   }
-  // Commander 会先取走祖先参数；先保留业务缺值的原始边界，避免 --port --home X 123 被拼成合法输入。
-  const literalIndex = raw.indexOf("--");
-  const tokens = literalIndex < 0 ? raw : raw.slice(0, literalIndex);
-  if (
-    business &&
-    value.required &&
-    tokens.some(
-      (token, index) =>
-        token === value.long && (!tokens[index + 1] || tokens[index + 1].startsWith("-"))
-    )
-  )
-    throw new Error("INVALID_ARGUMENTS");
   let seen = false;
   value.argParser((input: string) => {
+    // 仅在 Commander 实际消费本命令的选项时检查，兄弟命令可声明同名但不同类型的选项。
+    // 仍按原始边界拒绝缺值，避免祖先先取走 --home X 后将 --port 123 拼成合法输入。
+    const literalIndex = raw.indexOf("--");
+    const tokens = literalIndex < 0 ? raw : raw.slice(0, literalIndex);
+    if (
+      business &&
+      value.required &&
+      tokens.some(
+        (token, index) =>
+          token === value.long && (!tokens[index + 1] || tokens[index + 1].startsWith("-"))
+      )
+    )
+      throw new Error("INVALID_ARGUMENTS");
     if (seen) throw new Error("INVALID_ARGUMENTS");
     seen = true;
     if (
