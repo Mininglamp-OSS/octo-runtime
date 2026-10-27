@@ -2,7 +2,7 @@
 
 [简体中文](../../zh-CN/guides/extra-commands.md) | [Documentation](../README.md)
 
-Use `octo-runtime <extra> --help` to discover setup commands. Root help reads the selected manifest catalog without importing Extras. Detailed help imports only the selected command module; it does not run handlers, authenticate, start services, or require a Kernel. Native SDK composition does not load command modules. Global package discovery (#192) is separate; this implementation uses the existing built-in and Home manifests.
+Use `octo-runtime <extra> --help` to discover setup commands. Root help reads the selected Extra catalog without importing Extras. Detailed help imports only the selected command module; it does not run handlers, authenticate, start services, or require a Kernel. Native SDK composition does not load command modules. The catalog combines built-in manifests, the Home manifest, and packages discovered in the current CLI’s global npm/pnpm environment, in that priority order. An explicit `--manifest` replaces all three sources.
 
 ## Configure the built-in Extras
 
@@ -66,7 +66,7 @@ const extension: ExtraCommandExtension = {
 export default extension;
 ```
 
-Select an external package through the Home manifest:
+Packages named `octo-runtime-extra-<name>` or `@scope/octo-runtime-extra-<name>` installed in the same global environment as the CLI are discovered automatically. Their `/commands` export uses the same selected installation as the service; removal or replacement invalidates that selection. See [module loading](../concepts/module-loading.md). For other names or local installations, select the package through the Home manifest:
 
 ```json
 {"version":1,"adapters":[],"extras":[{"name":"loop-daemon","module":"your-extra-package"}]}

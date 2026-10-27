@@ -9,7 +9,7 @@ timestamp: 2026-10-27T00:00:00Z
 
 使用 verified-review 的串行双轨：先逐文件核对本次工作区新增/修改，再执行真实 CLI 与发行包验证。基线 main `a7c33b64064b8a54f59f70178873983ba143c1b3`，dirty=yes，macOS arm64 / Node v24.19.0 / pnpm 11.19.0。
 
-范围包含 44 个文件（含本报告、验证记录及 journal）：CLI 路由/输出/帮助/存储、模块清单条目、Host SDK 合同、三个 Extra 业务命令与 package exports、主包公开转发、专项测试、双语指南及入口、OKF 规则和记录。每个文件单独检查；无锁文件、二进制或生成代码进入 diff，无跳过文件。编译/打包产物是验证对象，不是源码审查文件。
+初始审查范围包含 44 个文件（含本报告、验证记录及 journal）：CLI 路由/输出/帮助/存储、模块清单条目、Host SDK 合同、三个 Extra 业务命令与 package exports、主包公开转发、专项测试、双语指南及入口、OKF 规则和记录。每个文件单独检查；无锁文件、二进制或生成代码进入 diff，无跳过文件。编译/打包产物是验证对象，不是源码审查文件。
 
 检查计划：
 
@@ -32,4 +32,10 @@ timestamp: 2026-10-27T00:00:00Z
 
 `pnpm typecheck`、最终 `pnpm test:suites`（Node1898通过/54跳过、UI35通过）、lint/names、docs:check、格式检查均通过。实际 tgz 在仓库外 npm 离线安装，三个 Extra 及另装第三方包命令通过，公开合同 strict TypeScript 编译通过。完整命令、证据及未覆盖范围见 [验证记录](validation.md)。
 
-不能将 fixture login 视为真实业务认证，不能将 manifest 接入视为 #192 全局发现，不能将 macOS 通过视为 Windows/Linux 验收。审查未创建远端 issue 或 PR，未提交。
+不能将 fixture login 视为真实业务认证，初始 manifest 验收不能作为 #192 全局发现证据，不能将 macOS 通过视为 Windows/Linux 验收。初次审查未提交或创建 PR；后续用户已授权同步 main 并交付 Draft PR。
+
+# 同步最新 main 的增量审查
+
+交付基线 `f0bacb01590084523c21dc9996d05738c9a06a44`，包含 #195 文档和 #196 全局发现。知识目录冲突保留双方任务入口；其余自动合并逐项复核。发现命令模块直接解析服务路径会绕过新增安装身份检查，改为复用 resolveExtraModule，仅解析、不导入服务。新增回归覆盖选中来源、服务不执行、原安装移除和链接替换时拒绝祖先回退；实际 npm/pnpm 安装脚本增加自有 configure、帮助和 extraget 读回。验证结果见 validation.md 的追加记录。
+
+交付最终范围为 46 个文件（原 44 个，加现有全局发现测试及安装验收脚本）。最新基线验证全部通过：Node1906通过/54跳过、UI35、typecheck、lint/names、文档、格式、两个实际安装验收；增量无待修 medium+。

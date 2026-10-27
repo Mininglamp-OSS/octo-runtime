@@ -17,6 +17,7 @@ import {
 import { commandConfig } from "./extra-command-config.js";
 import { defaultRuntimeHome, runtimePaths } from "./state.js";
 import { loadCliManifest } from "./module-manifest.js";
+import { resolveExtraModule } from "./global-extras.js";
 import { helpText } from "./help.js";
 import type { CliDependencies } from "./main.js";
 
@@ -128,7 +129,7 @@ export async function routeExtraCommand(
   if (!entry) return undefined;
   if (manifest.extras.some((item) => roots.has(item.name)))
     throw new Error("EXTRA_COMMAND_NAMESPACE_CONFLICT");
-  const extension = await loadCommands(entry);
+  const extension = await loadExtraCommands(entry);
   if (!extension) {
     if (actionIndex < tail.length) throw new Error("EXTRA_COMMAND_NOT_FOUND");
     output(helpText(name));
@@ -228,7 +229,9 @@ export async function routeExtraCommand(
 }
 
 /** 仅解析选中模块的可选导出；解析不存在与导入后依赖损坏严格分开。 */
-async function loadCommands(entry: ExtraModuleEntry): Promise<ExtraCommandExtension | undefined> {
+export async function loadExtraCommands(
+  entry: ExtraModuleEntry
+): Promise<ExtraCommandExtension | undefined> {
   let specifier: string;
   if (entry.commands) specifier = resolveModuleSpecifier(entry.commands, entry.sourceManifest);
   else {
@@ -260,7 +263,9 @@ async function loadCommands(entry: ExtraModuleEntry): Promise<ExtraCommandExtens
 
 /** 从选中服务的真实位置查所属包元数据；旧包未声明 exports 就没有可选命令入口。 */
 async function declaresExports(entry: ExtraModuleEntry): Promise<boolean> {
-  const service = resolveModuleSpecifier(entry.module, entry.sourceManifest);
+  // 全局来源复用服务的安装身份检查；包被移除或替换后不能回退到祖先同名包。
+  // 这里只解析服务地址用于查元数据，不 import 或启动服务。
+  const service = await resolveExtraModule(entry);
   const parts = entry.module.split("/");
   const packageName = entry.module.startsWith("@") ? parts.slice(0, 2).join("/") : parts[0];
   let directory = dirname(fileURLToPath(service));

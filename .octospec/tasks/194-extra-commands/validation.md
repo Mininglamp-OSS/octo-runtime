@@ -7,7 +7,7 @@ timestamp: 2026-10-27T00:00:00Z
 
 # 最终实现
 
-分支 `codex/194-extra-commands`，基线 `a7c33b64064b8a54f59f70178873983ba143c1b3`，未提交工作区。平台 macOS / arm64，Node.js v24.19.0，pnpm 11.19.0。
+分支 `codex/194-extra-commands`，基线 `a7c33b64064b8a54f59f70178873983ba143c1b3`；交付前按用户授权 rebase 到 main@f0bacb01590084523c21dc9996d05738c9a06a44，提交并创建 Draft PR。平台 macOS / arm64，Node.js v24.19.0，pnpm 11.19.0。
 
 - 独立 `/commands`，apiVersion=1，命令树、选项、位置参数、输出、退出码与取消合同从主包 `/extra` 导出。根帮助只读 manifest，详细帮助只加载选中命令模块。
 - CLI 分阶段路由；自有命令要求 --home/--manifest 位于命令前，--json/-h/--help 可以位于命令后，-- 后是位置参数。生命周期命令保留旧参数语法且不导入 commands。
@@ -15,7 +15,7 @@ timestamp: 2026-10-27T00:00:00Z
 - 同一个 config.json、权限与写锁；CAS 比较整份声明，保留 module/enabled。交互不占写锁；取消前不写，开始原子写入后以实际结果为准。保存提示明确需要整个 Extra 重启，不自动启动或启用。
 - 旧 extraset/extraget 外壳接口继续保留；config get 明确返回可能含凭据的业务 JSON。普通保存和错误不输出凭据，未知第三方 handler 错误折叠。
 
-# 验证结果
+# 初始基线验证结果
 
 所有命令在本 worktree 执行；测试凭据仅在临时目录/内存按次随机生成，未使用真实认证值。
 
@@ -46,10 +46,29 @@ timestamp: 2026-10-27T00:00:00Z
 
 # 边界
 
-- 全局 npm 自动发现 #192 尚未合入本基线；本轮复用选中 manifest catalog，不另实现扫描。实际第三方安装通过 Home manifest 验证，不能宣称无 manifest 的全局发现已完成。
+- 初始基线尚无 #192；交付基线已包含 #196，全局发现的追加验收见下文。复用现有发现机制，不另实现扫描。
 - 本次改动是离线配置入口。没有执行真实 IM/WeCom 认证或消息投递，没有新增业务网络登录。外部 login 是命令扩展 fixture，不能证明业务认证成功。
 - 未做 Windows/Linux 原生平台验证，54 项条件跳过保留事实。没有测试真人交互终端 prompt；stdin 及 signal 已覆盖。
 - 命令扩展是可信同进程代码，须自行观察取消与关闭资源；不提供恶意 JS 沙箱或远端副作用回滚。
-- 不重置任何用户 Home、身份、凭据或运行服务。没有 commit、push 或创建 PR。
+- 不重置任何用户 Home、身份、凭据或运行服务。提交、push 与 Draft PR 已获本轮用户授权；不合并 PR。
 
 逐文件审查与修复见 [verified-review](review.md)。
+
+# 最新 main 集成与交付验证
+
+用户后续授权同步远程 main 并提交 Draft PR。交付基线为 `f0bacb0`（#195、#196）；rebase 仅 `.octospec/index.md` 出现文本冲突，双方任务入口均保留。命令模块改为复用全局安装身份校验，防止发现后移除/替换包时加载祖先同名包。新增全局命令回归通过；文档已改为内置 > Home > 全局 catalog。
+
+以下检查在上述基线加本 PR 最终代码上重新执行，平台与工具版本保持不变：
+
+| 检查 | 证据 | 结果 |
+| --- | --- | --- |
+| `pnpm typecheck` | `/tmp/octo-194-main-typecheck.log` | PASS |
+| `pnpm test:suites` | `/tmp/octo-194-main-tests.log` | PASS：Node 1960 项，1906 通过、54 跳过、0 失败；UI 35 通过 |
+| `pnpm lint` / `pnpm lint:names` | `/tmp/octo-194-main-lint.log`、`/tmp/octo-194-main-names.log` | PASS |
+| `pnpm docs:check` | `/tmp/octo-194-main-docs.log` | PASS，含 4 项可执行示例 |
+| 修改的 TS/JS/MJS/JSON Prettier / `git diff --check` | `/tmp/octo-194-main-format.log` | PASS |
+| `node scripts/pack-release.mjs` | `/tmp/octo-194-main-pack.log` | PASS，实际 tgz |
+| `pnpm test:global-extras dist/release/mininglamp-oss-octo-runtime-0.0.0.tgz` | `/tmp/octo-194-main-global-install.log` | PASS：隔离 npm/pnpm v11 实际全局安装、独立安装组、混合环境、安装/移除后重读；自有 configure 帮助、保存回执及 extraget 配置读回通过 |
+| `node /tmp/octo-194-verify-release.mjs "$PWD"` | `/tmp/octo-194-main-release.log` | PASS：包外 npm 离线安装，三 Extra 帮助/配置/去重/权限、Home manifest 外部 login、strict TypeScript 公共类型 |
+
+增量 verified-review 已复核冲突解决、自动合并和全局来源适配；无待修复 medium+。上述日志是本机执行证据；仓库保留测试与验收脚本。实际包安装只在独占临时目录进行，没有修改用户全局环境。全局 fixture 的服务初始化由测试主动终止；不是业务认证或消息投递验证。PR 保持 Draft，不自动合并。

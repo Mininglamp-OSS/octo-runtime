@@ -2,7 +2,7 @@
 
 [English](../../en/guides/extra-commands.md) | [文档目录](../README.md)
 
-CLI 从选中的模块清单发现 Extra 名称。根帮助不导入 Extra；`<extra> --help` 只导入该 Extra 的独立命令模块，不初始化服务、不连接 Kernel、不认证。SDK 原生装配不需要加载命令模块。当前 catalog 来自内置清单与 Home manifest；全局 npm 自动发现由 #192 单独处理。
+CLI 从选中的模块清单发现 Extra 名称。根帮助不导入 Extra；`<extra> --help` 只导入该 Extra 的独立命令模块，不初始化服务、不连接 Kernel、不认证。SDK 原生装配不需要加载命令模块。当前 catalog 按内置清单、Home manifest、当前 CLI 所属 npm/pnpm 全局环境的顺序选择；显式 `--manifest` 完全替换三个来源。
 
 ## 配置三个内置 Extra
 
@@ -66,7 +66,7 @@ const extension: ExtraCommandExtension = {
 export default extension;
 ```
 
-Home manifest 示例：
+与 CLI 安装在同一全局环境的 `octo-runtime-extra-<name>` 或 `@scope/octo-runtime-extra-<name>` 自动发现；`/commands` 与服务使用同一选中安装，移除或替换后拒绝继续加载。详见[模块载入](../concepts/module-loading.md)。其他包名或本地安装使用以下 Home manifest：
 
 ```json
 {"version":1,"adapters":[],"extras":[{"name":"loop-daemon","module":"your-extra-package"}]}

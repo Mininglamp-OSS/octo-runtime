@@ -7,7 +7,7 @@ timestamp: 2026-10-27T00:00:00Z
 
 # 目标与边界
 
-基于 main@a7c33b64064b8a54f59f70178873983ba143c1b3，在 codex/194-extra-commands 实现 #194；首批业务仅 channel-gateway、channel-wecom（用户所称 wecom）、webui。用户授权实施和 verified-review，未授权提交、推送或 PR。
+基于 main@a7c33b64064b8a54f59f70178873983ba143c1b3，在 codex/194-extra-commands 实现 #194；首批业务仅 channel-gateway、channel-wecom（用户所称 wecom）、webui。用户最初授权实施和 verified-review；后续明确要求同步远程最新 main、提交并创建 Draft PR。交付前已 rebase 到 main@f0bacb01590084523c21dc9996d05738c9a06a44（含 #195、#196）。
 
 业务目标是无需编写 extraset 外壳即可配置 Extra。Extra 决定参数映射、校验、身份与去重；CLI 决定命令分派、Home 文件保护、并发保存与输出。显式参数只映射现有核心配置，不增加登录流程、Provider 安装、模型默认策略或服务热更。SDK 原生装配无需命令模块。
 
@@ -21,11 +21,11 @@ timestamp: 2026-10-27T00:00:00Z
 - `config set` 从 stdin 读取完整业务对象，经 Extra 校验替换 config；`config get` 显式返回可能含凭据的业务配置，帮助注明。旧 extraset/extraget 外壳及完整替换语义保持。
 - 命令先读取配置快照，交互/校验在锁外完成，保存以相同 setup lock 做修订比对和原子替换。新写锁尚未写完时拒绝抢占；旧 PID 回收使用独占 reclaim 目录并再次读 owner，防止并发删除新锁。并发修改返回冲突，未配置与损坏配置不能混同；保留 enabled/module，不部分写入。保存只表示持久化，reload_required=true。
 - composition root 是当前 CLI 进程；不构造 Extra/Kernel 服务，不增加进程/socket。CLI 拥有 IO、signal 与写锁；Extra 拥有业务函数。删除映射：无服务 API 删除，旧 whole-argv 解析只用于既有命令。
-- #192 全局发现未在本基线落地；本轮复用选中 manifest catalog，不另做全局扫描。外部安装包通过 Home manifest 接入并验收；未来发现的选中条目复用相同入口。
+- #192 已通过 #196 合入交付基线；复用统一 catalog，命令模块沿同一全局安装来源加载并复用安装身份校验。保留 Home manifest 接入，补充 npm/pnpm 实际全局安装命令验收。
 
 # 可执行性评估
 
-准备度 96/100（实现决策清晰度，不是成功概率）：范围/责任 20/20，现有配置/身份复用 20/20，解析/加载合同 19/20，并发/失败合同 19/20，验证路径 18/20。剩余边界为 #192 尚未落地主机全局发现，以及不涉及本次配置行为的真实渠道认证。没有阻断实施的产品决策。
+准备度 96/100（实现决策清晰度，不是成功概率）：范围/责任 20/20，现有配置/身份复用 20/20，解析/加载合同 19/20，并发/失败合同 19/20，验证路径 18/20。初始剩余边界为 #192 尚未落地主机全局发现，以及不涉及本次配置行为的真实渠道认证；交付同步 main 后，全局发现纳入集成验证。没有阻断实施的产品决策。
 
 # 验收
 

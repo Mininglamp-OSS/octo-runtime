@@ -11,4 +11,8 @@ timestamp: 2026-10-27T00:00:00Z
 
 最终 Node 1898 通过/54 跳过，UI35 通过；typecheck、lint/names、双语文档、格式、实际 tgz npm 离线安装和严格公开类型通过。外部包通过 Home manifest 提供 login，验证未触发服务入口；该 fixture 不证明真实认证。verified-review 的两个边界复现已修复，无待修 medium+。
 
-详见 [方案](../../tasks/194-extra-commands/brief.md)、[验证](../../tasks/194-extra-commands/validation.md)、[审查](../../tasks/194-extra-commands/review.md)。保留本地未提交改动；未 push、创建 PR、运行真实渠道认证或进行 Windows/Linux 原生验收。
+详见 [方案](../../tasks/194-extra-commands/brief.md)、[验证](../../tasks/194-extra-commands/validation.md)、[审查](../../tasks/194-extra-commands/review.md)。初次交付保留未提交改动；后续用户授权同步远程 main 并提交 Draft PR。未运行真实渠道认证或进行 Windows/Linux 原生验收。
+
+交付同步至 `origin/main@f0bacb01590084523c21dc9996d05738c9a06a44`，复用 #196 全局发现及安装身份检查，新增命令加载来源回归和实际 npm/pnpm 命令验收；保留 #195 生命周期文档修正。最新验证见 validation.md。
+
+同步后 Node1906通过/54跳过、UI35通过；typecheck、lint/names、文档、格式、实际 tgz、隔离 npm/pnpm 全局命令和包外公开类型均通过，增量审查无待修 medium+。按授权提交英文 commit 和 Draft PR，保留 Codex attribution，不自动合并。

@@ -1,4 +1,5 @@
-baseline: a7c33b64064b8a54f59f70178873983ba143c1b3
+baseline: f0bacb01590084523c21dc9996d05738c9a06a44
+initial_baseline: a7c33b64064b8a54f59f70178873983ba143c1b3
 rules:
   - architecture
   - protocol-design
@@ -17,3 +18,5 @@ rules:
 sources:
   - https://github.com/Mininglamp-OSS/octo-runtime/issues/194
   - https://github.com/Mininglamp-OSS/octo-runtime/issues/185
+  - https://github.com/Mininglamp-OSS/octo-runtime/pull/196
+  - .octospec/tasks/192-global-extra-discovery/brief.md
