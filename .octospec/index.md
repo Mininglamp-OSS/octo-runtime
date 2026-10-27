@@ -52,6 +52,8 @@
 
 ## 当前任务
 
+- [CLI 与 Extra 命令统一展示](tasks/cli-extra-display/brief.md)：以 Commander 统一有效命令目录、分层帮助与 Extra 自有命令；完整声明读写收进 Extra，顶层旧入口隐藏兼容，删除内置 config set/get；[验证记录](journal/shared/2026-10-27-cli-extra-display.md)。
+
 - [Issue 60：Windows fixture 路径兼容](tasks/60-windows-fixture-paths/brief.md)：三个测试启动边界使用 fileURLToPath，SDK 与生产代码不变。普通/特殊字符路径复测均为 41 通过、1 失败、2 超时取消；独立实验确认剩余项来自 Core 清理确认和 fixture 断流模拟，未扩入路径修复。完整构建受原生可选依赖阻塞。用户已授权提交与 PR，见[验证记录](journal/shared/2026-10-27-60-windows-fixture-paths.md)。
 
 - [Issue 198：断网后 Gateway 重连](tasks/198-gateway-reconnect/brief.md)：独立 worktree 基于 main@f0bacb0。按用户明确的单实例断网与滚动更新需求，合法 DISCONNECT 默认重试，握手暂态与 HTTP 408 补齐分类；实现与验证见[记录](journal/shared/2026-10-27-198-gateway-reconnect.md)。
