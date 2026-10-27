@@ -1,6 +1,11 @@
 {
   "date": "2026-10-28",
-  "basis": "User feedback after reviewing the recorded replies; this revision was not frozen before evaluation.",
+  "analysisType": "post-hoc-user-feedback-sensitivity",
+  "participatesInAcceptanceGate": false,
+  "acceptanceCriteriaSource": "assessment.md",
+  "acceptanceMetricsSource": "metrics.json",
+  "scope": "All overrides and revisedMetrics below are non-gating sensitivity analysis only; they do not replace original judgments or the frozen acceptance verdict.",
+  "basis": "User feedback after reviewing the recorded replies; this analysis was not frozen before evaluation and is not used to establish acceptance.",
   "criterion": "A setup reply that retains the destination, day and trip duration and asks a relevant follow-up about departure or preferences is acceptable without immediately producing an itinerary.",
   "originalRecords": "evaluation.jsonl",
   "originalMetrics": "metrics.json",
