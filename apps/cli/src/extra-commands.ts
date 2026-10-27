@@ -118,11 +118,24 @@ export async function routeExtraCommand(
   )
     actionIndex = parseOption(tail, actionIndex, hostOptions, flags);
   if (lifecycle.has(tail[actionIndex])) return undefined;
-  const selectedHome = resolve(typeof flags.home === "string" ? flags.home : home);
-  // 自定义命令后的宿主选项在命令元数据已知后再解析；--manifest 选择必须在命令前完成。
+  // 先选择来源，再加载命令声明：宿主选项可位于子命令后，但 -- 后不再扫描。
+  // 业务字符串中以 - 开头的值要求使用 =，因此不会把合法业务值误当成宿主选项。
+  // 保留原 argv 给完整解析器，避免移除宿主选项后把业务缺值错误拼成有效输入。
+  const selectionFlags = { ...flags };
+  for (let cursor = actionIndex; cursor < tail.length;) {
+    if (tail[cursor] === "--") break;
+    const option = optionName(tail[cursor]);
+    cursor =
+      option === "home" || option === "manifest"
+        ? parseOption(tail, cursor, hostOptions, selectionFlags)
+        : cursor + 1;
+  }
+  const selectedHome = resolve(
+    typeof selectionFlags.home === "string" ? selectionFlags.home : home
+  );
   const manifest = await loadCliManifest(
     selectedHome,
-    typeof flags.manifest === "string" ? flags.manifest : manifestPath,
+    typeof selectionFlags.manifest === "string" ? selectionFlags.manifest : manifestPath,
     report
   );
   const entry = manifest.extras.find((item) => item.name === name);
@@ -399,8 +412,6 @@ function parseCommand(
     }
     if (!literal && token.startsWith("-")) {
       const host = hostOptions.find((option) => option.name === optionName(token));
-      // manifest 在命令前选择；命令之后不能切换到另一来源。
-      if (host?.name === "manifest" || host?.name === "home") throw new Error("INVALID_ARGUMENTS");
       index = parseOption(
         args,
         index,
@@ -440,7 +451,7 @@ function commandHelp(
   commands: readonly ExtraCommand[]
 ): string {
   const children = command?.commands ?? (!command ? commands : []);
-  return `${path.length ? `Octo Runtime: ${name} ${path.join(" ")}\n\n${command?.description}` : helpText(name)}\n\nUsage: octo-runtime [--home <path>] [--manifest <path>] ${name}${path.length ? ` ${path.join(" ")}` : ""}${children.length ? " <command>" : ""}${(command?.arguments ?? []).map((arg) => ` ${arg.required ? `<${arg.name}>` : `[${arg.name}]`}`).join("")} [options]\n${children.length ? `\nExtra commands:\n${children.map((child) => `  ${child.name.padEnd(16)}${child.description}`).join("\n")}` : ""}\n${(command?.options ?? []).map((option) => `  --${option.name}${option.type === "string" ? " <value>" : ""}  ${option.description}${option.required ? " (required)" : ""}`).join("\n")}\nHost options: --home <path> --json -h/--help. Select --home/--manifest before the command.\nConfiguration is Home-scoped; --profile is not supported.\n${command?.examples?.length ? `\nExamples:\n${command.examples.join("\n")}` : ""}`;
+  return `${path.length ? `Octo Runtime: ${name} ${path.join(" ")}\n\n${command?.description}` : helpText(name)}\n\nUsage: octo-runtime [--home <path>] [--manifest <path>] ${name}${path.length ? ` ${path.join(" ")}` : ""}${children.length ? " <command>" : ""}${(command?.arguments ?? []).map((arg) => ` ${arg.required ? `<${arg.name}>` : `[${arg.name}]`}`).join("")} [options]\n${children.length ? `\nExtra commands:\n${children.map((child) => `  ${child.name.padEnd(16)}${child.description}`).join("\n")}` : ""}\n${(command?.options ?? []).map((option) => `  --${option.name}${option.type === "string" ? " <value>" : ""}  ${option.description}${option.required ? " (required)" : ""}`).join("\n")}\nGlobal options (before or after the command): --home <path> --manifest <path> --json -h/--help.\nConfiguration is Home-scoped; --profile is not supported.\n${command?.examples?.length ? `\nExamples:\n${command.examples.join("\n")}` : ""}`;
 }
 
 /** 有界 stdin 读取；取消解除监听且不等待对端 EOF，不接管调用方 stream 的生命周期。 */

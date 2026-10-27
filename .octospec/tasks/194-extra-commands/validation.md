@@ -10,7 +10,7 @@ timestamp: 2026-10-27T00:00:00Z
 分支 `codex/194-extra-commands`，基线 `a7c33b64064b8a54f59f70178873983ba143c1b3`；交付前按用户授权 rebase 到 main@f0bacb01590084523c21dc9996d05738c9a06a44，提交并创建 Draft PR。平台 macOS / arm64，Node.js v24.19.0，pnpm 11.19.0。
 
 - 独立 `/commands`，apiVersion=1，命令树、选项、位置参数、输出、退出码与取消合同从主包 `/extra` 导出。根帮助只读 manifest，详细帮助只加载选中命令模块。
-- CLI 分阶段路由；自有命令要求 --home/--manifest 位于命令前，--json/-h/--help 可以位于命令后，-- 后是位置参数。生命周期命令保留旧参数语法且不导入 commands。
+- CLI 分阶段路由；--home/--manifest/--json/-h/--help 均为全局参数，现支持位于自有命令前后（原版位置限制已按用户要求取消）。-- 后是位置参数。生命周期命令保留旧参数语法且不导入 commands。
 - 三个业务接入是 channel-gateway、channel-wecom、webui；configure 只暴露核心配置。Gateway/WeCom 使用各自现有 imBotIdentity，WebUI 为 Home 内单例。configure 更新同 ID、追加不同 ID，config set 完整替换并拒绝重复身份。
 - 同一个 config.json、权限与写锁；CAS 比较整份声明，保留 module/enabled。交互不占写锁；取消前不写，开始原子写入后以实际结果为准。保存提示明确需要整个 Extra 重启，不自动启动或启用。
 - 旧 extraset/extraget 外壳接口继续保留；config get 明确返回可能含凭据的业务 JSON。普通保存和错误不输出凭据，未知第三方 handler 错误折叠。
@@ -90,3 +90,11 @@ timestamp: 2026-10-27T00:00:00Z
 | `node /tmp/octo-194-verify-release.mjs "$PWD"` | `/tmp/octo-197-review-release.log` | PASS，实际 tgz 包外命令/去重/权限/strict 公共类型 |
 
 平台与未做真实渠道联调的边界不变。硬链接在同一目录内发布锁，测试验证进程退出后的恢复；不将其表述为断电或文件系统损坏后的恢复保证。当前基线旧 CI 全绿不能作为修复后 CI 结果，推送后重新运行远端检查。
+
+# 全局参数位置扩展
+
+用户明确要求 `webui configure --home ... --session-store-path ...`，并要求 --home 保持全局归属。以 `193f830` 为基线，只调整 CLI 全局解析：预扫描 --home/--manifest 确定命令来源，再对原始 argv 完整解析；三个 Extra 的命令声明和业务逻辑均未改动。全局参数不进入业务 options，Extra 仍禁止声明宿主保留参数。
+
+新增三个回归覆盖命令前/中/后与嵌套命令、重复宿主参数、业务缺值、Home/显式 manifest 选择先于导入、等号中的字面 --home 和 -- 后的位置参数。专项50项通过；全量 Node1968项：1914通过/54跳过/0失败，UI35通过。typecheck、lint/names、docs:check、改动代码格式、git diff --check、发行包构建和原包外验收通过。包外脚本另将调用改为所有 --home 均置于命令参数后，实际 tgz 三 Extra 配置/去重/权限、外部命令与 strict 类型均通过。
+
+证据前缀 `/tmp/octo-197-global-position-`：`typecheck.log`、`focused.log`、`tests.log`、`lint.log`、`names.log`、`docs.log`、`format.log`、`pack.log`、`release.log`、`trailing-release.log`。旧版本新增用例失败记录为 `before.log`。本次未重跑全局安装矩阵，其既有证据见前节；无业务联调或用户 Home 修改。

@@ -103,7 +103,7 @@ Flags: --home <path> --profile <name> --manifest <path> --json
 --manifest selects Provider/Extra modules; invocation state stays in --home/run.
 Install: --autostart=true|false (defaults to true)
 Extras: channel-gateway, channel-wecom, webui, or a selected manifest entry.
-Extra-owned commands: put --home/--manifest before the command; --json and -h/--help also work after it.
+Extra-owned commands: global --home/--manifest/--json and -h/--help work before or after the command.
 Saving configuration requires an Extra restart to apply; config get/extraget include credentials.
 Components:
   executor-kernel  Local Agent execution and worker supervision

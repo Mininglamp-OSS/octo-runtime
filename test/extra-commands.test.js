@@ -20,9 +20,12 @@ async function fixture(t) {
   return home;
 }
 async function cli(home, args, input = "", dependencies = {}) {
+  return rawCli(["--home", home, ...args], input, dependencies);
+}
+async function rawCli(args, input = "", dependencies = {}) {
   const output = [],
     errors = [];
-  const code = await runCli(["--home", home, ...args], {
+  const code = await runCli(args, {
     input: Readable.from([input]),
     output: (line) => output.push(line),
     errorOutput: (line) => errors.push(line),
@@ -32,6 +35,46 @@ async function cli(home, args, input = "", dependencies = {}) {
 }
 const configPath = (home, name) => join(home, "extras", name, "config.json");
 const stored = async (home, name) => JSON.parse(await readFile(configPath(home, name), "utf8"));
+
+test("Home options work before, between and after custom command arguments", async (t) => {
+  const home = await fixture(t),
+    sessions = join(home, "sessions.json");
+  for (const args of [
+    ["--home", home, "webui", "configure", "--session-store-path", sessions],
+    ["webui", "--home", home, "configure", "--session-store-path", sessions],
+    ["webui", "configure", "--home", home, "--session-store-path", sessions],
+    ["webui", "configure", "--port", "13889", "--session-store-path", sessions, `--home=${home}`]
+  ]) {
+    const result = await rawCli(args);
+    assert.equal(result.code, 0, result.errors);
+    assert.equal((await stored(home, "webui")).config.sessionStorePath, sessions);
+  }
+  for (const args of [
+    ["webui", "config", "--home", home, "get"],
+    ["webui", "config", "get", "--home", home]
+  ]) {
+    const result = await rawCli(args);
+    assert.equal(result.code, 0, result.errors);
+    assert.equal(JSON.parse(result.output).port, 13889);
+  }
+});
+
+test("Trailing selection flags preserve duplicate and missing business value errors", async (t) => {
+  const home = await fixture(t),
+    other = join(home, "other");
+  for (const args of [
+    ["--home", home, "webui", "configure", "--home", other],
+    ["webui", "configure", "--home", home, "--home", other],
+    ["webui", "configure", "--home"],
+    ["webui", "configure", "--port", "--home", home, "13888"],
+    ["--manifest", "unused", "webui", "configure", "--manifest", "also-unused"]
+  ]) {
+    const result = await rawCli(args);
+    assert.equal(result.code, 2, result.errors);
+  }
+  await assert.rejects(access(join(home, "extras")));
+  await assert.rejects(access(other));
+});
 
 test("Legacy host boolean equals syntax works before and after lifecycle commands", async (t) => {
   const home = await fixture(t);
@@ -429,6 +472,37 @@ async function external(
 }
 const externalSource = `export default { apiVersion: 1, commands: [{ name: "login", description: "Offline test login", options: [{name:"endpoint",type:"string",description:"Endpoint",required:true}], arguments:[{name:"literal"}], async run(ctx, input) { const old = await ctx.readConfig(); return {value:{...await ctx.saveConfig({...old.config,endpoint:input.options.endpoint,literal:input.arguments[0]??null},old.revision)}} } } ] };`;
 
+test("Trailing Home and manifest select the command source before loading; literal values stay intact", async (t) => {
+  const home = await external(t, externalSource),
+    fallback = await fixture(t);
+  await writeFile(join(fallback, "manifest.json"), "broken fallback must not be read");
+  const result = await rawCli(
+    ["loop-daemon", "login", "--home", home, "--endpoint=--home=literal", "--", "--manifest"],
+    "",
+    { env: { OCTO_RUNTIME_HOME: fallback } }
+  );
+  assert.equal(result.code, 0, result.errors);
+  assert.deepEqual((await stored(home, "loop-daemon")).config, {
+    endpoint: "--home=literal",
+    literal: "--manifest"
+  });
+  const explicit = join(home, "selected.json");
+  await writeFile(explicit, await readFile(join(home, "manifest.json")));
+  await writeFile(join(home, "manifest.json"), "broken Home manifest must not be read");
+  const selected = await rawCli([
+    "loop-daemon",
+    "login",
+    "--endpoint",
+    "selected",
+    "--home",
+    home,
+    `--manifest=${explicit}`
+  ]);
+  assert.equal(selected.code, 0, selected.errors);
+  assert.equal((await stored(home, "loop-daemon")).config.endpoint, "selected");
+  await assert.rejects(access(join(fallback, "extras")));
+});
+
 test("External package adds direct command, lazy root/help and literal -- values", async (t) => {
   const home = await external(t, externalSource);
   const root = await cli(home, ["-h"]);
@@ -446,7 +520,7 @@ test("External package adds direct command, lazy root/help and literal -- values
     ["login"],
     ["login", "--endpoint", "a", "--endpoint", "b"],
     ["login", "--endpoint", "a", "extra", "extra"],
-    ["login", "--endpoint", "a", "--manifest", "unused"]
+    ["login", "--endpoint", "a", "--manifest"]
   ])
     assert.equal((await cli(home, ["loop-daemon", ...args])).code, 2);
 });

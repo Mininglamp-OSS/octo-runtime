@@ -15,7 +15,7 @@ timestamp: 2026-10-27T00:00:00Z
 
 - 可选 `./commands` 模块导出 apiVersion:1 和声明式命令树；同一选中清单来源解析服务和命令。文件模块可通过清单 commands 字段显式声明。未声明可选导出与损坏模块分别处理。
 - 根帮助只列清单名称；选中 Extra 才加载 commands。import 必须无业务副作用。生命周期优先，损坏 commands 不影响 stop/status/logs。
-- 主入口分阶段解析。宿主 --home/--manifest/--json/--help 保留；自定义命令拒绝 --profile。参数值按声明消费，`--` 后仅为位置参数，-h/--help 等效。不允许覆盖宿主或生命周期名称。
+- 主入口分阶段解析。宿主 --home/--manifest/--json/--help 保留，命令前后均由全局解析器消费；CLI 预扫描选定 Home/manifest 后加载命令，完整解析保留原 argv 检查业务参数缺值。自定义命令拒绝 --profile。参数值按声明消费，`--` 后仅为位置参数，-h/--help 等效。不允许覆盖宿主或生命周期名称。
 - `configure` 暴露 Bot ID、地址、执行 adapter/workdir/model/effort/provider-agent-id；凭据仅 --credential-stdin。WebUI 仅 port/session-store-path/project-path。省略项保留原值，创建时使用现行业务默认，不新增业务默认。
 - Gateway 按 imBotIdentity（规范化 api_url + bot_id）upsert，WeCom 按自身 imBotIdentity（规范化 ws_url + bot_id）upsert。WebUI 按 Home 内 webui 单例合并。重复请求不追加重复 Bot；完整 config set 中重复身份拒绝，避免静默丢弃不同凭据或配置。
 - `config set` 从 stdin 读取完整业务对象，经 Extra 校验替换 config；`config get` 显式返回可能含凭据的业务配置，帮助注明。旧 extraset/extraget 外壳及完整替换语义保持。

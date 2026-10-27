@@ -51,3 +51,7 @@ timestamp: 2026-10-27T00:00:00Z
 修复前复现：`/tmp/octo-197-review-before.log`，两项测试均失败，分别为 INVALID_ARGUMENTS 和 SETUP_IN_PROGRESS。修复后命令/global/lifecycle 专项 47 项通过，全量 Node1911通过/54跳过、UI35通过。其余检查见 validation.md。
 
 本次增量 12 个文件逐项复核：state、extra-commands、专项测试、安装脚本、双语指南、Extra 规则、brief/context/review/validation/journal。审查主线为 owner 发布/回收/释放的竞态、完整记录比较、活跃 owner 拒绝、历史参数语义和业务 boolean 隔离；无跳过文件，无待修 medium+。本地复核不等于远端评审已批准。
+
+# 全局参数位置扩展复核
+
+基线 `193f83085d9e0581bec44ac0c7634fb98a8235bb`。核对新增预扫描仅选择全局 Home/manifest，`--` 截断扫描，等号形式的业务字符串不作为宿主参数，完整解析保留原 argv，避免先删除宿主选项再误补业务缺值。hostOptions 保留名和业务 input.options 分流未改变；三个 Extra 没有增加 --home 定义。逐项复核 CLI 路由/帮助、专项测试、双语文档、规则和任务记录；无待修 medium+。新回归在旧版本失败，在新版本专项50项、全量1914通过/54跳过、UI35以及实际发行包后置全局参数验收通过。

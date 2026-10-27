@@ -6,7 +6,7 @@ Use `octo-runtime <extra> --help` to discover setup commands. Root help reads th
 
 ## Configure the built-in Extras
 
-Place `--home` and `--manifest` **before the custom command**, either before the Extra name or between the name and command. `--json`, `-h` and `--help` also work after the command. Configuration is Home-scoped; `--profile` is rejected. Host boolean flags retain the legacy presence semantics, including `--json=true` and `--help=true`; the equals value does not disable the flag. Extra-owned boolean options accept only the bare flag. Existing lifecycle syntax remains supported. The WeCom namespace is `channel-wecom`.
+`--home` and `--manifest` remain global Runtime options and work before or after the custom command, including alongside business options. The CLI selects the Home and module source before loading the command. `--json`, `-h` and `--help` also work in either position. Repeating an option is an error. After `--`, tokens are literal positional arguments, not global options. Configuration is Home-scoped; `--profile` is rejected. Host boolean flags retain the legacy presence semantics, including `--json=true` and `--help=true`; the equals value does not disable the flag. Extra-owned boolean options accept only the bare flag. Existing lifecycle syntax remains supported. The WeCom namespace is `channel-wecom`.
 
 ```sh
 # 凭据文件由使用者在仓库外准备；stdin 传入凭据原文，不是 JSON。
@@ -19,7 +19,7 @@ octo-runtime --home /absolute/runtime channel-wecom configure \
   --bot-id assistant --adapter codex --workdir /absolute/workspace \
   --credential-stdin < /secure/wecom-credential
 
-octo-runtime --home /absolute/runtime webui configure \
+octo-runtime webui configure --home /absolute/runtime \
   --session-store-path /absolute/runtime/extras/webui/sessions.json \
   --port 13888 --project-path /absolute/workspace
 ```

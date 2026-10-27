@@ -6,7 +6,7 @@ CLI 从选中的模块清单发现 Extra 名称。根帮助不导入 Extra；`<e
 
 ## 配置三个内置 Extra
 
-`--home` 和 `--manifest` 放在自有命令前，可放在 Extra 名称前或名称与命令之间。`--json`、`-h`、`--help` 可放在命令后。配置属于 Home，自有命令拒绝 `--profile`。宿主布尔参数沿用旧的“出现即启用”语义，接受 `--json=true`、`--help=true`，等号后的值不会禁用开关；Extra 自有布尔参数只接受裸开关。既有生命周期命令的参数位置保持兼容。企业微信的正式名称是 `channel-wecom`，不新增 `wecom` 别名。
+`--home` 和 `--manifest` 始终是 Runtime 全局参数，可放在自有命令前后，也可与业务参数一起排列。CLI 先确定 Home 和模块来源，再加载命令；Extra 不定义或解析这些参数。`--json`、`-h`、`--help` 也支持前后位置。同一参数重复传入会报错；`--` 后的内容仅为字面位置参数。配置属于 Home，自有命令拒绝 `--profile`。宿主布尔参数沿用旧的“出现即启用”语义，接受 `--json=true`、`--help=true`，等号后的值不会禁用开关；Extra 自有布尔参数只接受裸开关。既有生命周期命令的参数位置保持兼容。企业微信的正式名称是 `channel-wecom`，不新增 `wecom` 别名。
 
 ```sh
 # 凭据文件由使用者在仓库外准备；stdin 传入凭据原文，不是 JSON。
@@ -19,7 +19,7 @@ octo-runtime --home /absolute/runtime channel-wecom configure \
   --bot-id assistant --adapter codex --workdir /absolute/workspace \
   --credential-stdin < /secure/wecom-credential
 
-octo-runtime --home /absolute/runtime webui configure \
+octo-runtime webui configure --home /absolute/runtime \
   --session-store-path /absolute/runtime/extras/webui/sessions.json \
   --port 13888 --project-path /absolute/workspace
 ```
