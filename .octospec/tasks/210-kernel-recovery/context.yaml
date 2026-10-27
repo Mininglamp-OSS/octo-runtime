@@ -2,7 +2,7 @@ task: 210-kernel-recovery
 baseline: 005116ec7a28e27ccaddde75057e6289cfb549a5
 branch: codex/issue-210-kernel-recovery
 issue: https://github.com/Mininglamp-OSS/octo-runtime/issues/210
-phase: verified-review-and-pr-delivery
+phase: pr-212-windows-p1-followup
 loaded_rules:
   - .octospec/rules/architecture.md
   - .octospec/rules/protocol-design.md
@@ -24,7 +24,7 @@ validation:
   build_and_typecheck: passed
   lint: passed
   names: passed
-  node_full_suite: 2022 passed, 56 skipped, zero failures
+  node_full_suite: initial e8feadb passed 2022 with 56 skipped; P1 followup full runs did not pass
   webui: 35 passed
   reproduction: 5 passed, zero failures or skips
   recovery: 7 passed in the final full suite, zero failures or skips
@@ -35,7 +35,9 @@ validation:
   environment: macOS, Node.js 24.19.0
   formatting: passed for changed source and test scripts
   okf: passed
-  verified_review: two reproduced medium findings fixed, no remaining medium or higher findings
+  verified_review: two medium findings and one external P1 reproduced and fixed; followup full runs not passing
+  external_p1: Windows already-exited recovery regression reproduced and fixed
+  windows_branch_regressions: passed, native Windows validation pending CI
 limitations:
   - Real Codex adapter and worker; local app-server protocol fixture, no real model.
   - No live IM connection or production Home was used.

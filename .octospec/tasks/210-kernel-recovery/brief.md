@@ -57,3 +57,9 @@ manifest 失败造成的 `generation=1 / exhausted / restart_attempt=0`。修复
 另外运行 `test/kernel-recovery.test.js` 和 `test/im-pre-execution-failure.test.js`，覆盖真实
 文件系统故障、独立日志读取、白名单、Gateway 准确反馈。完整构建、类型、lint、协议生成
 检查与全量回归结果写入验证记录。本地模拟不证明原事故退出原因，不替代真实模型和 IM 验收。
+
+## PR P1 跟进
+
+外部审查发现 Windows 普通 worker 退出进入 immediate 清理后永久阻塞，已本地复现。
+修复保留首次清理前已退出的基线分支，同时保留已观察到的树清理失败；新增相邻反例和
+Windows CI 覆盖。用户关注的 macOS 原始退出原因仍未知，不能将此 P1 认作原事故根因。

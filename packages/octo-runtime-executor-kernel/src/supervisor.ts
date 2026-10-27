@@ -203,7 +203,18 @@ export class WorkerSupervisor {
   }
   async #recover(worker: WorkerProcess): Promise<void> {
     // 只在真实回收和清单写入都成功后放行替代；任何旧 Run 都不会重新 invoke。
-    if (!(await this.#retry("cleanup", () => closeWorker(worker, Date.now() + 4800, true)))) return;
+    // Windows 在首次清理前已退出时沿用 skipped 路径；仍存活的故障 worker 不等待正常排空。
+    // 已发生的清理失败继续由原 close Promise 和重试入口保留，不能因稍后退出而放行。
+    if (
+      !(await this.#retry("cleanup", () =>
+        closeWorker(
+          worker,
+          Date.now() + 4800,
+          worker.child.exitCode === null && worker.child.signalCode === null
+        )
+      ))
+    )
+      return;
     if (!(await this.#retry("manifest", () => this.recordWorker?.(undefined) ?? Promise.resolve())))
       return;
     this.#worker = undefined;

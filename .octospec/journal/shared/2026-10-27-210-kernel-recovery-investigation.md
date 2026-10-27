@@ -42,3 +42,13 @@ verified-review 复现并修复两项 medium：父日志在 worker 后串行关�
 后通过，最终全量覆盖修复及其他调用方，无剩余 medium 及以上发现。覆盖与证据见
 [review](../../tasks/210-kernel-recovery/review.md)。最后一次 Codex 模拟故障解除至新请求
 完成分别为 1367 毫秒与 1364 毫秒，真实文件系统故障为 1315 毫秒，均低于本地 5 秒门槛。
+
+PR #212 的外部审查发现 Windows P1，原 head 为 `e8feadb`：普通退出的 worker 被
+无条件送入 immediate taskkill 分支，每次重试在 OS 操作前就拒绝，无法替换。此问题
+在前次 macOS 本地审查中漏检，不是原事故退出原因。新增真实 worker 的 Windows 分支
+模拟先复现失败，再修复 supervisor 的退出状态判断；已观察到清理失败后再退出仍保持
+阻塞。Windows CI 现明确包含新旧恢复测试；原生 Windows 结果仍待新提交 CI 验证。
+证据和本轮全量重试情况分别记录在 review 与 validation，历史 2022 项结果不覆盖该缺口。
+2026-10-28 收尾：本轮 build/typecheck、lint、格式、命名、知识检查与专项回归通过；
+全量尝试受睡眠/暂停和短期限超时影响，未取得通过结果，停止继续重复全量。
+不把环境相关失败直接定性成产品缺陷，也不宣称当前全量已通过；Windows 原生结果待 CI。

@@ -244,9 +244,10 @@ test(
     const closeWorker = WorkerSupervisor.prototype.close;
     const closeLogging = RuntimeLogging.prototype.close;
     t.mock.method(WorkerSupervisor.prototype, "close", async function (...args) {
+      const started = performance.now();
       await closeWorker.apply(this, args);
-      // 实际资源先退出；只延迟确认，模拟 worker 用掉大部分已有五秒期限。
-      await delay(4400);
+      // 包含真实平台清理耗时，总确认时间固定在原五秒期限内，不另加人工预算。
+      await delay(Math.max(0, 4400 - (performance.now() - started)));
     });
     t.mock.method(RuntimeLogging.prototype, "close", async function () {
       await delay(1000);

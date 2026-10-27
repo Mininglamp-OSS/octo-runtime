@@ -64,7 +64,7 @@ Playboard 直接构造临时 Kernel，只有真实 close 完成才删除所属�
 
 worker 加载 Adapter，并使用同一 AgentExecutor。独立 Node IPC 心跳由主循环响应，1 秒检查，单个带序号 probe 5 秒未响应判失联；不能用执行输出静默程度判断存活。检测到 wall/monotonic 长间隔或回拨时废弃旧 probe，发新 probe 并给予完整 5 秒，不因休眠直接丢失 Run；旧 pong 不能刷新新期限。就绪预算 15 秒。失败先回收本次进程，再按 250/1000/4000 ms 退避，60 秒活跃观测时间最多三次快速替换；快速额度耗尽后保持 recovering，每次等待 15 秒再单次尝试，普通启动失败回收完成后继续冷却，不永久停止。启动成功不立即退出低频模式；连续健康观测 60 秒才重置策略，休眠时间不洗掉预算。仅清理或所有权确认失败进入 exhausted，阻止冲突替换并保留 close 失败。冷却/启动串行，close 取消等待，status/invoke 不触发额外重试。整个恢复保留 Kernel instance、进程和监听端点；本地监听不依赖网络或 Provider 在线。
 
-Issue #210 补充恢复合同：上述 exhausted 表示当前清理或 manifest 写入阻塞，不能因一次失败永久停止监督。两阶段串行按 1/2/5 秒重试、之后间隔上限 5 秒；成功确认后继续原替换策略。失败缓存不得阻止重新观测实际资源，manifest 写队列不得被一次失败永久打断。成功清理后不再向历史 PGID 发信号；leader 已退出且同号 PID 重新出现时保留身份冲突，不回收无关应用。Windows 已观察到后代回收失败时不能由 leader 后续消失推定成功。
+Issue #210 补充恢复合同：上述 exhausted 表示当前清理或 manifest 写入阻塞，不能因一次失败永久停止监督。两阶段串行按 1/2/5 秒重试、之后间隔上限 5 秒；成功确认后继续原替换策略。失败缓存不得阻止重新观测实际资源，manifest 写队列不得被一次失败永久打断。成功清理后不再向历史 PGID 发信号；leader 已退出且同号 PID 重新出现时保留身份冲突，不回收无关应用。Windows 已观察到后代回收失败时不能由 leader 后续消失推定成功；首次清理前已经退出且没有既有失败的 worker 则沿用 skipped 基线，不能因无条件 immediate 清理人为制造永久阻塞。这不增加异常退出后完整后代回收的保证。
 
 worker.recovery 可选诊断区分 cleanup/manifest/starting/backoff，保留触发、稳定错误码、发生时间、下次重试和可用的 exit code/signal。Kernel 父进程沿独立状态日志记录丢失、阻塞、退避、启动失败和 ready；执行日志或 Gateway 在线状态不能代替这些事实。日志与本地模拟验收见 [Issue 210 方案](../tasks/210-kernel-recovery/design.md)。
 
