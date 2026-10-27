@@ -1,5 +1,5 @@
 baseline: aa16c894b2b2
-integration_baseline: 5c0d2c6
+integration_baseline: f421f0e
 rules:
   - architecture
   - protocol-design

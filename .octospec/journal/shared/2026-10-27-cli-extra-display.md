@@ -101,3 +101,9 @@ reviewer 在 `138a74c` 指出 P2：装配所选 Extra 的整个命令树时，�
 新增回归先在旧实现复现 `custom-service check --mode` 返回退出码 2。现将原始缺值边界检查移至选项的 argParser，仅在 Commander 实际消费本命令选项时触发；构建兄弟命令不再校验当前输入。仍保留原始 token 边界，以拒绝祖先参数被取走后将 `--port --home X 123` 拼成合法输入；重复参数、必填和显式等号值规则不变。
 
 回归覆盖同名布尔/字符串选项的两种声明顺序、直接和嵌套路径、普通与别名帮助、全局 JSON 参数穿插，以及兄弟专属选项不得出现在当前帮助或被接受。CLI 构建、TypeScript noEmit、ESLint、命名与改动文件格式检查通过。6 个相关测试文件共 90 项，86 通过、4 项平台条件跳过、0 失败；本轮不重复全量 suite，跨平台验证以新提交的 PR CI 为准。
+
+## 再次同步 main 并解决冲突
+
+按用户要求 fetch 最新 `origin/main@f421f0e`，以 merge 同步已推送的工作分支，保留原提交历史。上游新增 Issue 63 Unix 服务 fixture 隔离；唯一冲突为 `.octospec/index.md` 当前任务列表的同位置新增项，解决时同时保留 CLI 与 Issue 63 两个入口。生产源码无冲突，integration_baseline 更新为 f421f0e。
+
+合并后执行 CLI 帮助、Extra 命令、CLI 生命周期与 cross-service 四个测试文件，111 项全部通过；上游改动文件的 Prettier 检查、暂存差异空白检查和 OctoSpec lint 通过（423 个 OKF 单元、20 条规则、3078 个本地文件链接）。本轮仅合并上游测试及文档，无需重新构建；平台为 macOS / Node 24，跨平台结果以新 PR CI 为准。
