@@ -1,0 +1,36 @@
+---
+type: Task
+title: Issue 194 Extra 自有配置命令
+tags: [extra, cli, configuration]
+timestamp: 2026-10-27T00:00:00Z
+---
+
+# 目标与边界
+
+基于 main@a7c33b64064b8a54f59f70178873983ba143c1b3，在 codex/194-extra-commands 实现 #194；首批业务仅 channel-gateway、channel-wecom（用户所称 wecom）、webui。用户授权实施和 verified-review，未授权提交、推送或 PR。
+
+业务目标是无需编写 extraset 外壳即可配置 Extra。Extra 决定参数映射、校验、身份与去重；CLI 决定命令分派、Home 文件保护、并发保存与输出。显式参数只映射现有核心配置，不增加登录流程、Provider 安装、模型默认策略或服务热更。SDK 原生装配无需命令模块。
+
+# 实现合同
+
+- 可选 `./commands` 模块导出 apiVersion:1 和声明式命令树；同一选中清单来源解析服务和命令。文件模块可通过清单 commands 字段显式声明。未声明可选导出与损坏模块分别处理。
+- 根帮助只列清单名称；选中 Extra 才加载 commands。import 必须无业务副作用。生命周期优先，损坏 commands 不影响 stop/status/logs。
+- 主入口分阶段解析。宿主 --home/--manifest/--json/--help 保留；自定义命令拒绝 --profile。参数值按声明消费，`--` 后仅为位置参数，-h/--help 等效。不允许覆盖宿主或生命周期名称。
+- `configure` 暴露 Bot ID、地址、执行 adapter/workdir/model/effort/provider-agent-id；凭据仅 --credential-stdin。WebUI 仅 port/session-store-path/project-path。省略项保留原值，创建时使用现行业务默认，不新增业务默认。
+- Gateway 按 imBotIdentity（规范化 api_url + bot_id）upsert，WeCom 按自身 imBotIdentity（规范化 ws_url + bot_id）upsert。WebUI 按 Home 内 webui 单例合并。重复请求不追加重复 Bot；完整 config set 中重复身份拒绝，避免静默丢弃不同凭据或配置。
+- `config set` 从 stdin 读取完整业务对象，经 Extra 校验替换 config；`config get` 显式返回可能含凭据的业务配置，帮助注明。旧 extraset/extraget 外壳及完整替换语义保持。
+- 命令先读取配置快照，交互/校验在锁外完成，保存以相同 setup lock 做修订比对和原子替换。新写锁尚未写完时拒绝抢占；旧 PID 回收使用独占 reclaim 目录并再次读 owner，防止并发删除新锁。并发修改返回冲突，未配置与损坏配置不能混同；保留 enabled/module，不部分写入。保存只表示持久化，reload_required=true。
+- composition root 是当前 CLI 进程；不构造 Extra/Kernel 服务，不增加进程/socket。CLI 拥有 IO、signal 与写锁；Extra 拥有业务函数。删除映射：无服务 API 删除，旧 whole-argv 解析只用于既有命令。
+- #192 全局发现未在本基线落地；本轮复用选中 manifest catalog，不另做全局扫描。外部安装包通过 Home manifest 接入并验收；未来发现的选中条目复用相同入口。
+
+# 可执行性评估
+
+准备度 96/100（实现决策清晰度，不是成功概率）：范围/责任 20/20，现有配置/身份复用 20/20，解析/加载合同 19/20，并发/失败合同 19/20，验证路径 18/20。剩余边界为 #192 尚未落地主机全局发现，以及不涉及本次配置行为的真实渠道认证。没有阻断实施的产品决策。
+
+# 验收
+
+1. 三 Extra configure/config set/get、重复身份、保留旧字段、非法输入无写入。
+2. 独占 Home、无 Kernel、未配置、disabled、双层帮助、-- 边界、无凭据输出。
+3. 第三方包位于 workspace 外，选中来源一致，未选中及服务入口不执行；无导出/坏导出/API版本/冲突隔离。
+4. 并发冲突、取消、失败与权限；原 extraset 脚本继续工作。
+5. build/typecheck/lint/names、跨包全量测试、实际发行包检查；verified-review 逐文件阅读和执行验证。

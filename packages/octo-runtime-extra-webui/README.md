@@ -1,5 +1,7 @@
 # WebUI Extra
 
+Use `<extra> configure` for core CLI options or `<extra> config set` for business JSON. See [Extra-owned commands](../../docs/en/guides/extra-commands.md) for identity deduplication and restart behavior; existing extraset examples still accept the full envelope.
+
 [简体中文](README.zh.md) | [Packages](../README.md)
 
 A local browser workbench as the optional `webui` Extra. It serves the UI, calls an existing Kernel, and streams source events to the browser over SSE. It owns its HTTP listener, its bundled assets, and one explicitly configured session JSON file. It is a debugging surface, not a production application, and it never starts a second executor.

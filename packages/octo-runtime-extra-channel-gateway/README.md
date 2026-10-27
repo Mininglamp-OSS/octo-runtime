@@ -1,5 +1,7 @@
 # Octo Gateway Channel
 
+Use `<extra> configure` for core CLI options or `<extra> config set` for business JSON. See [Extra-owned commands](../../docs/en/guides/extra-commands.md) for identity deduplication and restart behavior; existing extraset examples still accept the full envelope.
+
 [简体中文](README.zh.md) | [Packages](../README.md)
 
 The Extra that puts an Octo IM bot in front of a running Kernel: bot credentials, the Wukong WebSocket, message admission, per-conversation sessions, `ctx.kernel.invoke`, and streaming replies back to the chat. It owns Octo IM only — WeCom is a separate Extra with its own lifecycle.

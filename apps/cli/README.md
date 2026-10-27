@@ -1,5 +1,7 @@
 # Octo Runtime CLI
 
+CLI setup: use `<extra> configure` for core options or `<extra> config set` for business JSON. See [Extra-owned commands](../../docs/en/guides/extra-commands.md). Legacy `extraset` examples below still accept the full envelope.
+
 CLI 是 Host SDK 的一个宿主，负责自己的 JSON 配置与原生用户服务。桌面或其他 HostApp 使用 SDK 接入。
 
 模块由 CLI 内置 `manifest.json` 与所选 Home 的 `manifest.json` 合并选择，均含 `adapters` 和 `extras`。默认发行全量；未启动 Extra 不导入，清单不保存业务凭据或启用设置。条目以原始清单文件为解析锚点，同名内置优先；Extra 还可从当前 CLI 同一 npm/pnpm 全局安装环境自动发现，优先级为内置 > Home > 全局；显式 `--manifest` 完整替换所有默认来源。SDK 原生 import，不读取这些文件。双语说明见 [English](../../docs/en/concepts/module-loading.md) / [简体中文](../../docs/zh-CN/concepts/module-loading.md)。

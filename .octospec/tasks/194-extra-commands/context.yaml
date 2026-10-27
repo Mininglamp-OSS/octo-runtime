@@ -1,0 +1,19 @@
+baseline: a7c33b64064b8a54f59f70178873983ba143c1b3
+rules:
+  - architecture
+  - protocol-design
+  - extras
+  - runtime-lifecycle
+  - engineering
+  - collaboration
+  - channel-integration
+  - context-input
+  - invoke-input
+  - local-execution
+  - openclaw
+  - output-protocol
+  - session-reset
+  - stateless-execution
+sources:
+  - https://github.com/Mininglamp-OSS/octo-runtime/issues/194
+  - https://github.com/Mininglamp-OSS/octo-runtime/issues/185

@@ -346,10 +346,27 @@ async function acquireProcessLock(path: string): Promise<() => Promise<void>> {
     } catch (error) {
       if (!isNodeError(error, "EEXIST")) throw error;
       const owner = await readLockOwner(path);
-      if (owner !== undefined && processAlive(owner)) {
+      // 刚创建但尚未写完的锁没有可解析 PID；不能删除另一进程正在初始化的锁。
+      if (owner === undefined || processAlive(owner)) {
         throw new Error("SETUP_IN_PROGRESS", { cause: error });
       }
-      await rm(path, { force: true });
+      // 多个竞争者可能同时读到同一个已退出 PID；回收锁并再次读取，
+      // 防止后到的 unlink 删除前一个竞争者刚创建的有效锁。
+      const reclaim = `${path}.reclaim`;
+      try {
+        await mkdir(reclaim, { mode: 0o700 });
+      } catch (error) {
+        if (isNodeError(error, "EEXIST")) throw new Error("SETUP_IN_PROGRESS", { cause: error });
+        throw error;
+      }
+      try {
+        const current = await readLockOwner(path);
+        if (current === undefined || processAlive(current))
+          throw new Error("SETUP_IN_PROGRESS", { cause: error });
+        await rm(path, { force: true });
+      } finally {
+        await rmdir(reclaim);
+      }
     }
   }
   throw new Error("could not acquire setup lock");

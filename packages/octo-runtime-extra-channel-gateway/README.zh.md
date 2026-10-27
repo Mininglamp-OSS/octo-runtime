@@ -1,5 +1,7 @@
 # Octo Gateway Channel
 
+CLI 首选 `<extra> configure` 配置核心参数，或 `<extra> config set` 导入业务 JSON；用法、去重与重启语义见 [Extra 自有命令](../../docs/zh-CN/guides/extra-commands.md)。既有 extraset 示例继续接受完整外壳。
+
 [English](README.md) | [包导航](../README.zh.md)
 
 把 Octo IM 机器人接到已有 Kernel 上的 Extra：Bot 凭据、悟空 WebSocket、消息准入、按会话维护的 session、`ctx.kernel.invoke`，以及把回复流式发回聊天。它只管 Octo IM——企业微信是另一个 Extra，生命周期也各管各的。

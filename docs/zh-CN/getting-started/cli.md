@@ -1,5 +1,7 @@
 # CLI 安装与运维
 
+CLI 首选 `<extra> configure` 配置核心参数，或 `<extra> config set` 导入业务 JSON；用法、去重与重启语义见 [Extra 自有命令](../guides/extra-commands.md)。下文 extraset 示例继续接受完整外壳。
+
 [English](../../en/getting-started/cli.md) | [文档目录](../README.md)
 
 通过 Runtime CLI 可以安装、启动和运维 Executor Kernel 与可选 Extra，检查 Adapter，并试运行一次 Agent 调用。运行环境使用 Node.js 24.x 或 26.x（LTS）。

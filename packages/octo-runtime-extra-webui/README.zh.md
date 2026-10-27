@@ -1,5 +1,7 @@
 # WebUI Extra
 
+CLI 首选 `<extra> configure` 配置核心参数，或 `<extra> config set` 导入业务 JSON；用法、去重与重启语义见 [Extra 自有命令](../../docs/zh-CN/guides/extra-commands.md)。既有 extraset 示例继续接受完整外壳。
+
 [English](README.md) | [包导航](../README.zh.md)
 
 可选的 `webui` Extra，提供一个本地浏览器工作台：托管界面、调用已有 Kernel、通过 SSE 把源事件推到浏览器。它拥有自己的 HTTP 监听、内置静态资源和一份显式配置的 session JSON 文件。它是调试面，不是生产应用，也从不启动第二个执行器。

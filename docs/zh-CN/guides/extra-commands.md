@@ -1,0 +1,81 @@
+# Extra 自有命令
+
+[English](../../en/guides/extra-commands.md) | [文档目录](../README.md)
+
+CLI 从选中的模块清单发现 Extra 名称。根帮助不导入 Extra；`<extra> --help` 只导入该 Extra 的独立命令模块，不初始化服务、不连接 Kernel、不认证。SDK 原生装配不需要加载命令模块。当前 catalog 来自内置清单与 Home manifest；全局 npm 自动发现由 #192 单独处理。
+
+## 配置三个内置 Extra
+
+`--home` 和 `--manifest` 放在自有命令前，可放在 Extra 名称前或名称与命令之间。`--json`、`-h`、`--help` 可放在命令后。配置属于 Home，自有命令拒绝 `--profile`。既有生命周期命令的参数位置保持兼容。企业微信的正式名称是 `channel-wecom`，不新增 `wecom` 别名。
+
+```sh
+# 凭据文件由使用者在仓库外准备；stdin 传入凭据原文，不是 JSON。
+octo-runtime --home /absolute/runtime channel-gateway configure \
+  --api-url https://im.example.com/api --bot-id assistant \
+  --adapter codex --workdir /absolute/workspace \
+  --credential-stdin < /secure/bot-credential
+
+octo-runtime --home /absolute/runtime channel-wecom configure \
+  --bot-id assistant --adapter codex --workdir /absolute/workspace \
+  --credential-stdin < /secure/wecom-credential
+
+octo-runtime --home /absolute/runtime webui configure \
+  --session-store-path /absolute/runtime/extras/webui/sessions.json \
+  --port 13888 --project-path /absolute/workspace
+```
+
+Bot 命令另支持 `--model`、`--effort`、`--provider-agent-id`。OpenClaw 不接受 `--workdir`；普通 Adapter 不接受 `--provider-agent-id`。切换 Adapter 时若旧字段与新 Adapter 不兼容，使用 `config set` 明确替换业务配置。Gateway 的 API 地址必填；WeCom 可用 `--ws-url` 指定地址，省略使用官方地址。Gateway 省略工作目录时沿原有业务默认；WeCom 本地 Adapter 仍需要绝对工作目录。不探测或安装 Provider，不新增模型、思考强度或审批默认。
+
+去重使用现有业务 ID：Gateway 的规范化 API 地址＋bot_id，WeCom 的规范化 WS 地址＋bot_id。`configure` 同 ID 更新、不同 ID 追加；省略字段保留原值，Bot 其余配置及其他 Bot 保留。修改地址表示不同身份，会新增 Bot；删除旧身份使用完整 `config set`。WebUI 是 Home 内 `webui` 单例，改端口仅更新这一份配置，不按端口生成实例。
+
+保存写入 `<home>/extras/<extra>/config.json`，自动构造 extraset 外壳，保留已有 `enabled` 和 `module`。未配置时可创建，disabled 时可编辑；命令不自动启用或启动服务。输出 `saved: true`、`reload_required: true` 表示写盘成功，需要整 Extra 重启生效，不表示运行中服务已经应用。首次使用按需执行 `<extra> start`；执行 Agent 任务另需启动 executor-kernel。
+
+```sh
+octo-runtime --home /absolute/runtime channel-gateway config set < gateway-business.json
+octo-runtime --home /absolute/runtime channel-gateway config get
+octo-runtime channel-gateway restart --home /absolute/runtime
+```
+
+`config set` 输入是业务对象，例如 `{"bots":[]}`，不包含 `config`/`module`/`enabled` 外壳。它替换全部业务配置；完整列表出现重复身份会拒绝，而不是丢弃其中一项。`config get` **返回完整业务配置，包含凭据**；未配置返回 `{}`。正常保存结果、帮助及业务校验错误不返回凭据。旧 `extraset`/`extraget` 继续接受／返回完整外壳，extraset 仍是整份声明替换，不进行 Extra 业务校验。
+
+交互/读取 stdin 不持有写锁。保存时在与 extraset 相同的 Home 写锁内比较整份声明修订；冲突返回 `EXTRA_CONFIG_CONFLICT`，需重新读取并决定重试。取消发生在原子写入开始前不保存；原子写入开始后以实际结果为准。Ctrl+C/外部 signal 取消命令，已完成的保存不回滚。POSIX 文件保持 0600，损坏、链接、权限不符不会当作首次配置覆盖。
+
+## 为第三方 Extra 提供命令
+
+包的服务入口与命令入口分开。包通过 exports 暴露 `./commands`；主 Runtime 包公开合同位于 `@mininglamp-oss/octo-runtime/extra`。命令模块只声明元数据与函数，不在 import 时访问网络、读取凭据或初始化服务。
+
+```ts
+import type { ExtraCommandExtension } from "@mininglamp-oss/octo-runtime/extra";
+
+// CLI 拥有 signal 和持久化；Extra 负责业务校验，交互必须配合取消。
+const extension: ExtraCommandExtension = {
+  apiVersion: 1,
+  commands: [{
+    name: "configure",
+    description: "Save the business endpoint",
+    options: [{ name: "endpoint", type: "string", required: true, description: "Service URL" }],
+    async run(ctx, input) {
+      const snapshot = await ctx.readConfig();
+      const endpoint = String(input.options.endpoint);
+      // 这里按业务合同校验 endpoint；若需认证，在写锁外完成并传 ctx.signal。
+      const saved = await ctx.saveConfig({ ...snapshot.config, endpoint }, snapshot.revision);
+      return { value: { ...saved } };
+    }
+  }]
+};
+export default extension;
+```
+
+Home manifest 示例：
+
+```json
+{"version":1,"adapters":[],"extras":[{"name":"loop-daemon","module":"your-extra-package"}]}
+```
+
+包需以该 manifest 为来源可解析，例如安装到 Home 的 `node_modules`。服务使用所选 `module`，命令使用该 module 的 `/commands` 子路径；不扫描全局同名包。文件模块可显式声明 `"commands":"./commands.mjs"`，同样相对原始 manifest 解析。commands 字段属于该选中条目，重复被忽略的清单条目不会被导入。导出不存在时保留生命周期；声明的扩展损坏或 API 不兼容时仅该扩展失败，根帮助、其他 Extra 和普通离线生命周期继续可用。
+
+命令可嵌套 `commands`，叶子提供异步 `run`，两者二选一；嵌套最多 8 层（顶层深度为 0），总命令最多 128。选项类型为 string/boolean，string 支持 `--name value` 或 `--name=value`；以 `-` 开头的值用等号形式。`arguments` 按声明顺序消费位置参数，`--` 后只解释为位置参数，不识别宿主选项或帮助。重复选项、未知选项、超量位置参数拒绝。组节点不声明选项或位置参数。
+
+宿主选项名与 install/uninstall/start/stop/restart/status/run/logs 保留；顶层 Runtime 名称不可作为 Extra namespace。参数必填检查在帮助时跳过，帮助不调用 handler。返回 `value` 为可输出 JSON，可选 `message` 为普通终端的安全文本（`--json` 时只输出 value），`exitCode` 为 0..255（默认 0），没有返回值时不额外输出。`ctx.output` 可输出进度，JSON 模式下应避免污染结果；`ctx.prompt` 仅用于交互终端的非秘密输入，秘密通过有界 1 MiB 的 `ctx.readStdin` 取得。插件负责所有主动输出的脱敏，通用宿主不能判断业务对象哪些字段是秘密。
+
+`ExtraCommandError` 只用于固定安全错误码与提示，禁止拼入用户输入、凭据或后端错误；其他 handler 异常被折叠为 `EXTRA_COMMAND_FAILED`。命令与 CLI 同进程运行，不是 JS 沙箱；handler 必须观察 signal、等待自己发起的操作并关闭自己创建的资源。通用框架不强杀或回滚第三方已完成的远端副作用。

@@ -1,5 +1,7 @@
 # WeCom Channel
 
+Use `<extra> configure` for core CLI options or `<extra> config set` for business JSON. See [Extra-owned commands](../../docs/en/guides/extra-commands.md) for identity deduplication and restart behavior; existing extraset examples still accept the full envelope.
+
 [简体中文](README.zh.md) | [Packages](../README.md)
 
 The optional `channel-wecom` Extra: connects WeCom bots over their own WebSocket, admits messages, builds this turn's input, calls the existing Kernel through `ctx.kernel`, and replies with WeCom streaming messages. Authentication, heartbeat, ACK order, and delivery stay here — independent of Core, and independent of the Octo Gateway implementation.

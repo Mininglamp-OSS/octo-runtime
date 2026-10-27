@@ -1,5 +1,7 @@
 # WeCom Channel
 
+CLI 首选 `<extra> configure` 配置核心参数，或 `<extra> config set` 导入业务 JSON；用法、去重与重启语义见 [Extra 自有命令](../../docs/zh-CN/guides/extra-commands.md)。既有 extraset 示例继续接受完整外壳。
+
 [English](README.md) | [包导航](../README.zh.md)
 
 可选的 `channel-wecom` Extra：通过企业微信自己的 WebSocket 连接 Bot，做消息准入，生成本轮输入，用 `ctx.kernel` 调已有 Kernel，再以企业微信流式消息回复。认证、心跳、ACK 顺序、投递都收在这里——不依赖 Core，也不依赖 Octo Gateway 的实现。

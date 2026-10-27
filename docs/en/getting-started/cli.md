@@ -1,5 +1,7 @@
 # CLI Installation and Operations
 
+For CLI setup, use `<extra> configure` or `<extra> config set`. See [Extra-owned commands](../guides/extra-commands.md). The legacy extraset examples below remain supported.
+
 [简体中文](../../zh-CN/getting-started/cli.md) | [Documentation](../README.md)
 
 Use the Runtime CLI to install, start, and operate Executor Kernel and the optional Extras, inspect Adapters, and try an Agent invocation. Use Node.js 24.x or 26.x (LTS).
