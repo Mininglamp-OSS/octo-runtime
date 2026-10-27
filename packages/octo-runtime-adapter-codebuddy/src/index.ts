@@ -27,6 +27,7 @@ import {
   normalizeAcpToolUpdate,
   probeCommand,
   providerInputText,
+  sanitizePublicValue,
   type AdapterInvocationContext,
   type CanonicalEvent,
   type InvokeRequest
@@ -98,7 +99,7 @@ export function normalizeCodeBuddyUpdate(update: CodeBuddyUpdate): CanonicalEven
       {
         protocolVersion: 2,
         type: "usage.update",
-        payload: { ...update.usage, model: update.model }
+        payload: { ...update.usage, ...(update.model ? { model: update.model } : {}) }
       }
     ];
   return [];
@@ -120,11 +121,112 @@ function isCancelledStopReason(reason: unknown): boolean {
   );
 }
 
+/** 只回报本次原生响应确认的模型；请求值及旧 binding 都不代表恢复后的实际模型。 */
+function confirmedSessionModel(result: unknown): string | undefined {
+  if (!isRecord(result)) return undefined;
+  const option: unknown = Array.isArray(result.configOptions)
+    ? result.configOptions.find(
+        (value) => isRecord(value) && (value.id === "model" || value.category === "model")
+      )
+    : undefined;
+  for (const value of [
+    isRecord(option) ? option.currentValue : undefined,
+    isRecord(result.models) ? result.models.currentModelId : undefined,
+    result.model
+  ]) {
+    if (typeof value === "string" && value.trim()) return value;
+  }
+  return undefined;
+}
+
+/** CodeBuddy 私有失败元数据只提取安全证据；损坏的 JSON 不能改变已声明的失败事实。 */
+function promptFailure(update: AcpUpdate): CanonicalEvent["payload"] | undefined {
+  const meta = isRecord(update._meta) ? update._meta : {};
+  const outcome = meta["codebuddy.ai/outcome"];
+  const raw = meta["codebuddy.ai/errorMessage"];
+  const hasError = typeof raw === "string" ? raw.trim().length > 0 : raw != null;
+  if (
+    update.stopReason?.toLowerCase() !== "refusal" &&
+    !(typeof outcome === "string" && outcome.startsWith("FAILED")) &&
+    !hasError
+  )
+    return undefined;
+
+  let parsed: unknown = raw;
+  if (typeof raw === "string") {
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      parsed = undefined;
+    }
+  }
+  const error = isRecord(parsed) ? parsed : {};
+  const data = isRecord(error.data) ? error.data : {};
+  const safeCode = (value: unknown): value is string | number =>
+    (typeof value === "number" && Number.isSafeInteger(value)) ||
+    (typeof value === "string" && /^[A-Za-z0-9_.-]{1,128}$/.test(value));
+  const providerData = {
+    ...(typeof data.statusCode === "number" &&
+    Number.isInteger(data.statusCode) &&
+    data.statusCode >= 100 &&
+    data.statusCode <= 599
+      ? { statusCode: data.statusCode }
+      : {}),
+    ...(safeCode(data.code) ? { code: data.code } : {}),
+    ...(typeof data.category === "string" && /^[A-Za-z0-9_.-]{1,128}$/.test(data.category)
+      ? { category: data.category }
+      : {})
+  };
+  const providerError = {
+    ...(safeCode(error.code) ? { code: error.code } : {}),
+    ...(Object.keys(providerData).length ? { data: providerData } : {})
+  };
+  const message = [error.message, data.details].find(
+    (value): value is string => typeof value === "string" && value.trim().length > 0
+  );
+  return {
+    // quota 证据必须优先于 429 的暂态限流分类；保留原生 code 供诊断。
+    code:
+      providerData.category === "quota"
+        ? "PROVIDER_QUOTA_EXHAUSTED"
+        : "CODEBUDDY_MODEL_REQUEST_FAILED",
+    message: String(
+      sanitizePublicValue(
+        message ??
+          "CodeBuddy model request failed or was refused. Check the provider account and subscription."
+      )
+    ),
+    adapterType: "codebuddy",
+    ...(Object.keys(providerError).length ? { providerError } : {})
+  };
+}
+
+/** 与通用 ACP 一致，仅在无流式 final 且未失败时使用已支持的结果正文载体。 */
+function promptResultText(update: AcpUpdate): string | undefined {
+  for (const value of [
+    update.text,
+    update.content,
+    update.output,
+    update.response,
+    update.message
+  ]) {
+    if (typeof value === "string" && value.trim()) return value;
+    if (isRecord(value) && typeof value.text === "string" && value.text.trim()) return value.text;
+    if (Array.isArray(value)) {
+      const text = value
+        .filter(isRecord)
+        .map((item) => (typeof item.text === "string" ? item.text : ""))
+        .join("");
+      if (text.trim()) return text;
+    }
+  }
+  return undefined;
+}
+
 /**
- * Create a CodeBuddy adapter. Each invocation spawns an ACP client, initializes
- * the connection, then either loads the stored provider session or creates a
- * new one. The final message/run terminals are synthesized here because ACP
- * prompt streams end silently rather than with a terminal.
+ * 创建 CodeBuddy adapter；每轮拥有独立 ACP client，先握手并创建或恢复显式会话，再发送 prompt。
+ * adapter 将 Provider 结果映射为唯一终态并负责关闭 client；Core 独立确认清理完成。
+ * 模型回执只取原生确认值，Provider 失败优先于部分输出及空输出检查。
  */
 export function createCodeBuddyAdapter({
   acpClientFactory = spawnAcpClient,
@@ -192,8 +294,7 @@ export function createCodeBuddyAdapter({
             if (!sessionId) throw new Error("ACP session/new returned no sessionId");
             session = { id: sessionId };
           }
-          // The AgentSession stores only the provider sessionId; both the
-          // new and resume paths converge on the same ACP prompt stream.
+          const model = confirmedSessionModel(sessionResult);
           yield {
             protocolVersion: 2,
             type: "session.update",
@@ -201,7 +302,7 @@ export function createCodeBuddyAdapter({
               providerSession: {
                 sessionId: session.id,
                 resumable: true,
-                model: req.agentConfig?.model
+                ...(model ? { model } : {})
               }
             }
           };
@@ -211,6 +312,9 @@ export function createCodeBuddyAdapter({
 
           let promptStopReason: string | undefined;
           let promptFinishReason: string | undefined;
+          let failure: CanonicalEvent["payload"] | undefined;
+          let resultText: string | undefined;
+          let producedFinalOutput = false;
           const activeToolIds = new Set<string>();
           const turn = new AcpTurnNormalizer("codebuddy");
           for await (const update of client.prompt(session.id, prompt, {
@@ -220,6 +324,8 @@ export function createCodeBuddyAdapter({
             if (update.type === "prompt_result") {
               promptStopReason = update.stopReason;
               promptFinishReason = update.finishReason;
+              failure ??= promptFailure(update);
+              resultText = promptResultText(update);
               continue;
             }
             const events = turn.normalize(
@@ -227,6 +333,13 @@ export function createCodeBuddyAdapter({
               normalizeCodeBuddyUpdate(update)
             );
             for (const event of events) {
+              if (
+                event.type === "message.delta" &&
+                event.payload.channel !== "analysis" &&
+                typeof event.payload.text === "string" &&
+                event.payload.text.trim()
+              )
+                producedFinalOutput = true;
               const toolID = typeof event.payload.id === "string" ? event.payload.id : undefined;
               if (event.type === "tool_call.create" && toolID) activeToolIds.add(toolID);
               if (
@@ -238,37 +351,58 @@ export function createCodeBuddyAdapter({
               yield event;
             }
           }
-          const cancelled = isCancelledStopReason(promptStopReason);
-          if (cancelled) {
+          const cancelled =
+            !failure && (req.signal?.aborted || isCancelledStopReason(promptStopReason));
+          if (!cancelled && !failure && !producedFinalOutput && resultText) {
+            yield* turn.normalize(
+              "agent_message_chunk",
+              normalizeCodeBuddyUpdate({
+                sessionUpdate: "agent_message_chunk",
+                content: { text: resultText }
+              })
+            );
+            producedFinalOutput = true;
+          }
+          if (!cancelled && !failure && !producedFinalOutput) {
+            failure = {
+              code: "ACP_NO_FINAL_OUTPUT",
+              message: "CodeBuddy completed without assistant output",
+              adapterType: "codebuddy"
+            };
+          }
+          const status = failure ? "failed" : cancelled ? "cancelled" : "completed";
+          if (cancelled || failure) {
             for (const id of activeToolIds) {
               yield {
                 protocolVersion: 2,
                 type: "tool_call.update",
-                payload: { id, status: canonicalTerminalStatus("cancelled") }
+                payload: { id, status: canonicalTerminalStatus(status) }
               };
             }
           }
-          for (const event of turn.finish(
-            promptFinishReason ?? promptStopReason,
-            cancelled ? "cancelled" : "completed"
-          ))
+          for (const event of turn.finish(promptFinishReason ?? promptStopReason, status))
             yield event;
           const terminalMessage: CanonicalEvent = {
             protocolVersion: 2,
             type: "message.update",
-            payload: { role: "assistant", status: cancelled ? "stopped" : "completed" }
+            payload: {
+              role: "assistant",
+              status: failure ? "failed" : cancelled ? "stopped" : "completed"
+            }
           };
           yield terminalMessage;
-          yield cancelled
-            ? {
-                protocolVersion: 2,
-                type: "run.cancelled",
-                payload: {
-                  reason: promptStopReason ?? "cancelled",
-                  ...(promptFinishReason ? { finishReason: promptFinishReason } : {})
+          yield failure
+            ? { protocolVersion: 2, type: "run.failed", payload: failure }
+            : cancelled
+              ? {
+                  protocolVersion: 2,
+                  type: "run.cancelled",
+                  payload: {
+                    reason: promptStopReason ?? "cancelled",
+                    ...(promptFinishReason ? { finishReason: promptFinishReason } : {})
+                  }
                 }
-              }
-            : { protocolVersion: 2, type: "run.completed", payload: {} };
+              : { protocolVersion: 2, type: "run.completed", payload: {} };
         } finally {
           await client.close?.();
         }

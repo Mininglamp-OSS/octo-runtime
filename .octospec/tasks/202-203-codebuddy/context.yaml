@@ -1,0 +1,22 @@
+task: 202-203-codebuddy
+baseline: aac7ec7765ec055eff02328babefcf5d719c0c6a
+branch: fix/codebuddy-202-203
+workflow: .claude/skills/octospec-workflow/SKILL.md
+issues: [202, 203]
+read:
+  - AGENTS.md
+  - CONTRIBUTING.md
+  - .claude/skills/octospec-workflow/SKILL.md
+  - .claude/commands/octospec-plan.md
+  - .octospec/index.md
+  - .octospec/rules/_index.yaml
+  - .octospec/rules/architecture.md
+  - .octospec/rules/protocol-design.md
+  - .octospec/rules/engineering.md
+  - .octospec/rules/collaboration.md
+  - .octospec/rules/adapter-metadata.md
+  - .octospec/rules/context-input.md
+  - .octospec/rules/output-protocol.md
+  - .octospec/rules/environment.md
+  - .octospec/rules/mcp.md
+  - .octospec/rules/reasoning.md

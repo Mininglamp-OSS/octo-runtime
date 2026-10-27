@@ -73,6 +73,12 @@ Host 按执行合同校验来源、输出模式和实际交互 responder；审�
 
 ## 实现与验证入口
 
+### CodeBuddy 会话与终态
+
+CodeBuddy 的 `session.update.providerSession` 只回报 `session/new` / `session/load` 原生响应确认的模型；未知字段省略，禁止写入 undefined 或把请求值、旧 binding 当作实际应用值。续聊不新增模型切换动作。
+`prompt_result` 中的拒绝、`codebuddy.ai/outcome` 失败或非空 `codebuddy.ai/errorMessage` 必须保留为失败事实，优先于部分文本与空输出检查。错误只公开脱敏消息和白名单内的原生 RPC code、data.statusCode/code/category；缺失或损坏的错误正文不能把已声明失败变成成功。配额类别先于 HTTP 429 暂态限流分类。
+成功必须有 final 文本；仅思考、仅工具或空输出以 `ACP_NO_FINAL_OUTPUT` 失败。支持的 ACP 结果正文只在没有流式 final、没有失败且未取消时补出。取消与失败都应关闭未结束工具/步骤，传输清理由原 invocation 拥有。对应实现与 Kernel 公共入口证据见 [#202/#203](../tasks/202-203-codebuddy/brief.md)。
+
 ### Manifest 模块路径
 
 manifest.module 的本机绝对路径（Windows 包含盘符与 UNC）和以点开头的相对路径，由 Host loader 转换为 file URL；相对路径以 manifest 所在目录为基准，不能以宿主 cwd 为基准。裸包名同样以原始 manifest 位置按 ESM node/import 条件与 exports 解析；已有 file URL 保持显式位置。合并清单不得丢失来源，不回退到 Kernel、cwd 或全局包目录。平台差异封装在内部，不要求 SDK 调用方预转换 URL、选择 OS 或改变现有启动接口。

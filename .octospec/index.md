@@ -54,6 +54,8 @@
 
 ## 当前任务
 
+- [Issue 202/203：CodeBuddy 默认模型与订阅错误](tasks/202-203-codebuddy/brief.md)：最新 main 独立 worktree，方案可执行性 96/100；JSON 安全回执、确认模型、失败元数据白名单与空输出守卫，通过真实 Kernel worker/IPC fixture 验证。
+
 - [OCTO-2 / #213：历史意图指引](tasks/octo-2-history-intent/brief.md)：最新 main 独立 worktree，准备度 96/100；真实 Provider 主矩阵 232 条，语义正确率 79/116 → 109/116，另 64 条严格配对复测。三处指引统一支持连续意图并保留权限边界；样本失败及真实 IM/自动化证据见[验证记录](tasks/octo-2-history-intent/validation.md)。
 
 - [Issue 210：Codex worker 快速恢复与日志](tasks/210-kernel-recovery/brief.md)：独立 worktree 基于 main@005116e；[方案](tasks/210-kernel-recovery/design.md)定义暂态清理/manifest 故障持续重试、Kernel 独立日志和准确未提交反馈。[本地验收](tasks/210-kernel-recovery/validation.md)首轮故障解除后约 1.3–1.4 秒新请求成功，首个提交 Node 全量 2022 通过；[审查](tasks/210-kernel-recovery/review.md)两项 medium 与后续外部 Windows P1 已复现并修复。P1 专项通过，本轮全量未通过，Windows 原生结果待 CI。未部署，原事故退出原因仍未知。
