@@ -42,3 +42,7 @@ timestamp: 2026-10-27T00:00:00Z
 锁修复必须同时保护活跃写入者、允许主锁及回收锁的 owner 退出后恢复。先完整写入独占临时文件，再以同目录硬链接原子发布；回收前持有同协议回收锁并比较完整旧记录，释放时核对随机身份。回收锁名哈希保持固定长度，并只依赖文件名，使 Home 的符号链接别名共享同一互斥点。发布前退出产生的临时文件不参与互斥；旧格式无有效 owner 的锁继续保守拒绝，不按时间删除。所有使用 Home setup lock 的调用者都在验证范围内。
 
 参数修复复用旧宿主语义，Extra typed boolean 保持严格。补充命令前后与根帮助回归。安装验收接受 pnpm 的共享 store 和活动 global/v11 目录，仍验证真实目录边界和 npm/pnpm 环境隔离。
+
+# 文档入口收敛
+
+用户要求各 Extra README 与 CLI 文档优先展示 configure 的参数命令，使用反斜杠逐行书写且示例不带 Home；extraset/extraget 作为手写完整 JSON 的进阶接口。同步中英文 README、CLI 入门和命令指南，明确 configure 按 ID 更新、config set 业务整体替换、extraset 声明整体替换的不同范围。

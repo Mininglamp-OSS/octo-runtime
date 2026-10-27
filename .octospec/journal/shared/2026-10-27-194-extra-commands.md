@@ -22,3 +22,7 @@ PR #197 的后续评审复现两项 P2：回收目录在 owner 退出后阻塞�
 按用户要求，--home/--manifest 作为全局参数支持位于自有命令之后。全局路由先确定来源，再完整解析原 argv；业务命令定义未改动，保留参数不允许 Extra 重定义。嵌套命令、重复选项、业务缺值、字面参数及包外实际后置调用均通过。最新全量 Node1914通过/54跳过、UI35，专项50项；验证见任务追加记录。
 
 按用户后续要求，内置业务参数全部与存储字段同名，bf_token/app_secret 直接接收原文，删除 credential-stdin。WebUI configure 简化为 port，首次会话路径由 Home 推导，高级 JSON 字段不改名。两个渠道 configure 统一按 bot_id 更新或追加，改变地址不新增同 ID，保留其他 Bot 和省略字段；WeCom 更新省略 ws_url 不重置旧值。专项54项、Node1918通过/54跳过、WebUI35及构建/静态检查/文档/真实包外安装通过，增量审查无待修 medium+。历史记录保留，当前合同见 brief，详见本轮 validation/review。
+
+CLI 文档入口已按用户要求收敛：三 Extra 双语 README、CLI 入门和命令指南优先展示反斜杠分行的 configure 示例；config set/get 和 extraset/extraget 放到进阶，明确业务对象与完整声明的区别。文档检查和27次实际配置/帮助调用、三个 Extra JSON 往返、README 双语代码块一致性通过；仅文档改动，没有重复运行时全量测试。证据见任务 validation 的文档入口记录。
+
+推送前远端合入 main 的 #199，PR 分支更新至 `deac517a453374d24bc525fc0b312442446c795b`。文档提交无冲突 rebase，保留全部远端改动；同步后重新执行 pnpm typecheck、pnpm docs:check、27次文档配置/帮助及三 Extra JSON 往返，均通过。证据 `/tmp/octo-197-docs-synced-{typecheck,check,commands}.log`。用户明确授权文档提交后将 Draft PR 转为正式评审。

@@ -1,7 +1,5 @@
 # Octo Gateway Channel
 
-CLI 首选 `<extra> configure` 配置核心参数，或 `<extra> config set` 导入业务 JSON；用法、去重与重启语义见 [Extra 自有命令](../../docs/zh-CN/guides/extra-commands.md)。既有 extraset 示例继续接受完整外壳。
-
 [English](README.md) | [包导航](../README.zh.md)
 
 把 Octo IM 机器人接到已有 Kernel 上的 Extra：Bot 凭据、悟空 WebSocket、消息准入、按会话维护的 session、`ctx.kernel.invoke`，以及把回复流式发回聊天。它只管 Octo IM——企业微信是另一个 Extra，生命周期也各管各的。
@@ -11,6 +9,34 @@ CLI 首选 `<extra> configure` 配置核心参数，或 `<extra> config set` 导
 - 你想让 Octo 机器人和应用走同一条执行路径。
 - 你需要私聊、群与话题、交互卡片或文件投递。
 - 你要接的是企业微信：用 [WeCom Channel](../octo-runtime-extra-channel-wecom/README.zh.md)。
+
+## CLI 常用命令
+
+先替换占位值并配置，再按需启动独立服务：
+
+```sh
+octo-runtime channel-gateway configure \
+  --bot_id assistant \
+  --api_url https://im.example.com/api \
+  --adapter_type codex \
+  --workdir /absolute/workspace \
+  --bf_token "<BOT_TOKEN>"
+```
+
+每次配置一个 Bot，可重复运行：相同 `bot_id` 更新原项（改地址也不追加），新 ID 追加到 `config.bots`；省略字段及其他 Bot 保留。旧 JSON 中跨地址的同 ID 多项会合并为首项，保留首项省略字段。业务参数与配置字段同名，凭据直接传原文。
+
+可选 `--model`、`--effort`（low/medium/high/xhigh）。使用 OpenClaw 时改为 `--adapter_type openclaw`、`--provider_agent_id main`，不传 `--workdir`；从已有本地 Adapter 切换时，通过 `config set` 移除旧 workdir。
+
+```sh
+octo-runtime channel-gateway start
+octo-runtime channel-gateway status
+octo-runtime channel-gateway restart
+octo-runtime channel-gateway stop
+octo-runtime channel-gateway configure \
+  --help
+```
+
+配置只保存文件，不自动启动或重载。首次使用 `start`；已运行服务修改配置后用 `restart`。执行 Agent 任务还需单独启动 `executor-kernel`。
 
 ## 托管它
 
@@ -28,7 +54,21 @@ export async function startGateway(endpoint: string, config: JsonObject) {
 
 `endpoint` 是已有的 Kernel 端点；Gateway 不构造也不关闭 Kernel。需要逐轮业务 Context 就传 `dependencies.loadContexts`；聊天到会话的绑定要跨重启保留，就传 `dependencies.createSessionStore`。
 
-## 配置
+## 进阶：JSON 配置与 SDK 字段
+
+进阶用法：手动编写业务 JSON（不含外壳）时，用 `config set/get`；手动管理含 `config`、可选 `module`/`enabled` 的整份声明时，用 `extraset/extraget`。
+
+```sh
+octo-runtime channel-gateway config set \
+  < channel-gateway-business.json
+octo-runtime channel-gateway config get
+
+octo-runtime extraset channel-gateway \
+  < channel-gateway-declaration.json
+octo-runtime extraget channel-gateway
+```
+
+`config set` 经业务校验后替换全部业务配置，保留宿主字段；`extraset` 直接替换整份声明，不按 bot_id 合并，也不保留省略字段。读取命令返回完整对应 JSON（渠道含凭据）。保存后仍需重启已运行的 Extra。
 
 ```json
 {

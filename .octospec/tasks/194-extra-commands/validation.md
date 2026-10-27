@@ -118,3 +118,11 @@ timestamp: 2026-10-27T00:00:00Z
 证据前缀 `/tmp/octo-197-schema-flags-`：typecheck.log、focused.log、tests.log、lint.log、names.log、docs.log、format.log、pack.log、release.log。包外脚本 `/tmp/octo-197-verify-schema-flags.mjs` 使用后置全局 --home，测试 Home 均为独占临时目录。仓库回归还覆盖旧参数拒绝、凭据省略保留/空值拒绝/无需 stdin、非法地址不写盘、旧跨地址同 ID 合并、其他 Bot 不变、WebUI 高级路径保留。
 
 本轮没有重跑 npm/pnpm 全局安装矩阵，其此前结果见“PR #197 评审修复验证”；本轮重新构建并安装了真实发行包。真实渠道认证、Windows/Linux 原生平台和 TTY 的既有验证边界不变。
+
+# CLI 文档入口更新验证
+
+以 `f8dff5b52e536f1ecc50f6283b977f5c7002cbc2` 为基线，仅修改文档和任务记录。三个 Extra 的中英文 README、apps/cli README、双语 CLI 入门及 Extra 指南改为 configure 优先，extraset/extraget 移入手写 JSON 进阶说明。按实际字段逐项核对参数、bot_id 更新/追加、WebUI 路径推导、config set 与 extraset 的替换范围和独立服务启停。
+
+`pnpm docs:check` 通过：18 对双语页面、37 个 Markdown、22 个 JSON、16 个 Mermaid、4 项可执行示例。临时脚本 `/tmp/octo-197-check-doc-commands.py` 从文档抽取并执行27次 configure/帮助命令，另验证三个 Extra 的业务 JSON 与完整声明往返；三对 README 代码块一致。测试仅使用独占临时 Home，不启动服务、不进行渠道认证。`git diff --check` 通过。日志：`/tmp/octo-197-docs-entrypoints.log`、`/tmp/octo-197-docs-commands.log`。没有代码改动，未重复全量运行时测试。
+
+推送前远端合入 main 的 #199，PR 分支更新至 `deac517a453374d24bc525fc0b312442446c795b`。文档提交无冲突 rebase，保留全部远端改动；同步后重新执行 pnpm typecheck、pnpm docs:check、27次文档配置/帮助及三 Extra JSON 往返，均通过。证据 `/tmp/octo-197-docs-synced-{typecheck,check,commands}.log`。用户明确授权文档提交后将 Draft PR 转为正式评审。

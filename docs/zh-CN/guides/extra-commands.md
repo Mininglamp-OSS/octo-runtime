@@ -40,7 +40,25 @@ octo-runtime channel-gateway config get
 octo-runtime channel-gateway restart
 ```
 
+## 进阶：手动拼 JSON
+
 `config set` 输入是业务对象，例如 `{"bots":[]}`，不包含 `config`/`module`/`enabled` 外壳。它替换全部业务配置；完整列表出现重复身份会拒绝，而不是丢弃其中一项。`config get` **返回完整业务配置，包含凭据**；未配置返回 `{}`。正常保存结果、帮助及业务校验错误不返回凭据。旧 `extraset`/`extraget` 继续接受／返回完整外壳，extraset 仍是整份声明替换，不进行 Extra 业务校验。
+
+需要直接管理整份声明时，用 `extraset/extraget`：手写 JSON 必须含 `config` 外壳，可带 `module`/`enabled`。它是整份替换，不执行 configure 的按 bot_id 更新。
+
+```sh
+octo-runtime extraset channel-gateway \
+  < channel-gateway-declaration.json
+octo-runtime extraget channel-gateway
+
+octo-runtime extraset channel-wecom \
+  < channel-wecom-declaration.json
+octo-runtime extraget channel-wecom
+
+octo-runtime extraset webui \
+  < webui-declaration.json
+octo-runtime extraget webui
+```
 
 交互/读取 stdin 不持有写锁。保存时在与 extraset 相同的 Home 写锁内比较整份声明修订；冲突返回 `EXTRA_CONFIG_CONFLICT`，需重新读取并决定重试。取消发生在原子写入开始前不保存；原子写入开始后以实际结果为准。Ctrl+C/外部 signal 取消命令，已完成的保存不回滚。POSIX 文件保持 0600，损坏、链接、权限不符不会当作首次配置覆盖。
 

@@ -38,7 +38,25 @@ octo-runtime channel-gateway config get
 octo-runtime channel-gateway restart
 ```
 
+## Advanced: write JSON manually
+
 `config set` reads business JSON, for example `{"bots":[]}`, without the extraset envelope. It validates and replaces the complete business configuration; duplicate Bot identities are rejected. **`config get` returns credentials** and must only write to a trusted destination; an unconfigured Extra returns `{}`. Legacy `extraset`/`extraget` retain the full-envelope interface and generic validation. Saving, help and validation errors do not echo credentials.
+
+For direct control over the complete declaration, use `extraset/extraget`: manually written JSON must include the `config` envelope and may include `module`/`enabled`. It replaces the whole declaration without configure’s bot_id updates.
+
+```sh
+octo-runtime extraset channel-gateway \
+  < channel-gateway-declaration.json
+octo-runtime extraget channel-gateway
+
+octo-runtime extraset channel-wecom \
+  < channel-wecom-declaration.json
+octo-runtime extraget channel-wecom
+
+octo-runtime extraset webui \
+  < webui-declaration.json
+octo-runtime extraget webui
+```
 
 Configuration is read before interaction. Saving takes the same Home lock as extraset and compares the entire stored declaration with the snapshot revision. Concurrent changes fail with `EXTRA_CONFIG_CONFLICT`; read again before deciding to retry. Cancellation before the atomic write prevents saving; once writing starts, the actual write result wins. Completed saves are not rolled back. POSIX files remain 0600, and corrupt or unsafe files are not treated as missing configuration.
 

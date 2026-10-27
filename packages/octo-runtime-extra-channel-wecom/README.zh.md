@@ -1,7 +1,5 @@
 # WeCom Channel
 
-CLI 首选 `<extra> configure` 配置核心参数，或 `<extra> config set` 导入业务 JSON；用法、去重与重启语义见 [Extra 自有命令](../../docs/zh-CN/guides/extra-commands.md)。既有 extraset 示例继续接受完整外壳。
-
 [English](README.md) | [包导航](../README.zh.md)
 
 可选的 `channel-wecom` Extra：通过企业微信自己的 WebSocket 连接 Bot，做消息准入，生成本轮输入，用 `ctx.kernel` 调已有 Kernel，再以企业微信流式消息回复。认证、心跳、ACK 顺序、投递都收在这里——不依赖 Core，也不依赖 Octo Gateway 的实现。
@@ -11,6 +9,34 @@ CLI 首选 `<extra> configure` 配置核心参数，或 `<extra> config set` 导
 - 你要接的是企业微信而不是 Octo IM；两个渠道互不依赖。
 - SDK 宿主自己管理 Extra 生命周期和 Kernel 端点。
 - 你要通过 CLI 部署：保存 `channel-wecom` 声明，再执行 `octo-runtime channel-wecom start`；它的服务独立于 `channel-gateway`。
+
+## CLI 常用命令
+
+先替换占位值并配置，再按需启动独立服务：
+
+```sh
+octo-runtime channel-wecom configure \
+  --bot_id assistant \
+  --ws_url wss://openws.work.weixin.qq.com \
+  --adapter_type codex \
+  --workdir /absolute/workspace \
+  --app_secret "<APP_SECRET>"
+```
+
+每次配置一个 Bot，可重复运行：相同 `bot_id` 更新原项（改地址也不追加），新 ID 追加到 `config.bots`；省略字段及其他 Bot 保留。旧 JSON 中跨地址的同 ID 多项会合并为首项，保留首项省略字段。业务参数与配置字段同名，凭据直接传原文。
+
+可选 `--model`、`--effort`（low/medium/high/xhigh）。使用 OpenClaw 时改为 `--adapter_type openclaw`、`--provider_agent_id main`，不传 `--workdir`；从已有本地 Adapter 切换时，通过 `config set` 移除旧 workdir。 `--ws_url` 可省略：更新保留旧地址，新 Bot 使用官方默认地址。
+
+```sh
+octo-runtime channel-wecom start
+octo-runtime channel-wecom status
+octo-runtime channel-wecom restart
+octo-runtime channel-wecom stop
+octo-runtime channel-wecom configure \
+  --help
+```
+
+配置只保存文件，不自动启动或重载。首次使用 `start`；已运行服务修改配置后用 `restart`。执行 Agent 任务还需单独启动 `executor-kernel`。
 
 ## 托管它
 
@@ -28,7 +54,21 @@ export async function startWeCom(endpoint: string, config: JsonObject) {
 
 固定的 Extra 名：`channel-wecom`。
 
-## 配置
+## 进阶：JSON 配置与 SDK 字段
+
+进阶用法：手动编写业务 JSON（不含外壳）时，用 `config set/get`；手动管理含 `config`、可选 `module`/`enabled` 的整份声明时，用 `extraset/extraget`。
+
+```sh
+octo-runtime channel-wecom config set \
+  < channel-wecom-business.json
+octo-runtime channel-wecom config get
+
+octo-runtime extraset channel-wecom \
+  < channel-wecom-declaration.json
+octo-runtime extraget channel-wecom
+```
+
+`config set` 经业务校验后替换全部业务配置，保留宿主字段；`extraset` 直接替换整份声明，不按 bot_id 合并，也不保留省略字段。读取命令返回完整对应 JSON（渠道含凭据）。保存后仍需重启已运行的 Extra。
 
 ```json
 {
