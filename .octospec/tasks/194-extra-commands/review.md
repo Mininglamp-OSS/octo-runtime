@@ -55,3 +55,11 @@ timestamp: 2026-10-27T00:00:00Z
 # 全局参数位置扩展复核
 
 基线 `193f83085d9e0581bec44ac0c7634fb98a8235bb`。核对新增预扫描仅选择全局 Home/manifest，`--` 截断扫描，等号形式的业务字符串不作为宿主参数，完整解析保留原 argv，避免先删除宿主选项再误补业务缺值。hostOptions 保留名和业务 input.options 分流未改变；三个 Extra 没有增加 --home 定义。逐项复核 CLI 路由/帮助、专项测试、双语文档、规则和任务记录；无待修 medium+。新回归在旧版本失败，在新版本专项50项、全量1914通过/54跳过、UI35以及实际发行包后置全局参数验收通过。
+
+# 原文字段参数与 bot_id 更新的增量复核
+
+基线 `45c5082b47252b729b744f75b3d17ad211a69ec8` 加本轮工作区改动，macOS arm64 / Node24.19.0。范围13个文件，无跳过：CLI解析、Host SDK注释、三个Extra命令、专项测试、双语指南、Extra规则、brief/review/validation/journal。逐文件复核已完成；纯重命名按调用方和帮助契约核对。
+
+审查主线：业务下划线选项与宿主参数仍分流；原文凭据不再读 stdin、不 trim 保存值，错误不包含输入；两个渠道按 bot_id 更新，变更 endpoint 仍更新首项、删除同 ID 后续旧项、保留其他 Bot 顺序和字段；省略 WeCom ws_url 保留已有地址。过滤仅移除首个匹配项之后的同 ID 项，因此首项数组下标仍有效。保存前仍经过业务校验及原有 CAS，不改变 enabled/module 或启动服务。WebUI 初次推导默认会话路径，已有自定义路径/项目保留，config set 按原 JSON 合同完整替换。根帮助仍仅列 Extra 名称，详细帮助按层级读取。
+
+Track B：专项54项，全量Node1918通过/54跳过、WebUI35通过；真实tgz安装后验证两个渠道改地址不新增、不同 ID 追加、原文凭据精确读回和WebUI路径推导；外部命令及strict类型通过。所有检查详见validation本轮记录。审查结束无待修复 medium 或更高等级发现。此前 credential-stdin 和 endpoint+bot_id configure 的描述属于历史版本，现行合同以brief和命令指南为准。

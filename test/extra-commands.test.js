@@ -38,12 +38,12 @@ const stored = async (home, name) => JSON.parse(await readFile(configPath(home, 
 
 test("Home options work before, between and after custom command arguments", async (t) => {
   const home = await fixture(t),
-    sessions = join(home, "sessions.json");
+    sessions = join(home, "extras", "webui", "sessions.json");
   for (const args of [
-    ["--home", home, "webui", "configure", "--session-store-path", sessions],
-    ["webui", "--home", home, "configure", "--session-store-path", sessions],
-    ["webui", "configure", "--home", home, "--session-store-path", sessions],
-    ["webui", "configure", "--port", "13889", "--session-store-path", sessions, `--home=${home}`]
+    ["--home", home, "webui", "configure"],
+    ["webui", "--home", home, "configure"],
+    ["webui", "configure", "--home", home],
+    ["webui", "configure", "--port", "13889", `--home=${home}`]
   ]) {
     const result = await rawCli(args);
     assert.equal(result.code, 0, result.errors);
@@ -94,7 +94,11 @@ test("Legacy host boolean equals syntax works before and after lifecycle command
     assert.ok(result.output.length > 0);
   }
   // 兼容宿主参数不放宽 Extra 自己声明的 boolean 选项。
-  const result = await cli(home, ["channel-gateway", "configure", "--credential-stdin=true"]);
+  const custom = await external(
+    t,
+    'export default {apiVersion:1,commands:[{name:"check",description:"Check",options:[{name:"force",type:"boolean",description:"Force"}],async run(){}}]};'
+  );
+  const result = await cli(custom, ["loop-daemon", "check", "--force=true"]);
   assert.equal(result.code, 2);
   await assert.rejects(access(join(home, "extras")));
 });
@@ -187,16 +191,11 @@ for (const stage of ["before", "after"]) {
     `
     );
     assert.equal(crash.code, 42, crash.errors);
-    const result = await cli(home, [
-      "webui",
-      "configure",
-      "--session-store-path",
-      join(home, "sessions.json")
-    ]);
+    const result = await cli(home, ["webui", "configure", "--port", "13888"]);
     assert.equal(result.code, 0, result.errors);
     assert.equal(
       (await stored(home, "webui")).config.sessionStorePath,
-      join(home, "sessions.json")
+      join(home, "extras", "webui", "sessions.json")
     );
   });
 }
@@ -265,16 +264,80 @@ for (const name of ["channel-gateway", "channel-wecom", "webui"]) {
 }
 
 for (const name of ["channel-gateway", "channel-wecom"]) {
+  test(`${name}: schema-named options accept raw credentials without reading stdin`, async (t) => {
+    const home = await fixture(t),
+      input = new PassThrough();
+    t.after(() => input.destroy());
+    const field = name === "channel-gateway" ? "bf_token" : "app_secret";
+    const address =
+      name === "channel-gateway"
+        ? ["--api_url", "https://im.example.com/api"]
+        : ["--ws_url", "wss://wecom.example.com/ws"];
+    const args = [
+      name,
+      "configure",
+      "--bot_id",
+      "raw",
+      ...address,
+      "--adapter_type",
+      "openclaw",
+      "--provider_agent_id",
+      "main",
+      "--model",
+      "model-id",
+      "--effort",
+      "high"
+    ];
+    for (const raw of [
+      `  原文 ${randomBytes(16).toString("hex")} =\r\n `,
+      `--home=${randomBytes(16).toString("hex")}`
+    ]) {
+      const result = await cli(home, [...args, `--${field}=${raw}`, "--json"], "", { input });
+      assert.equal(result.code, 0, result.errors);
+      assert.ok(!result.output.includes(raw));
+      assert.ok(!result.errors.includes(raw));
+      const data = await stored(home, name);
+      assert.equal(data.config.bots.length, 1);
+      assert.equal(data.config.bots[0][field], raw);
+      assert.deepEqual(data.config.bots[0].adapter, {
+        adapter_type: "openclaw",
+        provider_agent_id: "main",
+        model: "model-id",
+        effort: "high"
+      });
+    }
+    assert.equal(input.listenerCount("data"), 0);
+    const before = await readFile(configPath(home, name), "utf8");
+    for (const flags of [
+      [`--${field}`, "   "],
+      [`--${field}`],
+      [`--${field}=`],
+      [`--${field}`, "first", `--${field}`, "second"],
+      ["--credential-stdin"]
+    ]) {
+      assert.equal((await cli(home, [...args, ...flags])).code, 2);
+      assert.equal(await readFile(configPath(home, name), "utf8"), before);
+    }
+    const help = await cli(home, [name, "configure", "--help"]);
+    assert.match(help.output, new RegExp(`--${field}`));
+    assert.ok(!help.output.includes("credential-stdin"));
+  });
+
   test(`${name}: core configure upserts by business identity and preserves host fields`, async (t) => {
     const home = await fixture(t);
     const token = randomBytes(24).toString("hex");
-    const address = name === "channel-gateway" ? ["--api-url", "https://im.example.com/api/"] : [];
-    const required = ["configure", "--bot-id", "机器人", ...address, "--workdir", home];
-    const first = await cli(
-      home,
-      [name, ...required, "--credential-stdin", "--json"],
-      token + "\r\n"
-    );
+    const address = name === "channel-gateway" ? ["--api_url", "https://im.example.com/api/"] : [];
+    const required = ["configure", "--bot_id", "机器人", ...address, "--workdir", home];
+    const credentialField = name === "channel-gateway" ? "bf_token" : "app_secret";
+    const first = await cli(home, [
+      name,
+      ...required,
+      "--adapter_type",
+      "codex",
+      `--${credentialField}`,
+      token,
+      "--json"
+    ]);
     assert.equal(first.code, 0, first.errors);
     assert.equal(JSON.parse(first.output).reload_required, true);
     assert.ok(!first.output.includes(token));
@@ -295,6 +358,7 @@ for (const name of ["channel-gateway", "channel-wecom"]) {
     assert.equal(data.config.bots[0].bot_name, "保留名称");
     assert.deepEqual(data.config.bots[0].allowed_sender_ids, []);
     assert.equal(data.config.bots[0].adapter.model, "some-model");
+    assert.equal(data.config.bots[0].adapter.adapter_type, "codex");
     assert.equal(
       data.config.bots[0][name === "channel-gateway" ? "bf_token" : "app_secret"],
       token
@@ -311,29 +375,118 @@ for (const name of ["channel-gateway", "channel-wecom"]) {
   });
 }
 
-test("Gateway canonical URL deduplication and distinct endpoints", async (t) => {
+test("Legacy business aliases and WebUI path flags are rejected; advanced JSON keeps its field names", async (t) => {
   const home = await fixture(t);
-  for (const api of [
-    "https://IM.example.com:443/api/",
-    "https://im.example.com/api",
-    "https://other.example.com/api"
+  for (const [name, flags] of [
+    ["channel-gateway", ["bot-id", "api-url", "adapter", "provider-agent-id", "bf-token"]],
+    ["channel-wecom", ["bot-id", "ws-url", "adapter", "provider-agent-id", "app-secret"]],
+    ["webui", ["session-store-path", "project-path", "sessionStorePath", "defaultProjectPath"]]
   ]) {
-    const result = await cli(home, [
-      "channel-gateway",
-      "configure",
-      "--bot-id",
-      "one",
-      "--api-url",
-      api
-    ]);
-    assert.equal(result.code, 0, result.errors);
+    for (const flag of flags)
+      assert.equal((await cli(home, [name, "configure", `--${flag}`, "unused"])).code, 2);
   }
-  assert.equal((await stored(home, "channel-gateway")).config.bots.length, 2);
+  await assert.rejects(access(join(home, "extras")));
+  const result = await cli(home, ["webui", "configure", "--port", "13890"]);
+  assert.equal(result.code, 0, result.errors);
+  assert.deepEqual((await stored(home, "webui")).config, {
+    sessionStorePath: join(home, "extras", "webui", "sessions.json"),
+    port: 13890
+  });
+  const advanced = {
+    sessionStorePath: join(home, "custom.json"),
+    defaultProjectPath: home,
+    port: 13890
+  };
+  assert.equal((await cli(home, ["webui", "config", "set"], JSON.stringify(advanced))).code, 0);
+  assert.equal((await cli(home, ["webui", "configure", "--port", "13891"])).code, 0);
+  assert.deepEqual((await stored(home, "webui")).config, { ...advanced, port: 13891 });
+  const help = await cli(home, ["webui", "configure", "-h"]);
+  assert.match(help.output, /--port/);
+  assert.doesNotMatch(help.output, /--sessionStorePath|--defaultProjectPath/);
 });
+
+for (const name of ["channel-gateway", "channel-wecom"]) {
+  test(`${name} configure upserts by bot_id across endpoints and preserves other Bots`, async (t) => {
+    const endpointField = name === "channel-gateway" ? "api_url" : "ws_url";
+    const credentialField = name === "channel-gateway" ? "bf_token" : "app_secret";
+    const scheme = name === "channel-gateway" ? "https" : "wss";
+    const home = await fixture(t);
+    const configure = (id, api, extra = []) =>
+      cli(home, [
+        name,
+        "configure",
+        "--bot_id",
+        id,
+        `--${endpointField}`,
+        api,
+        "--workdir",
+        home,
+        ...extra
+      ]);
+    assert.equal(
+      (
+        await configure("one", `${scheme}://im.example.com/api`, [
+          `--${credentialField}`,
+          "original",
+          "--model",
+          "model-one"
+        ])
+      ).code,
+      0
+    );
+    assert.equal(
+      (await configure("two", `${scheme}://im.example.com/api`, [`--${credentialField}`, "other"]))
+        .code,
+      0
+    );
+    const before = (await stored(home, name)).config.bots;
+    const updated = await configure("one", `${scheme}://other.example.com/api`, [
+      `--${credentialField}`,
+      "replacement"
+    ]);
+    assert.equal(updated.code, 0, updated.errors);
+    const after = (await stored(home, name)).config.bots;
+    assert.equal(after.length, 2);
+    assert.deepEqual(after[0], {
+      ...before[0],
+      [endpointField]: `${scheme}://other.example.com/api`,
+      [credentialField]: "replacement"
+    });
+    assert.deepEqual(after[1], before[1]);
+    assert.equal((await configure("one", "invalid")).code, 2);
+    assert.deepEqual((await stored(home, name)).config.bots, after);
+    const legacy = {
+      bots: [
+        after[0],
+        after[1],
+        { ...after[0], [endpointField]: `${scheme}://legacy.example.com/api` }
+      ]
+    };
+    assert.equal((await cli(home, [name, "config", "set"], JSON.stringify(legacy))).code, 0);
+    assert.equal((await configure("one", `${scheme}://final.example.com/api`)).code, 0);
+    const final = (await stored(home, name)).config.bots;
+    assert.equal(final.length, 2);
+    assert.deepEqual(final[0], {
+      ...after[0],
+      [endpointField]: `${scheme}://final.example.com/api`
+    });
+    assert.deepEqual(final[1], before[1]);
+    if (name === "channel-wecom") {
+      assert.equal(
+        (await cli(home, [name, "configure", "--bot_id", "one", "--model", "updated"])).code,
+        0
+      );
+      const updated = (await stored(home, name)).config.bots;
+      assert.equal(updated[0].ws_url, final[0].ws_url);
+      assert.equal(updated[0].app_secret, final[0].app_secret);
+      assert.equal(updated.length, 2);
+    }
+  });
+}
 
 test("WebUI keeps one configuration and supports JSON replacement/get and legacy envelope", async (t) => {
   const home = await fixture(t);
-  const args = ["webui", "configure", "--session-store-path", join(home, "sessions.json")];
+  const args = ["webui", "configure"];
   assert.equal((await cli(home, args)).code, 0);
   assert.equal((await cli(home, ["webui", "configure", "--port", "14444"])).code, 0);
   assert.equal((await stored(home, "webui")).config.port, 14444);
@@ -379,9 +532,9 @@ test("Invalid input, duplicates, profile, oversized input and credentials never 
     [
       "channel-gateway",
       "configure",
-      "--bot-id",
+      "--bot_id",
       "one",
-      "--api-url",
+      "--api_url",
       "https://im.example.com/api",
       "--bf-token",
       token
@@ -417,25 +570,15 @@ test("CAS preserves concurrent extraset updates; cancellation preserves config; 
   assert.equal(await readFile(paths.setupLock, "utf8"), "");
 });
 
-test("Cancellation while waiting on credential stdin releases the command without saving", async (t) => {
+test("Cancellation while waiting on config stdin releases the command without saving", async (t) => {
   const home = await fixture(t);
   const input = new PassThrough(),
     controller = new AbortController();
   t.after(() => input.destroy());
-  const pending = cli(
-    home,
-    [
-      "channel-gateway",
-      "configure",
-      "--bot-id",
-      "one",
-      "--api-url",
-      "https://im.example.com/api",
-      "--credential-stdin"
-    ],
-    "",
-    { input, commandSignal: controller.signal }
-  );
+  const pending = cli(home, ["channel-gateway", "config", "set"], "", {
+    input,
+    commandSignal: controller.signal
+  });
   const timer = setTimeout(() => controller.abort(), 30);
   t.after(() => clearTimeout(timer));
   assert.equal((await pending).code, 130);
@@ -611,15 +754,13 @@ test("Same-name ignored manifest entry is not imported", async (t) => {
       extras: [{ name: "webui", module: "./bad-service.mjs", commands: "./bad-commands.mjs" }]
     })
   );
-  const result = await cli(home, [
-    "webui",
-    "configure",
-    "--session-store-path",
-    join(home, "sessions.json")
-  ]);
+  const result = await cli(home, ["webui", "configure", "--port", "13888"]);
   assert.equal(result.code, 0, result.errors);
   assert.match(result.errors, /built-in declaration takes precedence/);
-  assert.equal((await stored(home, "webui")).config.sessionStorePath, join(home, "sessions.json"));
+  assert.equal(
+    (await stored(home, "webui")).config.sessionStorePath,
+    join(home, "extras", "webui", "sessions.json")
+  );
 });
 
 test("Malformed stored config is not treated as first setup", async (t) => {
@@ -627,12 +768,7 @@ test("Malformed stored config is not treated as first setup", async (t) => {
   const file = configPath(home, "webui");
   await mkdir(join(home, "extras", "webui"), { recursive: true });
   await writeFile(file, "{", { mode: 0o600 });
-  const result = await cli(home, [
-    "webui",
-    "configure",
-    "--session-store-path",
-    join(home, "sessions.json")
-  ]);
+  const result = await cli(home, ["webui", "configure", "--port", "13888"]);
   assert.notEqual(result.code, 0);
   assert.equal(await readFile(file, "utf8"), "{");
 });

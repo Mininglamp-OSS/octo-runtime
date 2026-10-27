@@ -63,6 +63,7 @@ const reservedOptions = new Set([
   "acknowledge-orphan-cleanup"
 ]);
 const validName = /^[a-z][a-z0-9-]{0,63}$/;
+const validOptionName = /^[a-z][a-z0-9_-]{0,63}$/;
 
 /** 根目录只读元数据；只有选中命令才导入扩展，生命周期始终走原有离线路由。 */
 export async function routeExtraCommand(
@@ -329,7 +330,7 @@ function validateCommands(extension: ExtraCommandExtension): void {
       for (const option of command.options ?? []) {
         if (
           !option ||
-          !validName.test(option.name) ||
+          !validOptionName.test(option.name) ||
           options.has(option.name) ||
           reservedOptions.has(option.name) ||
           !["string", "boolean"].includes(option.type) ||
@@ -369,7 +370,7 @@ function parseOption(
   values: Record<string, string | boolean>
 ): number {
   const token = args[index] === "-h" ? "--help" : args[index];
-  const match = /^--([a-z][a-z0-9-]*)(?:=(.*))?$/s.exec(token);
+  const match = /^--([a-z][a-z0-9_-]*)(?:=(.*))?$/s.exec(token);
   const option = match && definitions.find((option) => option.name === match[1]);
   if (!match || !option || Object.hasOwn(values, option.name)) throw new Error("INVALID_ARGUMENTS");
   if (option.type === "boolean") {

@@ -1,4 +1,4 @@
-import { isAbsolute } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { assertContextEnvelope } from "@mininglamp-oss/octo-runtime-protocol";
 import {
   ExtraCommandError,
@@ -16,7 +16,7 @@ function validate(config: JsonObject): void {
   if (typeof config.sessionStorePath !== "string" || !isAbsolute(config.sessionStorePath))
     throw new ExtraCommandError(
       "WEBUI_STORE_PATH_REQUIRED",
-      "Provide --session-store-path with an absolute session JSON file path."
+      "config set requires sessionStorePath to be an absolute session JSON file path."
     );
   if (config.defaultProjectPath !== undefined && typeof config.defaultProjectPath !== "string")
     throw new ExtraCommandError(
@@ -41,20 +41,16 @@ const extension: ExtraCommandExtension = {
       name: "configure",
       description: "Update the single WebUI configuration; saves only, restart to apply",
       options: [
-        { name: "port", type: "string", description: "Loopback HTTP port (default 13888)" },
-        {
-          name: "session-store-path",
-          type: "string",
-          description: "Absolute session JSON file path; required for first setup"
-        },
-        { name: "project-path", type: "string", description: "Initial project directory" }
+        { name: "port", type: "string", description: "Loopback HTTP port (default 13888)" }
       ],
-      examples: [
-        "octo-runtime webui configure --session-store-path /absolute/home/extras/webui/sessions.json --port 13888"
-      ],
+      examples: ["octo-runtime webui configure --port 13888"],
       async run(context, input) {
         const snapshot = await context.readConfig();
         const config = { ...snapshot.config };
+        // 简化入口只暴露端口；首次会话存储从宿主 Home 推导，已有路径和项目配置保持。
+        // 高级 config set 仍按原 JSON 合同完整替换，不改存储字段名或隐式迁移数据。
+        if (config.sessionStorePath === undefined)
+          config.sessionStorePath = join(context.home, "extras", context.name, "sessions.json");
         const port = input.options.port;
         if (typeof port === "string") {
           if (!/^[0-9]+$/.test(port))
@@ -63,13 +59,6 @@ const extension: ExtraCommandExtension = {
               "--port must be an integer from 1 to 65535."
             );
           config.port = Number(port);
-        }
-        for (const [flag, field] of [
-          ["session-store-path", "sessionStorePath"],
-          ["project-path", "defaultProjectPath"]
-        ]) {
-          const value = input.options[flag];
-          if (typeof value === "string") config[field] = value;
         }
         validate(config);
         return savedConfigResult(await context.saveConfig(config, snapshot.revision));

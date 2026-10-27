@@ -48,7 +48,7 @@ export interface ExtraConfigSaved {
 /**
  * CLI 拥有 Home、IO 与取消信号；业务实现先读快照、在锁外完成交互/校验，再保存。
  * saveConfig 只写当前 Extra 的 config，保留宿主字段；冲突须重新读取，不能盲目重试。
- * output/prompt 的文本由插件负责脱敏；秘密使用 readStdin，不使用会回显的 prompt。
+ * output/prompt 的文本由插件负责脱敏；凭据输入方式归 Extra 决定，不使用会回显的 prompt。
  */
 export interface ExtraCommandContext {
   readonly home: string;

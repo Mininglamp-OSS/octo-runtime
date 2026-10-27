@@ -98,3 +98,23 @@ timestamp: 2026-10-27T00:00:00Z
 新增三个回归覆盖命令前/中/后与嵌套命令、重复宿主参数、业务缺值、Home/显式 manifest 选择先于导入、等号中的字面 --home 和 -- 后的位置参数。专项50项通过；全量 Node1968项：1914通过/54跳过/0失败，UI35通过。typecheck、lint/names、docs:check、改动代码格式、git diff --check、发行包构建和原包外验收通过。包外脚本另将调用改为所有 --home 均置于命令参数后，实际 tgz 三 Extra 配置/去重/权限、外部命令与 strict 类型均通过。
 
 证据前缀 `/tmp/octo-197-global-position-`：`typecheck.log`、`focused.log`、`tests.log`、`lint.log`、`names.log`、`docs.log`、`format.log`、`pack.log`、`release.log`、`trailing-release.log`。旧版本新增用例失败记录为 `before.log`。本次未重跑全局安装矩阵，其既有证据见前节；无业务联调或用户 Home 修改。
+
+# 原文字段参数、简化 WebUI 与 bot_id 更新
+
+以 `45c5082b47252b729b744f75b3d17ad211a69ec8` 为增量基线，按用户后续决定替换早期参数方案：所有暴露业务参数与配置字段同名，凭据直接通过 bf_token/app_secret 传原文；WebUI configure 仅 port，会话路径首次从 Home 推导；两个渠道 configure 均按 bot_id 更新或追加，改地址不新增同 ID。旧跨 endpoint 同 ID 合并为一项，省略字段取首项；WeCom 省略地址时保留已有值。完整 JSON 配置和运行时身份合同不变。
+
+本轮在 macOS arm64 / Node24.19.0 / pnpm11.19.0 执行：
+
+| 检查 | 结果 |
+| --- | --- |
+| pnpm typecheck | PASS |
+| 命令/全局发现/生命周期专项 | 54通过，0失败 |
+| pnpm test:suites | Node1972项：1918通过/54跳过/0失败；WebUI35通过 |
+| pnpm lint / pnpm lint:names / pnpm docs:check | PASS |
+| 改动代码 Prettier / git diff --check | PASS |
+| node scripts/pack-release.mjs | PASS |
+| 实际 tgz 在仓库外 npm 离线安装验收 | PASS：三 Extra 帮助/配置/读回/POSIX权限；原文凭据含 Unicode、空格和 CRLF 精确保留；两个渠道更换地址仍只有同 ID 一项，新 ID 追加；WebUI 从 Home 推导路径；外部命令和 strict 公共类型通过 |
+
+证据前缀 `/tmp/octo-197-schema-flags-`：typecheck.log、focused.log、tests.log、lint.log、names.log、docs.log、format.log、pack.log、release.log。包外脚本 `/tmp/octo-197-verify-schema-flags.mjs` 使用后置全局 --home，测试 Home 均为独占临时目录。仓库回归还覆盖旧参数拒绝、凭据省略保留/空值拒绝/无需 stdin、非法地址不写盘、旧跨地址同 ID 合并、其他 Bot 不变、WebUI 高级路径保留。
+
+本轮没有重跑 npm/pnpm 全局安装矩阵，其此前结果见“PR #197 评审修复验证”；本轮重新构建并安装了真实发行包。真实渠道认证、Windows/Linux 原生平台和 TTY 的既有验证边界不变。
