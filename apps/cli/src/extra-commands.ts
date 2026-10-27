@@ -360,12 +360,18 @@ function parseOption(
   const option = match && definitions.find((option) => option.name === match[1]);
   if (!match || !option || Object.hasOwn(values, option.name)) throw new Error("INVALID_ARGUMENTS");
   if (option.type === "boolean") {
-    if (match[2] !== undefined) throw new Error("INVALID_ARGUMENTS");
+    // 宿主布尔参数沿用旧 CLI：存在即启用，接受 --json=true 等等号形式。
+    // Extra 的 typed boolean 仍只接受开关，不把任意字符串解释为业务布尔值。
+    if (match[2] !== undefined && definitions !== hostOptions) throw new Error("INVALID_ARGUMENTS");
     values[option.name] = true;
     return index + 1;
   }
   const value = match[2] ?? args[++index];
-  if (value === undefined || value === "" || (match[2] === undefined && value.startsWith("-")))
+  if (
+    value === undefined ||
+    value === "" ||
+    (match[2] === undefined && value.startsWith(definitions === hostOptions ? "--" : "-"))
+  )
     throw new Error("INVALID_ARGUMENTS");
   values[option.name] = value;
   return index + 1;

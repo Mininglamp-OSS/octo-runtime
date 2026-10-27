@@ -6,7 +6,7 @@ Use `octo-runtime <extra> --help` to discover setup commands. Root help reads th
 
 ## Configure the built-in Extras
 
-Place `--home` and `--manifest` **before the custom command**, either before the Extra name or between the name and command. `--json`, `-h` and `--help` also work after the command. Configuration is Home-scoped; `--profile` is rejected. Existing lifecycle syntax remains supported. The WeCom namespace is `channel-wecom`.
+Place `--home` and `--manifest` **before the custom command**, either before the Extra name or between the name and command. `--json`, `-h` and `--help` also work after the command. Configuration is Home-scoped; `--profile` is rejected. Host boolean flags retain the legacy presence semantics, including `--json=true` and `--help=true`; the equals value does not disable the flag. Extra-owned boolean options accept only the bare flag. Existing lifecycle syntax remains supported. The WeCom namespace is `channel-wecom`.
 
 ```sh
 # 凭据文件由使用者在仓库外准备；stdin 传入凭据原文，不是 JSON。

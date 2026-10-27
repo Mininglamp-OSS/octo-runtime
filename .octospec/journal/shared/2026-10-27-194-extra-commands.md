@@ -16,3 +16,5 @@ timestamp: 2026-10-27T00:00:00Z
 交付同步至 `origin/main@f0bacb01590084523c21dc9996d05738c9a06a44`，复用 #196 全局发现及安装身份检查，新增命令加载来源回归和实际 npm/pnpm 命令验收；保留 #195 生命周期文档修正。最新验证见 validation.md。
 
 同步后 Node1906通过/54跳过、UI35通过；typecheck、lint/names、文档、格式、实际 tgz、隔离 npm/pnpm 全局命令和包外公开类型均通过，增量审查无待修 medium+。按授权提交英文 commit 和 Draft PR，保留 Codex attribution，不自动合并。
+
+PR #197 的后续评审复现两项 P2：回收目录在 owner 退出后阻塞、旧宿主等号布尔参数不兼容。已将锁改为完整 owner 记录原子发布及同协议回收，保留活跃写入者保护；恢复旧宿主参数语义，Extra typed boolean 保持严格。pnpm 验收允许真实活动安装组目录。修前两项失败，修后专项47项、Node1911通过/54跳过、UI35以及构建/lint/文档/发行包/隔离全局安装全部通过。详见任务 review/validation 追加记录；远端评审仍须独立确认。

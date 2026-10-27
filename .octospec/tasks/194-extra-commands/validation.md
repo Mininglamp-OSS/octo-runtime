@@ -40,7 +40,7 @@ timestamp: 2026-10-27T00:00:00Z
 
 `test/extra-commands.test.js` 有 27 项专项测试，包含未配置/disabled、全部帮助层级、CRLF/Unicode、两渠道 ID 去重与不同端点、保存回执与业务 JSON 分离、完整 JSON 替换、重复身份/非法 URL/非法端口/超量输入拒绝、profile 拒绝、核心字段保留、凭据不回显、损坏配置不覆盖。
 
-并发覆盖两种路径：同进程快照与 extraset 冲突，以及两个真实 CLI 进程先读同一快照、在无锁 stdin 交互后按顺序提交；前者保存，后者明确 EXTRA_CONFIG_CONFLICT，原配置保留。新锁尚未写完时不可抢占；多个竞争者回收同一陈旧锁时使用独占 reclaim 目录和二次 owner 检查，只有一个写入者进入。取消测试在 stdin 未结束时返回 130，解除监听并不创建配置。
+并发覆盖两种路径：同进程快照与 extraset 冲突，以及两个真实 CLI 进程先读同一快照、在无锁 stdin 交互后按顺序提交；前者保存，后者明确 EXTRA_CONFIG_CONFLICT，原配置保留。新锁尚未写完时不可抢占；初版多个竞争者回收同一陈旧锁时使用独占 reclaim 目录和二次 owner 检查，只有一个写入者进入；目录方案现已被 PR 评审修复取代，见追加记录。取消测试在 stdin 未结束时返回 130，解除监听并不创建配置。
 
 外部模块覆盖根帮助不 import、选择来源、忽略同名条目、文件模块声明、旧包无 exports、缺少可选导出、依赖损坏、API 不兼容、保留名称/重复命令/宿主选项冲突、嵌套命令、`--` 字面量、非法退出输入与可控退出码。普通异常正文不会成为公开凭据。
 
@@ -72,3 +72,21 @@ timestamp: 2026-10-27T00:00:00Z
 | `node /tmp/octo-194-verify-release.mjs "$PWD"` | `/tmp/octo-194-main-release.log` | PASS：包外 npm 离线安装，三 Extra 帮助/配置/去重/权限、Home manifest 外部 login、strict TypeScript 公共类型 |
 
 增量 verified-review 已复核冲突解决、自动合并和全局来源适配；无待修复 medium+。上述日志是本机执行证据；仓库保留测试与验收脚本。实际包安装只在独占临时目录进行，没有修改用户全局环境。全局 fixture 的服务初始化由测试主动终止；不是业务认证或消息投递验证。PR 保持 Draft，不自动合并。
+
+# PR #197 评审修复验证
+
+以 `fd5b7db` 为基线修复两项 P2，未改变三个 Extra 的业务范围或配置合同。回收锁不再使用无 owner 目录。真实进程退出、连续回收者退出、活跃回收者排他和旧宿主参数的回归已纳入仓库测试；修复前两项复现失败，修后通过。
+
+| 检查 | 证据 | 结果 |
+| --- | --- | --- |
+| `pnpm typecheck` | `/tmp/octo-197-review-typecheck.log` | PASS |
+| `node --test test/extra-commands.test.js test/global-extra-discovery.test.js test/cli-lifecycle-races.test.js` | `/tmp/octo-197-review-focused.log` | PASS，47 项 |
+| `pnpm test:suites` | `/tmp/octo-197-review-tests.log` | PASS，Node1965项：1911通过/54跳过/0失败；UI35通过 |
+| `pnpm lint` / `pnpm lint:names` | `/tmp/octo-197-review-lint.log`、`/tmp/octo-197-review-names.log` | PASS |
+| `pnpm docs:check` | `/tmp/octo-197-review-docs.log` | PASS，含4项可执行示例 |
+| 改动代码 Prettier / `git diff --check` | `/tmp/octo-197-review-format.log` | PASS |
+| `node scripts/pack-release.mjs` | `/tmp/octo-197-review-pack.log` | PASS |
+| `pnpm test:global-extras dist/release/mininglamp-oss-octo-runtime-0.0.0.tgz` | `/tmp/octo-197-review-global-install.log` | PASS，隔离 npm/pnpm v11 全矩阵 |
+| `node /tmp/octo-194-verify-release.mjs "$PWD"` | `/tmp/octo-197-review-release.log` | PASS，实际 tgz 包外命令/去重/权限/strict 公共类型 |
+
+平台与未做真实渠道联调的边界不变。硬链接在同一目录内发布锁，测试验证进程退出后的恢复；不将其表述为断电或文件系统损坏后的恢复保证。当前基线旧 CI 全绿不能作为修复后 CI 结果，推送后重新运行远端检查。

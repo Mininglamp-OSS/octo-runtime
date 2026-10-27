@@ -33,6 +33,178 @@ async function cli(home, args, input = "", dependencies = {}) {
 const configPath = (home, name) => join(home, "extras", name, "config.json");
 const stored = async (home, name) => JSON.parse(await readFile(configPath(home, name), "utf8"));
 
+test("Legacy host boolean equals syntax works before and after lifecycle commands", async (t) => {
+  const home = await fixture(t);
+  for (const args of [
+    ["--json=true", "version"],
+    ["--help=true"],
+    ["--json=true", "webui", "status", "--help"],
+    ["webui", "--json=true", "status", "--help"],
+    ["webui", "status", "--json=true", "--help"],
+    ["--json=false", "version"],
+    ["--profile", "-legacy", "version"],
+    ["--help=legacy-value"],
+    ["webui", "configure", "--help=true"]
+  ]) {
+    const result = await cli(home, args);
+    assert.equal(result.code, 0, `${args.join(" ")}: ${result.errors}`);
+    assert.ok(result.output.length > 0);
+  }
+  // 兼容宿主参数不放宽 Extra 自己声明的 boolean 选项。
+  const result = await cli(home, ["channel-gateway", "configure", "--credential-stdin=true"]);
+  assert.equal(result.code, 2);
+  await assert.rejects(access(join(home, "extras")));
+});
+
+async function lockProcess(home, hook = "", onChild = () => {}) {
+  const state = new URL("../apps/cli/dist/state.js", import.meta.url).href;
+  const child = spawn(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `
+    import fs from 'node:fs/promises';
+    import { syncBuiltinESMExports } from 'node:module';
+    ${hook}
+    syncBuiltinESMExports();
+    const { withSetupLock, runtimePaths } = await import(${JSON.stringify(state)});
+    await withSetupLock(runtimePaths(${JSON.stringify(home)}, 'default'), async () => {});
+  `
+    ],
+    { stdio: ["pipe", "pipe", "pipe"] }
+  );
+  let errors = "";
+  child.stderr.on("data", (chunk) => {
+    errors += chunk;
+  });
+  onChild(child);
+  return { code: (await once(child, "exit"))[0], errors };
+}
+
+test("A process dying immediately after publishing a reclaim lock does not block future writers", async (t) => {
+  const home = await fixture(t),
+    paths = runtimePaths(home, "default");
+  const dead = spawn(process.execPath, ["-e", ""], { stdio: "ignore" });
+  await once(dead, "exit");
+  await mkdir(join(home, "run"), { recursive: true });
+  await writeFile(paths.setupLock, JSON.stringify({ pid: dead.pid }), { mode: 0o600 });
+  const crash = await lockProcess(
+    home,
+    `
+    const mkdir = fs.mkdir, link = fs.link;
+    fs.mkdir = async (...args) => {
+      const result = await mkdir(...args);
+      if (String(args[0]).endsWith('.reclaim')) process.exit(42);
+      return result;
+    };
+    fs.link = async (...args) => {
+      const result = await link(...args);
+      if (String(args[1]).includes('reclaim')) process.exit(42);
+      return result;
+    };
+  `
+  );
+  assert.equal(crash.code, 42, crash.errors);
+  // 第二位和第三位回收者也在发布后立即退出，验证回收锁本身的恢复路径。
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const again = await lockProcess(
+      home,
+      `
+      const link = fs.link;
+      fs.link = async (...args) => {
+        const result = await link(...args);
+        if (String(args[1]).includes('reclaim')) process.exit(42);
+        return result;
+      };
+    `
+    );
+    assert.equal(again.code, 42, again.errors);
+  }
+  // 三个新进程必须都能进入，不删除锁、不等待超时、不手动修复。
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const recovered = await lockProcess(home);
+    assert.equal(recovered.code, 0, recovered.errors);
+  }
+});
+
+for (const stage of ["before", "after"]) {
+  test(`A process dying ${stage} primary-lock publication leaves future configuration writable`, async (t) => {
+    const home = await fixture(t);
+    const crash = await lockProcess(
+      home,
+      `
+      const link = fs.link;
+      fs.link = async (...args) => {
+        if (${JSON.stringify(stage)} === 'before') process.exit(42);
+        const result = await link(...args);
+        process.exit(42);
+        return result;
+      };
+    `
+    );
+    assert.equal(crash.code, 42, crash.errors);
+    const result = await cli(home, [
+      "webui",
+      "configure",
+      "--session-store-path",
+      join(home, "sessions.json")
+    ]);
+    assert.equal(result.code, 0, result.errors);
+    assert.equal(
+      (await stored(home, "webui")).config.sessionStorePath,
+      join(home, "sessions.json")
+    );
+  });
+}
+
+test("A live reclaimer excludes other processes and its death releases future recovery", async (t) => {
+  const home = await fixture(t),
+    paths = runtimePaths(home, "default");
+  const dead = spawn(process.execPath, ["-e", ""], { stdio: "ignore" });
+  await once(dead, "exit");
+  await mkdir(join(home, "run"), { recursive: true });
+  const original = JSON.stringify({ pid: dead.pid });
+  await writeFile(paths.setupLock, original, { mode: 0o600 });
+  let child, ready;
+  const barrier = new Promise((resolve) => {
+    ready = resolve;
+  });
+  const completion = lockProcess(
+    home,
+    `
+    const link = fs.link;
+    fs.link = async (...args) => {
+      const result = await link(...args);
+      if (String(args[1]).includes('reclaim')) {
+        process.stdin.resume();
+        process.stdout.write('ready');
+        await new Promise(() => {});
+      }
+      return result;
+    };
+  `,
+    (process) => {
+      child = process;
+      child.stdout.once("data", ready);
+    }
+  );
+  t.after(() => {
+    if (child.exitCode === null) child.kill();
+  });
+  await Promise.race([barrier, completion.then((result) => assert.fail(result.errors))]);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const blocked = await lockProcess(home);
+    assert.equal(blocked.code, 1);
+    assert.match(blocked.errors, /SETUP_IN_PROGRESS/);
+    assert.equal(await readFile(paths.setupLock, "utf8"), original);
+  }
+  child.kill();
+  await completion;
+  const recovered = await lockProcess(home);
+  assert.equal(recovered.code, 0, recovered.errors);
+});
+
 for (const name of ["channel-gateway", "channel-wecom", "webui"]) {
   test(`${name}: all help levels are offline and do not create configuration`, async (t) => {
     const home = await fixture(t);

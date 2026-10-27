@@ -19,7 +19,7 @@ timestamp: 2026-10-27T00:00:00Z
 - `configure` 暴露 Bot ID、地址、执行 adapter/workdir/model/effort/provider-agent-id；凭据仅 --credential-stdin。WebUI 仅 port/session-store-path/project-path。省略项保留原值，创建时使用现行业务默认，不新增业务默认。
 - Gateway 按 imBotIdentity（规范化 api_url + bot_id）upsert，WeCom 按自身 imBotIdentity（规范化 ws_url + bot_id）upsert。WebUI 按 Home 内 webui 单例合并。重复请求不追加重复 Bot；完整 config set 中重复身份拒绝，避免静默丢弃不同凭据或配置。
 - `config set` 从 stdin 读取完整业务对象，经 Extra 校验替换 config；`config get` 显式返回可能含凭据的业务配置，帮助注明。旧 extraset/extraget 外壳及完整替换语义保持。
-- 命令先读取配置快照，交互/校验在锁外完成，保存以相同 setup lock 做修订比对和原子替换。新写锁尚未写完时拒绝抢占；旧 PID 回收使用独占 reclaim 目录并再次读 owner，防止并发删除新锁。并发修改返回冲突，未配置与损坏配置不能混同；保留 enabled/module，不部分写入。保存只表示持久化，reload_required=true。
+- 命令先读取配置快照，交互/校验在锁外完成，保存以相同 setup lock 做修订比对和原子替换。主锁与回收锁先写完整 PID/随机身份，再通过同目录硬链接原子发布；回收者持有同协议的回收锁并再次核对原记录，退出后可继续恢复，防止并发删除新锁。旧格式不完整 owner 仍保守拒绝。并发修改返回冲突，未配置与损坏配置不能混同；保留 enabled/module，不部分写入。保存只表示持久化，reload_required=true。
 - composition root 是当前 CLI 进程；不构造 Extra/Kernel 服务，不增加进程/socket。CLI 拥有 IO、signal 与写锁；Extra 拥有业务函数。删除映射：无服务 API 删除，旧 whole-argv 解析只用于既有命令。
 - #192 已通过 #196 合入交付基线；复用统一 catalog，命令模块沿同一全局安装来源加载并复用安装身份校验。保留 Home manifest 接入，补充 npm/pnpm 实际全局安装命令验收。
 
@@ -34,3 +34,11 @@ timestamp: 2026-10-27T00:00:00Z
 3. 第三方包位于 workspace 外，选中来源一致，未选中及服务入口不执行；无导出/坏导出/API版本/冲突隔离。
 4. 并发冲突、取消、失败与权限；原 extraset 脚本继续工作。
 5. build/typecheck/lint/names、跨包全量测试、实际发行包检查；verified-review 逐文件阅读和执行验证。
+
+# PR #197 评审修复
+
+以 `fd5b7dbb5a6ed56b208ce1f2ec9d7dd2f9af3990` 为修复基线。两项 P2 均通过新增回归在原代码上复现：回收进程在创建目录后退出导致永久 SETUP_IN_PROGRESS；宿主等号布尔参数被新路由提前拒绝。
+
+锁修复必须同时保护活跃写入者、允许主锁及回收锁的 owner 退出后恢复。先完整写入独占临时文件，再以同目录硬链接原子发布；回收前持有同协议回收锁并比较完整旧记录，释放时核对随机身份。回收锁名哈希保持固定长度，并只依赖文件名，使 Home 的符号链接别名共享同一互斥点。发布前退出产生的临时文件不参与互斥；旧格式无有效 owner 的锁继续保守拒绝，不按时间删除。所有使用 Home setup lock 的调用者都在验证范围内。
+
+参数修复复用旧宿主语义，Extra typed boolean 保持严格。补充命令前后与根帮助回归。安装验收接受 pnpm 的共享 store 和活动 global/v11 目录，仍验证真实目录边界和 npm/pnpm 环境隔离。
