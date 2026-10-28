@@ -76,3 +76,9 @@ tags: [adapter, protocol, testing]
 | git diff --check / lockfile 与协议生成漂移 | 通过，无漂移 |
 
 本轮复核未发现遗留阻塞项。真实 Provider 账号、外部 Work App/IM 和原生 Windows 未重测；托管 CI 将针对新提交重新执行。不自动合并、部署或发布。
+
+## 同步 main 并解决冲突
+
+按用户要求将 `origin/main@c51d5cf` 合入 PR #216 分支。仅 `.octospec/index.md` 和 `.octospec/log.md` 同位置新增任务记录冲突，保留 CodeBuddy 与 Issue 160 两边记录；ACP 错误处理逻辑未改动。
+
+合并后 CodeBuddy、公共错误分类、adapter 失败及 main 新增的 stateless-live-probe 专项共 81 项通过，0 失败/跳过；OKF lint 444 个单元、20 条规则、3139 个本地链接通过，`git diff --check` 通过。本次未重复执行此前已通过的全量测试，远端 CI 将针对合并提交重新执行。
