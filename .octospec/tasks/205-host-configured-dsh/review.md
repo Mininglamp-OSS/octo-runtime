@@ -1,3 +1,10 @@
+---
+type: Task
+title: Issue 205 代码评审
+description: 记录 DSH 宿主配置、启动边界和交付验证的评审依据。
+tags: [adapter, testing, review]
+---
+
 # Verified Review
 
 ## 评审计划

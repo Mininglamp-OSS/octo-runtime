@@ -1,3 +1,10 @@
+---
+type: Task
+title: Issue 205 验证与评审
+description: 分别记录本地回归、原生 DSH 和跨平台 CI 的验证证据。
+tags: [adapter, testing, runtime]
+---
+
 # Issue 205 验证与评审
 
 ## 基线与范围

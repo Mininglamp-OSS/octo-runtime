@@ -1,3 +1,10 @@
+---
+type: Task
+title: Issue 205 宿主管理 DSH npm 入口
+description: 明确宿主选择与传入 DSH 入口的责任、范围和验收合同。
+tags: [adapter, runtime, installation]
+---
+
 # Issue 205：宿主管理 DSH npm 入口
 
 需求依据：[Issue #205](https://github.com/Mininglamp-OSS/octo-runtime/issues/205) 及其 2026-10-28 评论。评论取代原 Desktop/ASAR 验收方向。

@@ -43,6 +43,7 @@
 - [为什么统一设备](../ARCHITECTURE.md)：新旧对比、Home 级设备实例、本地 IPC / 异地云端寻址目标及移动端 Buddy 的价值。
 - [工作区与开发组织](guides/workspace.md)：目录、依赖、构建及新增包。
 - [Adapter 开发](guides/adapter-authoring.md)：接口示例和验收。
+- [Provider 独立真实验收](guides/provider-live-acceptance.md)：全部 adapter 的离线门禁、显式真实入口、执行责任、重跑时机及证据格式。
 - [Provider 实现矩阵](guides/providers.md)：传输、模式及权限差异。
 - [Extra 配置与调用](guides/extra-configuration.md)：当前 CLI 路径、SDK 和本地 WebUI。
 - [Channel 逐轮加载宿主 Context](guides/channel-dynamic-contexts.md)：Agent 提示词与业务数据变化无需重载插件；说明函数注入、同 key 整项覆盖、内存边界及当前 SDK 装配缺口，对应 [SDK 指南第 7 节](../SDK_CHANNEL_GATEWAY_GUIDE.md#逐轮-context)。
@@ -55,6 +56,8 @@
 ## 当前任务
 
 - [Issue 205：宿主管理 DSH npm 入口](tasks/205-host-configured-dsh/brief.md)：宿主传入绝对路径 dshBin，删除安装发现及 Desktop/ASAR；官方 SDK 保持未修改，三平台 Node/Electron 验证分别记录。
+
+- [Issue 217：CodeBuddy 显式选模与续聊切模](tasks/217-codebuddy-model-selection/brief.md)：最新 main 独立 worktree，方案可执行性 96/100；prompt 前按原生目录设置并确认模型，未知模型和原生拒绝送达用户。真实 CodeBuddy/IM、自动化及本地 verified-review 见[验收记录](tasks/217-codebuddy-model-selection/validation.md)。
 
 - [Issue 202/203：CodeBuddy 默认模型与订阅错误](tasks/202-203-codebuddy/brief.md)：方案可执行性 96/100；JSON 安全回执、确认模型与空输出守卫。用户最新明确独立 ACP 失败码、公共消息直接拼原始 _meta 的 JSON，不解析、不脱敏、不筛字段；真实 Kernel worker/IPC fixture 覆盖，见[验证记录](tasks/202-203-codebuddy/validation.md)。
 
