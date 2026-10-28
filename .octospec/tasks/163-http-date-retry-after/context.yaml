@@ -41,7 +41,10 @@ additional_read:
   - /Users/lvsijia/.agents/skills/verified-review/SKILL.md
   - https://github.com/Mininglamp-OSS/octo-runtime/pull/226#pullrequestreview-5681722244
   - https://github.com/Mininglamp-OSS/octo-runtime/pull/226#pullrequestreview-5683996233
+  - https://github.com/Mininglamp-OSS/octo-runtime/pull/226#pullrequestreview-5686121494
   - https://www.rfc-editor.org/rfc/rfc9110.html#section-5.6.7
+  - https://www.rfc-editor.org/rfc/rfc9110.html#section-10.2.3
+  - https://www.rfc-editor.org/rfc/rfc5322.html#section-3.3
 files_expected:
   - packages/octo-runtime-extra-channel-gateway/src/transport/retry-after.ts
   - packages/octo-runtime-extra-channel-gateway/src/transport/api/errors.ts
