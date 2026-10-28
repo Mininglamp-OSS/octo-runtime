@@ -7,7 +7,7 @@ import { buildClaudeCommand } from "@mininglamp-oss/octo-runtime-adapter-claude-
 import { createAcpAdapter } from "@mininglamp-oss/octo-runtime-adapter-acp";
 import { invokeRequest } from "./runtime-fixture.js";
 
-test("sessionName validators and wire schemas agree on bounded display text", () => {
+test("sessionName validators and wire schemas agree on ASCII letters, digits and hyphens", () => {
   const schema = JSON.parse(
     readFileSync(
       new URL("../packages/octo-runtime-protocol/schema/protocol.schema.json", import.meta.url)
@@ -19,21 +19,15 @@ test("sessionName validators and wire schemas agree on bounded display text", ()
     inputs: [{ type: "text", text: "hello" }],
     contexts: { schema: "octo.context-envelope/v3", items: [] }
   };
-  for (const [sessionName, valid] of [
-    [undefined, true],
-    ["arbitrary-caller-name", true],
-    ["a:b_c-d", true],
-    ["\u2028readable\u2029name", true],
-    ["😀".repeat(256), true],
-    ["", false],
-    [" \t", false],
-    ["x\n", false],
-    ["readable\u2028\x01", false],
-    ["\x7f", false],
-    ["😀".repeat(257), false],
-    [42, false],
-    [null, false]
-  ]) {
+  const cases = JSON.parse(
+    readFileSync(
+      new URL(
+        "../packages/octo-runtime-protocol/schema/session-name-fixtures.json",
+        import.meta.url
+      )
+    )
+  );
+  for (const { name, sessionName, valid } of cases) {
     for (const [definition, value, check] of [
       [
         "InvokeInputWire",
@@ -50,7 +44,7 @@ test("sessionName validators and wire schemas agree on bounded display text", ()
       assert.equal(
         validate(JSON.parse(JSON.stringify(value))),
         valid,
-        JSON.stringify(validate.errors)
+        `${name}: ${JSON.stringify(validate.errors)}`
       );
       if (valid) assert.doesNotThrow(() => check(value));
       else assert.throws(() => check(value), /sessionName/);

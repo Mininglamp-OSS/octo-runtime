@@ -1,0 +1,151 @@
+[
+  {
+    "name": "omitted name",
+    "valid": true
+  },
+  {
+    "name": "lowercase name",
+    "sessionName": "octo-dm-user-123",
+    "valid": true
+  },
+  {
+    "name": "mixed letters digits and hyphens",
+    "sessionName": "WebUI-ABC-xyz-019",
+    "valid": true
+  },
+  {
+    "name": "one letter",
+    "sessionName": "A",
+    "valid": true
+  },
+  {
+    "name": "one digit",
+    "sessionName": "7",
+    "valid": true
+  },
+  {
+    "name": "one hyphen",
+    "sessionName": "-",
+    "valid": true
+  },
+  {
+    "name": "256 ASCII characters",
+    "sessionName": "Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-",
+    "valid": true
+  },
+  {
+    "name": "257 ASCII characters",
+    "sessionName": "Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-Ab9-x",
+    "valid": false
+  },
+  {
+    "name": "empty name",
+    "sessionName": "",
+    "valid": false
+  },
+  {
+    "name": "whitespace only",
+    "sessionName": " \t",
+    "valid": false
+  },
+  {
+    "name": "embedded space",
+    "sessionName": "Team review",
+    "valid": false
+  },
+  {
+    "name": "colon",
+    "sessionName": "a:b",
+    "valid": false
+  },
+  {
+    "name": "underscore",
+    "sessionName": "a_b",
+    "valid": false
+  },
+  {
+    "name": "slash",
+    "sessionName": "a/b",
+    "valid": false
+  },
+  {
+    "name": "percent escape",
+    "sessionName": "a%20b",
+    "valid": false
+  },
+  {
+    "name": "non ASCII letters",
+    "sessionName": "\u540d\u79f0",
+    "valid": false
+  },
+  {
+    "name": "emoji",
+    "sessionName": "\ud83d\ude00",
+    "valid": false
+  },
+  {
+    "name": "Unicode line separator",
+    "sessionName": "a\u2028b",
+    "valid": false
+  },
+  {
+    "name": "Unicode paragraph separator",
+    "sessionName": "a\u2029b",
+    "valid": false
+  },
+  {
+    "name": "Unicode BOM whitespace",
+    "sessionName": "\ufeff",
+    "valid": false
+  },
+  {
+    "name": "Unicode next line",
+    "sessionName": "\u0085",
+    "valid": false
+  },
+  {
+    "name": "trailing newline",
+    "sessionName": "valid-name\n",
+    "valid": false
+  },
+  {
+    "name": "trailing carriage return",
+    "sessionName": "valid-name\r",
+    "valid": false
+  },
+  {
+    "name": "embedded control character",
+    "sessionName": "a\u0001b",
+    "valid": false
+  },
+  {
+    "name": "DEL",
+    "sessionName": "a\u007fb",
+    "valid": false
+  },
+  {
+    "name": "null",
+    "sessionName": null,
+    "valid": false
+  },
+  {
+    "name": "number",
+    "sessionName": 42,
+    "valid": false
+  },
+  {
+    "name": "boolean",
+    "sessionName": true,
+    "valid": false
+  },
+  {
+    "name": "object",
+    "sessionName": {},
+    "valid": false
+  },
+  {
+    "name": "array",
+    "sessionName": [],
+    "valid": false
+  }
+]

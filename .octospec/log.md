@@ -2,6 +2,8 @@
 
 ## 2026-10-28
 
+- [PR 229 名称合同修正](tasks/224-session-names/validation.md#pr-229-后续修正ascii-名称与三端一致性)：用户明确只允许英文字母、数字与 `-`；修复前瞻在 Go RE2 上拒绝合法名称的问题，新增 JS/Go/Python 共用 fixtures，保留原生句柄语义和 CI 范围。
+
 - [Issue 224](journal/shared/2026-10-28-224-session-names.md)：实施调用方名称合同、Gateway 命名生命周期与 OpenClaw 原生续接，保留 Codex/CC/ACP 恢复语义。自动化、三种真实 Provider 及未完成 IM 的边界分别记录，不扩大 CI。
 
 - [PR 218 验收边界补充](tasks/217-codebuddy-model-selection/validation.md#pr-218-评审补充独立非门禁验收)：按用户要求仅改文档，明确全部 adapter 的 fake 离线门禁与独立真实 non-gating 验收，补齐执行责任、重跑时机和证据要求；不修改测试或 CI 工作流。

@@ -94,14 +94,25 @@ test("session names are optional caller data with a Core-only UUID default", () 
   assert.match(first.sessionName, /^[0-9a-f-]{36}$/);
   assert.notEqual(first.sessionName, second.sessionName);
   assert.equal(input.sessionName, undefined);
-  for (const sessionName of ["wecom-anything", "a:b_c-d", " 名称 ", "😀".repeat(256)]) {
+  for (const sessionName of ["wecom-anything", "WebUI-ABC-123", "a".repeat(256)]) {
     const prepared = prepareInvokeInput({ ...input, sessionName }).request;
     assert.equal(prepared.sessionName, sessionName);
     assert.equal(prepared.providerSession.sessionId, input.providerSession.sessionId);
     assert.equal(prepared.continuityMode, "continue");
     assert.equal(prepared.modelInput, "hello");
   }
-  for (const sessionName of [null, 1, "", "   ", "x\n", "x\x7f", "😀".repeat(257)])
+  for (const sessionName of [
+    null,
+    1,
+    "",
+    "   ",
+    "x\n",
+    "x\x7f",
+    "a_b",
+    "a:b",
+    "名称",
+    "a".repeat(257)
+  ])
     assert.throws(() => InvokeInput.check({ ...input, sessionName }), /sessionName/);
 });
 

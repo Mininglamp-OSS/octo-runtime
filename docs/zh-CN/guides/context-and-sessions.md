@@ -49,7 +49,7 @@
 
 ## 可读会话名称
 
-可选 `sessionName` 由各调用方制定生成策略，并保存在自己的会话 binding 中，例如 `wecom-{uuid}` 或 WebUI 标题。省略时仅 Core 补随机 UUID；Host SDK 和 Kernel 只透传，不提供业务命名器或名称 registry。名称不作为恢复句柄、权限或模型输入；同名不会合并会话，续聊改名也不会选择或重命名原生会话。
+可选 `sessionName` 由各调用方制定生成策略，并保存在自己的会话 binding 中，例如 `wecom-{uuid}` 或 `webui-{uuid}`。名称长度 1–256，仅允许 ASCII 英文字母、数字及 `-`；空格、下划线、冒号和非 ASCII 字符均拒绝。省略时仅 Core 补随机 UUID；Host SDK 和 Kernel 只透传，不提供业务命名器或名称 registry。名称不作为恢复句柄、权限或模型输入；同名不会合并会话，续聊改名也不会选择或重命名原生会话。
 
 Channel Gateway 生成 `octo-dm-{uid}-{uuid}`、`octo-group-{groupId}-{uuid}` 或 `octo-group-{groupId}-topic-{topicId}-{uuid}`。同一 scoped binding 跨轮、重试和闲置调度清理保持名称；`/reset`、`/new` 清除 binding，下一条普通消息分配新名称。旧 binding 缺少名称时补充，不更换 Provider 句柄；当前 store 的容量、期限及持久化保证不变。
 

@@ -49,7 +49,7 @@ To change session instructions, have your application create or reset the Provid
 
 ## Readable Session Names
 
-Set optional `sessionName` when creating a conversation, and keep it with your application binding. Each caller owns its naming policy: for example, `wecom-{uuid}` or a WebUI title. Core supplies a random UUID when omitted. Host SDK and Kernel forward the field without inventing business naming rules or keeping a name registry. Names never serve as recovery handles, authorization, or model input. Two conversations with the same name remain separate; changing a name on resume does not select or rename a native session.
+Set optional `sessionName` when creating a conversation, and keep it with your application binding. Names contain 1–256 ASCII letters, digits or hyphens only; spaces, underscores, colons and non-ASCII characters are rejected. Each caller owns its naming policy: for example, `wecom-{uuid}` or `webui-{uuid}`. Core supplies a random UUID when omitted. Host SDK and Kernel forward the field without inventing business naming rules or keeping a name registry. Names never serve as recovery handles, authorization, or model input. Two conversations with the same name remain separate; changing a name on resume does not select or rename a native session.
 
 Channel Gateway generates `octo-dm-{uid}-{uuid}`, `octo-group-{groupId}-{uuid}`, or `octo-group-{groupId}-topic-{topicId}-{uuid}`. It preserves the name in the existing scoped binding across turns, retries and idle scheduler cleanup. `/reset` and `/new` discard that binding and allocate a new name with the next normal message. Existing unnamed bindings receive a name without changing their Provider handle. The current store's retention and persistence guarantees still apply.
 

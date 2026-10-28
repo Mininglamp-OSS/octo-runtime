@@ -26,3 +26,9 @@ tags: [review, session, testing]
 其余没有高置信度规格偏差。真实 IM 仍 BLOCKED，真实 ACP 尚未执行；这是验收范围限制，不以 Provider 直连通过替代，详见[验证记录](validation.md)。
 
 Standards：0 项；Spec：1 项已修复，当前 0 项待处理。
+
+# PR 外部评审后的追加修复
+
+上述结论仅针对初轮 TS 边界审查。PR 外部评审后来复现 Go RE2 不支持 lookahead、拒绝所有显式名称的 P1；此前原生测试缺少名称 fixtures，漏掉了真实跨语言行为差异。
+
+用户进一步明确名称仅由 ASCII 英文字母、数字和 `-` 构成，本轮据此收紧合同。两份 wire schema 使用现有 `not` 配合非法字符类，无前瞻或语言相关 Unicode 空白。30 项共享 fixtures 在 JS 及两个原生 codec 上覆盖两种 wire；Go/Python 各 418 项通过。最终补充审查以远端原有 head `971017dad79f5ae39f9f581ed33a1f4c78017020` 为固定点，单独核对本次修复。

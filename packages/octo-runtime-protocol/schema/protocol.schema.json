@@ -3477,11 +3477,13 @@
           "type": "string"
         },
         "sessionName": {
-          "description": "Caller-owned display name; independent of business identity and opaque provider recovery handles.",
+          "description": "Caller-owned display name of 1-256 ASCII letters, digits or hyphens; independent of business identity and opaque provider recovery handles.",
           "type": "string",
           "minLength": 1,
           "maxLength": 256,
-          "pattern": "^(?![\\s\\S]*[\\u0000-\\u001f\\u007f])(?=[\\s\\S]*\\S)"
+          "not": {
+            "pattern": "[^A-Za-z0-9-]"
+          }
         },
         "runId": {
           "description": "Run identifier for this execution.",
@@ -4129,11 +4131,13 @@
       "required": ["inputs", "contexts"],
       "properties": {
         "sessionName": {
-          "description": "Optional caller-owned display name; Core supplies a random UUID default without business naming policy.",
+          "description": "Optional caller-owned display name of 1-256 ASCII letters, digits or hyphens; Core supplies a random UUID default without business naming policy.",
           "type": "string",
           "minLength": 1,
           "maxLength": 256,
-          "pattern": "^(?![\\s\\S]*[\\u0000-\\u001f\\u007f])(?=[\\s\\S]*\\S)"
+          "not": {
+            "pattern": "[^A-Za-z0-9-]"
+          }
         },
         "sessionId": {
           "type": "string",

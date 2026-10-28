@@ -18,3 +18,7 @@ OpenClaw fresh 才创建会话；resume 使用原 key，先 describe 确认原�
 27 个固定 OpenClaw commit 的请求 schema 子集由源码提取，离线回归不等于 27 个真实 Gateway。OpenClaw 2026.9.4、Codex 0.164.0、CC 2.1.306 分别完成真实三轮句柄及记忆验证、同名 fresh 隔离；名称持久化也在 Codex/CC 原生索引或 transcript 中确认。
 
 真实 IM 因 QA 凭据为占位值、无已保存凭据而阻塞，尚未完成 DM/群/话题链路回读。自动检查及所有真实验证的范围、失败修正、版本与限制见[验证记录](../../tasks/224-session-names/validation.md)。独立真实入口只手动运行，保持既有 CI 范围；未合并、未部署。
+
+# PR 后续评审
+
+外部评审复现了此前共享 schema 前瞻在 Go RE2 上不受支持的 P1；旧原生套件未包含名称用例，因此初轮通过范围不足。用户明确名称只允许英文字母、数字和 `-`，据此收紧为 1–256 ASCII 字符，采用现有 schema 的 `not` 加非法字符类，不增加 native 特判。新增 30 项三端共享 fixtures，覆盖两种 wire、合法名称、长度、非法字符和类型；Go/Python 协议集各 418 项通过。后续证据见上述验证记录；没有扩展 CI。

@@ -2702,7 +2702,7 @@ export interface InvokeRequestWire {
    */
   agentSessionId: string;
   /**
-   * Caller-owned display name; independent of business identity and opaque provider recovery handles.
+   * Caller-owned display name of 1-256 ASCII letters, digits or hyphens; independent of business identity and opaque provider recovery handles.
    */
   sessionName?: string;
   /**
@@ -2949,7 +2949,7 @@ export interface IssuedToolAuthorization {
 }
 export interface InvokeInputWire {
   /**
-   * Optional caller-owned display name; Core supplies a random UUID default without business naming policy.
+   * Optional caller-owned display name of 1-256 ASCII letters, digits or hyphens; Core supplies a random UUID default without business naming policy.
    */
   sessionName?: string;
   sessionId?: string;

@@ -52,3 +52,11 @@ Codex 的两条 QA 原生 session_index 记录均持久化了调用方 thread_na
 最后一轮 schema 修复后，Go/Python 再次 45/45 通过；格式、文档、知识库与命名检查通过。提交前 fetch 确认 main 仍为上述固定点，相对该点的 workflow 与默认测试脚本 diff 均为空。
 
 CI 范围约束：没有修改 workflow/job/matrix/trigger/gate，也没有默认开启真实专项。提交及 PR 前再次核对相对 main 的 workflow diff 与实际检查列表。
+
+# PR 229 后续修正：ASCII 名称与三端一致性
+
+外部评审指出此前正则使用 RE2 不支持的前瞻，实际 Go codec 会拒绝合法名称；旧的 native 45 项没有覆盖 `sessionName`，因此此前通过不能证明该字段可用。本轮修复前直接用原生 driver 验证 `octo-dm-user-123`：Go 返回 false，Python 返回 true，确认 P1。
+
+按用户最新明确要求，`sessionName` 长度 1–256，仅允许 `[A-Za-z0-9-]`。不再支持 Unicode 文本、空白、冒号或下划线，不改变 Provider opaque ID 的格式。公开和内部 schema 使用现有 `not` + `[^A-Za-z0-9-]`，避免前瞻、Unicode 空白语义以及 `$` 对末尾换行的差异；不扩展或特判 native 校验器。
+
+新增一份 30 项共享名称 fixtures，JS 运行时与 AJV、Go、Python 共同消费；两种 wire 均覆盖。用例包括省略、合法字母数字及连字符、1/256/257 字符边界、空白、中文、emoji、U+FEFF/U+0085、换行及控制字符、非法类型。名称 JS 专项 8/8 通过；原生 Go 与 Python 各 418 项协议 fixtures 通过（各新增 60 项名称输入）。构建与类型、生成产物校验通过；最终全量和复审结果随本次提交补录。

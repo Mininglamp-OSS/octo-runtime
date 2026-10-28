@@ -13,7 +13,7 @@ tags: [session, reset, protocol, adapter, openclaw, channel, testing]
 
 ## 关键合同与设计
 
-- 新增可选 `sessionName`，与业务 sessionId、Run ID、Provider opaque sessionId 分开。字符串非空、无控制字符且最多 256 个 Unicode 码点；不得按分隔符解析身份。Run 7 / Context v3 / Adapter 2 不变。
+- 新增可选 `sessionName`，与业务 sessionId、Run ID、Provider opaque sessionId 分开。按用户后续明确要求，长度 1–256，仅允许 ASCII 英文字母、数字与 `-`；不得按分隔符解析身份。Run 7 / Context v3 / Adapter 2 不变。
 - Core 的 `prepareInvokeInput` 唯一补 UUID；公开 InvokeInput 与内部 wire 同步。名称不进入模型正文、系统指令或普通日志。缺省或不同名称均不能改变既有 providerSession 的恢复选择。
 - Gateway 在业务 session 首次分配时确定并保存名称；私聊 `octo-dm-{uid}-{uuid}`，群 `octo-group-{groupId}-{uuid}`，话题 `octo-group-{groupId}-topic-{topicId}-{uuid}`。同代次队列、重试、闲置调度回收保持名称；reset/new 延迟换新，旧 session 无名称可在调用方补充且不能换 Provider binding。其他调用方保留自定义输入，不引入 WeCom/WebUI 业务代码。
 - OpenClaw fresh 构造可读 key，附独立随机后缀避免相同显示名称合并。续聊仅使用返回的原生 key，检查目标 Agent 与 key 归属。先只读 sessions.describe 验证存在，再按版本 patch 本轮权限并确认，订阅已有 key，然后发唯一 agent 请求。不复用 runId/idempotencyKey；保留事件、审批及取消对账过滤。
