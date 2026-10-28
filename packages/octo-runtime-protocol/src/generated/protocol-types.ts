@@ -2702,6 +2702,10 @@ export interface InvokeRequestWire {
    */
   agentSessionId: string;
   /**
+   * Caller-owned display name; independent of business identity and opaque provider recovery handles.
+   */
+  sessionName?: string;
+  /**
    * Run identifier for this execution.
    */
   runId: string;
@@ -2944,6 +2948,10 @@ export interface IssuedToolAuthorization {
   expires_at: string;
 }
 export interface InvokeInputWire {
+  /**
+   * Optional caller-owned display name; Core supplies a random UUID default without business naming policy.
+   */
+  sessionName?: string;
   sessionId?: string;
   invocationId?: string;
   runId?: string;

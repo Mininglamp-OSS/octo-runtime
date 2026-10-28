@@ -3476,6 +3476,13 @@
           "description": "Long-lived Agent Worker session identifier for this execution context.",
           "type": "string"
         },
+        "sessionName": {
+          "description": "Caller-owned display name; independent of business identity and opaque provider recovery handles.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^(?!.*[\\u0000-\\u001f\\u007f])(?=.*\\S)"
+        },
         "runId": {
           "description": "Run identifier for this execution.",
           "type": "string"
@@ -4121,6 +4128,13 @@
       "additionalProperties": true,
       "required": ["inputs", "contexts"],
       "properties": {
+        "sessionName": {
+          "description": "Optional caller-owned display name; Core supplies a random UUID default without business naming policy.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^(?!.*[\\u0000-\\u001f\\u007f])(?=.*\\S)"
+        },
         "sessionId": {
           "type": "string",
           "minLength": 1

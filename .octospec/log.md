@@ -2,6 +2,8 @@
 
 ## 2026-10-28
 
+- [Issue 224](journal/shared/2026-10-28-224-session-names.md)：实施调用方名称合同、Gateway 命名生命周期与 OpenClaw 原生续接，保留 Codex/CC/ACP 恢复语义。自动化、三种真实 Provider 及未完成 IM 的边界分别记录，不扩大 CI。
+
 - [PR 218 验收边界补充](tasks/217-codebuddy-model-selection/validation.md#pr-218-评审补充独立非门禁验收)：按用户要求仅改文档，明确全部 adapter 的 fake 离线门禁与独立真实 non-gating 验收，补齐执行责任、重跑时机和证据要求；不修改测试或 CI 工作流。
 
 - [Issue 217](journal/shared/2026-10-28-217-codebuddy-model-selection.md)：方案准备度 96/100 后修复 CodeBuddy 新建选模与续聊切模，未知模型在 prompt 前失败；保持原生确认回执与 #216 订阅失败原文。真实 Provider 请求模型、Gateway IM 回读、自动检查及 verified-review 边界见[验收](tasks/217-codebuddy-model-selection/validation.md)。

@@ -100,7 +100,17 @@ export function buildOpenClawGatewayInvocation(req: InvokeRequest): OpenClawGate
   const agentId = req.agentConfig.providerAgentId;
   if (!agentId || !/^[a-z0-9_][a-z0-9_-]{0,63}$/.test(agentId))
     throw new Error("OpenClaw provider_agent_id is required");
-  const sessionKey = `agent:${agentId}:octo-run:${req.runId}:${randomUUID()}`;
+  const resumedKey = req.providerSession?.sessionId;
+  if (
+    resumedKey &&
+    (!resumedKey.startsWith(`agent:${agentId}:`) ||
+      (req.providerSession?.agentId !== undefined && req.providerSession.agentId !== agentId))
+  )
+    throw new Error("OPENCLAW_SESSION_AGENT_MISMATCH: recovery handle belongs to another agent");
+  // 名称仅用于展示；原生 key 附独立随机量，同名调用绝不合并，续接只认 opaque handle。
+  const sessionKey =
+    resumedKey ??
+    `agent:${agentId}:${req.sessionName ? `${encodeURIComponent(req.sessionName)}-` : ""}${randomUUID()}`;
   const requestId = `octo-runtime-${req.runId}-${randomUUID()}`;
   const message = composeOpenClawPrompt(req);
   const timeout = finiteNumber(req.agentConfig.timeoutSeconds);
@@ -764,31 +774,60 @@ async function* invokeOpenClawGateway(
         }
       };
     await assertExistingAgent(client, invocation.agentId, req.signal);
-    const created = asRecord(
-      await client.request("sessions.create", createParams, {
-        timeoutMs: 30_000,
-        signal: req.signal
-      })
-    );
-    const createdKey = nonEmptyString(created?.key);
-    if (!createdKey) throw new Error("OpenClaw Gateway returned no created session key");
-    providerSessionKey = createdKey;
-    invocation.agentParams.sessionKey = providerSessionKey;
-    if (contract.family === "legacy") {
-      const patched = asRecord(
-        await client.request("sessions.patch", gatewayLegacyPermissionParams(providerSessionKey), {
-          timeoutMs: 10_000,
+    if (req.providerSession?.sessionId) {
+      // describe 是实际 Gateway 广告的只读查询；缺失时不能让 patch/agent 隐式建会话。
+      for (const method of ["sessions.describe", "sessions.patch"]) {
+        if (!contract.methods.includes(method))
+          throw new Error(`OPENCLAW_COMPATIBILITY_UNSUPPORTED: missing required method ${method}`);
+      }
+      const described = asRecord(
+        await client.request(
+          "sessions.describe",
+          { key: providerSessionKey },
+          { timeoutMs: 10_000, signal: req.signal }
+        )
+      );
+      const resolved = asRecord(described?.session);
+      if (!resolved)
+        throw new Error("OPENCLAW_SESSION_NOT_FOUND: requested native session is unavailable");
+      if (
+        resolved.key !== providerSessionKey ||
+        (resolved.agentId !== undefined && resolved.agentId !== invocation.agentId)
+      )
+        throw new Error("OPENCLAW_SESSION_AGENT_MISMATCH: resolved session does not match handle");
+    } else {
+      const created = asRecord(
+        await client.request("sessions.create", createParams, {
+          timeoutMs: 30_000,
           signal: req.signal
         })
+      );
+      const createdKey = nonEmptyString(created?.key);
+      if (!createdKey || !createdKey.startsWith(`agent:${invocation.agentId}:`))
+        throw new Error("OpenClaw Gateway returned no valid created session key");
+      providerSessionKey = createdKey;
+    }
+    invocation.agentParams.sessionKey = providerSessionKey;
+    if (contract.family === "legacy" || req.providerSession?.sessionId) {
+      const permissionMode = policy.effective === "full_access" ? "full" : "guarded";
+      const patched = asRecord(
+        await client.request(
+          "sessions.patch",
+          contract.family === "legacy"
+            ? gatewayLegacyPermissionParams(providerSessionKey)
+            : { key: providerSessionKey, agentId: invocation.agentId, permissionMode },
+          { timeoutMs: 10_000, signal: req.signal }
+        )
       );
       const entry = asRecord(patched?.entry);
       if (
         patched?.ok !== true ||
         patched.key !== providerSessionKey ||
-        entry?.execSecurity !== "full" ||
-        entry.execAsk !== "off"
+        (contract.family === "legacy"
+          ? entry?.execSecurity !== "full" || entry.execAsk !== "off"
+          : entry?.permissionMode !== permissionMode)
       ) {
-        throw new Error("OPENCLAW_PERMISSION_UNAVAILABLE: legacy session policy was not confirmed");
+        throw new Error("OPENCLAW_PERMISSION_UNAVAILABLE: session policy was not confirmed");
       }
     }
     await client.request(
@@ -815,7 +854,8 @@ async function* invokeOpenClawGateway(
       payload: {
         providerSession: {
           sessionId: providerSessionKey,
-          resumable: false,
+          resumable: true,
+          ...(req.providerSession?.sessionId ? { resumeOutcome: "resumed" } : {}),
           agentId: invocation.agentId
         }
       }

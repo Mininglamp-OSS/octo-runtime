@@ -451,6 +451,7 @@ export class ImRuntime {
           this.#finalDeliveries.get(key)?.abort();
           this.#tasks.get(key)?.task.stopRetries();
           session.id = binding.id;
+          session.sessionName = binding.sessionName;
           session.generation = binding.generation;
           session.providerSession = binding.providerSession;
           session.initialization = { attempted: false };
@@ -608,6 +609,18 @@ export class ImRuntime {
         };
         this.#sessionStore.save(key, binding);
         session.id = binding.id;
+      }
+      if (message.text.trim() !== "/session" && !session.sessionName) {
+        // 名称归渠道策略；旧 binding 补名称也不切换原生会话。同群不同发言人共用。
+        const suffix = randomUUID();
+        const scope = groupScope(message.conversationId);
+        session.sessionName =
+          message.conversationKind === "direct"
+            ? `octo-dm-${message.conversationId}-${suffix}`
+            : message.conversationKind === "thread"
+              ? `octo-group-${scope.groupNo}-topic-${scope.shortId ?? message.conversationId}-${suffix}`
+              : `octo-group-${message.conversationId}-${suffix}`;
+        this.#saveBinding(key, session);
       }
       const executionSession = { ...session };
       const frozenMessage = {
@@ -1376,6 +1389,7 @@ export class ImRuntime {
     const binding = this.#sessionStore.read(key);
     this.#sessionStore.save(key, {
       id: session.id,
+      sessionName: session.sessionName,
       generation: session.generation,
       providerSession: session.providerSession,
       lastEventId: session.lastEventId,
