@@ -19,16 +19,16 @@ worktree 为 `.worktree/octo-runtime-codebuddy-202-203`，分支为 `fix/codebud
 
 1. 模型回执只读取 `session/new` / `session/load` 的确认字段：`configOptions` 中 model 的 `currentValue`、`models.currentModelId` 或 `model`。未确认时省略 model，不把请求或旧 binding 当作已应用事实。保留原生新建模型参数及续聊不重设模型的行为，覆盖 #148 的相关回执边界。
 2. 解析 `prompt_result._meta` 的 `codebuddy.ai/outcome` 与 `codebuddy.ai/errorMessage`。Provider 声明失败、拒绝或携带非空错误时，生成一个 `run.failed`，优先于空输出守卫；部分文本不能把失败变成成功。
-3. 错误 JSON 只提取 message、顶层 RPC code 和 data 的 statusCode/code/category。只公开白名单标量，消息复用现有 `sanitizePublicValue` 脱敏；不透传 headers、任意 data、请求或完整 `_meta`。缺失、损坏、非对象错误仍返回安全的 CodeBuddy 失败说明。
-4. 配额类别进入既有 quota 分类，保留 HTTP 429、14015 与 quota 证据；普通 429 仍按既有限流分类，不把所有 429 都理解为暂态。
+3. 按用户 2026-10-28 最新要求收敛：使用独立的 `ACP_MODEL_REQUEST_FAILED`，映射公共目录 `OH-PRV-4010` 及公共消息。实际 message 为公共消息加换行及 `JSON.stringify(原始 _meta)`；不再提取白名单 providerError 或从详情推断新的错误类别。不解析错误 JSON、不脱敏、不筛选字段，缺失/损坏/非对象内容也按原值序列化。用户已确认失败识别仍沿用 ACP 明确的失败信号，不能仅因成功结果携带 _meta 就判失败。
+4. 已声明的 ACP 请求失败统一为此错误码，不因上游 JSON 含 quota、HTTP 429、认证或超时文字而改成其他类别；不自动重试。公共目录登记该码，Core 对此码保留原始消息；其他错误仍走原有归一化和脱敏。
 5. 成功必须有 final 文本；允许复用通用 ACP 已支持的结果正文形状，在没有流式 final 且没有失败时补出正文。空/仅思考/仅工具不能成功（#147）。取消继续是 cancelled；Provider 明确失败优先于同时出现的取消标记，避免隐藏已知订阅错误。结束未闭合工具及模型步骤，保留现有传输关闭所有权。
 
 ## 验收矩阵
 
 - 默认配置、空 agentConfig、显式模型：均到达 prompt；每个原始 session.update 在序列化前通过 JSON 校验。
 - 新建及续聊的未知/确认模型、续聊请求不同模型：回执仅反映确认事实。
-- 捕获的订阅失败：唯一 run.failed、Host failed、无 run.completed；可见中文续费提示，安全 providerError 保留 statusCode=429/code=14015/category=quota；分类 quota、不可重试。
-- 缺失/损坏/非对象错误、refusal、失败伴随部分输出、普通 429、敏感消息与未知字段：安全失败且分类不混淆。
+- 捕获的订阅失败：唯一 run.failed、Host failed、无 run.completed；公共消息后保留 meta JSON 中的中文续费提示及原生详情，统一 ACP 错误码、不可重试。
+- 缺失/损坏/非对象错误、refusal、失败伴随部分输出、HTTP 429、类凭据文本与未知字段：失败语义不变；原始详情完整保留，错误分类不依赖内容。数字/对象 stopReason 不得抛类型异常，adapter/Core/Kernel 路径覆盖。
 - end_turn-only、reasoning-only、tool-only：ACP_NO_FINAL_OUTPUT；正常流式文本、结果正文、取消及工具取消保持正确。
 - 通过 AgentExecutor 及 `createKernelService` + `attachKernel` + submit/subscribe/invoke 的实际 worker/IPC 验证，不仅消费 adapter。
 - 按依赖顺序构建，运行相关测试、lint、命名、格式、typecheck、全量测试；PR CI 平台结果单列。
@@ -46,6 +46,6 @@ worktree 为 `.worktree/octo-runtime-codebuddy-202-203`，分支为 `fix/codebud
 
 ## 范围外与回滚
 
-不修改通用 ACP、Core、Kernel 或 failure schema，不新增模型切换 RPC，不修改外部 Work App，不管理 Provider 登录或订阅。
+不修改通用 ACP、Kernel 或 failure schema；只在公共 failure 目录登记独立 ACP 错误码，Core 对此码的消息原样保留。不新增模型切换 RPC，不修改外部 Work App，不管理 Provider 登录或订阅。
 回滚本次 adapter 改动即可恢复旧行为，无配置、身份、Home 或数据迁移。
 自动化使用离线 Provider fixture；不将其写为真实 CodeBuddy 或真实 IM 联调。

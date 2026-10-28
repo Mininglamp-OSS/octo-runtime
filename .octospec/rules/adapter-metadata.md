@@ -76,7 +76,7 @@ Host 按执行合同校验来源、输出模式和实际交互 responder；审�
 ### CodeBuddy 会话与终态
 
 CodeBuddy 的 `session.update.providerSession` 只回报 `session/new` / `session/load` 原生响应确认的模型；未知字段省略，禁止写入 undefined 或把请求值、旧 binding 当作实际应用值。续聊不新增模型切换动作。
-`prompt_result` 中的拒绝、`codebuddy.ai/outcome` 失败或非空 `codebuddy.ai/errorMessage` 必须保留为失败事实，优先于部分文本与空输出检查。错误只公开脱敏消息和白名单内的原生 RPC code、data.statusCode/code/category；缺失或损坏的错误正文不能把已声明失败变成成功。配额类别先于 HTTP 429 暂态限流分类。
+`prompt_result` 中的拒绝、`codebuddy.ai/outcome` 失败或非空 `codebuddy.ai/errorMessage` 必须保留为失败事实，优先于部分文本与空输出检查。用户于 2026-10-28 明确：独立 `ACP_MODEL_REQUEST_FAILED` 映射 `OH-PRV-4010`，消息为公共目录消息加换行及 `JSON.stringify(原始 _meta)`。详情不解析、不脱敏、不筛字段，不从 quota/429/认证/超时等内容另行分类；Core 保留此消息原文。只读取既有 ACP 失败信号，不因成功结果携带 _meta 就判失败；错误正文损坏不改变已声明的失败。此原文合同仅用于 ACP 失败消息，其他错误的归一化与脱敏不变。
 成功必须有 final 文本；仅思考、仅工具或空输出以 `ACP_NO_FINAL_OUTPUT` 失败。支持的 ACP 结果正文只在没有流式 final、没有失败且未取消时补出。取消与失败都应关闭未结束工具/步骤，传输清理由原 invocation 拥有。对应实现与 Kernel 公共入口证据见 [#202/#203](../tasks/202-203-codebuddy/brief.md)。
 
 ### Manifest 模块路径

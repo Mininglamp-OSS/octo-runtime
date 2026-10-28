@@ -1,4 +1,5 @@
 import { createCodeBuddyAdapter } from "@mininglamp-oss/octo-runtime-adapter-codebuddy";
+import { randomUUID } from "node:crypto";
 
 export const subscriptionMessage = "Quota exceeded: 429 企业订阅已到期，请联系企业管理员续费。";
 export const subscriptionResult = {
@@ -15,6 +16,7 @@ export const subscriptionResult = {
 };
 export const answer = { sessionUpdate: "agent_message_chunk", content: { text: "Hello" } };
 export const endTurn = { type: "prompt_result", stopReason: "end_turn" };
+const rawMetaValue = randomUUID();
 export const scenarios = {
   success: [answer, endTurn],
   subscription: [subscriptionResult],
@@ -23,6 +25,18 @@ export const scenarios = {
   whitespace: [{ sessionUpdate: "agent_message_chunk", content: { text: " \n " } }, endTurn],
   toolOnly: [{ sessionUpdate: "tool_call", toolCallId: "tool", name: "read", input: {} }, endTurn],
   reasoning: [{ sessionUpdate: "agent_thought_chunk", content: { text: "Thinking" } }, endTurn],
+  rawMeta: [
+    {
+      type: "prompt_result",
+      stopReason: "refusal",
+      _meta: {
+        "codebuddy.ai/errorMessage": ` {"password":"${rawMetaValue}"} \n`,
+        token: rawMetaValue,
+        arbitrary: { request: { headers: { authorization: `Bearer ${rawMetaValue}` } } }
+      }
+    }
+  ],
+  malformedStopReason: [answer, { ...subscriptionResult, stopReason: 42 }],
   cancelled: [{ type: "prompt_result", stopReason: "cancelled" }]
 };
 

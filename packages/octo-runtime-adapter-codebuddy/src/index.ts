@@ -4,6 +4,7 @@ import {
 } from "@mininglamp-oss/octo-runtime-adapter-sdk";
 import {
   canonicalTerminalStatus,
+  failureMessage,
   hasImageInput,
   type InteractionResponse
 } from "@mininglamp-oss/octo-runtime-protocol";
@@ -27,7 +28,6 @@ import {
   normalizeAcpToolUpdate,
   probeCommand,
   providerInputText,
-  sanitizePublicValue,
   type AdapterInvocationContext,
   type CanonicalEvent,
   type InvokeRequest
@@ -139,65 +139,23 @@ function confirmedSessionModel(result: unknown): string | undefined {
   return undefined;
 }
 
-/** CodeBuddy 私有失败元数据只提取安全证据；损坏的 JSON 不能改变已声明的失败事实。 */
+/** ACP 失败详情按宿主要求原样序列化，不解析或筛选 Provider 的私有错误字段。 */
 function promptFailure(update: AcpUpdate): CanonicalEvent["payload"] | undefined {
   const meta = isRecord(update._meta) ? update._meta : {};
   const outcome = meta["codebuddy.ai/outcome"];
   const raw = meta["codebuddy.ai/errorMessage"];
   const hasError = typeof raw === "string" ? raw.trim().length > 0 : raw != null;
   if (
-    update.stopReason?.toLowerCase() !== "refusal" &&
+    !(typeof update.stopReason === "string" && update.stopReason.toLowerCase() === "refusal") &&
     !(typeof outcome === "string" && outcome.startsWith("FAILED")) &&
     !hasError
   )
     return undefined;
 
-  let parsed: unknown = raw;
-  if (typeof raw === "string") {
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      parsed = undefined;
-    }
-  }
-  const error = isRecord(parsed) ? parsed : {};
-  const data = isRecord(error.data) ? error.data : {};
-  const safeCode = (value: unknown): value is string | number =>
-    (typeof value === "number" && Number.isSafeInteger(value)) ||
-    (typeof value === "string" && /^[A-Za-z0-9_.-]{1,128}$/.test(value));
-  const providerData = {
-    ...(typeof data.statusCode === "number" &&
-    Number.isInteger(data.statusCode) &&
-    data.statusCode >= 100 &&
-    data.statusCode <= 599
-      ? { statusCode: data.statusCode }
-      : {}),
-    ...(safeCode(data.code) ? { code: data.code } : {}),
-    ...(typeof data.category === "string" && /^[A-Za-z0-9_.-]{1,128}$/.test(data.category)
-      ? { category: data.category }
-      : {})
-  };
-  const providerError = {
-    ...(safeCode(error.code) ? { code: error.code } : {}),
-    ...(Object.keys(providerData).length ? { data: providerData } : {})
-  };
-  const message = [error.message, data.details].find(
-    (value): value is string => typeof value === "string" && value.trim().length > 0
-  );
   return {
-    // quota 证据必须优先于 429 的暂态限流分类；保留原生 code 供诊断。
-    code:
-      providerData.category === "quota"
-        ? "PROVIDER_QUOTA_EXHAUSTED"
-        : "CODEBUDDY_MODEL_REQUEST_FAILED",
-    message: String(
-      sanitizePublicValue(
-        message ??
-          "CodeBuddy model request failed or was refused. Check the provider account and subscription."
-      )
-    ),
-    adapterType: "codebuddy",
-    ...(Object.keys(providerError).length ? { providerError } : {})
+    code: "ACP_MODEL_REQUEST_FAILED",
+    message: `${failureMessage("OH-PRV-4010")}\n${JSON.stringify(update._meta)}`,
+    adapterType: "codebuddy"
   };
 }
 
@@ -322,8 +280,10 @@ export function createCodeBuddyAdapter({
             params: promptParams
           })) {
             if (update.type === "prompt_result") {
-              promptStopReason = update.stopReason;
-              promptFinishReason = update.finishReason;
+              promptStopReason =
+                typeof update.stopReason === "string" ? update.stopReason : undefined;
+              promptFinishReason =
+                typeof update.finishReason === "string" ? update.finishReason : undefined;
               failure ??= promptFailure(update);
               resultText = promptResultText(update);
               continue;

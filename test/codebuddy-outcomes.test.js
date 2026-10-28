@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 import { AgentExecutor } from "@mininglamp-oss/octo-runtime-executor-core";
 import { assertJsonValue } from "../packages/octo-runtime-protocol/dist/context.js";
+import { failureMessage } from "../packages/octo-runtime-protocol/dist/index.js";
 import { invokeRequest } from "./runtime-fixture.js";
 import { frames, kernelFixture, kernelInput } from "./kernel-fixture.js";
 import {
@@ -11,7 +12,6 @@ import {
   codeBuddyFixture,
   endTurn,
   scenarios,
-  subscriptionMessage,
   subscriptionResult
 } from "./fixtures/codebuddy-fixture.js";
 
@@ -28,6 +28,7 @@ const sessionEvent = (events) =>
 const selection = [
   { namespace: "octo.execution", name: "adapter", payload: { type: "codebuddy" } }
 ];
+const acpFailureMessage = (meta) => `${failureMessage("OH-PRV-4010")}\n${JSON.stringify(meta)}`;
 
 for (const fields of [{ agentConfig: {} }, { agentConfig: { model: "requested-model" } }]) {
   for (const resume of [false, true]) {
@@ -101,14 +102,12 @@ for (const [name, updates] of Object.entries(scenarios)) {
       );
       if (["subscription", "partial"].includes(name)) {
         const payload = terminals(events)[0].payload;
-        assert.equal(payload.message, subscriptionMessage);
-        assert.deepEqual(payload.providerError, {
-          code: -32003,
-          data: { statusCode: 429, code: 14015, category: "quota" }
-        });
-        assert.equal(payload.failure.code, "OH-PRV-4004");
+        assert.equal(payload.message, acpFailureMessage(subscriptionResult._meta));
+        assert.equal(payload.code, "ACP_MODEL_REQUEST_FAILED");
+        assert.equal(payload.providerError, undefined);
+        assert.equal(payload.failure.code, "OH-PRV-4010");
         assert.equal(payload.failure.retryable, false);
-        assert.equal(payload.failure.cause.httpStatus, 429);
+        assert.equal(payload.failure.cause.httpStatus, undefined);
       }
       if (["empty", "reasoning", "toolOnly", "whitespace"].includes(name))
         assert.equal(terminals(events)[0].payload.code, "ACP_NO_FINAL_OUTPUT");
@@ -141,13 +140,13 @@ for (const errorMessage of [
       terminals(events).map((e) => e.type),
       ["run.failed"]
     );
-    assert.match(events.at(-1).payload.message, /CodeBuddy|Request rejected/);
+    assert.equal(events.at(-1).payload.message, acpFailureMessage(result._meta));
     for (const event of events) assertJsonValue(event.payload);
     assert.equal(f.state.closes, 1);
   });
 }
 
-test("CodeBuddy redacts messages and only retains allowlisted provider evidence", async () => {
+test("CodeBuddy preserves the original metadata without parsing, redaction or field selection", async () => {
   const secret = randomUUID();
   const f = codeBuddyFixture({
     updates: [
@@ -173,12 +172,105 @@ test("CodeBuddy redacts messages and only retains allowlisted provider evidence"
     ]
   });
   const events = await collect(f.adapter.invoke(invokeRequest()));
-  assert.doesNotMatch(JSON.stringify(events), new RegExp(secret));
-  assert.deepEqual(events.at(-1).payload.providerError, {
-    code: -32003,
-    data: { statusCode: 429, code: 14015, category: "quota" }
+  const expected = {
+    "codebuddy.ai/outcome": "FAILED_MODEL_REQUEST",
+    "codebuddy.ai/errorMessage": JSON.stringify({
+      code: -32003,
+      message: `Quota exceeded; token=${secret}`,
+      headers: { authorization: secret },
+      data: {
+        statusCode: 429,
+        code: 14015,
+        category: "quota",
+        request: { body: secret },
+        details: secret
+      }
+    }),
+    privateMetadata: secret
+  };
+  assert.equal(events.at(-1).payload.message, acpFailureMessage(expected));
+  assert.equal(events.at(-1).payload.providerError, undefined);
+});
+
+for (const stopReason of [42, {}, null]) {
+  test(`CodeBuddy malformed stopReason still emits an ACP failure (${JSON.stringify(stopReason)})`, async () => {
+    const update = { ...subscriptionResult, stopReason };
+    const f = codeBuddyFixture({ updates: [answer, update] });
+    const executor = new AgentExecutor();
+    executor.register(f.adapter);
+    try {
+      const values = await collect(
+        executor.invokeFrames({
+          inputs: [{ type: "text", text: "hello" }],
+          contexts: { schema: "octo.context-envelope/v3", items: selection },
+          protocol_mode: "canonical"
+        })
+      );
+      const events = values.filter((v) => v.kind === "canonical").map((v) => v.event);
+      assert.equal(values.at(-1).control.state, "failed");
+      assert.equal(
+        values.some((v) => v.kind === "control" && v.control.type === "error"),
+        false
+      );
+      assert.deepEqual(
+        terminals(events).map((e) => e.type),
+        ["run.failed"]
+      );
+      assert.equal(terminals(events)[0].payload.message, acpFailureMessage(update._meta));
+      assert.equal(terminals(events)[0].payload.failure.code, "OH-PRV-4010");
+    } finally {
+      assert.equal((await executor.shutdown()).cleanup, "complete");
+    }
+    assert.equal(f.state.closes, 1);
   });
-  assert.match(events.at(-1).payload.message, /REDACTED/);
+}
+
+test("CodeBuddy Core keeps raw metadata strings and unknown fields byte-for-byte", async () => {
+  const value = randomUUID();
+  for (const meta of [
+    undefined,
+    null,
+    [value, { token: value }],
+    value,
+    {
+      "codebuddy.ai/errorMessage": ` {"token":"${value}","unknown":true} \n`,
+      token: value,
+      opaque: { arbitrary: [value, null, true], authorization: `Bearer ${value}` }
+    }
+  ]) {
+    const executor = new AgentExecutor();
+    executor.register(
+      codeBuddyFixture({ updates: [{ type: "prompt_result", stopReason: "refusal", _meta: meta }] })
+        .adapter
+    );
+    try {
+      const events = await collect(
+        executor.invoke({
+          inputs: [{ type: "text", text: "hello" }],
+          contexts: { schema: "octo.context-envelope/v3", items: selection },
+          protocol_mode: "canonical"
+        })
+      );
+      assert.equal(events.at(-1).type, "run.failed");
+      assert.equal(events.at(-1).payload.message, acpFailureMessage(meta));
+      assert.equal(events.at(-1).payload.failure.code, "OH-PRV-4010");
+    } finally {
+      assert.equal((await executor.shutdown()).cleanup, "complete");
+    }
+  }
+});
+
+test("CodeBuddy successful responses may carry metadata without becoming failures", async () => {
+  const meta = { "codebuddy.ai/outcome": "SUCCESS", trace: { native: true } };
+  const events = await collect(
+    codeBuddyFixture({ updates: [answer, { ...endTurn, _meta: meta }] }).adapter.invoke(
+      invokeRequest()
+    )
+  );
+  assert.deepEqual(
+    terminals(events).map((e) => e.type),
+    ["run.completed"]
+  );
 });
 
 for (const updates of [
@@ -256,6 +348,8 @@ test("CodeBuddy Kernel public submit/subscribe and invoke preserve default and f
     ["partial", "failed"],
     ["empty", "failed"],
     ["reasoning", "failed"],
+    ["rawMeta", "failed"],
+    ["malformedStopReason", "failed"],
     ["cancelled", "cancelled"]
   ]) {
     const makeInput = () => ({
@@ -280,11 +374,27 @@ test("CodeBuddy Kernel public submit/subscribe and invoke preserve default and f
     );
     if (["subscription", "partial"].includes(scenario)) {
       for (const result of [terminals(events)[0], terminals(canonical)[0]]) {
-        assert.equal(result.payload.message, subscriptionMessage);
-        assert.equal(result.payload.providerError.data.code, 14015);
-        assert.equal(result.payload.failure.code, "OH-PRV-4004");
+        assert.equal(result.payload.message, acpFailureMessage(subscriptionResult._meta));
+        assert.equal(result.payload.code, "ACP_MODEL_REQUEST_FAILED");
+        assert.equal(result.payload.providerError, undefined);
+        assert.equal(result.payload.failure.code, "OH-PRV-4010");
         assert.equal(result.payload.failure.retryable, false);
       }
+    }
+    if (scenario === "rawMeta") {
+      for (const result of [terminals(events)[0], terminals(canonical)[0]]) {
+        const prefix = `${failureMessage("OH-PRV-4010")}\n`;
+        assert.ok(result.payload.message.startsWith(prefix));
+        const meta = JSON.parse(result.payload.message.slice(prefix.length));
+        assert.match(meta.token, /^[0-9a-f-]{36}$/);
+        assert.equal(meta.arbitrary.request.headers.authorization, `Bearer ${meta.token}`);
+        assert.equal(meta["codebuddy.ai/errorMessage"], ` {"password":"${meta.token}"} \n`);
+        assert.equal(result.payload.message, acpFailureMessage(meta));
+      }
+    }
+    if (scenario === "malformedStopReason") {
+      assert.equal(terminals(canonical)[0].payload.code, "ACP_MODEL_REQUEST_FAILED");
+      assert.equal(terminals(canonical)[0].payload.failure.code, "OH-PRV-4010");
     }
   }
 });
@@ -311,7 +421,7 @@ test("CodeBuddy public default/empty/explicit model requests reach the prompt", 
   }
 });
 
-test("CodeBuddy ordinary 429 stays rate limited while structured quota stays non-retryable", async () => {
+test("CodeBuddy 429 and quota metadata use the same explicit ACP failure code", async () => {
   for (const quota of [false, true]) {
     const f = codeBuddyFixture({
       updates: [
@@ -338,8 +448,9 @@ test("CodeBuddy ordinary 429 stays rate limited while structured quota stays non
         })
       );
       assert.equal(events.at(-1).type, "run.failed");
-      assert.equal(events.at(-1).payload.failure.code, quota ? "OH-PRV-4004" : "OH-PRV-4005");
-      assert.equal(events.at(-1).payload.failure.retryable, !quota);
+      assert.equal(events.at(-1).payload.code, "ACP_MODEL_REQUEST_FAILED");
+      assert.equal(events.at(-1).payload.failure.code, "OH-PRV-4010");
+      assert.equal(events.at(-1).payload.failure.retryable, false);
     } finally {
       assert.equal((await executor.shutdown()).cleanup, "complete");
     }
