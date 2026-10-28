@@ -218,11 +218,40 @@ jobs:
           EXPECTED_COMMIT=$(git rev-parse HEAD)
           node scripts/verify-windows-release.mjs "$ARCHIVE" "$EXPECTED_COMMIT"
 
+  verify-dsh:
+    name: Verify npm DSH and Electron (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - run: pnpm install --frozen-lockfile
+      - name: Build DSH and Kernel dependencies
+        run: pnpm --filter @mininglamp-oss/octo-runtime-host-sdk... --filter @mininglamp-oss/octo-runtime-adapter-dsh... run build
+      - name: Install isolated npm Provider and compatible Electron
+        shell: bash
+        run: |
+          npm install --prefix "$RUNNER_TEMP/octo-dsh" --ignore-scripts --save-exact --no-audit --no-fund @deepseek-ai/dsh@0.2.1-rc.3 electron@44.7.0
+          node "$RUNNER_TEMP/octo-dsh/node_modules/electron/install.js"
+      - name: Verify native version, SDK initialization and Kernel configuration
+        shell: bash
+        run: node scripts/verify-dsh-platform.mjs "$RUNNER_TEMP/octo-dsh"
+
   gate:
     # Stable required-check name: matrix failures and skipped builds must fail it.
     # See .octospec/tasks/company-development-checks/brief.md.
     name: CI Gate
-    needs: [check, verify-windows-release]
+    needs: [check, verify-windows-release, verify-dsh]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -232,8 +261,9 @@ jobs:
         env:
           CHECK_RESULT: ${{ needs.check.result }}
           WINDOWS_RELEASE_RESULT: ${{ needs.verify-windows-release.result }}
+          DSH_RESULT: ${{ needs.verify-dsh.result }}
         run: |
-          if [ "$CHECK_RESULT" != "success" ] || [ "$WINDOWS_RELEASE_RESULT" != "success" ]; then
-            echo "::error::CI did not succeed: matrix=$CHECK_RESULT windows-release=$WINDOWS_RELEASE_RESULT"
+          if [ "$CHECK_RESULT" != "success" ] || [ "$WINDOWS_RELEASE_RESULT" != "success" ] || [ "$DSH_RESULT" != "success" ]; then
+            echo "::error::CI did not succeed: matrix=$CHECK_RESULT windows-release=$WINDOWS_RELEASE_RESULT dsh=$DSH_RESULT"
             exit 1
           fi

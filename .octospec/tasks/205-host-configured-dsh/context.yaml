@@ -1,0 +1,13 @@
+rules:
+  - .octospec/rules/architecture.md
+  - .octospec/rules/protocol-design.md
+  - .octospec/rules/adapter-metadata.md
+  - .octospec/rules/engineering.md
+  - .octospec/rules/environment.md
+  - .octospec/rules/context-input.md
+  - .octospec/rules/mcp.md
+  - .octospec/rules/reasoning.md
+  - .octospec/rules/collaboration.md
+overrides:
+  - User requires English GitHub commits and PRs for Mininglamp-OSS repositories.
+  - Issue 205 comment supersedes Desktop discovery acceptance criteria.
