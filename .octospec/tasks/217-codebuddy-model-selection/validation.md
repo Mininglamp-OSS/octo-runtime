@@ -85,3 +85,16 @@ node scripts/verify-codebuddy-model-im-live.mjs
 - 未修改已部署 Runtime、生产渠道配置、Provider 认证或现有用户数据；测试群消息保留用于核对。未合并、发布或部署。
 
 本地审查见 [verified-review](review.md)。
+
+# PR 218 评审补充：独立非门禁验收
+
+2026-10-28，按用户确认的最小范围，仅补文档，基于 `1c3d4856e518244c0e1b4e5d470b0832387be8fe`。
+真实 CodeBuddy 脚本本来就未被默认 test/CI 调用，本次明确标记 non-gating；变更作者负责执行及证据归档，reviewer 核对范围。
+重跑时机、现有命令、前置条件和全部 adapter 的共同证据边界见[独立真实验收指南](../../guides/provider-live-acceptance.md)。
+既有 CodeBuddy 7 场景是上文固定版本的本次实施证据，不宣称默认 CI 持续调用真实 Provider，也不代表其他 adapter 已验收。
+
+曾在未提交的测试迁移草稿阶段，用名称过滤尝试只发现测试，但本机 Node 24.19.0 仍执行了原生测试。发现后中断，结果为 4 通过、1 断言失败、2 取消；Codex MCP 认证发现断言失败未定位为 adapter 缺陷，不将该次结果声称为真实验收通过。
+随后以不访问外部服务的合成测试复现过滤未阻止执行，改用静态检查；进程 cwd 检查未见本次独占原生临时目录的遗留进程。
+目录迁移、开关/命令和脚本草稿全部撤回，最终源码、测试、package 命令及 CI 工作流与上述基线一致；本轮文档检查单列，不重复真实模型请求。
+
+最终文档检查通过：Prettier（CONTRIBUTING、CI 指南和 PR 模板）、OctoSpec lint（449 个 OKF 单元、20 条规则、3171 个本地链接）、git diff --check。以 git diff --exit-code 核对 apps、packages、scripts、test、package.json、lockfile 和 CI workflows 与基线无差异；未重复全量测试，原实现全量结果见上文。

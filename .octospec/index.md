@@ -43,6 +43,7 @@
 - [为什么统一设备](../ARCHITECTURE.md)：新旧对比、Home 级设备实例、本地 IPC / 异地云端寻址目标及移动端 Buddy 的价值。
 - [工作区与开发组织](guides/workspace.md)：目录、依赖、构建及新增包。
 - [Adapter 开发](guides/adapter-authoring.md)：接口示例和验收。
+- [Provider 独立真实验收](guides/provider-live-acceptance.md)：全部 adapter 的离线门禁、显式真实入口、执行责任、重跑时机及证据格式。
 - [Provider 实现矩阵](guides/providers.md)：传输、模式及权限差异。
 - [Extra 配置与调用](guides/extra-configuration.md)：当前 CLI 路径、SDK 和本地 WebUI。
 - [Channel 逐轮加载宿主 Context](guides/channel-dynamic-contexts.md)：Agent 提示词与业务数据变化无需重载插件；说明函数注入、同 key 整项覆盖、内存边界及当前 SDK 装配缺口，对应 [SDK 指南第 7 节](../SDK_CHANNEL_GATEWAY_GUIDE.md#逐轮-context)。
