@@ -55,6 +55,8 @@
 
 ## 当前任务
 
+- [Issue 163：REST 日期格式 Retry-After](tasks/163-http-date-retry-after/brief.md)：从 main@0ca12a0 独立 worktree，REST 与鉴权/注册共用解析，保留各层零等待及重试预算；手动专项、基线失败与 verified-review 处置见[记录](journal/shared/2026-10-28-163-http-date-retry-after.md)。
+
 - [Issue 205：宿主管理 DSH npm 入口](tasks/205-host-configured-dsh/brief.md)：宿主传入绝对路径 dshBin，删除安装发现及 Desktop/ASAR；官方 SDK 保持未修改，三平台 Node/Electron 验证分别记录。
 
 - [Issue 217：CodeBuddy 显式选模与续聊切模](tasks/217-codebuddy-model-selection/brief.md)：最新 main 独立 worktree，方案可执行性 96/100；prompt 前按原生目录设置并确认模型，未知模型和原生拒绝送达用户。真实 CodeBuddy/IM、自动化及本地 verified-review 见[验收记录](tasks/217-codebuddy-model-selection/validation.md)。

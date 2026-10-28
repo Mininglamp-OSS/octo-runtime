@@ -2,6 +2,8 @@
 
 ## 2026-10-28
 
+- [Issue 163](journal/shared/2026-10-28-163-http-date-retry-after.md)：独立 worktree 修复 REST 对 HTTP-date Retry-After 的提前重试，复用建联解析并保留原有预算。review 处理有限秒数转毫秒溢出的兼容回归；专项仅手动运行，未扩大 CI，按后续用户授权提交 PR。
+
 - [PR 218 验收边界补充](tasks/217-codebuddy-model-selection/validation.md#pr-218-评审补充独立非门禁验收)：按用户要求仅改文档，明确全部 adapter 的 fake 离线门禁与独立真实 non-gating 验收，补齐执行责任、重跑时机和证据要求；不修改测试或 CI 工作流。
 
 - [Issue 217](journal/shared/2026-10-28-217-codebuddy-model-selection.md)：方案准备度 96/100 后修复 CodeBuddy 新建选模与续聊切模，未知模型在 prompt 前失败；保持原生确认回执与 #216 订阅失败原文。真实 Provider 请求模型、Gateway IM 回读、自动检查及 verified-review 边界见[验收](tasks/217-codebuddy-model-selection/validation.md)。
