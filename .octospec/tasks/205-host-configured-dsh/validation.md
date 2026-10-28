@@ -9,6 +9,14 @@ tags: [adapter, testing, runtime]
 
 2026-10-28 用户要求撤除新增的 DSH/Electron 三平台 CI：删除 `verify-dsh` 及 CI Gate 的依赖，workflow 恢复目标分支原样。以下已执行的专项 CI 保留为历史证据，不再作为持续门禁；原生专项仅显式手动运行。
 
+## 按提交核对的当前状态
+
+- 已推送基线 `be855d56038bc3b845612968c82c0cc298116e3d` 的 [CI run 40640404210](https://github.com/Mininglamp-OSS/octo-runtime/actions/runs/40640404210) 已完成且成功，包含原有构建、测试、发行检查与 CI Gate。此前 `b623c40` 的 run 40639444839 因撤除 DSH job 后漏改发行测试断言而失败，已在该基线修正。
+- 最新 yujiawei / Jerry-Xin review 针对上述基线，确认 `runCli → runPlayboard` 漏传 `dependencies.env`。此前测试仅直接调用 runPlayboard，未覆盖该调用边界；历史本地评审通过不代表此缺陷已覆盖。
+- 本轮补传 env，并新增公共 runCli 路径回归：进程 PATH 指向不兼容的 fake DSH，注入 PATH 指向可用的 fake DSH，修复前返回 DSH_VERSION_UNSUPPORTED，修复后使用注入环境完成执行。两套安装均为 fixture，不调用真实 Provider。
+- 本地 macOS 验证：完整 `pnpm test`（含 workspace 构建）通过，UI 35 项、Node 2,137 项通过，58 项条件跳过、0 失败。构建后根 TypeScript noEmit 检查、完整 lint、lint:names、format:check、docs:check、OKF 和 diff 校验全部通过。日志为 `/tmp/octo-runtime-219-playboard-env-{before,full-test,typecheck,lint,names,format,docs}.log`。本轮未改 workflow/action；相对 main 无 CI 配置差异。
+- 本轮远端 CI 只能在推送新提交后核对；基线的成功不代表本轮已经通过。下文按实施阶段保留历史验证结果。
+
 ## 基线与范围
 
 - 日期：2026-10-28；系统：macOS arm64；Node：24.19.0；pnpm：11.19.0。
@@ -59,7 +67,7 @@ Electron 39 的上游原生 runtime 限制是实际验证失败，不作为本�
 | 定向 DSH/CLI/Windows 回归 | PASS | `node --test test/cli-dsh.test.js test/dsh-launch.test.js test/dsh-adapter.test.js test/dsh-sdk-boundaries.test.js test/windows-review-regressions.test.js`：105 通过、4 项 Windows 原生条件跳过 |
 | 真实 npm DSH / Node 与 Electron | PASS | `node scripts/verify-dsh-platform.mjs /tmp/octo-runtime-205-native`：两个 runtime 各 21 项通过；包括 CLI 自动解析真实 npm 安装、CLI worker discovery、SDK 初始化及链接替换回归，无模型调用 |
 | 发行包 | PASS | 重新打包及 `verify-release.mjs --expected-commit fcba1945672ea07445cd97f3790a2b7286cbea9b` 通过，覆盖离线安装、公开类型、Kernel/Extra、CLI 及 Home 保留 |
-| 基线远端 CI | 已检查并修正 | run 40628191508 的三平台 npm/Electron 检查全部成功；Windows Node 24/26 发行检查失败于旧测试仍传 command/args，已改成 dshBin 并保留混合大小写环境断言。最新提交须重新运行 CI |
+| 当时基线远端 CI（历史） | 已检查并修正 | run 40628191508 的三平台 npm/Electron 检查全部成功；Windows Node 24/26 发行检查失败于旧测试仍传 command/args，已改成 dshBin 并保留混合大小写环境断言。后续基线结果见上方按提交核对的状态 |
 
 本轮按 review 计划逐文件复核源码、调用点、测试、CI 和文档，无生成文件/锁文件/二进制变更及跳过文件。原 CLI 遗漏与远端 P1 均有修复前后执行证据；修正后没有中等级别及以上的未解决本地代码问题。远端已有 REQUEST_CHANGES 是基线评审，不冒充新提交已获批准。
 
@@ -77,4 +85,4 @@ Electron 39 的上游原生 runtime 限制是实际验证失败，不作为本�
 - 改动源码 ESLint、源码/测试 Prettier 与 `git diff --check`：PASS。
 - 按 review 计划复核本轮源码、测试和文档，未发现中等级别及以上未解决问题；Windows 的 chmod 可执行位测试明确跳过，损坏链接用 junction 覆盖。
 
-日志：`/tmp/octo-runtime-205-first-candidate-{before,after,platform}.log`。基线 CI Gate 及全部平台作业已通过；本轮提交后重新触发 CI，结果应按新 SHA 单独核对。
+日志：`/tmp/octo-runtime-205-first-candidate-{before,after,platform}.log`。这是该阶段的历史结果；后续基线 CI 见上方按提交核对的状态。

@@ -22,3 +22,5 @@ PR #219 首版遗漏 CLI 自身的自动解析。按用户指出的问题，补�
 撤除 CI 后，run 40639444839 的 Ubuntu Node 24/26 与 macOS Node 26 均在同一条发行测试断言失败：测试仍要求已删除的 verify-dsh 依赖。本地定向复现后，将该断言恢复为目标分支原有的 check、verify-windows-release 两项依赖，并删除对应 DSH_RESULT 断言；不修改 workflow 或执行实现。release-latest、windows-release-verifier、release-process 三份测试共 33 项通过，无跳过；格式、OKF 与 diff 检查通过，workflow 和发行断言均与目标分支一致。
 
 用户要求完整本地验证后，运行 `pnpm test` 重新构建 workspace 并执行全部 UI/Node 测试：UI 35 项通过，Node 2,136 项通过、58 项条件跳过、0 失败。另运行完整 `pnpm lint`、`pnpm lint:names`、`pnpm format:check`，均通过。完整测试日志为本机 `/tmp/octo-runtime-219-local-full-test.log`；本地 macOS 结果不替代远端平台结果。
+
+最新 review 在 `be855d5` 指出公共 runCli 的 playboard 分支漏传 env，直接 runPlayboard 测试未覆盖该边界。新增两个独立 fake 安装的 PATH 分歧回归，修复前确认误选进程安装并返回 DSH_VERSION_UNSUPPORTED，再由 CLI 显式转发 dependencies.env，修复后完成执行。完整 pnpm test 再次通过：UI 35 项、Node 2,137 项通过、58 项条件跳过、0 失败；类型、lint、命名、格式、文档及 OKF 检查通过。validation 区分各历史阶段与当前基线，已核实基线 CI run 40640404210 成功；新修复仍按新提交独立核验，不扩大 CI 范围。

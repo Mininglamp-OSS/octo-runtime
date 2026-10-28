@@ -253,7 +253,8 @@ export async function runCli(args: string[], dependencies: CliDependencies = {})
         profile,
         manifest: flags.manifest,
         input,
-        output: dependencies.output
+        output: dependencies.output,
+        env: dependencies.env
       });
     }
     if (positional[0] === "adapter" && positional[1] === "list" && positional.length === 2) {

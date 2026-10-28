@@ -279,6 +279,46 @@ test(
   }
 );
 
+test(
+  "CLI playboard route uses injected PATH instead of process PATH",
+  { timeout: 15_000 },
+  async (t) => {
+    const directory = await fixture(t);
+    const selected = await installation(join(directory, "selected"));
+    const other = await installation(join(directory, "process"));
+    await writeFile(
+      other.dshBin,
+      `process.env.OCTO_DSH_FIXTURE = "version";\n${await readFile(runtime, "utf8")}`
+    );
+    const file = join(directory, "manifest.json");
+    await writeFile(file, JSON.stringify(manifest));
+    const input = invocationInput(
+      invokeRequest({ workdir: directory, approvalMode: "full_access", modelInput: "hello" }),
+      "canonical",
+      "dsh"
+    );
+    const env = environment(selected.bin, { OCTO_DSH_FIXTURE: "success" });
+    const frames = [];
+    const original = process.env;
+    // 两套 PATH 都只含本测试的 fake Provider，防止漏传 env 时调用真实安装。
+    process.env = environment(other.bin, { OCTO_DSH_FIXTURE: "success" });
+    try {
+      const code = await runCli(
+        ["--home", join(directory, "home"), "--manifest", file, "playboard"],
+        {
+          env,
+          input: Readable.from([JSON.stringify(input)]),
+          output: (line) => frames.push(JSON.parse(line))
+        }
+      );
+      assert.equal(code, 0, JSON.stringify(frames.at(-1)));
+      assert.equal(frames.at(-1).type, "run.completed");
+    } finally {
+      process.env = original;
+    }
+  }
+);
+
 for (const [mode, reason] of [
   ["success", undefined],
   ["version", "DSH_VERSION_UNSUPPORTED"],
