@@ -28,7 +28,7 @@ source: self
 | `npx --yes pnpm@11.19.0 lint` | 构建完成后通过；第一次与 clean/build 并行时类型解析失败，串行依赖就绪后重跑消除 |
 | `npx --yes pnpm@11.19.0 lint:names` | 通过，无新 finding |
 | `npx --yes pnpm@11.19.0 format:check` | 通过 |
-| `uv run --with pyyaml python .octospec/scripts/lint.py` | 初始任务记录检查通过；最终文档收尾后重新检查 |
+| `uv run --with pyyaml python .octospec/scripts/lint.py` | 任务、规则、journal 记录检查通过；审查记录收尾后再次检查 |
 | `git diff --check` | 通过 |
 
 专项断言双渠道 invoke=0、cancel=0、无伪造失败卡片、单次安全回复、原因及汇总诊断、连接仍 online/error=null、调度对象释放。未知 Error、非 Error、带私有后缀的相似码、原型属性名保持通用；既有 Context 诊断及图片专用/通用回复保持。目录例使用真实 dispatcher 的相冲突 Context，规则例使用真实 build_im_contexts/getGroupMd 加本地 fetch 返回畸形版本；两例不读写本机真实业务目录或规则。失败后下一条有效消息可正常 invoke 并返回 answer。
@@ -45,4 +45,6 @@ source: self
 
 # 审查与交付
 
-以固定基线 dcca46fb0eaaa3be675432321f704de92dbdbce0 执行 Standards/Spec 两轴本地审查；结果在审查完成后补入此记录。英文提交保留已配置 author，并在最终 trailer block 追加一次 Codex co-author。PR 目标 main，合并和部署均未执行。
+实现提交 fb299bb，以固定基线 dcca46fb0eaaa3be675432321f704de92dbdbce0 执行两名独立 Agent 的 Standards/Spec 只读审查，均 0 项问题；Spec 轴独立重跑专项 25/25 通过，不与首轮结果累加。详见[两轴报告](../../tasks/119-preparation-error-codes/review.md)。后续只有文档收尾，无产品代码变化。
+
+英文提交保留已配置 author superalsrk / lvsijia@mininglamp.com，并在最终 trailer block 追加一次 Codex co-author。PR 目标 main，合并和部署均未执行；托管 CI 状态由 PR 页面单独报告，不以本地结果替代。
