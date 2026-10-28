@@ -39,6 +39,16 @@ Codex 的两条 QA 原生 session_index 记录均持久化了调用方 thread_na
 
 上述 6 项相关专项重跑 184/184 通过。随后全量 Node 2333 项中 2242 通过、91 平台/环境跳过、0 失败，WebUI 35 项通过；使用同版本隔离 Node 避免全局 octo-cli 污染既有缺失命令测试。此后新增名称边界和 legacy binding 回归分别经 38/38、17/17 专项通过。
 
-`pnpm typecheck`、`pnpm lint`、`pnpm format:check`、`pnpm docs:check`、`pnpm lint:names`、`pnpm native:check` 通过。知识库 lint 使用临时 PyYAML 环境通过。首次 native:test 因缺少 Python venv 未执行 Python，用 `uv sync` 建好原生工程环境后重跑；最终原生结果、同步 main 后回归与双轴审查另行补充。
+`pnpm typecheck`、`pnpm lint`、`pnpm format:check`、`pnpm docs:check`、`pnpm lint:names`、`pnpm native:check` 通过。知识库 lint 使用临时 PyYAML 环境通过。首次 native:test 因缺少 Python venv 未执行 Python，用 `uv sync` 建好原生工程环境后重跑，Go/Python 45/45 通过。
+
+# 同步 main 与审查
+
+实施提交已 rebase 到最新 `main@5cc600e759daca3cae7eb3521d2e300389e80410`，纳入 Gateway 满载排队和 DSH 最低版本修复。仅知识目录冲突，保留双方任务入口；产品文件自动合并后检查了同代次队列与 reset 交互。
+
+同步后 `pnpm typecheck` 重新构建成功，再运行相同的 `pnpm test:suites`：WebUI 35/35，Node 2362 项中 2271 通过、91 跳过、0 失败。lint、格式、docs:check 均重新通过。未修改既有全局 octo-cli 缺失测试，继续使用同版本隔离 Node。
+
+双轴审查结果见[审查记录](review.md)。Standards 0 项；Spec 1 项 Unicode 分隔符与控制字符的 schema 差异已修复。新增用例在旧 schema 上先失败，修复后 3/3 通过；公开与内部两处 pattern 同步修正，跨语言生成产物重新生成并校验。没有未处理的审查发现。
+
+最后一轮 schema 修复后，Go/Python 再次 45/45 通过；格式、文档、知识库与命名检查通过。提交前 fetch 确认 main 仍为上述固定点，相对该点的 workflow 与默认测试脚本 diff 均为空。
 
 CI 范围约束：没有修改 workflow/job/matrix/trigger/gate，也没有默认开启真实专项。提交及 PR 前再次核对相对 main 的 workflow diff 与实际检查列表。

@@ -3481,7 +3481,7 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 256,
-          "pattern": "^(?!.*[\\u0000-\\u001f\\u007f])(?=.*\\S)"
+          "pattern": "^(?![\\s\\S]*[\\u0000-\\u001f\\u007f])(?=[\\s\\S]*\\S)"
         },
         "runId": {
           "description": "Run identifier for this execution.",
@@ -4133,7 +4133,7 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 256,
-          "pattern": "^(?!.*[\\u0000-\\u001f\\u007f])(?=.*\\S)"
+          "pattern": "^(?![\\s\\S]*[\\u0000-\\u001f\\u007f])(?=[\\s\\S]*\\S)"
         },
         "sessionId": {
           "type": "string",
