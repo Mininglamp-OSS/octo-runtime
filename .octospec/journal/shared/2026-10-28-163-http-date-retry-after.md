@@ -86,3 +86,15 @@ node --test test/manual/gateway-retry-after.test.mjs test/im-connection-state-ma
 - 复核共享解析、REST/连接调用方及专项断言，无遗留 medium 及以上问题。本轮仅更新授权和交付状态记录，沿用未变化代码已通过的 186 项测试及构建检查，不重复运行。
 - 提交前再次核对 workflow、package scripts、lockfile 无 diff，默认专项发现范围不变。英文 Conventional Commit 与 PR 关联 #163；保持配置的 Git 作者，提交包含一次 Codex co-author trailer。
 - 本次交付只创建 PR，不执行合并或部署。托管 CI 以 PR 实际状态为准，首轮本地证据不代表远端检查已经通过。
+
+# PR #226 同步最新 main 与冲突处理
+
+- PR 创建期间 main 合入 #225，推进至 `27c5cde4b7f46a986c1c9a91d0f06d24f428e8da`；用户随后要求处理冲突。将 origin/main 合入本任务分支，唯一文本冲突为 index 当前任务区的并列新增记录，已完整保留 Issue 163 和 Issue 150/171 两条入口。
+- 逐项复核自动合并结果：本任务的 Retry-After 实现和专项未变化，上游容量准入实现及其测试与 origin/main 完全一致；channel 规则同时保留双方新增合同。没有遗留冲突标记或未解决路径。
+- 同步后重新执行 `pnpm typecheck`（含 workspace 构建）、`pnpm lint`、`pnpm format:check`、Octospec lint 及 diff 空白检查，均 PASS。构建仅有前述已有 WebUI 提示。
+- 下方组合回归 PASS：190 项，0 失败、0 跳过，包含 27 项手动 Retry-After 专项及 163 项既有回归；本轮加入容量准入测试，覆盖与最新 main 的集成。
+- 再次核对相对 origin/main 的 workflow、package scripts、lockfile 无 diff，没有扩展 CI 范围。更新现有 PR #226，不合并 PR 或部署；远端 CI 以新提交实际检查结果为准。
+
+```sh
+node --test test/manual/gateway-retry-after.test.mjs test/im-connection-state-machine.test.js test/im-delivery-ack.test.js test/im-context-gap-policy.test.js test/im-task-retry.test.js test/im-admission-capacity.test.js
+```
