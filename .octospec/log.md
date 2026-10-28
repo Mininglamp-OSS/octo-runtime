@@ -1,5 +1,9 @@
 # 工程知识变更记录
 
+## 2026-10-29
+
+- [Issue 119](journal/shared/2026-10-29-119-preparation-error-codes.md)：最新 main 独立 worktree，OctoSpec 可执行性 97/100 后实施；双渠道精确保留目录冲突和规则协议码及固定安全提示，不新增公共码/字段。原始专项 7 项失败，修复后 25 项通过；相关回归 472 通过、1 条件跳过。专项仅手动运行，CI 范围保持，审查与 PR 状态见记录。
+
 ## 2026-10-28
 
 - [PR 218 验收边界补充](tasks/217-codebuddy-model-selection/validation.md#pr-218-评审补充独立非门禁验收)：按用户要求仅改文档，明确全部 adapter 的 fake 离线门禁与独立真实 non-gating 验收，补齐执行责任、重跑时机和证据要求；不修改测试或 CI 工作流。
