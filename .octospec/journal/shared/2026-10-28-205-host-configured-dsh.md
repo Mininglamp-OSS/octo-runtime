@@ -18,3 +18,7 @@ PR #219 首版遗漏 CLI 自身的自动解析。按用户指出的问题，补�
 同步 `main@4264fd7` 时，仅任务索引与 #217 CodeBuddy 条目发生文本冲突，保留两项；Adapter 规则自动合并后两边合同均保留。CLI 及依赖构建通过，DSH/CLI/Windows 和 CodeBuddy 模型/结果回归共 94 项通过、4 项按平台跳过。文档检查发现本任务四份记录缺少 YAML 头，补齐元信息后重新校验。
 
 用户要求撤除新增 GitHub CI，并设为全局架构约束。删除 DSH/Electron 三平台 job 和 CI Gate 对其依赖，workflow 恢复目标分支原样；此前 workflow 改动额外触发的两项 Workflow Sanity 检查也随之不再触发。专项脚本仅保留手动入口，历史验证不作为持续 CI 承诺。全局 Agent 指令与仓库架构规则同时记录严禁擅自扩大 CI 范围。
+
+撤除 CI 后，run 40639444839 的 Ubuntu Node 24/26 与 macOS Node 26 均在同一条发行测试断言失败：测试仍要求已删除的 verify-dsh 依赖。本地定向复现后，将该断言恢复为目标分支原有的 check、verify-windows-release 两项依赖，并删除对应 DSH_RESULT 断言；不修改 workflow 或执行实现。release-latest、windows-release-verifier、release-process 三份测试共 33 项通过，无跳过；格式、OKF 与 diff 检查通过，workflow 和发行断言均与目标分支一致。
+
+用户要求完整本地验证后，运行 `pnpm test` 重新构建 workspace 并执行全部 UI/Node 测试：UI 35 项通过，Node 2,136 项通过、58 项条件跳过、0 失败。另运行完整 `pnpm lint`、`pnpm lint:names`、`pnpm format:check`，均通过。完整测试日志为本机 `/tmp/octo-runtime-219-local-full-test.log`；本地 macOS 结果不替代远端平台结果。

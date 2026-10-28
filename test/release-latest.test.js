@@ -461,8 +461,7 @@ test("Windows 发行验收覆盖独立组件和进程树清理", async () => {
   );
   assert.match(workflow, /git config --global core\.autocrlf false/);
   assert.match(workflow, /node scripts\/verify-windows-release\.mjs/);
-  assert.match(workflow, /needs: \[check, verify-windows-release, verify-dsh\]/);
-  assert.match(workflow, /DSH_RESULT: \$\{\{ needs\.verify-dsh\.result \}\}/);
+  assert.match(workflow, /needs: \[check, verify-windows-release\]/);
   assert.match(invocationManifest, /encoding: "utf8", timeout: 40_000, windowsHide: true/);
   assert.doesNotMatch(cliManifest.scripts.build, /\bchmod\b/);
 });
