@@ -1,0 +1,4 @@
+interface:
+  display_name: "中文技术协作写作"
+  short_description: "以中文受控写作减少技术方案、接口说明与交接中的歧义，明确术语、条件、责任和验收边界"
+  default_prompt: "使用 $technical-writing-zh 改写这份技术协作文档，保留原有决策与义务强度，消除歧义并列出待确认项。"
