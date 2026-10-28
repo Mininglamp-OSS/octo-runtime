@@ -98,3 +98,30 @@ node --test test/manual/gateway-retry-after.test.mjs test/im-connection-state-ma
 ```sh
 node --test test/manual/gateway-retry-after.test.mjs test/im-connection-state-machine.test.js test/im-delivery-ack.test.js test/im-context-gap-policy.test.js test/im-task-retry.test.js test/im-admission-capacity.test.js
 ```
+
+# Jerry-Xin review：asctime 时区修正
+
+- 来源为 [PR review](https://github.com/Mininglamp-OSS/octo-runtime/pull/226#pullrequestreview-5681722244) 的 P2 blocker。依据 [RFC 9110 §5.6.7](https://www.rfc-editor.org/rfc/rfc9110.html#section-5.6.7)，三种 HTTP-date 均代表 UTC，asctime 也不例外。
+- 基线 `a448b6aa530cf8a11e16bb7db72a88a8e727e2ad`；macOS arm64、Node v24.19.0、pnpm 11.19.0。新增测试时产品源码及 dist 尚未修改，测试工作树为 dirty。下方命令退出码 1：两项均失败，固定时钟应返回 5750 ms，REST 实际为 1000 ms；真实 HTTP 第二次请求提前 902 ms。此为 reproduced，不是仅根据差异推测。
+
+```sh
+env TZ=Asia/Shanghai node --test --test-name-pattern='^(HTTP-date forms use UTC|real HTTP asctime retry respects UTC)$' test/manual/gateway-retry-after.test.mjs
+```
+
+## 本轮 verified-review 计划
+
+1. 核查共享解析仅对 asctime 补 GMT，保留带 GMT 日期、数字秒/小数秒、溢出和无效提示的兼容行为；同时跟踪 REST 与 AUTH/REGISTER 调用方。
+2. 核查非 UTC 子进程的筛选不会递归启动驱动测试，子进程有超时且等待退出；HTTP fixture 关闭本轮拥有的 server/socket，真实重试时间用 UTC 目标断言。
+3. 复跑本轮失败命令及独立时区驱动，运行相关既有回归和静态检查；逐文件核对任务、合同、日志及实际结果，检查默认测试 glob、workflow、scripts 和 lockfile 未扩大 CI。
+
+修正仅在共享解析中识别 RFC asctime 形状并补 GMT。专项在独立子进程固定 Asia/Shanghai、America/Los_Angeles，覆盖三种日期格式、空格补齐的单数字日期、过去日期及真实 HTTP 重试。
+
+## 修正后的验证与复核
+
+- 原失败命令重新执行退出码 0，两项通过；固定时钟返回 5750 ms，真实 HTTP 不早于 UTC 目标时间。独立时区驱动也通过，两个子进程各实际执行解析与 HTTP 两项测试。
+- 首次驱动测试发现子进程继承 `NODE_TEST_CONTEXT` 会跳过嵌套运行；输出包含测试名称的断言将此情况判为失败。已移除子进程的该标记，等待子进程退出并保留有限超时，两个时区均实际执行。未把空跑或跳过算作通过。
+- 同步最新 `origin/main@5cc600e`（#228），合并提交为 `c4b10d9`，index 自动合并保留所有任务；上游 DSH 代码、测试、package 和 lockfile 与 origin/main 完全一致。离线 frozen-lockfile 安装成功，未改写 lockfile。
+- 同步后执行 `pnpm typecheck`（含全 workspace 构建）、`pnpm lint`、`pnpm lint:names`、`pnpm format:check`，全部 PASS。与构建清理 dist 同时运行的首轮 lint 因类型产物暂缺而失败；构建完成后顺序独立运行 lint 通过，没有修改无关产品代码。构建提示仍仅为已有 WebUI 提示。
+- 六文件组合回归最终 PASS：195 项，0 失败、0 跳过；其中手动专项 32 项（包含时区驱动及两个时区子测试），既有回归 163 项。驱动另外执行的两个子进程各两项检查不重复计入这 195 项。覆盖 REST、AUTH/REGISTER、数字兼容、预算、取消和真实 HTTP。
+- 本轮逐文件复核共享解析、手动测试、规则、brief、context、journal、log，并复查两个调用方和退避逻辑；没有遗留 medium 及以上发现。用户指出的 P2 已由同一失败用例先失败后通过确认修复。
+- Octospec lint 与 diff 空白检查 PASS。相对 origin/main 的 workflow、package scripts、lockfile 无 diff，默认测试入口未变化；专项继续只显式执行。未运行完整仓库测试、远端 IM/模型、原生 Windows/Linux 或部署验证，尚待 Jerry-Xin 远端复审。

@@ -4,6 +4,9 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { once } from "node:events";
 import { randomUUID } from "node:crypto";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 import { setImmediate as nextTurn } from "node:timers/promises";
 import {
   DEFAULT_RETRY_AFTER_MS,
@@ -26,6 +29,8 @@ const response = (hint) =>
     headers: hint === undefined ? {} : { "Retry-After": hint }
   });
 const apiError = (hint, body = "") => OctoApiError.from(response(hint), "/fixture", body);
+const execFileAsync = promisify(execFile);
+const utcRegressionNames = ["HTTP-date forms use UTC", "real HTTP asctime retry respects UTC"];
 
 test("REST and connection errors honor future HTTP-date hints", async (t) => {
   t.mock.method(Date, "now", () => fixedNow);
@@ -37,6 +42,50 @@ test("REST and connection errors honor future HTTP-date hints", async (t) => {
     assert.equal(failure.retryAfterMs, remaining);
     assert.equal(failure.retryable, true);
     assert.equal(failure.message, `IM_${phase}_HTTP_429`);
+  }
+});
+
+test(utcRegressionNames[0], async (t) => {
+  let now = fixedNow;
+  t.mock.method(Date, "now", () => now);
+  for (const [at, hint, expected] of [
+    [fixedNow, "Wed, 28 Oct 2026 08:00:06 GMT", 5750],
+    [fixedNow, "Wednesday, 28-Oct-26 08:00:06 GMT", 5750],
+    [fixedNow, "Wed Oct 28 08:00:06 2026", 5750],
+    [Date.parse("2026-10-08T08:00:00.250Z"), "Thu Oct  8 08:00:06 2026", 5750],
+    [fixedNow, "Wed Oct 28 07:59:00 2026", 0],
+    [fixedNow, "Wed Oct 28 08:00:00 2026", 0],
+    [fixedNow, "6", 6000],
+    [fixedNow, "not-a-date", 0]
+  ]) {
+    now = at;
+    assert.equal(apiError(hint, hintBody(1)).retryAfterMs, expected || 1000, hint);
+    for (const phase of ["AUTH", "REGISTER"]) {
+      const failure = await httpConnectionFailure(response(hint), phase);
+      assert.equal(failure.retryAfterMs, expected, `${phase}: ${hint}`);
+    }
+  }
+});
+
+test("HTTP-date regressions run in isolated non-UTC timezones", { timeout: 45_000 }, async (t) => {
+  for (const timezone of ["Asia/Shanghai", "America/Los_Angeles"]) {
+    await t.test(timezone, async () => {
+      // 子进程固定时区，避免修改测试进程的全局 TZ；名称过滤防止递归运行驱动测试。
+      const env = { ...process.env, TZ: timezone };
+      // 新测试运行器不能继承父 worker 标记，否则 Node 会跳过嵌套执行。
+      delete env.NODE_TEST_CONTEXT;
+      const { stdout } = await execFileAsync(
+        process.execPath,
+        [
+          "--test",
+          "--test-reporter=spec",
+          `--test-name-pattern=^(${utcRegressionNames.join("|")})$`,
+          fileURLToPath(import.meta.url)
+        ],
+        { env, timeout: 20_000 }
+      );
+      for (const name of utcRegressionNames) assert.ok(stdout.includes(name), stdout);
+    });
   }
 });
 
@@ -142,6 +191,24 @@ test(
     assert.equal(f.requests[1].body.client_msg_no, f.requests[0].body.client_msg_no);
   }
 );
+
+test(utcRegressionNames[1], { timeout: 15_000 }, async (t) => {
+  let earliest;
+  const f = await httpFixture(t, (res, attempt) => {
+    if (attempt === 1) {
+      earliest = Math.ceil(Date.now() / 1000) * 1000 + 2000;
+      const asctime = new Date(earliest)
+        .toUTCString()
+        .replace(/^(\w{3}), (\d{2}) (\w{3}) (\d{4}) (\d{2}:\d{2}:\d{2}) GMT$/, "$1 $3 $2 $5 $4");
+      limited(res, asctime);
+    } else success(res);
+  });
+  const result = await f.send();
+  assert.equal(result.message_id, "fixture-message");
+  assert.equal(f.requests.length, 2);
+  assert.ok(f.requests[1].at >= earliest, `retried ${earliest - f.requests[1].at} ms early`);
+  assert.equal(f.requests[1].body.client_msg_no, f.requests[0].body.client_msg_no);
+});
 
 test("real HTTP numeric seconds retain their minimum wait", { timeout: 5000 }, async (t) => {
   const f = await httpFixture(t, (res, attempt) =>

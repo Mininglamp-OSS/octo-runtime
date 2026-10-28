@@ -13,6 +13,7 @@ tags: [channel, delivery, testing]
 
 - 业务目标是遵守服务端的限流提示。解析属于 Gateway HTTP 传输层，不改变模型执行、宿主策略或其他 Extra。
 - 显式输入为响应的 Retry-After、现有 JSON retry_after、当前本机时间和调用方 signal。HTTP-date 按目标时间减本机当前时间计算，不引入分布式时钟校正。
+- PR #226 的 Jerry-Xin review 补充：IMF-fixdate、RFC850 和 asctime 三种 HTTP-date 均按 UTC 解释；asctime 没有时区后缀，解析前须显式补 GMT，不能受客户端本地时区影响。
 - REST 与鉴权/注册使用同一内部解析函数。秒数形式保留 REST 已支持的小数，非法值返回无提示；过去日期解析为零。有限秒数转毫秒溢出时保留 Infinity，REST 按超预算停止；连接错误沿用既有的非有限值归零行为。
 - REST 对零等待继续沿用现有防连续重试策略：尝试正数 body 提示，否则等待默认 1000 ms。鉴权/注册仍可返回零，由建联层的既有退避决定等待。
 - 正数 header 优先于 body；不缩短服务端要求的正数等待。保留每次 REST 调用最多两次重试、提示大于 10000 ms 不重试、累计退避大于 15000 ms 不重试及只向上增加的抖动。
@@ -36,3 +37,4 @@ tags: [channel, delivery, testing]
 4. 先在基线运行日期回归确认失败，再在修复后通过。运行相关既有回归、lint、typecheck/build、格式、命名及 OctoSpec lint。
 5. 使用 verified-review 阅读全部改动并运行真实 HTTP 场景，处理确认的问题。记录源码基线、平台、命令、实际结果与未测边界。
 6. 核对相对 origin/main 的 workflow、package scripts 与实际默认检查列表，确认 CI 范围未扩大。
+7. 显式手动专项在独立子进程固定 Asia/Shanghai 与 America/Los_Angeles，验证三种 HTTP-date、asctime 空格补齐的单数字日期及过去日期；真实 asctime HTTP 重试不得早于 UTC 目标时间。用户授权修复 review 后提交、push 并更新本地 main。

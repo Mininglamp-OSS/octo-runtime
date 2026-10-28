@@ -15,6 +15,11 @@ export function parseRetryAfterMs(
     if (!Number.isFinite(seconds) || seconds < 0) return undefined;
     return Math.round(seconds * 1000);
   }
-  const date = Date.parse(value);
+  // RFC 9110 的 asctime 无时区后缀，但含义仍是 UTC；不能让 Date.parse 使用本地时区。
+  const asctime =
+    /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (?:\d{2}| \d) \d{2}:\d{2}:\d{2} \d{4}$/.test(
+      value
+    );
+  const date = Date.parse(asctime ? `${value} GMT` : value);
   return Number.isFinite(date) ? Math.max(0, date - nowMs) : undefined;
 }
