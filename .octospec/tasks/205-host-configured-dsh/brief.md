@@ -24,3 +24,4 @@
 4. 三平台 CI 使用真实 npm DSH 及 Electron 运行版本探测和 SDK 初始化，不调用模型；fixture 测试和原生验证分别记录。
 5. 同步双语文档与宿主配置示例，执行 verified-review 后提交英文 commit/PR，保留 Codex trailer。
 6. CLI 无需手工填写 dshBin 即可从 npm 安装自动发现；常驻 Kernel list/invoke 与 playboard 均覆盖，自动补齐保留 dshHome、streamLimits 及其他宿主配置。
+7. PATH 只跳过实际不存在的候选；首个已存在候选为损坏链接、不可执行文件或非文件时也不选择下一安装。npm 元数据无效同样终止发现。

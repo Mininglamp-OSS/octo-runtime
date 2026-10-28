@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { access, readFile, realpath, stat } from "node:fs/promises";
+import { access, lstat, readFile, realpath, stat } from "node:fs/promises";
 import { delimiter, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { processEnvironmentValue } from "@mininglamp-oss/octo-runtime-adapter-sdk";
 import type { ModuleManifest } from "@mininglamp-oss/octo-runtime-adapter-sdk/module-manifest";
@@ -36,11 +36,19 @@ async function discoverDshEntry(env: NodeJS.ProcessEnv): Promise<string | undefi
     if (!directory) continue;
     for (const extension of extensions) {
       const command = resolve(directory, `dsh${extension}`);
+      // 只有路径不存在才能继续；lstat 保留损坏链接，首个已存在候选不可因不可用而换安装。
+      try {
+        await lstat(command);
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code === "ENOENT" || code === "ENOTDIR") continue;
+        return;
+      }
       try {
         await access(command, process.platform === "win32" ? constants.F_OK : constants.X_OK);
-        if (!(await stat(command)).isFile()) continue;
+        if (!(await stat(command)).isFile()) return;
       } catch {
-        continue;
+        return;
       }
       // 先固定 PATH 中的命令，再读取安装元数据；不执行 shim，也不因版本不兼容换另一安装。
       return packageEntryForCommand(command);

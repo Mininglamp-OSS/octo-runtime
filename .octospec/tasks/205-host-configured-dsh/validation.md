@@ -55,3 +55,17 @@ Electron 39 的上游原生 runtime 限制是实际验证失败，不作为本�
 本轮按 review 计划逐文件复核源码、调用点、测试、CI 和文档，无生成文件/锁文件/二进制变更及跳过文件。原 CLI 遗漏与远端 P1 均有修复前后执行证据；修正后没有中等级别及以上的未解决本地代码问题。远端已有 REQUEST_CHANGES 是基线评审，不冒充新提交已获批准。
 
 本轮日志在 `/tmp/octo-runtime-205-cli-*.log` 与 `/tmp/octo-runtime-205-link-before.log`；未读取测试账号、调用模型或发送 IM。
+
+## 首个 PATH 候选的不可用边界
+
+基线 `25e46691d6d45e0568925fd96f13626b381db4c6`。远端 review 5677720476 把两种情况混为一谈：`return packageEntryForCommand(command)` 即使解析为 undefined 也终止整个发现函数，元数据失败不会继续外层循环；已有无关包名加有效第二安装的测试覆盖该行为。实际缺口在更早的 access/stat：损坏链接、不可执行文件或目录会被跳过。
+
+本轮先增加回归，在基线生成代码上复现上述三类候选都选中第二安装（3 失败）；元数据无效和真正缺失命令的对照均通过（2 通过）。随后以 lstat 先确认候选是否存在，仅 ENOENT/ENOTDIR 继续扫描；已经存在的候选后续不可用直接终止。保留原有 terminal return，并将元数据测试扩展至损坏 JSON、无关包名、缺失 bin、空 bin 和越界 bin。
+
+- `pnpm --filter @mininglamp-oss/octo-runtime-cli run build`：PASS。
+- `node --test test/cli-dsh.test.js test/dsh-launch.test.js test/windows-review-regressions.test.js`：39 通过、4 项 Windows 原生条件跳过；CLI 常驻 list/invoke 与 playboard 均通过。
+- `node scripts/verify-dsh-platform.mjs /tmp/octo-runtime-205-native`：Node 24.19 与 Electron 44.7 各 25 项通过，包括真实 npm 入口解析及 SDK 初始化，无模型请求。
+- 改动源码 ESLint、源码/测试 Prettier 与 `git diff --check`：PASS。
+- 按 review 计划复核本轮源码、测试和文档，未发现中等级别及以上未解决问题；Windows 的 chmod 可执行位测试明确跳过，损坏链接用 junction 覆盖。
+
+日志：`/tmp/octo-runtime-205-first-candidate-{before,after,platform}.log`。基线 CI Gate 及全部平台作业已通过；本轮提交后重新触发 CI，结果应按新 SHA 单独核对。

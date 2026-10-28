@@ -131,11 +131,63 @@ test("CLI fixes the first PATH installation and does not select another package"
   const env = environment([first.bin, second.bin].join(delimiter));
   const config = await readCliAdapterConfigurations(directory, undefined, manifest, env);
   assert.equal(config.dsh.providerOptions.dshBin, first.dshBin);
-  await writeFile(join(first.packageRoot, "package.json"), JSON.stringify({ name: "unrelated" }));
-  assert.equal(
-    (await readCliAdapterConfigurations(directory, undefined, manifest, env)).dsh,
-    undefined
+  for (const metadata of [
+    "{",
+    JSON.stringify({ name: "unrelated" }),
+    JSON.stringify({ name: "@deepseek-ai/dsh" }),
+    JSON.stringify({ name: "@deepseek-ai/dsh", bin: { dsh: "" } }),
+    JSON.stringify({ name: "@deepseek-ai/dsh", bin: { dsh: "../outside.mjs" } })
+  ]) {
+    await writeFile(join(first.packageRoot, "package.json"), metadata);
+    assert.equal(
+      (await readCliAdapterConfigurations(directory, undefined, manifest, env)).dsh,
+      undefined,
+      metadata
+    );
+  }
+});
+
+for (const kind of ["dangling-link", "not-executable", "directory"])
+  test(
+    `CLI does not skip an existing first PATH candidate: ${kind}`,
+    { skip: kind === "not-executable" && process.platform === "win32" },
+    async (t) => {
+      const directory = await fixture(t);
+      const first = await installation(join(directory, "first"));
+      const second = await installation(join(directory, "second"));
+      if (kind === "not-executable") await chmod(first.command, 0o644);
+      else {
+        await rm(first.command);
+        if (kind === "directory") await mkdir(first.command);
+        else
+          await symlink(
+            join(directory, "missing-target"),
+            first.command,
+            process.platform === "win32" ? "junction" : "file"
+          );
+      }
+      const config = await readCliAdapterConfigurations(
+        directory,
+        undefined,
+        manifest,
+        environment([first.bin, second.bin].join(delimiter))
+      );
+      assert.equal(config.dsh, undefined);
+    }
   );
+
+test("CLI skips a genuinely absent PATH command and selects the next installation", async (t) => {
+  const directory = await fixture(t);
+  const first = await installation(join(directory, "first"));
+  const second = await installation(join(directory, "second"));
+  await rm(first.command);
+  const config = await readCliAdapterConfigurations(
+    directory,
+    undefined,
+    manifest,
+    environment([first.bin, second.bin].join(delimiter))
+  );
+  assert.equal(config.dsh.providerOptions.dshBin, second.dshBin);
 });
 
 test("CLI accepts string npm bin metadata and rejects entries outside the package", async (t) => {
