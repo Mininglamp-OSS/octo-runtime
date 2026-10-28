@@ -17,7 +17,7 @@ const provider = process.argv[2];
 assert.ok(["openclaw", "codex", "claude-code"].includes(provider));
 const workdir = await mkdtemp(join(tmpdir(), "octo-224-live-"));
 const calls = [];
-const name = `octo-dm-qa224-${randomUUID()}`;
+const name = process.argv[3] ?? `octo-dm-qa224-${randomUUID()}`;
 let agentConfig = {};
 let adapter;
 if (provider === "openclaw") {

@@ -133,3 +133,5 @@ octo-runtime --home /path/to/runtime --profile work adapter probe openclaw
 续聊必须原样复用 `providerSession.sessionId`，先校验 Agent 前缀与扩展归属，再用 hello 实际广告的 `sessions.describe({key})` 只读确认存在及 key，按版本 patch 本轮权限并确认后订阅、执行；不得逐 Run 新建。旧版 patch full/off，新版 patch permissionMode full/guarded。缺失、错归属或 RPC 失败明确失败，不隐式新建、不自动重发；旧 `resumable:false` 的已存在 key 可被显式续接。新回执 resumable:true，续接回执 resumeOutcome:resumed。系统指令仅在实际新建时发送。
 
 每轮仍独立生成 run/idempotency key，通过 `sessions.messages.subscribe` 取流、`agent.wait` 确认终态、`sessions.abort` 取消，不能因共享 session 而接受前一轮广播。连接验证、执行完成和渠道投递分别判断；`deliver: false` 的本地验证不证明 IM 发消息成功。27 版本新增请求投影与 9.4 真实续接见 [Issue 224](../tasks/224-session-names/validation.md)。
+
+审批没有 runId 时，agent 派发前收到的同 session 广播及 pending 快照属于旧轮次，忽略并有界记住其审批 ID，防止派发后重播重新路由。本轮派发后的新无 runId 实时审批仍可处理；带 runId 的审批继续校验本轮请求身份。

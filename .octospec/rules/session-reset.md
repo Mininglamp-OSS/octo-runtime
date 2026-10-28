@@ -24,7 +24,7 @@ supersedes: []
 
 `sessionName` 仅为调用方的可读展示名称，与上述身份独立。各调用方生成并在自身 binding 保存策略结果；Host SDK/Kernel 不设业务命名器或名称 registry，Core 仅在省略时补随机 UUID。名称不能作为恢复句柄或权限，同名不合并，续聊改名不切换原生会话。
 
-Octo Gateway 使用连字符：`octo-dm-{uid}-{uuid}`、`octo-group-{groupId}-{uuid}`、`octo-group-{groupId}-topic-{topicId}-{uuid}`。名称与逻辑会话同代次创建，跨轮、重试、闲置调度回收保持；reset/new 清除名称，下一条普通消息再分配。旧 binding 只补缺失名称，不换 Provider key。原来的 Bot/Server/Space/渠道地址 scoped binding 继续负责隔离，不能从名称解析身份；WeCom/WebUI 的策略归各调用方自行实施。
+Octo Gateway 使用连字符：`octo-dm-{uid}-{uuid}`、`octo-group-{groupId}-{uuid}`、`octo-group-{groupId}-topic-{topicId}-{uuid}`。展示用地址片段各最多 80 个码点，控制字符替换为 `-`，总长不超过公共上限；不改变原始地址或 scoped binding。名称与逻辑会话同代次创建，跨轮、重试、闲置调度回收保持；reset/new 清除名称，下一条普通消息再分配。旧 binding 补缺失名称或修复非法名称时，不换业务 session、代次或 Provider key。原来的 Bot/Server/Space/渠道地址 scoped binding 继续负责隔离，不能从名称解析身份；WeCom/WebUI 的策略归各调用方自行实施。
 
 `conversation_id` 表示业务会话，reset 前后不变。逻辑执行 session 在普通续聊中复用，reset 后换新；Provider 返回的 `sessionId` 是另一层原生恢复标识，存在该值不保证恢复成功。
 

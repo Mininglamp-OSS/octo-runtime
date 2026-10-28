@@ -7,7 +7,7 @@ import { buildClaudeCommand } from "@mininglamp-oss/octo-runtime-adapter-claude-
 import { createAcpAdapter } from "@mininglamp-oss/octo-runtime-adapter-acp";
 import { invokeRequest } from "./runtime-fixture.js";
 
-test("sessionName validators and wire schemas agree on ASCII letters, digits and hyphens", () => {
+test("sessionName validators and wire schemas agree on bounded caller-owned display names", () => {
   const schema = JSON.parse(
     readFileSync(
       new URL("../packages/octo-runtime-protocol/schema/protocol.schema.json", import.meta.url)

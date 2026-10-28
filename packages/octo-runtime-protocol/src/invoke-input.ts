@@ -249,11 +249,17 @@ export function assertInvokeInput(value: unknown): asserts value is InvokeInput 
 export function assertSessionName(value: unknown): asserts value is string {
   if (
     typeof value !== "string" ||
-    value.length < 1 ||
-    value.length > 256 ||
-    /[^A-Za-z0-9-]/.test(value)
+    !value.trim() ||
+    value.length > 512 ||
+    [...value].length > 256 ||
+    [...value].some((character) => {
+      const code = character.charCodeAt(0);
+      return code < 32 || (code >= 127 && code <= 159);
+    })
   )
-    throw new TypeError("sessionName must contain 1-256 ASCII letters, digits or hyphens");
+    throw new TypeError(
+      "sessionName must contain 1-256 characters, not only whitespace, without control characters"
+    );
 }
 
 /** Lossless field reorganization of a validated prepared execution, excluding its local signal. */

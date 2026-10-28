@@ -55,6 +55,8 @@ CI 范围约束：没有修改 workflow/job/matrix/trigger/gate，也没有默�
 
 # PR 229 后续修正：ASCII 名称与三端一致性
 
+以下记录为 2026-10-28 的历史合同与验证结果；名称限制已由下节 2026-10-29 的用户确认取代。
+
 外部评审指出此前正则使用 RE2 不支持的前瞻，实际 Go codec 会拒绝合法名称；旧的 native 45 项没有覆盖 `sessionName`，因此此前通过不能证明该字段可用。本轮修复前直接用原生 driver 验证 `octo-dm-user-123`：Go 返回 false，Python 返回 true，确认 P1。
 
 按用户最新明确要求，`sessionName` 长度 1–256，仅允许 `[A-Za-z0-9-]`。不再支持 Unicode 文本、空白、冒号或下划线，不改变 Provider opaque ID 的格式。公开和内部 schema 使用现有 `not` + `[^A-Za-z0-9-]`，避免前瞻、Unicode 空白语义以及 `$` 对末尾换行的差异；不扩展或特判 native 校验器。
@@ -62,3 +64,17 @@ CI 范围约束：没有修改 workflow/job/matrix/trigger/gate，也没有默�
 新增一份 30 项共享名称 fixtures，JS 运行时与 AJV、Go、Python 共同消费；两种 wire 均覆盖。用例包括省略、合法字母数字及连字符、1/256/257 字符边界、空白、中文、emoji、U+FEFF/U+0085、换行及控制字符、非法类型。名称 JS 专项 8/8 通过；原生 Go 与 Python 各 418 项协议 fixtures 通过（各新增 60 项名称输入）。构建与类型、生成产物校验通过。
 
 最终全量：WebUI 35/35；Node 2372 项中 2281 通过、91 跳过、0 失败；Go/Python 原生套件 45/45。lint、格式、文档、知识库及 native 生成检查通过。以 `971017d` 为固定点的双轴补充复审均无未解决问题；规范审查另行独立运行 Go/Python 各 60 个名称输入，需求审查独立运行 JS 8 项，均通过。真实 IM 与 ACP live 的未验收范围维持前述记录，本次没有重复声称真实验证或扩大 CI。
+
+# 2026-10-29：调用方名称兼容与完整续聊复审
+
+完整 PR 固定点 `dcca46fb0eaaa3be675432321f704de92dbdbce0`，审查 head `5514d832b7b5e1a11a6f63cb391283a3119d645e`。三个最新远端 review 指向同一 Gateway P1：地址是 opaque 值，直接拼入名称可能包含下划线、中文或超过 256 字符；前次仅收紧消费者而未验证生产者，导致请求在 Core 校验处失败。新增真实调用 `prepareInvokeInput` 的渠道回归，在旧实现上两项均失败后修复。
+
+用户确认公共名称仅限制非空白、长度与控制字符。当前长度为 1–256 Unicode 码点，允许标点、中文及文本中空格，拒绝 C0/DEL/C1 控制字符。TS、公开/内部 schema 和生成代码同步；显式空白集合对齐 TS trim，避免三端 `\s` 差异或 RE2 前瞻。38 项共享名称 fixtures 覆盖两种 wire；Go/Python 各 434 项协议检查通过。Gateway 在调用方内截短展示片段至各 80 码点、替换控制字符并保留完整随机后缀；旧非法名称可修复，不改变业务 session、generation、scoped binding 或原生句柄。渠道测试涵盖长 DM/群/话题地址、标点/中文、控制字符、跨轮、旧坏名修复及 `/new`。
+
+规范审查另复现一项 P1：复用原生 session 时，派发前收到的旧无 runId 审批被本轮接纳。官方本机 OpenClaw 2026.9.4 的 exec-approval 实现允许 runId 缺失并广播 null；旧本地审批桥关闭不会删除原生 pending。新增回归在旧实现上返回 `stale-broadcast` 而不是本轮 `native-1`。修复后派发前的旧 ID 有界登记并过滤后续重播；本轮派发后新的无 runId 实时审批仍可处理。若旧无 runId 审批在派发后首次出现、此前快照及广播均未见，或并发共享同一 key，原生字段不足以严格判定归属；本修复不承诺消除这种歧义。新的真实人工审批操作没有执行，审批验证为实际 Adapter/bridge 加 native client 替身。
+
+全量本地 Node 2375 项：2284 通过、91 跳过、0 失败；WebUI 35/35；Go/Python 原生套件 45/45。`pnpm typecheck`、lint、命名、格式、docs、native 生成校验通过。全量继续使用同版本隔离 Node 规避既有全局 octo-cli 污染。两个独立审查者复核均无新的高置信度可修复缺陷：规范审查独立运行 targeted 10/10 和各原生 codec 76 名称输入；需求审查独立运行名称/渠道 19/19、审批 7/7。
+
+通过手动入口 `verify-provider-live.mjs <provider> 'qa224:dm_中文-1'` 重验三家 Provider：OpenClaw 2026.9.4、Codex 0.164.0、CC 2.1.306 各三轮同句柄、后两轮记忆 2/2，同名 fresh 独立句柄；OpenClaw 缺失 key 仍明确失败且不派发 agent。首轮句柄分别为 `agent:main:qa224%3adm_%e4%b8%ad%e6%96%87-1-c37a32fc-455e-48f9-9c29-3acd81afc18d`、`01a1837b-e865-76f3-9673-be66d829f8e5`、`f48d54a3-1ed2-4a22-b8e3-1608c3b83718`。不操作已有用户会话、不发送 IM；本次未额外检查 CC 持久化标题，不能把前轮标题检查算成当前名称的证据。真实 IM 和通用 ACP 验收限制不变。
+
+旧 head 的远端检查列表已核对：六个平台/Node 组合中的五项通过，Ubuntu Node 26 构建运行 30 分钟后取消，CI Gate 因此失败；日志未报告名称校验错误，不能据此认定超时由 sessionName 导致。提交前相对目标基线 `.github`、`package.json`、锁文件无 diff；保留原有 CI 范围。

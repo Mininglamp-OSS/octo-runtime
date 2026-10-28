@@ -40,3 +40,21 @@ Standards：0 项；Spec：1 项已修复，当前 0 项待处理。
 ## Spec 补充结果
 
 0 项未解决问题。按用户最新 ASCII 要求审查，公开/内部 wire 与 TS 校验一致，没有末尾换行放过、缺省值改变或原生 ID 改写。审查者独立执行 JS 名称与 InvokeInput 8 项通过，覆盖范围与实际未验收项如实记录。
+
+# 2026-10-29 完整 PR 复审与修复
+
+固定完整 PR 比较命令 `git diff dcca46fb0eaaa3be675432321f704de92dbdbce0...HEAD`，复审 head `5514d83`；本轮修复额外核查 `git diff HEAD`。两个审查 Agent 分别检查规范与需求，沿用上述规范来源及坏味道基线；最新用户决定优先于历史 ASCII 合同。之前的局部检查漏掉生产者与公共合同不匹配，前次“无未解决项”不能代表 Gateway 的任意合法 opaque 地址可用。
+
+## Standards
+
+1 项 P1，已修复。共享 OpenClaw 原生 session 时，派发前旧无 runId 审批会被作为本轮审批；这违背 OpenClaw 规则中不能接纳前一轮广播的要求。原生源码及 Adapter/bridge 回归复现均确认可达。现在过滤派发前旧审批，并在同一有界集合预算内登记旧 ID，防止后续重播。当前新无 runId 实时审批照常处理；独立 targeted tests 10/10，Go/Python 各 76 个名称输入通过。
+
+复核未发现新的高置信度可修复缺陷。原生缺 runId 且旧审批直到派发后才首次可见时，或并发共享 key，仍无法仅凭 sessionKey 确定归属；不宣称全部无 runId 广播均有严格逐轮关联。
+
+## Spec
+
+1 项 P1，已修复。Gateway 直接拼接 opaque 地址，可能违反公共名称字符/长度合同，导致合法私聊、群、话题请求无法到达 Provider。按用户最新明确选择，公共名称允许标点/Unicode 文本；Gateway 自行限长与处理展示片段的控制字符，完整 scoped binding 不变。旧非法或缺失名称修复不切换业务 session、generation 或原生句柄。
+
+独立复核名称/渠道回归 19/19、审批回归 7/7；新用例真实经过 Core 输入准备，覆盖长地址、中文、旧坏名及 `/new`。未新增命名 registry 或其他调用方策略。真实 IM、通用 ACP 尚未验收，不能用离线回归替代。
+
+Standards：1 项 P1 已修复，0 项待处理；Spec：1 项 P1 已修复，0 项待处理。验证范围及原生关联字段限制见[验证记录](validation.md)。

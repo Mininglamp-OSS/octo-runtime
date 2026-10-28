@@ -6,9 +6,12 @@ import { assertApprovalRequest } from "../packages/octo-runtime-protocol/dist/in
 function fixture({
   decisions = ["allow-once", "allow-always", "deny"],
   ttl = 60000,
-  snapshot = false
+  snapshot = false,
+  resume = false,
+  runless = false
 } = {}) {
   let listener, finish, session, runId;
+  if (resume) session = "agent:main:existing-session";
   const calls = [];
   const approval = () => ({
     id: "native-1",
@@ -34,6 +37,8 @@ function fixture({
           methods: [
             "agents.list",
             "sessions.create",
+            "sessions.describe",
+            "sessions.patch",
             "sessions.messages.subscribe",
             "agent",
             "agent.wait",
@@ -57,7 +62,28 @@ function fixture({
         assert.equal(params.permissionMode, "guarded");
         return { key: session };
       }
-      if (method === "exec.approval.list") return snapshot ? [approval()] : [];
+      if (method === "sessions.describe") return { session: { key: session, agentId: "main" } };
+      if (method === "sessions.patch")
+        return { ok: true, key: session, entry: { permissionMode: "guarded" } };
+      if (method === "sessions.messages.subscribe" && snapshot)
+        listener({
+          event: "exec.approval.requested",
+          payload: {
+            ...approval(),
+            id: "stale-broadcast",
+            request: { ...approval().request, runId: null }
+          }
+        });
+      if (method === "exec.approval.list")
+        return snapshot
+          ? [
+              {
+                ...approval(),
+                id: "stale-snapshot",
+                request: { ...approval().request, runId: null }
+              }
+            ]
+          : [];
       if (method === "agent.wait") return { status: "ok" };
       if (method === "exec.approval.resolve") {
         listener({
@@ -69,7 +95,19 @@ function fixture({
       if (method === "agent") {
         runId = params.idempotencyKey;
         options.onAccepted?.({ runId });
-        const event = { event: "exec.approval.requested", payload: approval() };
+        const event = {
+          event: "exec.approval.requested",
+          payload: {
+            ...approval(),
+            request: { ...approval().request, runId: runless ? null : runId }
+          }
+        };
+        if (snapshot)
+          for (const id of ["stale-broadcast", "stale-snapshot"])
+            listener({
+              ...event,
+              payload: { ...event.payload, id, request: { ...event.payload.request, runId: null } }
+            });
         listener({
           ...event,
           payload: {
@@ -122,6 +160,7 @@ function fixture({
       }
     }
   };
+  if (resume) request.providerSession = { sessionId: session, resumable: true };
   const events = [];
   const waiters = [];
   const running = (async () => {
@@ -146,6 +185,33 @@ function fixture({
       listener({ event: "exec.approval.resolved", payload: { id: "native-1", decision } })
   };
 }
+
+test(
+  "OpenClaw resume ignores old runless approvals but routes a new runless live request",
+  { timeout: 3000 },
+  async () => {
+    const f = fixture({ snapshot: true, resume: true, runless: true });
+    try {
+      const event = await f.until("interaction.requested");
+      assert.equal(event.payload.request.providerDetails.approvalId, "native-1");
+      await f.adapter.respondInteraction("i", {
+        interactionId: event.payload.interactionId,
+        outcome: "accepted",
+        value: { optionId: "allow-once" }
+      });
+      await f.until("interaction.resolved");
+    } finally {
+      f.finish();
+      await f.running.catch(() => {});
+    }
+    assert.equal(f.events.at(-1).type, "run.completed");
+    assert.equal(f.events.filter((event) => event.type === "interaction.requested").length, 1);
+    assert.deepEqual(
+      f.calls.filter((call) => call.method === "exec.approval.resolve"),
+      [{ method: "exec.approval.resolve", params: { id: "native-1", decision: "allow-once" } }]
+    );
+  }
+);
 
 for (const optionId of ["allow-once", "allow-always", "deny"])
   test(`OpenClaw ${optionId} reaches the original approval, once`, { timeout: 3000 }, async () => {

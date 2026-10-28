@@ -662,6 +662,7 @@ async function* invokeOpenClawGateway(
   const activeApprovals = new Map<string, JsonRecord>();
   let providerSessionKey = invocation.sessionKey;
   const routedApprovals = new Set<string>();
+  const staleApprovals = new Set<string>();
   const acceptEvent = (event: OpenClawGatewayEvent): void => {
     if (closing || terminal) return;
     const payload = asRecord(event.payload);
@@ -671,15 +672,26 @@ async function* invokeOpenClawGateway(
     } else if (event.event === "exec.approval.requested") {
       const request = asRecord(payload?.request);
       const id = nonEmptyString(payload?.id);
-      if (!id || routedApprovals.has(id) || request?.sessionKey !== providerSessionKey) return;
+      if (
+        !id ||
+        routedApprovals.has(id) ||
+        staleApprovals.has(id) ||
+        request?.sessionKey !== providerSessionKey
+      )
+        return;
       if (
         request.runId &&
         request.runId !== acceptedRunId &&
         request.runId !== invocation.requestId
       )
         return;
-      if (routedApprovals.size >= 1024) {
+      if (routedApprovals.size + staleApprovals.size >= 1024) {
         queue.fail(new Error("APPROVAL_WAIT_UNAVAILABLE"));
+        return;
+      }
+      // 派发前的无 runId 审批属于旧轮次；记住 ID，避免稍后重播时串入本轮。
+      if (!request.runId && !agentDispatched) {
+        staleApprovals.add(id);
         return;
       }
       routedApprovals.add(id);

@@ -175,6 +175,39 @@ for (const [name, suffix, transportName, platform] of channels) {
     });
 
   if (suffix === "gateway")
+    test("Octo bounds display names for opaque addresses before real Core validation", async (t) => {
+      const f = await fixture(t);
+      for (const [kind, id] of [
+        ["direct", "app_example_bot"],
+        ["direct", "user:one-two"],
+        ["group", "群组_一"],
+        ["direct", "u".repeat(300)],
+        ["thread", `${"group".repeat(60)}____${"话题".repeat(150)}`],
+        ["group", "control\x01address"]
+      ]) {
+        const before = f.calls.length;
+        f.send("first", id, { conversationKind: kind });
+        await settle();
+        assert.equal(f.calls.length, before + 1, `${kind}: address must reach the provider`);
+        const first = f.calls.at(-1);
+        assert.ok([...first.sessionName].length <= 256);
+        assert.ok(first.sessionName.startsWith(kind === "direct" ? "octo-dm-" : "octo-group-"));
+        if (kind === "thread") assert.ok(first.sessionName.includes("-topic-"));
+        f.send("second", id, { conversationKind: kind });
+        await settle();
+        assert.equal(f.calls.at(-1).sessionName, first.sessionName);
+        assert.equal(f.calls.at(-1).providerSession.sessionId, "provider");
+        f.send("/new", id, { conversationKind: kind });
+        await settle();
+        f.send("third", id, { conversationKind: kind });
+        await settle();
+        assert.notEqual(f.calls.at(-1).sessionName, first.sessionName);
+        assert.ok([...f.calls.at(-1).sessionName].length <= 256);
+      }
+      assert.deepEqual(f.diagnostics, []);
+    });
+
+  if (suffix === "gateway")
     test("Octo adds missing names to legacy bindings without replacing their native handle", async (t) => {
       const { MemoryImSessionStore } =
         await import("../packages/octo-runtime-extra-channel-gateway/dist/index.js");
@@ -199,6 +232,37 @@ for (const [name, suffix, transportName, platform] of channels) {
       assert.equal(f.calls[1].providerSession.sessionId, "provider");
       assert.match(f.calls[1].sessionName, /^octo-dm-chat-/);
       assert.equal(sessions.read(key).sessionName, f.calls[1].sessionName);
+    });
+
+  if (suffix === "gateway")
+    test("Octo repairs persisted invalid display names without resetting native continuity", async (t) => {
+      const { MemoryImSessionStore } =
+        await import("../packages/octo-runtime-extra-channel-gateway/dist/index.js");
+      const sessions = new MemoryImSessionStore();
+      t.after(() => sessions.close());
+      const save = sessions.save.bind(sessions);
+      let key;
+      t.mock.method(sessions, "save", (value, binding) => {
+        key = value;
+        save(value, binding);
+      });
+      const f = await fixture(t, undefined, undefined, sessions);
+      f.send();
+      await settle();
+      const first = f.calls[0];
+      for (const sessionName of ["x".repeat(300), "old\nname", undefined]) {
+        save(key, { ...sessions.read(key), sessionName });
+        f.send();
+        await settle();
+        assert.equal(f.calls.length, 2);
+        const resumed = f.calls[1];
+        assert.equal(resumed.agentSessionId, first.agentSessionId);
+        assert.equal(resumed.sessionGeneration, first.sessionGeneration);
+        assert.equal(resumed.providerSession.sessionId, "provider");
+        assert.ok([...resumed.sessionName].length <= 256);
+        assert.equal(sessions.read(key).sessionName, resumed.sessionName);
+        f.calls.splice(1);
+      }
     });
 
   test(`${name} failed-card retries join the current queue after the old scheduler is released`, async (t) => {
