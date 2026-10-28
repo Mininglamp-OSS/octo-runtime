@@ -203,7 +203,7 @@ Run 完成不等于 IM 发送成功。需要可靠投递的应用自行定义发
 
 ## HTTP 限流提示
 
-Gateway 的 REST 错误与鉴权/注册错误共用内部 Retry-After 解析：数字按秒换算，HTTP-date 按目标时间减本机当前时间计算，过去日期归零。IMF-fixdate、RFC850 和 asctime 均代表 UTC；asctime 无时区后缀，解析前显式补 GMT，不受客户端时区影响。REST 的正数 header 优先于 JSON body；零等待仍沿用正数 body 或默认 1000 ms，避免连续立即重试。有限秒数换算溢出时保留 Infinity，让 REST 按超预算停止，不能因解析兜底改为短等待；连接错误保持既有非有限值归零及外层建联退避。
+Gateway 的 REST 错误与鉴权/注册错误共用内部 Retry-After 解析：数字按秒换算，HTTP-date 按目标时间减本机当前时间计算，过去日期归零。IMF-fixdate、RFC850 和 asctime 均代表 UTC；asctime 无时区后缀，解析前显式补 GMT，不受客户端时区影响。RFC850 的两位年份按当前时间加 50 年的完整 UTC 时间戳窗口展开；超过窗口才回到最近的过去世纪，不使用 JavaScript 固定世纪分界。REST 的正数 header 优先于 JSON body；零等待仍沿用正数 body 或默认 1000 ms，避免连续立即重试。有限秒数换算溢出时保留 Infinity，让 REST 按超预算停止，不能因解析兜底改为短等待；连接错误保持既有非有限值归零及外层建联退避。
 
 额度按层分别计算：每次 REST 调用最多两次重试（含首次共三次请求），提示大于 10000 ms 不重试，含向上抖动的累计退避大于 15000 ms 不重试。累计退避不是端到端请求期限，也不是账号共享额度。上层 dispatcher 仍有独立的最多三次投递尝试和大于 3000 ms 等待时停止的限制，不把一次 REST 的次数推广为整个投递流程的次数。日期等待、超预算、取消及数值兼容证据见 [Issue #163](../tasks/163-http-date-retry-after/brief.md)；专项显式本地运行，不接入默认 CI。
 

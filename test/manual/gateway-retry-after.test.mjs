@@ -30,7 +30,12 @@ const response = (hint) =>
   });
 const apiError = (hint, body = "") => OctoApiError.from(response(hint), "/fixture", body);
 const execFileAsync = promisify(execFile);
-const utcRegressionNames = ["HTTP-date forms use UTC", "real HTTP asctime retry respects UTC"];
+const utcRegressionNames = [
+  "HTTP-date forms use UTC",
+  "real HTTP asctime retry respects UTC",
+  "RFC850 years follow the HTTP forward window",
+  "real HTTP future RFC850 hint stays over budget"
+];
 
 test("REST and connection errors honor future HTTP-date hints", async (t) => {
   t.mock.method(Date, "now", () => fixedNow);
@@ -63,6 +68,35 @@ test(utcRegressionNames[0], async (t) => {
     for (const phase of ["AUTH", "REGISTER"]) {
       const failure = await httpConnectionFailure(response(hint), phase);
       assert.equal(failure.retryAfterMs, expected, `${phase}: ${hint}`);
+    }
+  }
+});
+
+test(utcRegressionNames[2], async (t) => {
+  let now = fixedNow;
+  t.mock.method(Date, "now", () => now);
+  for (const [current, hint, expectedDate] of [
+    ["2026-10-28T08:00:00.250Z", "Sunday, 06-Nov-50 08:49:37 GMT", "2050-11-06T08:49:37Z"],
+    ["2026-10-28T08:00:00.250Z", "Wednesday, 28-Oct-26 08:00:06 GMT", "2026-10-28T08:00:06Z"],
+    ["2026-10-28T08:00:00Z", "Wednesday, 28-Oct-76 08:00:00 GMT", "2076-10-28T08:00:00Z"],
+    ["2026-10-28T08:00:00Z", "Wednesday, 28-Oct-76 08:00:01 GMT", "1976-10-28T08:00:01Z"],
+    ["2026-10-28T08:00:00Z", "Sunday, 06-Nov-94 08:49:37 GMT", "1994-11-06T08:49:37Z"],
+    ["1999-01-01T00:00:00Z", "Saturday, 01-Jan-00 00:00:06 GMT", "2000-01-01T00:00:06Z"],
+    ["2049-01-01T00:00:00Z", "Thursday, 01-Jan-99 00:00:00 GMT", "2099-01-01T00:00:00Z"],
+    ["2050-01-01T00:00:00Z", "Friday, 01-Jan-00 00:00:00 GMT", "2100-01-01T00:00:00Z"],
+    ["2090-01-01T00:00:00Z", "Monday, 01-Jan-20 00:00:00 GMT", "2120-01-01T00:00:00Z"],
+    ["2090-01-01T00:00:00Z", "Tuesday, 01-Jan-41 00:00:00 GMT", "2041-01-01T00:00:00Z"]
+  ]) {
+    now = Date.parse(current);
+    const remaining = Math.max(0, Date.parse(expectedDate) - now);
+    assert.equal(
+      apiError(hint, hintBody(1)).retryAfterMs,
+      remaining || 1000,
+      `${current}: ${hint}`
+    );
+    for (const phase of ["AUTH", "REGISTER"]) {
+      const failure = await httpConnectionFailure(response(hint), phase);
+      assert.equal(failure.retryAfterMs, remaining, `${phase} ${current}: ${hint}`);
     }
   }
 });
@@ -226,6 +260,18 @@ test("real HTTP over-budget date returns 429 without retrying", async (t) => {
   await assert.rejects(f.send(), (error) => {
     assert.ok(error instanceof OctoApiError);
     assert.equal(error.status, 429);
+    assert.ok(error.retryAfterMs > MAX_RETRY_AFTER_MS);
+    return true;
+  });
+  assert.equal(f.requests.length, 1);
+});
+
+test(utcRegressionNames[3], { timeout: 5000 }, async (t) => {
+  t.mock.method(Date, "now", () => fixedNow);
+  const f = await httpFixture(t, (res) => limited(res, "Sunday, 06-Nov-50 08:49:37 GMT"));
+  await assert.rejects(f.send(), (error) => {
+    assert.ok(error instanceof OctoApiError);
+    assert.equal(error.retryAfterMs, Date.parse("2050-11-06T08:49:37Z") - fixedNow);
     assert.ok(error.retryAfterMs > MAX_RETRY_AFTER_MS);
     return true;
   });

@@ -125,3 +125,20 @@ env TZ=Asia/Shanghai node --test --test-name-pattern='^(HTTP-date forms use UTC|
 - 六文件组合回归最终 PASS：195 项，0 失败、0 跳过；其中手动专项 32 项（包含时区驱动及两个时区子测试），既有回归 163 项。驱动另外执行的两个子进程各两项检查不重复计入这 195 项。覆盖 REST、AUTH/REGISTER、数字兼容、预算、取消和真实 HTTP。
 - 本轮逐文件复核共享解析、手动测试、规则、brief、context、journal、log，并复查两个调用方和退避逻辑；没有遗留 medium 及以上发现。用户指出的 P2 已由同一失败用例先失败后通过确认修复。
 - Octospec lint 与 diff 空白检查 PASS。相对 origin/main 的 workflow、package scripts、lockfile 无 diff，默认测试入口未变化；专项继续只显式执行。未运行完整仓库测试、远端 IM/模型、原生 Windows/Linux 或部署验证，尚待 Jerry-Xin 远端复审。
+
+# yujiawei review：RFC850 两位年份窗口
+
+- [后续 review](https://github.com/Mininglamp-OSS/octo-runtime/pull/226#pullrequestreview-5683996233) 指出独立于 asctime 时区的年份问题。上一轮只覆盖 RFC850 的 26 年，没有覆盖 JavaScript 的 49/50 固定世纪分界；不能由三种格式的普通样本通过推断年份窗口正确。
+- 基线 `60a355b25b595719ac9ea46fdb4cc8e2ae18ea78`，macOS arm64、Node v24.19.0、pnpm 11.19.0；仅新增测试时工作树为 dirty，产品源码及 dist 保持基线。下方命令退出码 1，两项失败：`Sunday, 06-Nov-50 08:49:37 GMT` 在 2026 固定时钟下应保留 758162976750 ms，REST 实际为 1000 ms；真实 HTTP 发出三次请求而不是因超预算只请求一次。问题已 reproduced。
+
+```sh
+node --test --test-name-pattern='^(RFC850 years follow the HTTP forward window|real HTTP future RFC850 hint stays over budget)$' test/manual/gateway-retry-after.test.mjs
+```
+
+- 修正使用 RFC850 语法提取两位年份，以当前 UTC 时间加 50 年为窗口上界展开四位年份，再交给 Date.parse 解析带 GMT 的完整日期。超过完整时间戳窗口才回退一个世纪；恰好 50 年保留，不使用固定 1950/2050 分界。依据仍为 RFC 9110 §5.6.7。
+- 本轮复核重点：50 年精确边界、跨世纪、REST 超预算拒绝、AUTH/REGISTER 同源解析、asctime 和数字兼容、子进程的真实执行及资源清理。新增年份与真实 HTTP 两项同时接入已有两个非 UTC 子进程的显式筛选，未接入默认测试或 CI。
+- 同一失败命令在修正后退出码 0，两项 PASS；2050 的等待保留为 758162976750 ms，真实 HTTP 仅请求一次。新增表覆盖未来恰好 50 年、超过一秒、过去日期及 1999/2000、2049/2099、2050/2100、2090/2120，REST 和 AUTH/REGISTER 都检查。
+- 另同步 `origin/main@dcca46f` 的 Windows task 修正，合并提交为 `18626ce`，上游三个文件与目标分支完全一致。随后 `pnpm typecheck`（含 workspace 构建）、`pnpm lint`、`pnpm lint:names`、`pnpm format:check`、Octospec lint 和 diff 检查全部 PASS；lint 在构建完成后运行。已有 WebUI 构建提示不变。
+- 六文件组合回归 PASS：197 项，0 失败、0 跳过；手动专项 34 项及既有回归 163 项。Asia/Shanghai、America/Los_Angeles 子进程各额外执行四项指定检查，包含本轮 RFC850 解析和真实 HTTP；不重复计入 197 项。
+- 逐文件复核本轮实现、手动测试、规则、brief、context、journal、log，核对年份窗口使用完整 UTC 时间戳、两个调用方复用及既有数值/预算/取消合同。本轮变更没有新的 medium 及以上发现；所引 review 问题已复现并修正，远端复审仍待 reviewer 确认。
+- 相对目标分支的 workflow、package scripts、lockfile 无 diff，默认测试发现范围不变。未运行完整仓库测试、远端 IM/模型、原生 Windows/Linux 或部署验收。本轮终端日志位于 `/tmp/octo-163-rfc850-tests.log`、`/tmp/octo-163-rfc850-typecheck.log` 和 `/tmp/octo-163-rfc850-lint.log`；可重复用例保留在显式手动专项。
