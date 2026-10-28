@@ -11,7 +11,7 @@ tags: [adapter, runtime, installation]
 
 ## 可执行性与范围
 
-实施可执行性评估为 95/100，达到用户要求的 95 分门槛。这是工程判断，不是成功概率：合同、现有配置传递链路、官方 SDK 接口及本地回归入口均已核对；剩余不确定性是 Windows/Linux 原生 npm 包与 Electron 实测，由三平台 CI 验证并独立记录。
+实施可执行性评估为 95/100，达到用户要求的 95 分门槛。这是工程判断，不是成功概率：合同、现有配置传递链路、官方 SDK 接口及本地回归入口均已核对；各平台原生 npm 包与 Electron 实测独立记录，专项验证不加入 GitHub CI。
 
 业务目标：宿主选择 npm 安装的 DSH，并将 JS 入口绝对路径作为 `providerOptions.dshBin` 传入。安装、升级、配置来源及认证归宿主和 DSH；Adapter 校验入口及兼容版本，使用未经修改的官方 Client 完成 stdio SDK 握手、执行及关闭。
 
@@ -28,7 +28,7 @@ tags: [adapter, runtime, installation]
 1. 配置缺失、相对路径、wrapper、Desktop/ASAR 入口及旧启动字段被拒绝，缺失安装不回退。
 2. 版本、初始化失败保持明确；原有执行/续聊/取消/错误回归通过。
 3. Kernel `client.list()` 与调用使用同一宿主配置；带空格及非 ASCII 的入口可启动。
-4. 三平台 CI 使用真实 npm DSH 及 Electron 运行版本探测和 SDK 初始化，不调用模型；fixture 测试和原生验证分别记录。
+4. 真实 npm DSH 及 Electron 的版本探测和 SDK 初始化通过显式手动专项验证，不调用模型、不新增 GitHub CI；fixture 测试和原生验证分别记录。
 5. 同步双语文档与宿主配置示例，执行 verified-review 后提交英文 commit/PR，保留 Codex trailer。
 6. CLI 无需手工填写 dshBin 即可从 npm 安装自动发现；常驻 Kernel list/invoke 与 playboard 均覆盖，自动补齐保留 dshHome、streamLimits 及其他宿主配置。
 7. PATH 只跳过实际不存在的候选；首个已存在候选为损坏链接、不可执行文件或非文件时也不选择下一安装。npm 元数据无效同样终止发现。

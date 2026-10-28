@@ -16,3 +16,5 @@ PR #219 首版遗漏 CLI 自身的自动解析。按用户指出的问题，补�
 方案、责任与验收见[任务简报](../../tasks/205-host-configured-dsh/brief.md)，实际命令、测试范围、已修正评审项及上游 Electron 39 原生兼容限制见[验证记录](../../tasks/205-host-configured-dsh/validation.md)。不重置宿主或 Provider 身份、配置、认证和已有会话。跨平台 fixture 与原生结果分别记录，不以 Node 或 macOS 成功替代 Windows/Linux 验收。
 
 同步 `main@4264fd7` 时，仅任务索引与 #217 CodeBuddy 条目发生文本冲突，保留两项；Adapter 规则自动合并后两边合同均保留。CLI 及依赖构建通过，DSH/CLI/Windows 和 CodeBuddy 模型/结果回归共 94 项通过、4 项按平台跳过。文档检查发现本任务四份记录缺少 YAML 头，补齐元信息后重新校验。
+
+用户要求撤除新增 GitHub CI，并设为全局架构约束。删除 DSH/Electron 三平台 job 和 CI Gate 对其依赖，workflow 恢复目标分支原样；此前 workflow 改动额外触发的两项 Workflow Sanity 检查也随之不再触发。专项脚本仅保留手动入口，历史验证不作为持续 CI 承诺。全局 Agent 指令与仓库架构规则同时记录严禁擅自扩大 CI 范围。

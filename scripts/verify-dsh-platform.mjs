@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { resolve, join } from "node:path";
 
-// CI 在仓库外安装 Provider/Electron；这里分别验证普通 Node 和真实 Electron Node mode。
+// 手动在仓库外安装 Provider/Electron；这里分别验证普通 Node 和真实 Electron Node mode。
 const installation = resolve(process.argv[2]);
 const require = createRequire(join(installation, "package.json"));
 const electron = require("electron");

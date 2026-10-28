@@ -7,6 +7,8 @@ tags: [adapter, testing, runtime]
 
 # Issue 205 验证与评审
 
+2026-10-28 用户要求撤除新增的 DSH/Electron 三平台 CI：删除 `verify-dsh` 及 CI Gate 的依赖，workflow 恢复目标分支原样。以下已执行的专项 CI 保留为历史证据，不再作为持续门禁；原生专项仅显式手动运行。
+
 ## 基线与范围
 
 - 日期：2026-10-28；系统：macOS arm64；Node：24.19.0；pnpm：11.19.0。
