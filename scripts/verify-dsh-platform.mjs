@@ -10,10 +10,15 @@ const dshBin = join(installation, "node_modules", "@deepseek-ai", "dsh", "lib", 
 for (const executable of [process.execPath, electron]) {
   const result = spawnSync(
     executable,
-    ["--test", "test/dsh-launch.test.js", "test/dsh-native.test.js"],
+    ["--test", "test/cli-dsh.test.js", "test/dsh-launch.test.js", "test/dsh-native.test.js"],
     {
       stdio: "inherit",
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: "1", OCTO_DSH_NATIVE_BIN: dshBin },
+      env: {
+        ...process.env,
+        ELECTRON_RUN_AS_NODE: "1",
+        OCTO_DSH_NATIVE_BIN: dshBin,
+        OCTO_DSH_NATIVE_PATH: join(installation, "node_modules", ".bin")
+      },
       timeout: 120000
     }
   );

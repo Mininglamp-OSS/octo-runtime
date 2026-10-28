@@ -37,15 +37,15 @@ export async function resolveDshLaunch(
   }
   // 符号链接也不能把 Desktop/ASAR 内嵌入口重新引入 npm 安装合同。
   assertModulePath(physicalPath);
-  // 官方 Client 固定使用 process.execPath；版本探针与 SDK 子进程必须使用同一环境。
+  // 固定已校验的目标，避免宿主链接在校验后被替换；版本探针与官方 Client 共用该路径和环境。
   const launch = {
     command: process.execPath,
-    args: [dshBin],
+    args: [physicalPath],
     env: mergeProcessEnvironment(
       env,
       process.versions.electron ? { ELECTRON_RUN_AS_NODE: "1" } : {}
     ),
-    dshBin
+    dshBin: physicalPath
   };
   await checkVersion(launch, signal);
   return launch;

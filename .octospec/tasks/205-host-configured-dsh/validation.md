@@ -34,3 +34,24 @@
 发现并修正：新增 CI Gate 依赖后旧测试断言未同步（执行复现，定向 20 项通过）；新增文档误写 CLI 配置文件为身份文件 runtime.json（源码确认，已改为 `<home>/<profile>/config.json`）。修正后没有中等级别及以上的未解决代码问题。
 
 Electron 39 的上游原生 runtime 限制是实际验证失败，不作为本次 Adapter 修复已覆盖的能力。其他 Electron 构建、Windows/Linux 及真实模型执行均按对应实测结果报告。
+
+## PR 219 后续修正
+
+基线 `fcba1945672ea07445cd97f3790a2b7286cbea9b`，同一 worktree 与分支；macOS arm64、Node 24.19.0。首版遗漏 CLI 宿主自己的自动解析，已按用户反馈在 apps/cli 补齐。宿主显式配置优先，否则固定 PATH 首个 dsh，经 npm 包名和 bin 元数据解析入口，同时传给常驻 Kernel 和 playboard；不执行 shim、不回退其他安装，保留其他 providerOptions 和 streamLimits。
+
+远端正式 review `5677604970`（yujiawei，2026-10-28）指出校验 realpath 却启动原链接的 P1；现已改为版本探针及 SDK 一致使用 physicalPath。新增测试在 stat 返回后、版本启动前确定性替换目录链接到 Desktop 哨兵。此测试覆盖原链接替换，不声称路径校验提供不可变 inode 或防止安装目录本身被任意改写。review 另提 CI 超时理由，已在 job 就近注明构建/下载预算及每 runtime 120 秒进程限制。
+
+| 检查 | 结果 | 证据 |
+| --- | --- | --- |
+| 原 CLI 回归复现 | EXPECTED_FAIL | 将基线 main.ts/playboard.ts 编译到本地生成目录后，新测试的前台 Kernel list 为不可用、playboard 返回 1；2 项失败。随后以当前源码完整重建，生成目录未提交 |
+| 原链接替换回归复现 | EXPECTED_FAIL | 基线 launch 运行 Desktop 哨兵，返回 DSH_START_FAILED（version exit 1）；当前实现测试通过 |
+| `pnpm typecheck`、lint、lint:names、format:check、docs:check | PASS | 完整构建、类型、代码规范、文档及示例检查通过；canonical path 后另行构建 DSH 并检查改动文件 |
+| `pnpm test:suites` | PASS | CLI 修复后 2,120 项 Node 测试通过、58 项条件跳过，35 项 UI 测试通过；canonical path 修正后再次定向验证 DSH/CLI/Windows 文件 |
+| 定向 DSH/CLI/Windows 回归 | PASS | `node --test test/cli-dsh.test.js test/dsh-launch.test.js test/dsh-adapter.test.js test/dsh-sdk-boundaries.test.js test/windows-review-regressions.test.js`：105 通过、4 项 Windows 原生条件跳过 |
+| 真实 npm DSH / Node 与 Electron | PASS | `node scripts/verify-dsh-platform.mjs /tmp/octo-runtime-205-native`：两个 runtime 各 21 项通过；包括 CLI 自动解析真实 npm 安装、CLI worker discovery、SDK 初始化及链接替换回归，无模型调用 |
+| 发行包 | PASS | 重新打包及 `verify-release.mjs --expected-commit fcba1945672ea07445cd97f3790a2b7286cbea9b` 通过，覆盖离线安装、公开类型、Kernel/Extra、CLI 及 Home 保留 |
+| 基线远端 CI | 已检查并修正 | run 40628191508 的三平台 npm/Electron 检查全部成功；Windows Node 24/26 发行检查失败于旧测试仍传 command/args，已改成 dshBin 并保留混合大小写环境断言。最新提交须重新运行 CI |
+
+本轮按 review 计划逐文件复核源码、调用点、测试、CI 和文档，无生成文件/锁文件/二进制变更及跳过文件。原 CLI 遗漏与远端 P1 均有修复前后执行证据；修正后没有中等级别及以上的未解决本地代码问题。远端已有 REQUEST_CHANGES 是基线评审，不冒充新提交已获批准。
+
+本轮日志在 `/tmp/octo-runtime-205-cli-*.log` 与 `/tmp/octo-runtime-205-link-before.log`；未读取测试账号、调用模型或发送 IM。

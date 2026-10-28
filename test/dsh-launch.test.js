@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cp, mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
+import fs, { cp, mkdir, mkdtemp, realpath, rm, symlink, unlink, writeFile } from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -32,6 +33,42 @@ test("DSH rejects a symlink into Desktop instead of launching the embedded modul
   });
 });
 
+test("DSH pins the validated npm target when the host link changes before launch", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "dsh-swap-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const npm = join(directory, "npm");
+  const desktop = join(directory, "Fixture.app", "Contents", "lib");
+  await mkdir(npm);
+  await mkdir(desktop, { recursive: true });
+  await cp(fixture, join(npm, "bin.mjs"));
+  await writeFile(join(desktop, "bin.mjs"), 'throw new Error("Desktop must never launch");');
+  const alias = join(directory, "selected");
+  const linkType = process.platform === "win32" ? "junction" : "dir";
+  await symlink(npm, alias, linkType);
+  const physicalPath = await realpath(join(npm, "bin.mjs"));
+  const originalStat = fs.stat;
+  let swapped = false;
+  t.mock.method(fs, "stat", async (path, ...args) => {
+    const result = await originalStat(path, ...args);
+    if (path === physicalPath && !swapped) {
+      swapped = true;
+      await unlink(alias);
+      await symlink(desktop, alias, linkType);
+    }
+    return result;
+  });
+  syncBuiltinESMExports();
+  t.after(() => {
+    t.mock.restoreAll();
+    syncBuiltinESMExports();
+  });
+  const launch = await resolveDshLaunch({ dshBin: join(alias, "bin.mjs") }, process.env);
+  assert.equal(swapped, true);
+  assert.equal(await realpath(join(alias, "bin.mjs")), await realpath(join(desktop, "bin.mjs")));
+  assert.deepEqual(launch.args, [physicalPath]);
+  assert.equal(launch.dshBin, physicalPath);
+});
+
 test("DSH launches the exact host module with spaces and Unicode, without mutating its environment", async (t) => {
   const directory = await mkdtemp(join(tmpdir(), "dsh host 空格 "));
   t.after(() => rm(directory, { recursive: true, force: true }));
@@ -40,9 +77,10 @@ test("DSH launches the exact host module with spaces and Unicode, without mutati
   const env = { ...process.env, ELECTRON_RUN_AS_NODE: "0" };
   const before = { ...env };
   const launch = await resolveDshLaunch({ dshBin }, env);
+  const physicalPath = await realpath(dshBin);
   assert.equal(launch.command, process.execPath);
-  assert.deepEqual(launch.args, [dshBin]);
-  assert.equal(launch.dshBin, dshBin);
+  assert.deepEqual(launch.args, [physicalPath]);
+  assert.equal(launch.dshBin, physicalPath);
   assert.deepEqual(env, before);
   assert.notEqual(launch.env, env);
   assert.equal(launch.env.ELECTRON_RUN_AS_NODE, process.versions.electron ? "1" : "0");

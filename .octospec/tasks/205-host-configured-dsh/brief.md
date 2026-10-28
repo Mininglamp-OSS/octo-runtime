@@ -11,8 +11,8 @@
 ## 合同与拓扑
 
 - CLI/SDK 宿主原生创建 Kernel；Kernel 内部 worker 执行唯一 Core 和 Adapter。官方 Client 及版本探针只启动所选 JS 入口，使用当前 `process.execPath`，Electron 子进程固定 `ELECTRON_RUN_AS_NODE=1`。不增加外部 Node 依赖。
-- Kernel 既有 `adapterConfigurations.dsh.providerOptions` 同时用于 discovery 与 invocation；CLI 既有 `<home>/<profile>/config.json` adapters execution provider_options 继续使用相同链路。进程内 Core 的调用方显式传入同一配置。
-- 删除 PATH 发现、`command/args`、`desktopPath`、Desktop 桥接。未配置或格式非法返回 `DSH_CONFIG_INVALID`；文件缺失返回 `DSH_EXECUTABLE_NOT_FOUND`；版本不兼容、启动失败及握手失败保持现有明确错误。
+- Kernel 既有 `adapterConfigurations.dsh.providerOptions` 同时用于 discovery 与 invocation。CLI 在常驻 Kernel 和 playboard 创建前共用宿主配置解析：显式 `<home>/<profile>/config.json` adapters execution provider_options 优先；未配置 dshBin 时选择 PATH 中首个 dsh，通过 npm 包名及 bin 元数据确定 JS 入口，不执行 shim。Windows npm prefix 和项目 node_modules/.bin 也适用；不识别、缺失或不兼容时不换另一安装。进程内 Core、SDK 应用自行选择并显式传入配置。
+- 删除 Adapter 内的 PATH 发现、`command/args`、`desktopPath`、Desktop 桥接。Adapter 未收到配置或格式非法返回 `DSH_CONFIG_INVALID`；文件缺失返回 `DSH_EXECUTABLE_NOT_FOUND`；版本不兼容、启动失败及握手失败保持现有明确错误。
 - 不读取或执行 Desktop bundle/ASAR，不修改全局 ASAR 行为，不选择另一个安装，不重置身份、Home、profile、认证或既有会话。不修改官方 SDK。
 - Provider 子进程由官方 SDK 关闭；版本探针继续使用现有进程清理。实验性 SDK 的后代清理与输入预算限制不变。
 
@@ -23,3 +23,4 @@
 3. Kernel `client.list()` 与调用使用同一宿主配置；带空格及非 ASCII 的入口可启动。
 4. 三平台 CI 使用真实 npm DSH 及 Electron 运行版本探测和 SDK 初始化，不调用模型；fixture 测试和原生验证分别记录。
 5. 同步双语文档与宿主配置示例，执行 verified-review 后提交英文 commit/PR，保留 Codex trailer。
+6. CLI 无需手工填写 dshBin 即可从 npm 安装自动发现；常驻 Kernel list/invoke 与 playboard 均覆盖，自动补齐保留 dshHome、streamLimits 及其他宿主配置。
