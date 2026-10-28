@@ -54,6 +54,8 @@
 
 ## 当前任务
 
+- [Issue 217：CodeBuddy 显式选模与续聊切模](tasks/217-codebuddy-model-selection/brief.md)：最新 main 独立 worktree，方案可执行性 96/100；prompt 前按原生目录设置并确认模型，未知模型和原生拒绝送达用户。真实 CodeBuddy/IM、自动化及本地 verified-review 见[验收记录](tasks/217-codebuddy-model-selection/validation.md)。
+
 - [Issue 202/203：CodeBuddy 默认模型与订阅错误](tasks/202-203-codebuddy/brief.md)：方案可执行性 96/100；JSON 安全回执、确认模型与空输出守卫。用户最新明确独立 ACP 失败码、公共消息直接拼原始 _meta 的 JSON，不解析、不脱敏、不筛字段；真实 Kernel worker/IPC fixture 覆盖，见[验证记录](tasks/202-203-codebuddy/validation.md)。
 
 - [Issue 160：无状态探针的结构化状态与错误处理](tasks/160-stateless-live-status/brief.md)：可执行性 97/100 后实施；显式 JSON、先检查返回码、保留诊断并校验 Gateway 状态。23 项针对性测试及构建/类型/静态检查通过；完整 live campaign 未执行，见[验证记录](journal/shared/2026-10-28-160-stateless-live-status.md)。
