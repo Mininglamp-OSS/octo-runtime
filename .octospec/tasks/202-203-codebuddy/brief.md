@@ -31,6 +31,7 @@ worktree 为 `.worktree/octo-runtime-codebuddy-202-203`，分支为 `fix/codebud
 - 缺失/损坏/非对象错误、refusal、失败伴随部分输出、HTTP 429、类凭据文本与未知字段：失败语义不变；原始详情完整保留，错误分类不依赖内容。数字/对象 stopReason 不得抛类型异常，adapter/Core/Kernel 路径覆盖。
 - end_turn-only、reasoning-only、tool-only：ACP_NO_FINAL_OUTPUT；正常流式文本、结果正文、取消及工具取消保持正确。
 - 通过 AgentExecutor 及 `createKernelService` + `attachKernel` + submit/subscribe/invoke 的实际 worker/IPC 验证，不仅消费 adapter。
+- 原始消息例外仅限 `message` 字符串，外层字段继续公共脱敏；普通或自定义 Adapter 携带同一错误码时也不能绕过外层处理。
 - 按依赖顺序构建，运行相关测试、lint、命名、格式、typecheck、全量测试；PR CI 平台结果单列。
 
 ## 可执行性评估

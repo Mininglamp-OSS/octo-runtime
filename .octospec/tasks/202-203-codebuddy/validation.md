@@ -82,3 +82,16 @@ tags: [adapter, protocol, testing]
 按用户要求将 `origin/main@c51d5cf` 合入 PR #216 分支。仅 `.octospec/index.md` 和 `.octospec/log.md` 同位置新增任务记录冲突，保留 CodeBuddy 与 Issue 160 两边记录；ACP 错误处理逻辑未改动。
 
 合并后 CodeBuddy、公共错误分类、adapter 失败及 main 新增的 stateless-live-probe 专项共 81 项通过，0 失败/跳过；OKF lint 444 个单元、20 条规则、3139 个本地链接通过，`git diff --check` 通过。本次未重复执行此前已通过的全量测试，远端 CI 将针对合并提交重新执行。
+
+## ACP 消息原文例外的范围修正
+
+针对 `7a34104` 的新评审指出 Core 以错误码让整个 detail 绕过脱敏，超出了用户只保留 message 中原始 _meta 的要求。新增回归先在旧实现复现：外层 executionEnvOverrides 原样进入失败 payload。
+
+修复将 message 与外层字段分开：外层无条件使用原有公共脱敏；仅 ACP_MODEL_REQUEST_FAILED 的字符串 message 保持原文。既不解析也不脱敏 message 中的 _meta，不改变 ACP 失败识别。回归同时覆盖 CodeBuddy 与携带相同错误码的自定义 Adapter，检查外层环境变量、authorization、token、嵌套 error/diagnostic 脱敏，普通诊断字段保留，message 与原始序列化结果完全相等。
+
+- pnpm typecheck（含全 workspace 构建）通过。
+- CodeBuddy、failure、adapter-failures 专项 67 项通过，0 失败/跳过；包含原有真实 Kernel worker/IPC 原文保真测试。
+- pnpm test:suites：Node 2094 通过、56 跳过、0 失败，WebUI 35 通过。
+- pnpm lint、lint:names、改动源码与测试的 Prettier 检查通过；OKF lint 与 git diff --check 通过。
+
+未运行真实 Provider 账号或外部 Work App/IM；此次远端 CI 结果以新提交为准。

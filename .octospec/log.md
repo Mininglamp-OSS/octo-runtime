@@ -2,6 +2,8 @@
 
 ## 2026-10-28
 
+- [PR #216 消息原文例外范围修正](tasks/202-203-codebuddy/validation.md#acp-消息原文例外的范围修正)：修复整个 ACP 错误对象跳过脱敏的问题，只保留 message 中原始 _meta；外层字段恢复既有公共脱敏。新增回归先复现后通过，专项 67 项、全量 Node 2094 项与 WebUI 35 项通过。
+
 - [PR #216 评审与原始错误合同](tasks/202-203-codebuddy/validation.md#用户确认的原始-acp-错误详情与评审修复)：按用户要求独立 ACP 失败码加公共消息，后接 JSON.stringify(原始 _meta)，不解析、不脱敏、不筛字段；失败判定沿用明确信号。修复畸形 stopReason，66 项专项及全量 Node 2078/WebUI 35 通过，原始消息经 Core/worker/IPC 保真。
 
 - [Issue 202/203](journal/shared/2026-10-28-202-203-codebuddy.md)：最新 main 独立 worktree，先以 96/100 方案在两个 issue 评论；修复默认模型 JSON 回执、确认模型与 Provider 订阅失败转换，补齐空输出守卫。专项 37 项、全量 Node 2070 项及 WebUI 35 项通过，Kernel 公共入口使用真实 worker/IPC 与离线 ACP fixture，真实账号未测。
