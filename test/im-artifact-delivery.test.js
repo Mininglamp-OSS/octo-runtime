@@ -21,6 +21,7 @@ import { ImSendError } from "../packages/octo-runtime-extra-channel-gateway/dist
 import { ImDeliveryDispatcher } from "../packages/octo-runtime-extra-channel-gateway/dist/delivery/dispatcher.js";
 import { ImRunProjector } from "../packages/octo-runtime-extra-channel-gateway/dist/presentation/run-projector.js";
 import { CardSession } from "../packages/octo-runtime-extra-channel-gateway/dist/transport/card-session.js";
+import { deliveryNotice } from "../packages/octo-runtime-extra-channel-gateway/dist/presentation/delivery-notice.js";
 
 const prepareArtifacts = async (...args) => (await prepareArtifactReply(...args)).text;
 
@@ -54,9 +55,11 @@ function reconnectTransportFixture(t) {
     sends = [],
     files = [],
     cards = [],
+    cardProfiles = [],
     closed = new Set();
   let principal = { bot_uid: "bot", space_id: "s" };
   let cardResponse;
+  let onCardProfile;
   const token = `bf_${randomUUID()}`;
   t.mock.method(globalThis, "fetch", async (url, options = {}) => {
     options.signal?.throwIfAborted();
@@ -70,6 +73,8 @@ function reconnectTransportFixture(t) {
     if (url.includes("/user/info")) return Response.json({ uid: "owner", name: "Owner" });
     if (url.endsWith("/bot/events")) return Response.json({ results: [] });
     if (url.endsWith("/bot/card/profile")) {
+      cardProfiles.push(url);
+      await onCardProfile?.();
       const ref = { id: "ai.reasoning-process", version: "0.4.1" };
       return Response.json({
         available: true,
@@ -161,7 +166,11 @@ function reconnectTransportFixture(t) {
     sends,
     files,
     cards,
+    cardProfiles,
     message,
+    setCardProfileHook(value) {
+      onCardProfile = value;
+    },
     setCardResponse(value) {
       cardResponse = value;
     },
@@ -169,6 +178,95 @@ function reconnectTransportFixture(t) {
       principal = value;
     }
   };
+}
+
+for (const scenario of ["token", "api", "space", "bot", "same", "rest-only"]) {
+  for (const stage of ["before-profile", "before-send"]) {
+    test(`unknown delivery notice identity: ${scenario} ${stage}`, async (t) => {
+      const f = reconnectTransportFixture(t);
+      const owner = new AbortController();
+      let current, inbound;
+      const lifetime = {
+        signal: owner.signal,
+        dispatcher: new ImDeliveryDispatcher(owner.signal),
+        current: () => current
+      };
+      const first = new GatewayTransport(
+        { ...config(process.cwd()), typing: false },
+        async () => f.token,
+        {
+          onMessage(message) {
+            inbound = message;
+          },
+          onDisconnect() {}
+        },
+        lifetime
+      );
+      current = first;
+      t.after(async () => {
+        owner.abort();
+        await first.close();
+        await current?.close();
+      });
+      await first.start(owner.signal);
+      f.connections[0].onMessage(f.message);
+      t.mock.method(WukongConnection.prototype, "sendText", async function (...args) {
+        f.sends.push({ connection: this, args });
+        throw new ImSendError("IM_DISCONNECTED", "unknown");
+      });
+      await assert.rejects(
+        inbound.replyFinal("done", "final:unknown"),
+        (error) => error.state === "unknown"
+      );
+      await first.close();
+      current = undefined;
+      const recover = async () => {
+        if (scenario === "rest-only") return;
+        f.setPrincipal({
+          bot_uid: scenario === "bot" ? "other" : "bot",
+          space_id: scenario === "space" ? "other" : "s"
+        });
+        current = new GatewayTransport(
+          {
+            ...config(process.cwd()),
+            typing: false,
+            ...(scenario === "api" ? { api_url: "https://other.example/api" } : {}),
+            ...(scenario === "bot" ? { bot_id: "other" } : {})
+          },
+          async () => (scenario === "token" ? `bf_${randomUUID()}` : f.token),
+          { onMessage() {}, onDisconnect() {} },
+          lifetime
+        );
+        await current.start(owner.signal);
+      };
+      if (stage === "before-profile") await recover();
+      else f.setCardProfileHook(recover);
+      const notice = inbound.replyDeliveryUnknown(
+        deliveryNotice(),
+        "notice:unknown",
+        "final:unknown",
+        owner.signal
+      );
+      if (["same", "rest-only"].includes(scenario)) {
+        await notice;
+        assert.equal(f.cardProfiles.length, 1);
+        assert.equal(f.cards.length, 1);
+        assert.equal(f.cards[0].body.payload.card.body[0].text, "回复送达结果未知");
+      } else {
+        await assert.rejects(
+          notice,
+          (error) => error.code === "IM_CONNECTION_IDENTITY_CHANGED" && error.state === "failed"
+        );
+        assert.equal(
+          f.cardProfiles.length,
+          stage === "before-profile" ? 0 : 1,
+          "guard applies before every REST request"
+        );
+        assert.equal(f.cards.length, 0, "no delivery notice may mutate a retired identity");
+      }
+      assert.equal(f.sends.length, 1, "unknown final must not be replayed");
+    });
+  }
 }
 
 test("long task invokes once, completes its original REST card and sends final after WS recovery", async (t) => {

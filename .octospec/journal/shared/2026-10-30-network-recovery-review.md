@@ -37,3 +37,13 @@ Git 无文本冲突，但上游连接 close 新增无条件 CardSession.release�
 最终全量 build、根 TypeScript noEmit、lint、lint:names、全仓 format:check 通过；最后新增断言用 Prettier 格式化，git diff --check 通过。渠道相关测试 `test/im-*.test.js test/channel-*.test.js test/gateway-*.test.js`（并发 2）513/513 通过；上游四个 projection-window 手动专项（含显式 GC）41/41 通过。未将专项加入默认 CI，目标分支相对 workflow、脚本和入口配置无差异。
 
 本地服务仍运行此前已安装版本；此次 rebase 后版本通过上述离线集成验证，未重新部署或代发真实消息。不将此前用户切网观察当作 rebase 后版本的线上验收。
+
+## Jerry-Xin 的 PR 意见核验与修复
+
+核验 PR #251 review 5702658201，基线 c283808。问题成立：replyDeliveryUnknown 的 OctoConnector 未设置请求授权回调；原 WS 发送确认未知后，重连身份变化仍会用旧 token/config 查询能力并发送通知。此问题与正常同身份切网不同，不表示每次换网都会换身份。
+
+先增加 12 项回归：凭据/API/空间/Bot 变化各覆盖通知前和能力查询返回前两个时机，另以同身份恢复、无新 WS 但 REST 可达作为正例。修复前 8 项身份变化断言失败、4 项正例通过。修复将原进度卡检查提取为共同 REST 授权方法，并用于未知通知的每次请求，保留 Bot 生命周期取消和原未知消息不重放。
+
+修复后 6 组相关测试 200/200 通过（日志 /tmp/octo-runtime-jerry-tests.log），全量 build、根 TypeScript noEmit、lint、修改文件 Prettier 与 git diff --check 通过。没有修改 workflow、脚本或默认测试入口，没有代发消息或更改运行中服务。
+
+审查提到的旧 CI run 40925449476 单独核验：Windows Node 24 job 123629601527 在 Verify Windows installation and independent component cleanup 的 Offline npm install 阶段，触发既有 60000 ms 超时，stdout/stderr 为空。未将该失败归因于此次 REST 代码，也未修改 CI 超时或范围；新提交沿既有 PR 触发条件重新验证。

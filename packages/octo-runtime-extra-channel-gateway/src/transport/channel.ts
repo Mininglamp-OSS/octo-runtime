@@ -212,7 +212,14 @@ export class GatewayTransport {
           replyDeliveryUnknown: async (event, effectKey, replyEffectKey, deliverySignal) => {
             if (deliverySignal.aborted || replyDelivered(replyEffectKey)) return;
             // F27：REST 跟随 Bot/Extra 的投递期限，不跟随已断开的 WS 连接期限。
-            const rest = new OctoConnector(this.config, token, deliverySignal, async () => {});
+            // 未确认通知也是旧任务的出站写入；能力查询和实际发卡均须核验当前身份。
+            const rest = new OctoConnector(
+              this.config,
+              token,
+              deliverySignal,
+              async () => {},
+              () => this.#authorizeRestDelivery()
+            );
             const sent = await rest.displayCard(
               message,
               deliveryNoticeCard(event),
@@ -396,15 +403,7 @@ export class GatewayTransport {
                   token,
                   deliverySignal,
                   async () => {},
-                  () => {
-                    const current = this.deliveryOwner?.current();
-                    if (
-                      current &&
-                      current.#token &&
-                      (current.identity !== this.identity || current.#token !== token)
-                    )
-                      throw new ImSendError("IM_CONNECTION_IDENTITY_CHANGED", "failed");
-                  }
+                  () => this.#authorizeRestDelivery()
                 )
               : this.#api!;
             const interactions = new Map<
@@ -573,6 +572,18 @@ export class GatewayTransport {
     }
     if (!connection.connected) throw new ImConnectionError("IM_DISCONNECTED", true);
     this.#connected = true;
+  }
+  /** 每次任务 REST 请求都核验原 Bot 生命周期和已确认的身份；不以 WS online 为前提。 */
+  #authorizeRestDelivery(): void {
+    if (this.deliveryOwner?.signal.aborted)
+      throw new ImSendError("IM_DELIVERY_CANCELLED", "failed");
+    const current = this.deliveryOwner?.current();
+    if (
+      current &&
+      current.#token &&
+      (current.identity !== this.identity || current.#token !== this.#token)
+    )
+      throw new ImSendError("IM_CONNECTION_IDENTITY_CHANGED", "failed");
   }
   /** 只选择完成鉴权的同身份连接；临时离线可等待，账号或凭据变化必须拒绝转投。 */
   #currentDeliveryTransport(rejectIdentityChange = true): GatewayTransport | undefined {
