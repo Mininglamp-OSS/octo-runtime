@@ -1,5 +1,6 @@
 task: 245-openclaw-model-steps
-baseline: ba2a706380bf244bc428b3465c0487c5b58e6975
+baseline: 01d0ca5d3f62f1e9dc5999ed84da4797e9acafef
+original_baseline: ba2a706380bf244bc428b3465c0487c5b58e6975
 rules_read:
   - .octospec/rules/architecture.md
   - .octospec/rules/protocol-design.md

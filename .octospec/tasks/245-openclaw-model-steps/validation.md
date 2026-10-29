@@ -86,3 +86,17 @@ uv run --no-project --with pyyaml python .octospec/scripts/lint.py
 用户随后执行 hello.md/world.html case 并确认最终正文符合预期。Kernel 记录 completed；卡片仍为同步进度，同时卡片编辑返回 HTTP 400。附件 remote-file-unavailable 是后续独立交付错误，不改变该执行终态；用户明确 HTTP 400 由其他 PR 修复，本分支不处理，不能将该 case 写为完整卡片 UI 验收通过。
 
 按用户再次授权重新 pack/global install 并重启，CLI 构建时间为 2026-10-29T09:52:56.493Z；全局 OpenClaw 与 Channel Gateway dist/index.js 和本分支构建产物哈希一致。重启后 Kernel PID 44697、worker ready，Gateway PID 45024、6/6 Bot online、无启动错误或在途任务。本轮交付只做 Git rebase/验证/PR，不再替换全局运行版本。
+
+## PR 244 合并后交付验证
+
+用户授权 commit、rebase、push、英文 PR 及新 PR 两名 reviewer 当前 head 正式 Approve 后合并。#244 合并提交为最新 main `01d0ca5d3f62f1e9dc5999ed84da4797e9acafef`；特性已重基为 `ad29f393d5cd19dfccca974cef7724c3671907a5`，作者与配置身份一致，英文提交含一次 Codex trailer。冲突处理保留 #234/#243 索引与两处 #243 TODO，未恢复旧 final 消息出口；后续文档提交不改变审查过的生产代码。
+
+在此重基代码上顺序构建，再执行专项和既有回归：
+
+- `pnpm typecheck`（含 workspace build）、`pnpm lint`、`pnpm lint:names`、目标文件 Prettier、`pnpm native:check` 和 `git diff --check` 均通过。
+- 96 项手动专项通过；7 套既有 OpenClaw/IM 协议回归 199 项中 198 通过、1 条既有 GC 条件跳过，无失败。
+- `verify-playboard-live.mjs` 使用本机 OpenClaw 2026.9.4 再次通过：completed、严格 3 次模型开始/结束、2 工具各归不同轮、缺 stepId 工具事件 0、精确最终标记且只有 1 份 final。临时 Kernel/worker 及 scratch 已清理，无 IM 发送或常驻服务重启。7.1/10.8 的真实验证仍是前述重基前证据，本轮不冒充重新联测这些版本。
+- 两轴独立复审见 review.md：Standards 文档历史状态问题已修正、代码问题 0；Spec 问题 0。
+- 相对最新 main 的 `.github/`、package scripts、默认测试入口和公共 fixtures diff 为空。新增专项仍仅在手动目录显式执行，不扩大既有检查范围。
+
+本轮日志保留于 `/tmp/octo-245-rebase-{typecheck,lint,manual,regression,playboard}.log`；Playboard 日志仅记录脱敏事件结构、身份与计数。代码/合同/真实 Provider 验证与用户最终正文确认分别记录，不宣称完整卡片 UI 验收通过。

@@ -16,3 +16,5 @@ MC 前两条原生 thinking 本身包含 HTML，用户明确接受。没有证�
 按用户澄清，过程正文不进 IM finalMsg；Adapter 成功收尾仅发一份最终回答，优先原生最终可见正文，保留显式空值，兼容可选 phase。7.1 到最新正式 10.8 共 31 标签固定准入/请求校验，96 项手动专项通过；7.1/10.8 新建与续聊、9.4 新建真实 Playboard 均为 3 轮、2 工具、1 条精确 final。两轴代码审查未留可复现问题；旧版续聊缺 run 身份的 thinking-only/length 边界如实保留，不按到达时间认领。
 
 后续用户授权 build/install -g，已构建当前分支 tgz 并离线全局安装，核对 OpenClaw adapter 产物哈希一致。在无活动任务时重启 Kernel 与 Channel Gateway，两个服务及 worker ready、6 个 bot 在线。保留原配置和服务定义，人工卡片验收待用户执行，详见[安装记录](../../tasks/245-openclaw-model-steps/validation.md#用户本地验收安装)。
+
+用户真实 hello/world 验收确认最终正文符合预期；卡片编辑 HTTP 400 用户明确由其他 PR 处理，本特性不扩范围。随后按用户授权等待 #244 合并，已将特性 rebase 到最新 main `01d0ca5`，保留双方索引与 #243 TODO。重基后类型/构建/静态检查通过，96 项专项、198 项既有回归通过（1 项既有条件跳过），本机 9.4 Playboard 再次严格 3 轮、2 工具、单一精确 final。两轴复审代码问题 0，文档历史状态已同步；交付阶段不额外安装或重启服务，继续按新 PR 当前 head 两票及既有检查条件合并。
