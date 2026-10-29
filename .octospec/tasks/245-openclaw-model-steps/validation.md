@@ -100,3 +100,12 @@ uv run --no-project --with pyyaml python .octospec/scripts/lint.py
 - 相对最新 main 的 `.github/`、package scripts、默认测试入口和公共 fixtures diff 为空。新增专项仍仅在手动目录显式执行，不扩大既有检查范围。
 
 本轮日志保留于 `/tmp/octo-245-rebase-{typecheck,lint,manual,regression,playboard}.log`；Playboard 日志仅记录脱敏事件结构、身份与计数。代码/合同/真实 Provider 验证与用户最终正文确认分别记录，不宣称完整卡片 UI 验收通过。
+
+## PR 248 CI 断言修复
+
+首次 PR CI 在 Ubuntu/macOS 的 Node 24/26 既有 Test 步骤失败：`test/adapters.test.js` 两条 OpenClaw 用例仍仅收集 `message.delta`，与本次成功收尾发送单条 final `message.update` 的合同不一致。创建 PR 前选跑的七套回归未包含该文件，也未执行完整 `test:suites`，这是本次验证遗漏。生产实现未因此改变；维护这两条既有断言，检查全部 final 通道事件精确等于一条指定类型及正文，额外 final delta 也会失败。
+
+- 完整 `pnpm test:suites` 已重跑通过：Web UI 35 通过；Node 2381 项，2290 通过、0 失败、91 条既有条件跳过。未修改测试选择或跳过条件。
+- 首次本地完整运行只剩既有缺失安装测试失败：fixture 将 `dirname(process.execPath)` 放入 PATH，本机 Node 同目录存在全局 octo-cli，导致预期 ENOENT 未出现。使用 SHA256 一致的 Node 可执行文件临时副本置于独立目录，保持其余 PATH 和完整套件命令，再跑全部用例通过；未更改全局安装，临时副本已删除。
+- 目标文件 Prettier 和 `git diff --check` 通过；两轴对两条断言的增量复审均无剩余发现。
+- `.github/`、package scripts、默认测试入口和公共 fixtures 相对 main 仍无 diff；只维护已有用例，未扩展 CI 范围。CI 与本地日志分别为 run `40862090968`、`/tmp/octo-248-full-suites.log` 和 `/tmp/octo-248-full-suites-isolated-node.log`。

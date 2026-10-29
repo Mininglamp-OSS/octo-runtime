@@ -36,3 +36,7 @@ Spec 来源为 [Issue 245](https://github.com/Mininglamp-OSS/octo-runtime/issues
 Standards 独立复审未发现代码规则违反或实质 smell，仅指出初审范围及安装状态措辞过时，已在本记录区分历史与后续事实。配置作者、英文 commit、单次 Codex trailer、CI/default suite 范围均已核对。
 
 Spec 独立复审：缺失/部分实现、需求外范围、错误实现均为 0。相对原特性提交的 Adapter 差异仅保留 #243 两处 TODO；#244 的 providerInputText/initialControlInstructions 及共享续接校验不变。主 agent 复跑构建/类型、静态检查、96 项专项、198 项既有回归及本机 9.4 Playboard 全部通过，详情见 validation。本地两轴审查不作为 GitHub 正式 Approve 票数。
+
+## PR 248 CI 修复增量复审
+
+固定点为已发布 head `d8d3e32390b2ff14997d728cfb68e6c0e3ca50bd`，审查 `git diff HEAD -- test/adapters.test.js`。Standards 与 Spec 分别只读审查两条既有 final 断言：维护单条 `message.update` 与精确正文，保留原有隔离、工具、usage 和终态断言。Standards 建议同时捕获多余 final delta，已采纳为检查全部 final 通道事件的类型及正文数组，复审后两轴剩余发现均为 0。完整既有套件通过，详情见 validation；未增加测试项或 CI 范围。
