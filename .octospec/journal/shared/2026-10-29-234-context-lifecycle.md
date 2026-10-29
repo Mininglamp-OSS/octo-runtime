@@ -3,9 +3,11 @@ type: Journal
 title: Issue 234 稳定 Context 周期与动态 actor 分离
 description: Gateway 局部生命周期修复、本地三 Adapter 输入验证及全局安装记录。
 tags: [channel, context, session, testing]
-timestamp: 2026-10-29T16:34:23+08:00
+timestamp: 2026-10-29T17:41:11+08:00
 source: self
 ---
+
+17:41 用户明确 extra.im 整个命名空间由 channel-gateway/channel-wecom 拥有，宿主静态/动态项均忽略，即使本轮没有渠道同名项；可修改规则应由渠道内部按业务合同读取，不新增配置中心接入。全局 octo.control/instructions 保留既有特殊合并。已先回写 rules 和设计，再修改渠道构造边界与稳定说明装配；误配只 warning 记录数量，不阻断 AgentRun，不输出内容；冻结重试复用渠道快照。完整 Node 2381 项中 2290 通过、91 原条件跳过、0 失败，WebUI35/35、手动专项74/74；build/类型/lint/命名/格式/docs 通过。用户授权 commit；本次不全局安装、重启或扩大 CI，原真实群聊验收不冒充本次修复在线验收，详见[验证记录](../../tasks/234-context-lifecycle/validation.md)。
 
 16:34 PR #244远端四个Linux/macOS检查因旧目录覆盖测试空值访问失败，Windows两项成功；已在本地复现并修复已有测试的Schema分支过滤，完整集合相等断言仍保留。用户要求检查其他问题，本地完整WebUI35/35通过，默认Node首次仅剩已知全局octo-cli污染“未安装”断言；用相同Node二进制独占目录重跑完整2381项，2290通过、91原条件跳过、0失败。Context联合260、专项68、Go/Python各434协议fixture，以及类型/lint/命名/格式/docs/native漂移检查通过。产品代码和CI范围未变，用户真实群聊验收状态保持；详见[验证记录](../../tasks/234-context-lifecycle/validation.md)。
 

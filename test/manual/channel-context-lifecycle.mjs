@@ -36,6 +36,11 @@ import { kernelFixture } from "../kernel-fixture.js";
 
 // 专项手动验证，避免扩大既有 GitHub CI 的自动测试范围。
 const stableNames = ["mention-instructions", "artifact-delivery", "history-instructions"];
+const hostReservedItems = stableNames.map((name) => ({
+  namespace: "extra.im",
+  name,
+  payload: { text: "IGNORED-HOST-RULE" }
+}));
 const stable = (request) =>
   request.contexts.items.filter(
     (item) => item.namespace === "extra.im" && stableNames.includes(item.name)
@@ -170,7 +175,8 @@ async function fixture(
     behavior,
     enrichmentFailure,
     adapter = "codex",
-    store = new MemoryImSessionStore()
+    store = new MemoryImSessionStore(),
+    hostItems = []
   } = {}
 ) {
   let callbacks;
@@ -182,6 +188,7 @@ async function fixture(
     finalPolicies = [];
   const config = {
     ...baseConfig,
+    context: { schema: "octo.context-envelope/v3", items: hostItems },
     codex_retry: { initial_delay_ms: 100, max_delay_ms: 100 },
     ...(interval === undefined ? {} : { stable_context_refresh_interval_turns: interval }),
     adapter:
@@ -304,11 +311,12 @@ for (const enrichmentFailure of [403, 404, 429, 500, "network", "json"])
   });
 
 test("default 1/30/60 refresh, every-turn actor, host preservation and independent sessions", async (t) => {
-  const f = await fixture(t);
+  const f = await fixture(t, { hostItems: hostReservedItems });
   for (let turn = 1; turn <= 60; turn++) {
     const actor = f.send();
     await f.idle();
     const request = f.requests.at(-1);
+    assert.doesNotMatch(JSON.stringify(request), /IGNORED-HOST-RULE/);
     assert.equal(request.runMetadata.conversationTurn, turn);
     const refresh = [1, 30, 60].includes(turn);
     assert.equal(stable(request).length, refresh ? 3 : 0, `turn ${turn}`);
@@ -386,6 +394,7 @@ test("failed preparation and presentation retain first turn, custom interval ref
 test("same-generation DM-style card retry freezes context and artifact policy without consuming a turn", async (t) => {
   const f = await fixture(t, {
     interval: 3,
+    hostItems: hostReservedItems,
     behavior: async function* (_request, count) {
       if (count !== 2)
         yield {

@@ -26,7 +26,17 @@ Channel Gateway 是长期 IM Agent 的业务入口，管理固定 Agent workdir�
 
 2026-10-16 F16 评审再次明确：不得混合 ChannelGateway 的渠道接入责任与 AgentRun 的执行责任。业务方/宿主确定长期 Agent 配置，Channel 使用该配置完成消息准入、本轮输入、会话关联与结果投递；执行层按已确定的合同处理目录准备、Provider 调用、权限/审批及执行生命周期。渠道 session/reset 不得隐式派生、切换、迁移或清理工作目录；通用执行层有目录能力不构成渠道新增目录管理的需求。AgentRun 在此表示执行职责，不新增组件或协议。详见[F16 责任边界评审](../tasks/gateway-august-feature-assessment/assessment.md#逐项-reviewf16-逐会话工作目录)。
 
-人格、persona、SOUL 的提示词注入完全归业务方；IM 场景由 ChannelGateway 选择和构造本轮 Context v3，决定内容、顺序与发送时机。Channel 不新增人格专用协议、Provider 旁路拼装或通用技能扫描体系；下层 Host/Adapter 不自行读人格文件、补默认人格或从历史恢复人格内容。普通指引使用 extra.im，可信控制仍遵循独立来源校验合同。该约定不授权更改现有 Provider 文件；详见[人格注入架构约束](architecture.md#人格与-soul-的注入归业务方)。
+人格、persona、SOUL 的提示词注入完全归业务方；IM 场景由 ChannelGateway 选择和构造本轮 Context v3，决定内容、顺序与发送时机。Channel 不新增人格专用协议、Provider 旁路拼装或通用技能扫描体系；下层 Host/Adapter 不自行读人格文件、补默认人格或从历史恢复人格内容。宿主普通指引使用非 extra.im 的业务命名空间，渠道自身指引使用 extra.im，可信控制仍遵循独立来源校验合同。该约定不授权更改现有 Provider 文件；详见[人格注入架构约束](architecture.md#人格与-soul-的注入归业务方)。
+
+## extra.im 命名空间归属
+
+`extra.im` 整个命名空间保留给 `channel-gateway` 与 `channel-wecom`，由对应 Channel Extra 按业务逻辑构造本轮 Context，决定内容、顺序及注入时机。宿主静态 `context.items` 和动态 `loadContexts` 返回的所有 `extra.im` 项均在渠道构造输入时忽略；不是只对本轮生成的同名项执行覆盖。即使本轮不注入某项，宿主同名项也不得留下，不能改变周期、伪造触发事实、替代历史或导致同名冲突而阻断执行。宿主业务 Context 应使用其他命名空间，其他合法项保序保留，不做通用去重。
+
+宿主误配 extra.im 只写 warning 诊断并忽略，不作为配置冲突报错、不发送用户错误消息、不影响后续 AgentRun；诊断仅记录忽略数量，不输出 guidance/payload 内容。
+
+稳定规则即使允许修改，也应由 Channel Extra 内部按业务合同读取外部规则源后构造，不通过宿主 Context 配置或 `loadContexts` 覆盖。本约束不新增配置中心接口、读取实现或配置字段，也不改变宿主提供 Bot 配置和凭据值的合同。同代次冻结重试中的 extra.im 是渠道已生成的快照，须原样复用，不重新过滤或采集。
+
+`octo.control/instructions` 属于全局公共指令，独立于 extra.im 的专属命名空间约束；保留其既有特殊合并及 mandatory 合同。公共 `mergeContext`、Host、Core、Kernel 和 Adapter 不增加渠道命名空间过滤；过滤与渠道内容构造只在对应 Channel Extra 中完成。
 
 2026-10-16 F29 明确三类权限责任：Extra/Channel 决定真实消息是否准入；ChannelGateway 为 CLI 及使用相应执行环境的 MCP 提供本 Bot 的工具身份，工具与服务端校验 token 和资源 ACL；AgentRun 的本地执行权限使用统一 approval_policy（含 full_access），由 Adapter 按原生合同处理。不得以旧 minimal/host 分档将三者再次杂糅到 Channel 权限中心或专用业务 broker。获准触发不代表以发送者身份访问资源，full_access 不放大 bf_token 的业务权限；独立 MCP 凭据和 OpenClaw 实例环境沿既有合同，不虚称任意 MCP 自动继承或逐 Run 注入。见[F29 已确认评审](../tasks/gateway-august-feature-assessment/assessment.md#逐项-reviewf29-权限分档与工具网关)。
 
@@ -100,7 +110,7 @@ IM 后台配置对应的 Agent 使用固定目录，不按任务选择或改变 
 
 以上为 IM 架构约束，替代此前“Context workspace 可覆盖 IM 默认目录”的规则表述；通用 Host 的配置解析能力不因此改变。IM 请求入口已在 resolver 前校验任务 workspace，指定不同目录时返回 IM_AGENT_WORKDIR_FIXED，不把固定目录作为可被任务替换的 defaults。
 
-新逻辑会话在首条普通输入准备时自动尝试最近历史：最多 20 条，取当前触发之前同一 DM/群/话题的消息。首次资格在实际交给执行时消费，准备失败仍保留资格；实际执行后的历史失败或空结果不重复冷启动读取，正常续聊按缺口策略处理。reset 后允许补旧聊天，重试使用冻结输入，不新增本地历史持久库。历史给模型为从旧到新的 `messages:[{uid,username,content}]`；文本也是 content：`{type:"text",text:"..."}`，引用/转发保留嵌套来源和消息边界，富文本保留图文顺序，图片/文件/文档仅保存已有地址并标 read=false，不自动下载或解引用。username 查不到为 null；消息数组序列化后最多 8000 Unicode 码点，文本只缩短正文而保留身份，特殊内容放不下时保留 omitted 占位和 truncated 标记。模型侧删除独立自动 history-gap；历史不完整、读取失败或被省略时，仅在 history.messages 旁附一句英文 note，正常历史不加说明，异常无正文时 messages 可为空。范围/source/automatic/模式/游标留在 Gateway 用于预算与实际交接判断，说明不构成正文交接证据；显式宿主项不投影、不覆盖同名 history。
+新逻辑会话在首条普通输入准备时自动尝试最近历史：最多 20 条，取当前触发之前同一 DM/群/话题的消息。首次资格在实际交给执行时消费，准备失败仍保留资格；实际执行后的历史失败或空结果不重复冷启动读取，正常续聊按缺口策略处理。reset 后允许补旧聊天，重试使用冻结输入，不新增本地历史持久库。历史给模型为从旧到新的 `messages:[{uid,username,content}]`；文本也是 content：`{type:"text",text:"..."}`，引用/转发保留嵌套来源和消息边界，富文本保留图文顺序，图片/文件/文档仅保存已有地址并标 read=false，不自动下载或解引用。username 查不到为 null；消息数组序列化后最多 8000 Unicode 码点，文本只缩短正文而保留身份，特殊内容放不下时保留 omitted 占位和 truncated 标记。模型侧删除独立自动 history-gap；历史不完整、读取失败或被省略时，仅在 history.messages 旁附一句英文 note，正常历史不加说明，异常无正文时 messages 可为空。范围/source/automatic/模式/游标留在 Gateway 用于预算与实际交接判断，说明不构成正文交接证据；宿主 extra.im 项按命名空间归属规则忽略，其他宿主业务项不投影。
 
 2026-10-29 自身历史保守选择：首轮/新会话保留原窗口内含自身 Bot 的历史；只有正常连续接续同一 Provider 会话、且具体输出能明确归属并由已有 assistant 内容覆盖时才允许排除。历史补位、reset/new、fresh fallback、归属不明或连续性未知均保留；不按 UID、正文/URL 相同全面去重，不删他人引用或转发中的自身内容。仅正常耗尽且 completed 的 final 正文及关联文件卡，在成功投递位置与内容指纹均匹配时才有资格，后续编辑、控制/错误和交付失败提示保留。该选择只归 channel-gateway；同次有界窗口经原预算后分为主历史和恢复补充，沿既有 fresh fallback 输入恢复，无法保证安全则保留。主动排除不构成历史缺失或其他正文已交接的证据。最小资格、恢复输入和验收见 [保守历史设计](../tasks/234-context-lifecycle/conservative-history-plan.md)。
 

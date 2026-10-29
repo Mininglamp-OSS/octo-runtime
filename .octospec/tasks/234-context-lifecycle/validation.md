@@ -3,8 +3,27 @@ type: Validation
 title: Issue 234 本地验证与全局安装
 description: 已完成实现、构建、专项和真实只读接口验证；用户确认真实群聊验收通过。
 tags: [channel, context, testing]
-timestamp: 2026-10-29T16:34:23+08:00
+timestamp: 2026-10-29T17:41:11+08:00
 ---
+
+# PR 244 渠道命名空间归属修复
+
+用户明确 extra.im 整个命名空间只由 channel-gateway/channel-wecom 构造，宿主静态及动态项不生效；规则如需更新，应由渠道内部按业务合同读取。进一步要求误配仅 warning 后忽略，不因同名冲突阻断 AgentRun。全局 octo.control/instructions 的特殊合并保持。规则、架构、Context 人格示例约束、任务设计及双语接入说明同步，取代旧的宿主同名 history 保留约定；本次不新增外部配置源接口。
+
+两个 Extra 的宿主 Context 准备边界过滤 extra.im，仅记录 ignored_items 数量的 warning，不输出原材料；Gateway build_im_contexts 与 WeCom transport 直接构造路径同样过滤。Gateway dispatcher 统一替换三项稳定说明，普通轮全部省略，刷新轮由渠道生成，不再因同名宿主项而跳过或误确认刷新。historyRetry 完整保留渠道冻结快照；其他合法宿主项及 instructions 的顺序、重复、静态/动态既有取值均保持。
+
+本地验证：
+
+- pnpm build、tsc --noEmit、lint、lint:names、format:check 通过。
+- 完整 Node 原有测试集合：2381 项，2290 通过、91 原条件跳过、0 失败。沿用字节一致的独占 Node `/tmp/octo-244-node-b3bLE7/node`，避免全局 octo-cli 影响既有“未安装”夹具；未筛选测试或增加跳过条件。
+- WebUI 35/35；六份手动专项 74/74。新增 ownership 专项验证两个 Extra 的静态/动态保留项被 warning 忽略后仍进入 AgentRun、真实 transport/buildContext、任意 extra.im key、其他业务项及全局重复指令保留、输入不变、普通/刷新/恢复/冻结重试。原生命周期专项加入同名宿主说明，验证 1/30/60、reset/new 与冻结卡片重试。
+- 修改既有 HG-29 的冲突断言为“忽略宿主项并正常生成渠道缺口”，没有新增默认测试项；相关三文件联合 61/61。
+- docs:check 与 4/4 执行示例通过；首次发现新链接违反现有“不带片段链接”的文档约束，改成整页链接后通过。
+- Octospec lint 仍仅有 Issue #137 的三份既有 frontmatter 缺失，未新增错误；git diff --check 通过。
+
+日志为 `/tmp/octo-244-context-ownership-{build,types,lint,names,format,docs,full-tests,ui,manual,focused}.log`。相对 origin/main 的 .github、scripts、package.json、pnpm-lock.yaml 无差异；核对当前远端 27c837d 的六平台构建/发行检查和 CI Gate 均成功，本次专项仍只显式本地运行，不扩大 CI。
+
+本轮按用户授权完成本地修改及 commit，不全局安装或重启服务。此前用户真实群聊验收对应原已安装构建，不能据此声称本次命名空间修复已上线验收。
 
 # PR 244 CI 修复与完整本地回归
 

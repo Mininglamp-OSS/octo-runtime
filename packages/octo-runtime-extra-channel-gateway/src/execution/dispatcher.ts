@@ -160,19 +160,14 @@ export function createImInvocation(
       });
       artifacts = structuredClone(message.frozenArtifacts ?? artifactPolicy(config, snapshot));
       stable = stableChannelContexts(artifacts);
-      // 只调度渠道自有说明；显式宿主项仍保序保留。冻结重试不重建或再次追加说明。
+      // 稳定说明只由渠道按周期生成；已有同名项不能抑制刷新或绕过普通轮省略。
+      // 冻结重试复用渠道已生成的完整快照，不重建或再次追加说明。
       if (!message.historyRetry) {
         snapshot.items = snapshot.items.filter(
-          (item) => !(item.namespace === "extra.im" && item.name === "artifact-delivery")
+          (item) =>
+            !stable.some((owned) => owned.namespace === item.namespace && owned.name === item.name)
         );
-        if (refreshStableContext)
-          for (const item of stable)
-            if (
-              !snapshot.items.some(
-                (existing) => existing.namespace === item.namespace && existing.name === item.name
-              )
-            )
-              snapshot.items.push(item);
+        if (refreshStableContext) snapshot.items.push(...stable);
       }
       assertContextEnvelope(snapshot);
       break;

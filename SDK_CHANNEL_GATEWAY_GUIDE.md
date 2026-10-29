@@ -24,6 +24,8 @@ Electron/Buddy 通过 submodule 接入时，必须使用最新远端 `main`。�
 
 ## 逐轮 Context
 
+`extra.im` 是 channel-gateway/channel-wecom 的保留命名空间，由对应 Extra 构造并决定注入时机；宿主静态 Context 和动态 `loadContexts` 中的全部 `extra.im` 项均不生效，本轮没有渠道同名项也不透传。宿主业务材料使用其他命名空间。渠道规则内容如需外部更新，由渠道内部按业务合同读取，不通过宿主 Context 覆盖。全局 `octo.control/instructions` 保留既有特殊合并，冻结重试复用渠道快照。详见 [Channel 规则](.octospec/rules/channel-integration.md#extraim-命名空间归属)。
+
 `message-trigger.conversation.id` 是原始频道 ID，type 仅为 `dm`、`group`、`group_topic`，分别表示私聊、群和群子区。子区保留完整频道 ID，父群/子区短 ID 与名称分别保留在 conversation.group/topic 中。
 
 dependencies.loadContexts(botConfig,{signal}) 返回当前 ContextItem 数组或 Promise。函数在宿主同进程直接调用，读取的数据变化无需重载连接。超时或取消后真实 Promise 未结束仍占额度；返回值最多 32 项 / 64 KiB。静态 context 与动态项的合并、业务指引和准入规则继续按 [Gateway 合同](packages/octo-runtime-extra-channel-gateway/README.md)。

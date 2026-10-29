@@ -66,7 +66,7 @@ renderer 只匹配 namespace/name 的白名单 pattern，保序输出全部数�
 
 ## 人格与 SOUL 指令
 
-人格、persona、SOUL 是业务方选择的提示词内容，必须由业务方构造 octo.context-envelope/v3 后显式提交；IM 场景由 ChannelGateway 构造本轮业务 Context。业务方决定正文、顺序、是否发送、更新和重复时机。普通人格文本可放入 extra.im 等业务 item 的 guidance/payload，不增加人格专用字段、Compiler、renderer 分支或处理器。
+人格、persona、SOUL 是业务方选择的提示词内容，必须由业务方构造 octo.context-envelope/v3 后显式提交；IM 场景由 ChannelGateway 构造本轮业务 Context。业务方决定正文、顺序、是否发送、更新和重复时机。普通人格文本可放入业务 item 的 guidance/payload；宿主使用非 extra.im 的业务命名空间，extra.im 由对应 Channel Extra 专属构造，见 [Channel 规则](channel-integration.md#extraim-命名空间归属)。不增加人格专用字段、Compiler、renderer 分支或处理器。
 
 底层框架不得自行读取 SOUL.md 或 persona 文件、扫描技能目录补人格、合并默认人格、从历史补齐或按 session 缓存/去重。renderer 仍只按现有白名单保序完整输出本轮 items；没有人格项时不补默认内容，业务显式重复时不得省略。reset 或恢复失败后的重发仍由业务方决定。
 

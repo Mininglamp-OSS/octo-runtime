@@ -136,18 +136,23 @@ test("HG-23 byte pressure compacts automatic hints without truncating explicit b
   );
 });
 
-test("HG-29 a configured reserved gap item is not overwritten by automatic context", async (context) => {
+test("HG-29 a configured extra.im gap item is ignored before automatic context is built", async (context) => {
   context.mock.method(globalThis, "fetch", async () => Response.json({}, { status: 404 }));
-  await assert.rejects(
-    build_im_contexts(config, message, "bf_fixture", new AbortController().signal, {
+  const items = await build_im_contexts(
+    config,
+    message,
+    "bf_fixture",
+    new AbortController().signal,
+    {
       initialSession: false,
       historyGap: planHistoryGap(104, metadata(), "epoch"),
       configuredItems: [
         { namespace: "extra.im", name: "history-gap", payload: { text: "explicit" } }
       ]
-    }),
-    /IM_CONTEXT_KEY_CONFLICT/
+    }
   );
+  assert.equal(JSON.stringify(items).includes('"text":"explicit"'), false);
+  assert.ok(items.some((item) => item.name === "history-gap" && item.payload.automatic));
 });
 
 for (const [name, trigger, previous, mode, limit] of [

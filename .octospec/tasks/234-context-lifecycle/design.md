@@ -37,7 +37,7 @@ timestamp: 2026-10-29T00:00:00+08:00
 
 ## 后续决策：身份缓存与结构化历史
 
-模型侧缺口说明最终决策：删除自动 `extra.im/history-gap`，不再单独暴露 status/earlierMessagesOmitted。提交模型前按整个材料列表投影，将实际缺失/读取失败/预算省略事实合并为 `extra.im/history.payload.note` 的一句英文；正常完整或成功空结果无额外说明，无正文但存在异常说明时用 messages:[]。显式宿主项保持原样，不覆盖同名 history；冻结重试使用原模型快照，转换应幂等。内部 history-gap 材料、预算降级、准备状态与游标保留，note 不能当作已交接正文。可执行性 97/100，主要风险是预算与交接证据误关联，使用真实请求快照和既有失败/重试/游标回归验证；不改 Core、协议、Adapter 或 CI。
+模型侧缺口说明最终决策：删除自动 `extra.im/history-gap`，不再单独暴露 status/earlierMessagesOmitted。提交模型前按整个材料列表投影，将实际缺失/读取失败/预算省略事实合并为 `extra.im/history.payload.note` 的一句英文；正常完整或成功空结果无额外说明，无正文但存在异常说明时用 messages:[]。宿主 extra.im 项按后续命名空间归属决策忽略，其他宿主项保持原样；冻结重试使用原模型快照，转换应幂等。内部 history-gap 材料、预算降级、准备状态与游标保留，note 不能当作已交接正文。可执行性 97/100，主要风险是预算与交接证据误关联，使用真实请求快照和既有失败/重试/游标回归验证；不改 Core、协议、Adapter 或 CI。
 
 消息时间最终决策：自动 history.messages 每条增加 `sentAt`，使用原消息时刻、系统实际时区与显式 UTC offset 的 ISO 8601（如本机 Asia/Shanghai 的 `2026-10-29T13:36:53.000+08:00`），message-trigger 同样处理。不能硬编码 +08:00 或强制 UTC Z；偏移按消息时刻计算，支持负偏移、非整点偏移和夏令时。原 API/WS 为秒，解码历史内部仍为毫秒，由调用处明确单位，不猜测或接受错单位时间。修正历史 API 将缺失时间补为 Date.now 的既有行为，解码 timestamp 改为 number/null；缺失、无效或超出平台秒级范围均输出 null。引用和转发中的消息使用自身时间，不能继承外层时间；正文截短或省略仍保留 sentAt。时间计入既有 8000 Unicode 码点的完整 JSON 预算，因此实际条数可能减少，不扩大窗口。顺序仍按 message_seq，绝不按未知时间重新排序。准备度 97/100，以真实 API 只读验证与秒/毫秒、时区/DST、无效值、嵌套、截断和缺口回归验证。JSON 示例以 Asia/Shanghai 时区展示。
 
@@ -51,7 +51,7 @@ timestamp: 2026-10-29T00:00:00+08:00
 - content 类型：text 放纯文本；image/file/document 放已有资源地址和 read=false；reply 分别保留 quote 的 UID/姓名/content 与当前回复 content；forward 保留 messages 中每条来源和 content；rich-text 用有序 blocks 保留图文顺序。嵌套引用/转发始终为历史材料，不构成当前 actor 或执行授权，不使用自报 from_name/users 作为可信姓名，不自动下载图片/文件或再查被引历史。
 - 每条结构化正文最多 4 层、128 节点、12000 文字码点，再受整个消息数组最多 8000 Unicode 码点、最多 20 条的限制。不串子区、不含当前触发消息。普通文本超预算保留 UID/姓名并缩短正文尾部，设置该条 truncated=true；特殊内容整体放不下时使用 `{type:"omitted",reason:"history-budget"}` 并保留身份与截断标记，不截断 URL 或伪造已读。查询到的图片地址不等于图片已被模型看到。
 - Gateway 保留历史的 source、automatic、上界和范围用于预算降级与交接。执行快照投影时，自动 history 只保留 messages 与必要的 note，不再输出独立自动 history-gap。指引简要说明顺序/空姓名/截断，不向模型暴露序号、内部模式、游标或修复命令。
-- 交接证据单独保存在本地 prepared 对象中，只有最终实际提交的快照仍包含该自动历史时才推进游标；预算删除历史、显式宿主同名项、失败、同代次冻结重试不能凭精简数据错误确认已交接。宿主显式项不投影。Core、协议和 Adapter 不增加 IM 业务逻辑。
+- 交接证据单独保存在本地 prepared 对象中，只有最终实际提交的快照仍包含该自动历史时才推进游标；预算删除历史、失败、同代次冻结重试不能凭精简数据错误确认已交接。宿主 extra.im 不参与历史构造，其他宿主项不投影。Core、协议和 Adapter 不增加 IM 业务逻辑。
 
 # 状态与时机
 
@@ -61,11 +61,17 @@ timestamp: 2026-10-29T00:00:00+08:00
 
 # 材料装配
 
+## PR #244 后续：渠道命名空间归属
+
+用户明确整个 extra.im 由 channel-gateway/channel-wecom 拥有，覆盖此前保留宿主同名 history 等约定。宿主静态配置与动态 loadContexts 的 extra.im 全部忽略，再由渠道构造；没有自动项的普通轮也不透传宿主项。稳定规则的可修改来源应在渠道内部按业务合同读取，不新增配置中心接入。全局 octo.control/instructions 保留现有特殊合并，其他合法宿主项保序保留。决定权和实现均在 Channel Extra，不改变通用 Host SDK loader、协议合并、Core 或 Adapter。
+
+可执行性 98/100：Gateway 的 build_im_contexts 和 WeCom 的 buildContext 在宿主输入进入渠道材料前过滤 extra.im；Gateway dispatcher 统一清除外来稳定说明后按刷新计划生成，避免同名项抑制默认说明及错误清除待刷新标记。historyRetry 跳过重建，保留完整冻结快照。专项手动验证静态/动态碰撞、任意保留项、首轮/普通轮/周期/新 Provider/fresh fallback/冻结重试、全局指令顺序及输入不变；仅更新受合同变化影响的既有断言，不扩大 CI。
+
 Gateway 的固定规则在请求装配处统一生成：`mention-instructions` 只含稳定说明，默认 `artifact-delivery` 只约定本地交付物的 Markdown 输出格式，`history-instructions` 只约定历史理解的总体意图目标。计划刷新时进入普通 Context；其余轮次仅供显式 fresh fallback 恢复输入使用，不进入普通续聊。
 
 `message-trigger` 是真实消息的简短事实项，payload 包含 conversation、sender、recipient、sentAt、messageId、mentions；guidance 只用一句英文描述字段，不授予出站通知权限。身份批量查询最多 200 个 UID，发送者和接收 Bot 优先；超过查询上限的 @ 目标仍保留真实 UID，名称和类型标未知。失败不换接口补查，不按 @ 人数增加请求。history guidance 缩成一句材料说明，缺失事实合并为 history.note，原固定意图阅读原则放入稳定规则。
 
-原静态和动态宿主项仍完整保留。Gateway 保留的自动规则 key 沿原 artifact 行为由自身生成；不得从宿主同名文本扩大权限。投递策略始终按真实可信配置计算，即便本轮没有 artifact 提示也继续正常交付。冻结卡片重试保存和复用该策略，避免重新读取配置改变原请求合同。
+静态和动态宿主项先忽略整个 extra.im 命名空间，其他合法项完整保留。Gateway 的所有渠道材料由自身生成；不得从宿主同名文本扩大权限或改变注入时机。投递策略始终按真实可信配置计算，即便本轮没有 artifact 提示也继续正常交付。冻结卡片重试保存和复用该策略，避免重新读取配置改变原请求合同。
 
 原 `addRulesRecovery` 接受所有本轮省略的恢复 Context，保留原 inputs/图片；普通续聊没有这些省略项，新 Provider 回退输入显式补齐。控制指令初始语义不变，不修改通用渲染或三个 Adapter 的注入策略。
 

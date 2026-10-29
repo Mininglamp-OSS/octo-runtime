@@ -246,6 +246,8 @@ Context 内容、顺序和发送时机仍由 Event 发起方决定；本规则�
 
 ChannelGateway 是 IM Context 的业务发起方，负责稳定规则的周期、动态事实和按需历史；Host、Kernel、Core、renderer 与 Provider Adapter 不按业务 session 自行补齐、去重或省略 Context。该分工对 OpenClaw、Codex、Claude Code 一致，不依赖某个 Provider 的上下文窗口大小。
 
+`extra.im` 整个命名空间由 channel-gateway/channel-wecom 拥有。对应 Channel Extra 忽略宿主静态及动态来源的全部 extra.im 项，再按业务逻辑构造本轮材料；本轮未生成的项也不允许从宿主透传。规则内容如需外部更新，由渠道内部按业务合同取值，不以宿主 Context 覆盖；本次不新增外部规则源实现。宿主普通业务 Context 使用其他命名空间；全局 `octo.control/instructions` 保留既有特殊合并语义。冻结重试保留渠道已有快照。完整约束见 [Channel 命名空间归属](channel-integration.md#extraim-命名空间归属)。
+
 稳定 mention、产物格式及历史理解规则与动态 `message-trigger` 分开：前者在首轮及每 N 轮携带，`stable_context_refresh_interval_turns` 默认 30，reset/new 重置计数，新 Provider 会话获得完整规则；后者逐条说明当前频道、发起者、时间与 mention。群/子区规则按实际范围及版本更新，空规则显式 `NO RULES`，不沿用旧值。周期刷新接受轮间可能遗忘，不新增压缩监听或旧 session 升级兼容流程。
 
 自动历史取当前触发之前同频道最近最多 **20 条**，从旧到新呈现；**完整序列化 `messages` 数组最多 8000 Unicode 码点**，包括 UID、姓名、原消息时间、结构及 JSON 转义，不是正文独立额度、字节数或 token 数。冷启动和续聊缺口共用本轮一次有界查询；完整窗口先按总预算格式化，再拆主历史与 fresh fallback 恢复补充，两部分合计仍受同一额度约束，排除后不补查或扩大窗口。
@@ -258,7 +260,7 @@ ChannelGateway 是 IM Context 的业务发起方，负责稳定规则的周期�
 
 Kernel、worker、HostApp、renderer 和 Adapter 只按已有合同校验、转发、固定渲染或适配本轮显式输入，不得自行扫描、读取或合并 SOUL.md、persona 配置及其他人格文件，不得选择默认人格、强制注入、从历史补齐、按 session 缓存或去重人格内容。业务方需要使用文件或配置中的人格时，由业务方取得并构造 Context；不得以 Provider 隐式读取人格文件代替这条业务注入链路。
 
-普通人格指引可使用业务 extra item，IM 使用 extra.im，无需新增人格专用协议或处理器。指令文本不因名为 SOUL、persona 或由 Channel 提交就自动成为可信控制指令；确需控制通道时必须满足既有来源校验与 octo.control/instructions 合同。人格指引不授予权限、不替代审批，也不授权 Channel 硬编码业务执行流程。
+普通人格指引可使用业务 extra item；宿主使用非 extra.im 的业务命名空间，渠道自身构造的指引使用 extra.im，无需新增人格专用协议或处理器。指令文本不因名为 SOUL、persona 或由 Channel 提交就自动成为可信控制指令；确需控制通道时必须满足既有来源校验与 octo.control/instructions 合同。人格指引不授予权限、不替代审批，也不授权 Channel 硬编码业务执行流程。
 
 这是已确认的架构约束；现有统一 Context 已能承载这些文本，不表示当前已配置某个人格，也不表示本轮已改变或核验全部 Provider 的原生文件读取行为。本轮仅更新文档，不删除、改写或重建既有人格文件、Provider 数据和用户配置。具体评估见[F17](../tasks/gateway-august-feature-assessment/assessment.md#逐项-reviewf17-人格技能说明与自动指引)。
 
@@ -442,7 +444,7 @@ Extra 的函数式入口负责封装内部流程：宿主传入完整配置和�
 
 静态 `config.bots[i].context.items` 与本轮函数结果在 Channel 业务边界合并：同 namespace/name 动态整项替换、保留静态位置，新 key 按动态顺序追加；不拼接 payload 或 instructions.entries，不保存上一轮动态结果。动态空数组保留静态项，加载失败不以旧结果兜底。Host/Adapter 只处理本轮显式快照，不读取宿主存储。动态系统指令取得成功与 Provider 续聊实际应用不同，沿既有可信指令会话合同，不自动 reset。
 
-2026-10-22 Issue #101 补充：上述静态/动态宿主取值完成后，Octo Gateway 在本轮请求装配时将渠道默认英文 mention 指令和宿主有效 `octo.control/instructions.payload.entries` 保序拼接为唯一 item，宿主在前、默认在后。此局部业务默认不改变静态/动态替换、公共 Context 合并或强制约束，也不向其他 Extra 注入 Octo 提示。逐轮英文短提醒覆盖旧 Provider binding；自消息包括真实自己 @ 自己均不触发 AgentRun。完整合同见[Channel 规则](channel-integration.md)。
+2026-10-22 Issue #101 补充：上述静态/动态宿主取值完成后，Octo Gateway 在稳定规则刷新轮的请求装配中将渠道默认英文 mention 指令和宿主有效 `octo.control/instructions.payload.entries` 保序拼接为唯一 item，宿主在前、默认在后。此局部业务默认不改变静态/动态替换、公共 Context 合并或强制约束，也不向其他 Extra 注入 Octo 提示。Issue #234 的普通模型 Context 周期刷新规则取代旧逐轮提醒；自消息包括真实自己 @ 自己均不触发 AgentRun。extra.im 由渠道专属构造，宿主误配仅 warning 后忽略，不影响执行。完整合同见[Channel 规则](channel-integration.md)。
 
 两渠道沿用两阶段函数式入口。统一原生 Extra 服务在调用进程中直接注入依赖，函数不进入 JSON 或 Kernel。逐轮读取、结果容量、实际在途和失败事实必须保留，不恢复子进程代理或 dependencyModule。[逐轮 Context 专题](../guides/channel-dynamic-contexts.md)及[SDK 指南](../../SDK_CHANNEL_GATEWAY_GUIDE.md)与实际 API 一致。本地自动化与真实 IM 验收分别记录。
 

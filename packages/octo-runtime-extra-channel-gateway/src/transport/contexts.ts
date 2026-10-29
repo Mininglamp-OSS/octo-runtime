@@ -44,9 +44,12 @@ export async function build_im_contexts(
     onHistoryGapPrepared?(plan: ImGapPlan): void;
   } = { initialSession: false }
 ): Promise<ContextItem[]> {
-  const items: ContextItem[] = structuredClone([
-    ...(options.configuredItems ?? config.context?.items ?? [])
-  ]);
+  // extra.im 归渠道所有；宿主静态/动态项即使本轮没有对应自动材料也不能透传。
+  const items: ContextItem[] = structuredClone(
+    (options.configuredItems ?? config.context?.items ?? []).filter(
+      (item) => item.namespace !== "extra.im"
+    )
+  );
   const source = {
     service: config.api_url,
     spaceId: config.spaceId,

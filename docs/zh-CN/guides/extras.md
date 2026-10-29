@@ -31,6 +31,8 @@ Channel Gateway 支持通过 `GatewayDependencies.loadContexts(config, {signal})
 
 加载结果会与静态 Context 合并。同一 `namespace` 和 `name` 的动态项替换整个静态项，包括其 `payload`；不会逐字段合并。这是 Channel Gateway 的行为，直接调用 Kernel 时不会自动执行这一步。
 
+`extra.im` 整个命名空间由 Octo Gateway 和 WeCom 对应的 Channel Extra 专属管理。渠道构造 Context 时忽略宿主静态配置和 `loadContexts` 返回的全部 `extra.im` 项，即使本轮没有生成同名项也不透传。误配仅记录忽略数量的 warning，不影响后续 AgentRun。宿主业务材料应使用其他命名空间；渠道规则如需外部更新，由渠道内部按业务合同读取并构造，本次未新增外部规则源接口。全局 `octo.control/instructions` 保留下述指令组合规则；冻结重试保留渠道已生成的完整快照。权威约束见 [Channel 规则](../../../.octospec/rules/channel-integration.md)。
+
 取得宿主本轮有效 Context 后，Octo Gateway 在稳定规则刷新轮将默认英文 mention 指令追加到 `octo.control/instructions.payload.entries`：`entries = [...hostEffectiveEntries, ...gatewayDefaultEntries]`。通过 CLI `extraset` 配置的指令属于宿主，在前保留。两个列表各自保序、保留重复项，最终只有一个 instructions item。不修改宿主输入、不累计上一轮结果。同代次卡片重试完整复用冻结 Context 和产物交付策略，不能再次追加默认项，也不重新读取宿主数据或历史。这一步不改变宿主静态/动态替换、公共 Context 合并或其他 Extra 的行为。
 
 Gateway 默认等待加载完成最多 5 秒，同时最多允许 8 个尚未结束的加载操作，可配置到 32 个。返回值最多 32 项，序列化后最多 64 KiB。等待超时不代表底层操作已停止；该操作实际结束前仍占用并发名额。访问数据库时也要注意：仅将同步操作包进 `async` 函数，并不能避免阻塞事件循环。
