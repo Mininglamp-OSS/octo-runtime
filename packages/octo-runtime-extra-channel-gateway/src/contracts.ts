@@ -79,7 +79,7 @@ export interface OctoBotConfig extends ImCommonConfig {
   };
 }
 
-/** 成功 final 的冻结投递合同；signal 归当前交付所有，不能复用已终态的模型 signal。 */
+/** 终态回复的冻结投递合同；成功 final 才准备产物，所有终态都遵守当前交付的取消期限。 */
 export interface ImFinalReplyOptions {
   artifacts: ImArtifactPolicy;
   signal: AbortSignal;
@@ -105,7 +105,12 @@ export interface ImInboundMessage {
   conversationKind: "direct" | "group" | "thread";
   text: string;
   buildInputs?(signal: AbortSignal): Promise<ModelInputPart[]>;
-  reply(text: string, effectKey?: string): Promise<void>;
+  /** 终态提示也携带该轮投递期限；普通控制回复可省略，不进行产物准备。 */
+  reply(
+    text: string,
+    effectKey?: string,
+    options?: Pick<ImFinalReplyOptions, "signal" | "obsolete">
+  ): Promise<void>;
   replyFinal?(text: string, effectKey: string, options?: ImFinalReplyOptions): Promise<void>;
   replyFailure?(event: CanonicalEvent, effectKey: string): Promise<void>;
   replyDeliveryUnknown?(

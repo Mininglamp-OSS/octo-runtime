@@ -168,7 +168,7 @@ export class WukongConnection {
   #buffer = Buffer.alloc(0);
   #seq = 0;
   #heartbeat?: NodeJS.Timeout;
-  #lastPacket = Date.now();
+  #awaitingPong = false;
   #closed = false;
   #ready = false;
   #sends = new Map<
@@ -270,8 +270,8 @@ export class WukongConnection {
               kind = header >> 4;
             if (kind === 7 || kind === 8) {
               this.#buffer = this.#buffer.subarray(1);
-              this.#lastPacket = Date.now();
               if (kind === 7) socket.send(Buffer.from([8 << 4]));
+              else this.#awaitingPong = false;
               continue;
             }
             let length = 0,
@@ -296,7 +296,6 @@ export class WukongConnection {
             if (this.#buffer.length < offset + length) break;
             const reader = new Reader(this.#buffer.subarray(offset, offset + length));
             this.#buffer = this.#buffer.subarray(offset + length);
-            this.#lastPacket = Date.now();
             if (kind === 2 && !ready) {
               if (header & 1) this.#version = reader.byte();
               reader.u64();
@@ -325,12 +324,20 @@ export class WukongConnection {
               ready = true;
               this.#ready = true;
               clearTimeout(timeout);
+              // 切网不一定触发 TCP close，必须主动确认这条连接的双向协议链路。
+              // 每 5 秒 PING，下一次检查仍无 PONG 即关闭；推送或服务端 PING 不能续命。
+              // 单连接最多一个在途探测，回调延迟时不补发积压 PING；close 负责通知上层重连。
               this.#heartbeat = setInterval(() => {
-                if (Date.now() - this.#lastPacket > 90_000) {
+                if (this.#awaitingPong) {
+                  this.#ready = false;
+                  clearInterval(this.#heartbeat);
                   failure = new ImConnectionError("IM_HEARTBEAT_TIMEOUT", true);
                   socket.terminate();
-                } else if (socket.readyState === WebSocket.OPEN) socket.send(Buffer.from([7 << 4]));
-              }, 25_000);
+                } else if (socket.readyState === WebSocket.OPEN) {
+                  this.#awaitingPong = true;
+                  socket.send(Buffer.from([7 << 4]));
+                }
+              }, 5_000);
               this.#heartbeat.unref();
               resolve();
             } else if (kind === 9) {

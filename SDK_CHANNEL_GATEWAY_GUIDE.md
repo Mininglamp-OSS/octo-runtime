@@ -1,5 +1,7 @@
 # SDK Channel Gateway 接入
 
+长任务跨网络重连后，尚未发送的最终文本及文件通过同一 Bot、API、空间和凭据的当前连接投递；每次发送前最多等待 15 秒恢复，并响应停止或该轮取消。已经发送但确认未知的消息不跨连接自动重放。进度卡通过 REST 更新，使用 Bot 生命周期的取消信号，WS 重建不会取消它；沿用原卡片消息 ID 和序号，最终更新同一张卡。REST 网络错误仍按既有有限重试处理，不保证长期断网后的补投。交互按钮绑定暂不迁移到新连接。
+
 通用 Extra 架构和生命周期见开发者文档：[English](docs/en/guides/extras.md) / [简体中文](docs/zh-CN/guides/extras.md)。本篇保留 IM 配置、会话存储和业务接入细节。
 
 宿主使用 /host 的 createExtraService 在当前进程管理 Channel Gateway，执行通过指定的 Kernel endpoint。模块从 /extras/channel-gateway 导入。完整调用方式及 loadContexts 注入见 [Extra 指南](docs/zh-CN/guides/extras.md)。
@@ -18,7 +20,7 @@ Electron/Buddy 通过 submodule 接入时，必须使用最新远端 `main`。�
 4. extra.status() 的 plugin 为插件 JSON；Bot online 与 kernel_available 分别判断。
 5. 配置变更先等待 extra.close() 且 complete=true，再保存并创建新实例；Kernel 保持运行。
 
-连接恢复在Gateway内完成：首次暂态离线与上线后暂态断线均等待5、10、15秒，之后每15秒；Retry-After可延长。宿主无需另写重连或重建服务。合法服务端 DISCONNECT 默认重连（含 reason 12、滚动更新及未知断开码）；明确认证/权限/封禁/协议错误仍失败。握手同样默认重试未知服务端原因；HTTP 超时、冲突、限流、5xx 及未知服务故障默认重试，只有明确认证/配置/协议错误停止。退避不是连接成功时限：还需检测断网、回收旧连接和完成鉴权握手；静默断网按每 25 秒检查、90 秒无包阈值发现，不能保证 20 秒内上线。旧任务结果未知时不重新invoke。
+连接恢复在 Gateway 内完成：上线后收到可恢复的断线回调，立即进入 retrying，旧连接回收成功后立即首次重连；失败后追加最多 10 次快速重试，每次失败清理完成后等待 1 秒再试，仍失败才按 5、10、15 秒退避，之后每 15 秒。首次启动暂态失败仍按 5、10、15 秒退避；Retry-After 可延长等待。宿主无需另写重连或重建服务。合法服务端 DISCONNECT 默认重连（含 reason 12、滚动更新及未知断开码）；明确认证/权限/封禁/协议错误仍失败。握手同样默认重试未知服务端原因；HTTP 超时、冲突、限流、5xx 及未知服务故障默认重试，只有明确认证/配置/协议错误停止。立即重连指确认断线后不再增加固定退避，不是连接成功时限：仍需检测断网、回收旧连接和完成鉴权握手；静默失联通过每 5 秒发送协议 PING、等待最多一个 5 秒周期的 PONG 检测，普通推送不能代替 PONG。正常调度下约 5–10 秒发现，睡眠或事件循环阻塞会延迟检测；未订阅操作系统网络切换事件，不能保证点击切网即断开或固定时限内上线。旧任务结果未知时不重新 invoke。
 
 原生Extra可选 `logging: { directory: absolutePath, statusOutput: record => hostLogger(record) }` 是宿主代码选项，不放入Bot JSON。SDK默认不写stdout；sink只收到服务生命周期、Kernel可用性转换和Gateway连接/重试，不含chat、session/run/message标识、模型输出、工具参数及凭据。状态同时镜像到directory下 `extras/<extra>-status-<UTC小时>.log`，最多三份、每份100MiB；日志失败不改变执行结果。CLI自动接入stdout，使用 `octo-runtime channel-gateway logs --follow` 查看状态。业务onStatus仍同步，不负责异步探测或重启。
 

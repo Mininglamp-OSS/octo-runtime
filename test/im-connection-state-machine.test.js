@@ -150,7 +150,7 @@ for (const code of [
   });
 }
 
-test("recovery stays retrying, uses 5/10/15/15/15 seconds, and resets after each success", async (t) => {
+test("online disconnect retries immediately, then ten times at 1 second before 5/10/15 backoff", async (t) => {
   const f = fixture(t);
   await f.runtime.start();
   snapshot(f.runtime, "online");
@@ -161,7 +161,11 @@ test("recovery stays retrying, uses 5/10/15/15/15 seconds, and resets after each
     f.drop();
     snapshot(f.runtime, "retrying", "IM_DISCONNECTED");
     await settle();
-    for (const delay of [5000, 10000, 15000, 15000, 15000]) {
+    const beforeImmediate = f.attempts.length;
+    await f.tick(0);
+    assert.equal(f.attempts.length, beforeImmediate + 1);
+    snapshot(f.runtime, "retrying", "IM_REGISTER_HTTP_503");
+    for (const delay of [...Array(10).fill(1000), 5000, 10000, 15000, 15000, 15000]) {
       const before = f.attempts.length;
       await f.tick(delay - 1);
       assert.equal(f.attempts.length, before);
@@ -182,6 +186,43 @@ test("recovery stays retrying, uses 5/10/15/15/15 seconds, and resets after each
     await settle();
     snapshot(f.runtime, "online");
   }
+});
+
+test("network recovery during fast retries connects on the next second and cancels further retries", async (t) => {
+  const f = fixture(t);
+  await f.runtime.start();
+  f.behavior(async () => {
+    throw new ImConnectionError("IM_AUTH_NETWORK_ERROR", true);
+  });
+  f.drop();
+  await settle();
+  await f.tick(0);
+  await f.tick(1000);
+  await f.tick(1000);
+  f.behavior(async () => {});
+  await f.tick(999);
+  assert.equal(f.attempts.length, 4);
+  await f.tick(1);
+  snapshot(f.runtime, "online");
+  assert.equal(f.attempts.length, 5);
+  await f.tick(60000);
+  assert.equal(f.attempts.length, 5);
+});
+
+test("stop cancels the one-second fast retry timer", async (t) => {
+  const f = fixture(t);
+  await f.runtime.start();
+  f.behavior(async () => {
+    throw new ImConnectionError("IM_AUTH_NETWORK_ERROR", true);
+  });
+  f.drop();
+  await settle();
+  await f.tick(0);
+  await f.tick(999);
+  await f.runtime.close();
+  await f.tick(60000);
+  snapshot(f.runtime, "stopped");
+  assert.equal(f.attempts.length, 2);
 });
 
 test("explicit restart retries a failed first attempt, concurrent starts do not duplicate", async (t) => {
@@ -281,7 +322,7 @@ test("owner abort stops pending startup even if a transport returns late success
   assert.equal(f.attempts.length, 1);
 });
 
-test("recovery cleanup must finish before the first backoff begins", async (t) => {
+test("recovery waits for cleanup and then starts without an additional backoff", async (t) => {
   let release,
     blocking = false;
   const f = fixture(t, {
@@ -302,9 +343,8 @@ test("recovery cleanup must finish before the first backoff begins", async (t) =
   blocking = false;
   release();
   await settle();
-  await f.tick(4999);
   assert.equal(f.attempts.length, 1);
-  await f.tick(1);
+  await f.tick(0);
   snapshot(f.runtime, "online");
 });
 
@@ -333,7 +373,7 @@ test("Retry-After can extend the wait without advancing the backoff twice", asyn
   });
   f.drop();
   await settle();
-  await f.tick(5000);
+  await f.tick(0);
   const count = f.attempts.length;
   await f.tick(44999);
   assert.equal(f.attempts.length, count);
@@ -380,7 +420,7 @@ test("long waits and a delayed wake never overflow timers or replay missed attem
   });
   f.drop();
   await settle();
-  await f.tick(5000);
+  await f.tick(0);
   assert.equal(f.attempts.length, 2);
   await f.tick(2_147_483_647);
   assert.equal(f.attempts.length, 2);
@@ -394,7 +434,7 @@ test("long waits and a delayed wake never overflow timers or replay missed attem
   await f.tick(600000);
   assert.equal(f.attempts.length, 4);
   snapshot(f.runtime, "retrying", "IM_AUTH_NETWORK_ERROR");
-  await f.tick(14999);
+  await f.tick(999);
   assert.equal(f.attempts.length, 4);
   await f.tick(1);
   assert.equal(f.attempts.length, 5);
@@ -551,7 +591,7 @@ test("real handshake rejection preserves reason even without optional success fi
   });
 });
 
-test("missing heartbeat packets reports a retryable timeout and releases pending sends", async (t) => {
+test("missing PONG disconnects after a 5-second probe and 5-second reply budget and releases sends", async (t) => {
   const s = await server(t);
   s.ws.on("connection", (peer) => peer.once("message", () => peer.send(handshake())));
   let disconnected;
@@ -563,11 +603,80 @@ test("missing heartbeat packets reports a retryable timeout and releases pending
   t.mock.timers.enable({ apis: ["setInterval", "Date"], now: Date.now() });
   await client.connect(s.registration);
   const pending = assert.rejects(client.sendText("qa", 1, "test"), { message: "IM_DISCONNECTED" });
-  t.mock.timers.tick(100000);
+  t.mock.timers.tick(4999);
+  assert.equal(client.connected, true);
+  t.mock.timers.tick(1);
+  assert.equal(client.connected, true);
+  t.mock.timers.tick(4999);
+  assert.equal(client.connected, true);
+  t.mock.timers.tick(1);
+  assert.equal(client.connected, false);
   const error = await closed;
   await pending;
   assert.equal(error.message, "IM_HEARTBEAT_TIMEOUT");
   assert.equal(error.retryable, true);
+  assert.equal(client.connected, false);
+});
+
+test("timely protocol PONG keeps the connection online across heartbeat cycles", async (t) => {
+  const s = await server(t);
+  let peer;
+  s.ws.on("connection", (socket) => {
+    peer = socket;
+    socket.once("message", () => socket.send(handshake()));
+  });
+  const disconnected = [];
+  const client = new WukongConnection(
+    () => {},
+    (error) => disconnected.push(error)
+  );
+  t.after(() => client.close());
+  t.mock.timers.enable({ apis: ["setInterval"] });
+  await client.connect(s.registration);
+  for (let i = 0; i < 4; i++) {
+    const ping = once(peer, "message");
+    t.mock.timers.tick(5000);
+    assert.deepEqual((await ping)[0], Buffer.from([0x70]));
+    const reply = once(peer, "message");
+    // 服务端 PING 紧随 PONG：收到客户端回复证明两帧均已消费，避免真实 IO 与假时钟竞态。
+    peer.send(Buffer.from([0x80, 0x70]));
+    assert.deepEqual((await reply)[0], Buffer.from([0x80]));
+    assert.equal(client.connected, true);
+  }
+  assert.equal(disconnected.length, 0);
+  await client.close();
+  t.mock.timers.tick(60000);
+  assert.equal(disconnected.length, 0);
+});
+
+test("inbound protocol traffic cannot hide a missing PONG", async (t) => {
+  const s = await server(t);
+  let peer;
+  s.ws.on("connection", (socket) => {
+    peer = socket;
+    socket.once("message", () => socket.send(handshake()));
+  });
+  let reportDisconnect;
+  const closed = new Promise((resolve) => {
+    reportDisconnect = resolve;
+  });
+  const client = new WukongConnection(() => {}, reportDisconnect);
+  t.after(() => client.close());
+  t.mock.timers.enable({ apis: ["setInterval"] });
+  await client.connect(s.registration);
+  const ping = once(peer, "message");
+  t.mock.timers.tick(5000);
+  assert.deepEqual((await ping)[0], Buffer.from([0x70]));
+  for (let i = 0; i < 4; i++) {
+    t.mock.timers.tick(1000);
+    const reply = once(peer, "message");
+    // 合法但无待确认发送的 SENDACK，再附服务端 PING，证明普通数据与心跳请求均不能续命。
+    peer.send(Buffer.concat([Buffer.from([0x40, 17]), Buffer.alloc(17), Buffer.from([0x70])]));
+    assert.deepEqual((await reply)[0], Buffer.from([0x80]));
+    assert.equal(client.connected, true);
+  }
+  t.mock.timers.tick(1000);
+  assert.equal((await closed).message, "IM_HEARTBEAT_TIMEOUT");
   assert.equal(client.connected, false);
 });
 

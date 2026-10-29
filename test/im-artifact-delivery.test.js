@@ -18,6 +18,8 @@ import { WukongConnection } from "../packages/octo-runtime-extra-channel-gateway
 import { ImRuntime } from "../packages/octo-runtime-extra-channel-gateway/dist/index.js";
 import { waitFor } from "./runtime-fixture.js";
 import { ImSendError } from "../packages/octo-runtime-extra-channel-gateway/dist/delivery/text-send.js";
+import { ImDeliveryDispatcher } from "../packages/octo-runtime-extra-channel-gateway/dist/delivery/dispatcher.js";
+import { ImRunProjector } from "../packages/octo-runtime-extra-channel-gateway/dist/presentation/run-projector.js";
 
 const prepareArtifacts = async (...args) => (await prepareArtifactReply(...args)).text;
 
@@ -44,6 +46,514 @@ async function fixture(t) {
       context(workspace)
     )
   };
+}
+
+function reconnectTransportFixture(t) {
+  const connections = [],
+    sends = [],
+    files = [],
+    cards = [],
+    closed = new Set();
+  let principal = { bot_uid: "bot", space_id: "s" };
+  let cardResponse;
+  const token = `bf_${randomUUID()}`;
+  t.mock.method(globalThis, "fetch", async (url, options = {}) => {
+    options.signal?.throwIfAborted();
+    if (url.endsWith("/auth/verify-bot")) return Response.json(principal);
+    if (url.endsWith("/bot/register"))
+      return Response.json({
+        robot_id: principal.bot_uid,
+        ws_url: "wss://im-test.deepminer.com.cn/ws",
+        im_token: randomUUID()
+      });
+    if (url.includes("/user/info")) return Response.json({ uid: "owner", name: "Owner" });
+    if (url.endsWith("/bot/events")) return Response.json({ results: [] });
+    if (url.endsWith("/bot/card/profile")) {
+      const ref = { id: "ai.reasoning-process", version: "0.4.1" };
+      return Response.json({
+        available: true,
+        enabled: true,
+        card_version: "1.5",
+        profiles: ["octo/v1", "octo/v2"],
+        config: {
+          card_enabled: true,
+          display_enabled: true,
+          interaction_enabled: true,
+          reasoning_enabled: true,
+          reasoning_template_ref: ref
+        },
+        templating: {
+          supported: true,
+          wire: "template-ref/v1",
+          templates: [
+            {
+              ...ref,
+              views: [
+                {
+                  name: "active",
+                  wire_profile: "octo/v2",
+                  states: ["reasoning", "answering"],
+                  submit_actions: ["reasoning_stop"]
+                },
+                {
+                  name: "error",
+                  wire_profile: "octo/v2",
+                  states: ["error"],
+                  submit_actions: ["reasoning_retry"]
+                },
+                {
+                  name: "result",
+                  wire_profile: "octo/v1",
+                  states: ["completed", "stopped"],
+                  submit_actions: []
+                }
+              ]
+            }
+          ]
+        }
+      });
+    }
+    if (url.endsWith("/bot/sendMessage") || url.endsWith("/bot/message/edit")) {
+      const request = { url, body: JSON.parse(options.body), signal: options.signal };
+      cards.push(request);
+      if (cardResponse) return cardResponse(request);
+      return Response.json({ message_id: "progress-card" });
+    }
+    if (url.includes("upload/presigned"))
+      return Response.json({
+        method: "PUT",
+        uploadUrl: `https://storage.example.com/game.html?sig=${randomUUID()}`,
+        downloadUrl: "https://cdn.example.com/game.html"
+      });
+    if (url.startsWith("https://storage.example.com/")) return new Response(null, { status: 200 });
+    throw Error("unexpected-request");
+  });
+  t.mock.method(WukongConnection.prototype, "connect", async function () {
+    connections.push(this);
+  });
+  t.mock.getter(WukongConnection.prototype, "connected", function () {
+    return !closed.has(this);
+  });
+  t.mock.method(WukongConnection.prototype, "close", async function () {
+    closed.add(this);
+  });
+  t.mock.method(WukongConnection.prototype, "sendText", async function (...args) {
+    assert.equal(closed.has(this), false, "cannot send on retired connection");
+    sends.push({ connection: this, args });
+    return "sent";
+  });
+  t.mock.method(WukongConnection.prototype, "sendFile", async function (...args) {
+    assert.equal(closed.has(this), false, "cannot send file on retired connection");
+    files.push({ connection: this, args });
+    return "file-sent";
+  });
+  const message = {
+    messageId: "long-task",
+    fromUid: "owner",
+    channelId: "owner",
+    channelType: 1,
+    payload: { type: 1, content: "sleep 30 seconds, then reply" }
+  };
+  return {
+    token,
+    connections,
+    sends,
+    files,
+    cards,
+    message,
+    setCardResponse(value) {
+      cardResponse = value;
+    },
+    setPrincipal(value) {
+      principal = value;
+    }
+  };
+}
+
+test("long task invokes once, completes its original REST card and sends final after WS recovery", async (t) => {
+  const f = reconnectTransportFixture(t);
+  const originalStart = GatewayTransport.prototype.start;
+  t.mock.method(GatewayTransport.prototype, "start", async function (signal) {
+    const receive = this.callbacks.onMessage;
+    // 保留真实回复、REST 卡片与 Runtime 恢复，仅隔离与本次验证无关的上下文读取。
+    this.callbacks.onMessage = (message) =>
+      receive({
+        ...message,
+        buildContext: async () => ({ schema, items: [] })
+      });
+    return originalStart.call(this, signal);
+  });
+  let release,
+    invokes = 0;
+  const completion = new Promise((resolve) => {
+    release = resolve;
+  });
+  const runtime = new ImRuntime(
+    { ...config(process.cwd()), bf_token: f.token, typing: false },
+    {
+      kernel: {
+        async *invoke() {
+          invokes++;
+          yield { protocolVersion: 2, type: "run.started", payload: {} };
+          await completion;
+          yield {
+            protocolVersion: 2,
+            type: "message.delta",
+            payload: { channel: "final", text: "done after sleep" }
+          };
+          yield { protocolVersion: 2, type: "run.completed", payload: {} };
+        },
+        async cancelInvocation() {
+          return { accepted: false };
+        }
+      }
+    }
+  );
+  t.after(async () => {
+    release();
+    await runtime.close();
+  });
+  await runtime.start();
+  f.connections[0].onMessage(f.message);
+  await waitFor(() => invokes === 1);
+  await waitFor(() => f.cards.length === 1);
+  f.connections[0].onDisconnect(new Error("IM_DISCONNECTED"));
+  await waitFor(() => f.connections.length === 2 && runtime.status.state === "online");
+  release();
+  await waitFor(() => runtime.status.workingTasks === 0);
+  assert.equal(invokes, 1);
+  assert.equal(f.sends.length, 1);
+  assert.equal(f.sends[0].connection, f.connections[1]);
+  assert.equal(f.sends[0].args[0], "owner");
+  assert.equal(f.sends[0].args[2], "done after sleep");
+  assert.equal(f.cards.filter((r) => r.url.endsWith("/sendMessage")).length, 1);
+  assert.equal(f.cards.at(-1).body.message_id, "progress-card");
+  assert.equal(f.cards.at(-1).body.state, "completed");
+  assert.equal(f.cards.at(-1).body.transient, undefined);
+  assert.equal(
+    runtime.status.cardDeliveries,
+    f.cards.length,
+    "all retained card receipts remain visible after reconnect"
+  );
+});
+
+for (const command of ["/stop", "/reset"]) {
+  test(`empty final waiting for WS recovery respects ${command}`, async (t) => {
+    const f = reconnectTransportFixture(t);
+    let releaseTask,
+      releaseReconnect,
+      started = 0,
+      invokes = 0,
+      replyStarted = false;
+    const completion = new Promise((resolve) => {
+      releaseTask = resolve;
+    });
+    const reconnect = new Promise((resolve) => {
+      releaseReconnect = resolve;
+    });
+    const originalStart = GatewayTransport.prototype.start;
+    t.mock.method(GatewayTransport.prototype, "start", async function (signal) {
+      if (++started === 2) await reconnect;
+      const receive = this.callbacks.onMessage;
+      this.callbacks.onMessage = (message) =>
+        receive({
+          ...message,
+          buildContext: async () => ({ schema, items: [] }),
+          reply: (...args) => {
+            if (args[0] === "执行已结束，未返回文本。") replyStarted = true;
+            return message.reply(...args);
+          }
+        });
+      return originalStart.call(this, signal);
+    });
+    const runtime = new ImRuntime(
+      { ...config(process.cwd()), bf_token: f.token, cards: false, typing: false },
+      {
+        kernel: {
+          async *invoke() {
+            invokes++;
+            yield { protocolVersion: 2, type: "run.started", payload: {} };
+            await completion;
+            yield { protocolVersion: 2, type: "run.completed", payload: {} };
+          },
+          async cancelInvocation() {
+            return { accepted: false };
+          }
+        }
+      }
+    );
+    t.after(async () => {
+      releaseTask();
+      releaseReconnect();
+      await runtime.close();
+    });
+    await runtime.start();
+    f.connections[0].onMessage(f.message);
+    await waitFor(() => invokes === 1);
+    f.connections[0].onDisconnect(new Error("IM_DISCONNECTED"));
+    releaseTask();
+    await waitFor(() => replyStarted);
+    assert.equal(f.sends.length, 0, "terminal notice must be waiting for recovery");
+    releaseReconnect();
+    await waitFor(() => f.connections.length === 2 && runtime.status.state === "online");
+    f.connections[1].onMessage({
+      ...f.message,
+      messageId: `control-${command}`,
+      payload: { type: 1, content: command }
+    });
+    await waitFor(() => runtime.status.workingTasks === 0 && f.sends.length > 0);
+    assert.equal(invokes, 1);
+    assert.equal(f.sends.length, 1);
+    assert.equal(f.sends[0].args[2], command === "/stop" ? "已请求停止本轮执行。" : "会话已经重置");
+  });
+}
+
+for (const scenario of ["rest-only", "recovered", "in-flight", "stop", "identity", "transient"]) {
+  test(`REST progress card lifetime across WS close: ${scenario}`, async (t) => {
+    const f = reconnectTransportFixture(t);
+    const owner = new AbortController();
+    const oldSocket = new AbortController();
+    let current, inbound;
+    const lifetime = {
+      signal: owner.signal,
+      dispatcher: new ImDeliveryDispatcher(owner.signal),
+      current: () => current
+    };
+    const first = new GatewayTransport(
+      { ...config(process.cwd()), typing: false },
+      async () => f.token,
+      {
+        onMessage(message) {
+          inbound = message;
+        },
+        onDisconnect() {}
+      },
+      lifetime
+    );
+    current = first;
+    t.after(async () => {
+      owner.abort();
+      await first.close();
+      await current?.close();
+    });
+    await first.start(oldSocket.signal);
+    f.connections[0].onMessage(f.message);
+    const diagnostics = [];
+    const presentation = inbound.beginPresentation(
+      "long-task",
+      (code) => diagnostics.push(code),
+      {}
+    );
+    const projector = new ImRunProjector("long-task");
+    projector.accept({ protocolVersion: 2, type: "run.started", payload: {} });
+    presentation.update(projector.snapshot());
+    await waitFor(() => f.cards.length === 1);
+    await new Promise((resolve) => setImmediate(resolve));
+    let release, pendingSignal;
+    if (scenario === "in-flight" || scenario === "stop") {
+      f.setCardResponse(
+        ({ signal }) =>
+          new Promise((resolve, reject) => {
+            pendingSignal = signal;
+            const abort = () => reject(signal.reason);
+            signal.addEventListener("abort", abort, { once: true });
+            release = () => {
+              signal.removeEventListener("abort", abort);
+              resolve(Response.json({}));
+            };
+          })
+      );
+      presentation.update(projector.snapshot());
+      await waitFor(() => pendingSignal);
+    }
+    oldSocket.abort();
+    await first.close();
+    current = undefined;
+    assert.equal(f.cards[0].signal.aborted, false, "WS teardown must not cancel REST");
+    if (pendingSignal) {
+      assert.equal(pendingSignal.aborted, false, "in-flight REST must survive WS teardown");
+      if (scenario === "stop") {
+        owner.abort();
+        assert.equal(pendingSignal.aborted, true, "Bot stop cancels REST");
+        projector.accept({ protocolVersion: 2, type: "run.completed", payload: {} });
+        presentation.update(projector.snapshot());
+        await assert.rejects(presentation.finish(), /IM_PRESENTATION_FAILED/);
+        assert.equal(f.cards.length, 2);
+        return;
+      }
+      release();
+      f.setCardResponse(undefined);
+    }
+    if (scenario === "recovered" || scenario === "identity") {
+      current = new GatewayTransport(
+        { ...config(process.cwd()), typing: false },
+        async () => (scenario === "identity" ? `bf_${randomUUID()}` : f.token),
+        { onMessage() {}, onDisconnect() {} },
+        lifetime
+      );
+      assert.equal(
+        current.status.cardDeliveries,
+        1,
+        "retained receipts remain visible before new transport authentication"
+      );
+      await current.start(owner.signal);
+    }
+    if (scenario === "rest-only" || scenario === "transient") {
+      if (scenario === "transient")
+        f.setCardResponse(() => {
+          throw new TypeError("network changed");
+        });
+      presentation.update(projector.snapshot());
+      await waitFor(() => f.cards.length === 2);
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.equal(f.connections.length, 1, "REST must not wait for a replacement WS");
+      f.setCardResponse(undefined);
+    }
+    projector.accept({ protocolVersion: 2, type: "run.completed", payload: {} });
+    presentation.update(projector.snapshot());
+    if (scenario === "identity") {
+      await assert.rejects(presentation.finish(), /IM_PRESENTATION_FAILED/);
+      assert.equal(f.cards.length, 1, "identity change must stop old-card HTTP requests");
+      return;
+    }
+    await presentation.finish();
+    const terminalCount = f.cards.length;
+    presentation.update({ ...projector.snapshot(), terminal: undefined, phase: "thinking" });
+    await presentation.finish();
+    assert.equal(f.cards.length, terminalCount, "late progress must not overwrite terminal");
+    assert.equal(f.cards.filter((r) => r.url.endsWith("/sendMessage")).length, 1);
+    assert.ok(f.cards.slice(1).every((r) => r.body.message_id === "progress-card"));
+    assert.equal(f.cards.at(-1).body.state, "completed");
+    assert.equal(f.cards.at(-1).body.transient, undefined);
+    assert.ok(f.cards.slice(1).every((r, i) => r.body.card_seq === i + 2));
+    if (scenario !== "transient") assert.deepEqual(diagnostics, []);
+  });
+}
+
+for (const scenario of [
+  "recovered",
+  "file",
+  "stop",
+  "timeout",
+  "token",
+  "space",
+  "bot",
+  "api",
+  "unknown"
+]) {
+  test(`final delivery after reconnect: ${scenario}`, async (t) => {
+    const f = reconnectTransportFixture(t);
+    const owner = new AbortController();
+    let current, inbound;
+    const lifetime = {
+      signal: owner.signal,
+      dispatcher: new ImDeliveryDispatcher(owner.signal),
+      current: () => current
+    };
+    const first = new GatewayTransport(
+      config(process.cwd()),
+      async () => f.token,
+      {
+        onMessage(message) {
+          inbound = message;
+        },
+        onDisconnect() {}
+      },
+      lifetime
+    );
+    current = first;
+    const oldSignal = new AbortController();
+    await first.start(oldSignal.signal);
+    f.connections[0].onMessage(f.message);
+    oldSignal.abort();
+    await first.close();
+    current = undefined;
+    t.after(() => {
+      owner.abort();
+    });
+    let text = "done",
+      options;
+    if (scenario === "file") {
+      const { workspace, policy } = await fixture(t);
+      await writeFile(join(workspace, "game.html"), "html");
+      text = "[Game](game.html)";
+      options = { artifacts: policy, signal: owner.signal, obsolete: () => false };
+    }
+    if (scenario === "timeout") {
+      t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: 0 });
+      t.mock.method(performance, "now", () => Date.now());
+    }
+    const reply = inbound.replyFinal(text, "final:long-task", options).catch((error) => error);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(f.sends.length, 0);
+    if (scenario === "timeout") {
+      t.mock.timers.tick(15000);
+      assert.equal((await reply).code, "IM_CONNECTION_UNAVAILABLE");
+      assert.equal(f.sends.length, 0);
+      return;
+    }
+    if (scenario === "stop") {
+      owner.abort();
+      assert.equal((await reply).code, "IM_DELIVERY_CANCELLED");
+      return;
+    }
+    f.setPrincipal({
+      bot_uid: scenario === "bot" ? "other" : "bot",
+      space_id: scenario === "space" ? "other" : "s"
+    });
+    const nextConfig = {
+      ...config(process.cwd()),
+      ...(scenario === "bot" ? { bot_id: "other" } : {}),
+      ...(scenario === "api" ? { api_url: "https://other.example/api" } : {})
+    };
+    current = new GatewayTransport(
+      nextConfig,
+      async () => (scenario === "token" ? `bf_${randomUUID()}` : f.token),
+      { onMessage() {}, onDisconnect() {} },
+      lifetime
+    );
+    t.after(() => current.close());
+    await current.start(owner.signal);
+    if (scenario === "unknown") {
+      t.mock.method(WukongConnection.prototype, "sendText", async function (...args) {
+        f.sends.push({ connection: this, args });
+        throw new ImSendError("IM_DISCONNECTED", "unknown");
+      });
+    }
+    const result = await reply;
+    if (["token", "space", "bot", "api"].includes(scenario)) {
+      assert.equal(result.code, "IM_CONNECTION_IDENTITY_CHANGED");
+      assert.equal(result.state, "failed");
+      assert.equal(f.sends.length, 0);
+    } else if (scenario === "unknown") {
+      assert.equal(result.state, "unknown");
+      let attempts = 0;
+      const receipt = await new ImDeliveryDispatcher(owner.signal).deliver(
+        "final:unknown",
+        async () => {
+          attempts++;
+          throw result;
+        }
+      );
+      assert.equal(receipt.state, "unknown");
+      assert.equal(attempts, 1);
+      assert.equal(f.sends.length, 1);
+    } else {
+      assert.equal(result, undefined);
+      assert.equal(f.sends.length, 1);
+      assert.equal(f.sends[0].connection, f.connections[1]);
+      if (scenario === "file") {
+        assert.equal(f.files.length, 1);
+        assert.equal(f.files[0].connection, f.connections[1]);
+        assert.equal(
+          current.status.cardDeliveries,
+          1,
+          "file receipt is retained in Bot card statistics"
+        );
+        assert.match(f.sends[0].args[2], /https:\/\/cdn.example.com\/game.html/);
+      }
+    }
+  });
 }
 
 test("HTML games, arbitrary files and mixed images retain exact Markdown while realpaths upload once", async (t) => {

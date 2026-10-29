@@ -1,5 +1,7 @@
 # Octo Runtime 工程知识目录
 
+当前修复：[长任务跨连接恢复后的最终回复](tasks/channel-reconnect-final-delivery/brief.md)、[切网后 REST 进度卡继续更新](tasks/channel-rest-card-lifetime/brief.md)。
+
 当前实现基准为 Git `df63c8f` 与本次工作树。当前合同依据源码核对，历史证据独立记录；不把旧设计或曾经通过的测试当作现有功能。工程说明使用中文。
 
 ## 当前规则
@@ -54,6 +56,8 @@
 根目录按场景分为 [CLI 安装与运维](../docs/zh-CN/getting-started/cli.md)、[SDK 入门](../docs/zh-CN/getting-started/sdk.md) 和 [SDK Channel Gateway 指南](../SDK_CHANNEL_GATEWAY_GUIDE.md)；[INTEGRATION.md](../INTEGRATION.md)仅作选型导航，[DEPLOYMENTS.md](../DEPLOYMENTS.md)说明发行部署。包 README 保留包级用法。
 
 ## 当前任务
+
+- [已确认断线后的立即重连](tasks/channel-immediate-reconnect/brief.md)：用户要求从 onDisconnect 回调起尽快恢复；去掉首次固定 5 秒等待，保留失败退避、限流等待及旧连接回收约束。
 
 - [Issue 234：接续历史保守选择](tasks/234-context-lifecycle/conservative-history-plan.md)：首轮、补位和恢复不明保留自身消息，channel-gateway 只排除明确由接续会话覆盖的具体输出；实现、双轴审查和全局安装完成，不做全面去重，用户已确认真实群聊验收通过。
 

@@ -1,6 +1,6 @@
 /**
  * Octo 出站适配：统一文本、typing 和模板卡片发送，以及服务端能力发现。
- * 持有当前连接的凭据与取消信号，为上层屏蔽 REST/WS 差异，不决定执行或业务流程。
+ * 持有调用方提供的凭据与取消期限；任务 REST 可使用 Bot 期限，不依赖单次 WS 存活。
  */
 import { createHash } from "node:crypto";
 import type { ImAddress, OctoBotConfig } from "../contracts.js";
@@ -16,7 +16,9 @@ export class OctoConnector {
     readonly config: OctoBotConfig,
     readonly token: string,
     readonly signal: AbortSignal,
-    readonly sendWsText: (address: ImAddress, text: string, effectKey: string) => Promise<void>
+    readonly sendWsText: (address: ImAddress, text: string, effectKey: string) => Promise<void>,
+    // 跨 WS 存活的 REST 客户端在每次请求前校验原身份，不把 WS online 当作 HTTP 准入。
+    readonly authorizeRequest?: () => void
   ) {}
   async reasoningTemplate(): Promise<ReasoningTemplate | undefined> {
     if (this.config.cards === false) return;
@@ -31,6 +33,8 @@ export class OctoConnector {
     return template;
   }
   requestSignal(signal?: AbortSignal): AbortSignal {
+    this.signal.throwIfAborted();
+    this.authorizeRequest?.();
     return AbortSignal.any([this.signal, AbortSignal.timeout(3_000), ...(signal ? [signal] : [])]);
   }
   async typing(address: ImAddress, signal: AbortSignal): Promise<void> {
