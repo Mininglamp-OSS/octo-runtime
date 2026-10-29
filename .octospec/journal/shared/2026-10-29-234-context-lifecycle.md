@@ -3,9 +3,11 @@ type: Journal
 title: Issue 234 稳定 Context 周期与动态 actor 分离
 description: Gateway 局部生命周期修复、本地三 Adapter 输入验证及全局安装记录。
 tags: [channel, context, session, testing]
-timestamp: 2026-10-29T16:09:40+08:00
+timestamp: 2026-10-29T16:34:23+08:00
 source: self
 ---
+
+16:34 PR #244远端四个Linux/macOS检查因旧目录覆盖测试空值访问失败，Windows两项成功；已在本地复现并修复已有测试的Schema分支过滤，完整集合相等断言仍保留。用户要求检查其他问题，本地完整WebUI35/35通过，默认Node首次仅剩已知全局octo-cli污染“未安装”断言；用相同Node二进制独占目录重跑完整2381项，2290通过、91原条件跳过、0失败。Context联合260、专项68、Go/Python各434协议fixture，以及类型/lint/命名/格式/docs/native漂移检查通过。产品代码和CI范围未变，用户真实群聊验收状态保持；详见[验证记录](../../tasks/234-context-lifecycle/validation.md)。
 
 16:09 用户授权提交 PR，并明确确认“真实群聊效果我已经真实验收了”。当前实际群聊验收记为通过，由用户吕思佳执行；已安装产物仍为15:59构建，未因文档更新重装。逐场景日志和原生版本未补充，不扩大为全Provider/压缩矩阵实测。目录、brief/design和validation同步验收状态；提交前lint、命名、格式与native生成漂移检查通过，CI范围不变。原配置和在线服务不作额外改动。
 

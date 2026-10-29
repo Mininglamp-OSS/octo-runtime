@@ -3,8 +3,18 @@ type: Validation
 title: Issue 234 本地验证与全局安装
 description: 已完成实现、构建、专项和真实只读接口验证；用户确认真实群聊验收通过。
 tags: [channel, context, testing]
-timestamp: 2026-10-29T16:09:40+08:00
+timestamp: 2026-10-29T16:34:23+08:00
 ---
+
+# PR 244 CI 修复与完整本地回归
+
+16:34 用户报告PR #244失败并要求完整本地测试。远端运行 `40840478427` 在四个Linux/macOS Node24/26任务中均只有 `test/context-configuration-protocol.test.js:55` 失败，构建、类型、文档通过，两个Windows发行验证成功。根因是本任务为 `data_format` 新增了仅含 `if.required` 的Schema条件，旧目录覆盖测试直接访问 `branch.if.properties.name`，漏同步该消费者导致TypeError；不是该日志证明的Agent执行失败。修复只将已有测试过滤改为 `branch.if?.properties?.name`，保留完整目录与Schema名称集合相等断言，不改产品代码、Schema、生成产物或测试数量。
+
+本地在原提交 `c87d02f4feb2` 加本次测试修复的工作树复现红灯（27/28），修复后Context配置/协议联合260/260通过。继续执行完整 `pnpm test:suites`：WebUI35/35通过，Node共2381项、2289通过、91跳过、仅“缺失octo-cli”断言因当前Node目录确有全局CLI而失败。该本机基线问题此前已有独立复现，不修改该测试或全局安装。
+
+为按同一测试集合验证缺失安装场景，将当前Node v24.19.0原样复制到独占临时目录（SHA-256一致），用 `/tmp/octo-244-node-b3bLE7/node --test test/*.test.js packages/octo-runtime-protocol/test/*.test.js` 完整重跑：**2381项、2290通过、91按既有条件跳过、0失败**。没有名称筛选、跳过开关或默认测试范围调整；仅使 `dirname(process.execPath)` 不再含本机全局octo-cli。专项五文件另跑68/68通过；Go/Python协议各434 fixture通过，证据 `/tmp/octo-244-native-protocol-evidence.json`。
+
+`tsc --noEmit`、lint、lint:names、format:check、native:check、docs:check（4/4执行示例）及diff检查通过。日志 `/tmp/octo-244-ci-fix-{full-tests,isolated-full-tests,manual-tests,native,format,names}.log`。`.github`、scripts、package.json和锁文件相对main无变化，不扩大CI。不改已验收产品行为，也不重装或重启在线服务；此前用户真实群聊验收继续有效。托管CI以推送后的新运行结果为准。
 
 # 真实群聊验收与 PR 授权
 

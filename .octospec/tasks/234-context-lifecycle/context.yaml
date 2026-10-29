@@ -2,6 +2,7 @@ rules_read:
   - ../../rules/_index.yaml
   - ../../rules/architecture.md
   - ../../rules/protocol-design.md
+  - ../../rules/protocol-schema.md
   - ../../rules/channel-integration.md
   - ../../rules/context-input.md
   - ../../rules/context-extensions.md
