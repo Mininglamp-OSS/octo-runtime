@@ -27,3 +27,13 @@ pack-release 在产出 tgz 后仍因 npm 12 JSON 返回形状报错。独立核�
 构建时间 2026-10-29T17:40:42.647Z（北京时间 01:40:42），来源 8b239e47231d dirty。Kernel PID 26102、Worker PID 26106 ready，Gateway PID 26735；6 个 Bot 全部 online/error=null，kernel_available=true。已安装 JS 和 build-info 与审查后构建逐字节一致。没有代发消息或主动切网；真实切网复测仍由用户执行。
 
 结论：Standards 1 项 P2 已修复，Spec 1 项 P2 已修复；两个方向最终剩余均为 0。
+
+## 提交 PR 前同步最新 main
+
+用户随后授权提交 PR 到 main，并要求先 rebase 最新 main。创建 fix/channel-network-recovery 分支，抓取并 rebase 到 4e607dc0f8bac1a63422f9e03a8b46017841a5ac（#247），保留配置的 Git 作者以及英文提交和 Codex trailer。
+
+Git 无文本冲突，但上游连接 close 新增无条件 CardSession.release，导致真实重连后的卡片更新失效；初次集成回归 7 项失败确认语义冲突。调整为正常重连仅清理按钮映射，活跃 REST 卡由原任务 finish 释放；任务已结束、没有 Bot owner 或 Bot 已停止时继续采用连接回收兜底。回归额外断言重连不 release 活跃卡，任务结束只 release 一次。
+
+最终全量 build、根 TypeScript noEmit、lint、lint:names、全仓 format:check 通过；最后新增断言用 Prettier 格式化，git diff --check 通过。渠道相关测试 `test/im-*.test.js test/channel-*.test.js test/gateway-*.test.js`（并发 2）513/513 通过；上游四个 projection-window 手动专项（含显式 GC）41/41 通过。未将专项加入默认 CI，目标分支相对 workflow、脚本和入口配置无差异。
+
+本地服务仍运行此前已安装版本；此次 rebase 后版本通过上述离线集成验证，未重新部署或代发真实消息。不将此前用户切网观察当作 rebase 后版本的线上验收。

@@ -20,6 +20,7 @@ import { waitFor } from "./runtime-fixture.js";
 import { ImSendError } from "../packages/octo-runtime-extra-channel-gateway/dist/delivery/text-send.js";
 import { ImDeliveryDispatcher } from "../packages/octo-runtime-extra-channel-gateway/dist/delivery/dispatcher.js";
 import { ImRunProjector } from "../packages/octo-runtime-extra-channel-gateway/dist/presentation/run-projector.js";
+import { CardSession } from "../packages/octo-runtime-extra-channel-gateway/dist/transport/card-session.js";
 
 const prepareArtifacts = async (...args) => (await prepareArtifactReply(...args)).text;
 
@@ -172,6 +173,7 @@ function reconnectTransportFixture(t) {
 
 test("long task invokes once, completes its original REST card and sends final after WS recovery", async (t) => {
   const f = reconnectTransportFixture(t);
+  const releaseCard = t.mock.method(CardSession.prototype, "release");
   const originalStart = GatewayTransport.prototype.start;
   t.mock.method(GatewayTransport.prototype, "start", async function (signal) {
     const receive = this.callbacks.onMessage;
@@ -219,6 +221,7 @@ test("long task invokes once, completes its original REST card and sends final a
   await waitFor(() => f.cards.length === 1);
   f.connections[0].onDisconnect(new Error("IM_DISCONNECTED"));
   await waitFor(() => f.connections.length === 2 && runtime.status.state === "online");
+  assert.equal(releaseCard.mock.callCount(), 0, "reconnection must preserve the running REST card");
   release();
   await waitFor(() => runtime.status.workingTasks === 0);
   assert.equal(invokes, 1);
@@ -230,6 +233,11 @@ test("long task invokes once, completes its original REST card and sends final a
   assert.equal(f.cards.at(-1).body.message_id, "progress-card");
   assert.equal(f.cards.at(-1).body.state, "completed");
   assert.equal(f.cards.at(-1).body.transient, undefined);
+  assert.equal(
+    releaseCard.mock.callCount(),
+    1,
+    "task finalization releases the original card once"
+  );
   assert.equal(
     runtime.status.cardDeliveries,
     f.cards.length,

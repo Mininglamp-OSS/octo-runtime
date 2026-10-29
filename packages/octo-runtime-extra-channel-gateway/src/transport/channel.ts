@@ -725,7 +725,11 @@ export class GatewayTransport {
       const errors = results
         .filter((result) => result.status === "rejected")
         .map((result): unknown => result.reason);
-      for (const binding of this.#bindings.values()) binding.card.release();
+      // WS 重连只移除按钮关联；仍在运行的 REST 卡片由任务 finish 负责释放。
+      // 没有 Bot 所有者、Bot 已停止或任务已结束时，保留连接清理的兜底回收。
+      for (const binding of this.#bindings.values())
+        if (!binding.active || !this.deliveryOwner || this.deliveryOwner.signal.aborted)
+          binding.card.release();
       this.#bindings.clear();
       if (errors.length) throw new AggregateError(errors, "IM_TRANSPORT_DISPOSE_FAILED");
     });
