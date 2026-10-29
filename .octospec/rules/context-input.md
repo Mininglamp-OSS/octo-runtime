@@ -41,6 +41,10 @@ supersedes: []
 
 data 仅在既有 payload 序列化结果外增加 CDATA，不解析内部文本或按 JSON/XML/YAML 再次改写。既有 payload 对象合同、递归排序和 JSON 序列化保持；序列化文本中的 `]]>` 拆成相邻 CDATA 区段 `]]]]><![CDATA[>`，连接区段正文后与原序列化文本一致。这是面向模型的文本分隔，原始 Markdown 不保证严格 XML 可解析，CDATA 也不赋予或强制执行权限。
 
+例外是调用方显式选择的 `data_format: "text"`：仅允许 `extra.*` 项，payload 必须且只能包含字符串 `text`，CDATA 无损输出该文本。未选择格式的项仍完整输出 JSON；不按业务名称或含有 `text` 的形状自动投影。群/话题规则的内部元数据由 ChannelGateway 在进入公共执行快照前分离，Core 不识别其业务名称。
+
+Core 组合 Context 与调用输入时，在块结束后加入前后各空一行的 `<!-- Query Input -->`；普通、多模态和显式 fresh fallback 输入采用同一分隔。没有模型可见 Context 时保持输入原样。该注释不改变执行权限，业务输入部分保留原文与图片顺序。
+
 完整格式示例（namespace/name 来自调用方；payload 递归排序对象键，数组保序）：
 
 ```text
@@ -84,7 +88,7 @@ renderer 只匹配 namespace/name 的白名单 pattern，保序输出全部数�
 
 ## Resume 与本轮上下文
 
-2026-10-19 用户明确：ChannelGateway作为业务Event发起方，在模型前固定调用API准备规则及有界历史，并构造本轮快照；这不是模型按需调用octo-cli的工具流程。Issue #32的群/话题历史固定补取最多最近15条，不依赖模型关键词或工具选择。该准备只在业务入口实现，不下沉到Host、Adapter或renderer，也不扩大为附件/文档通用预下载。
+2026-10-19 用户明确：ChannelGateway作为业务Event发起方，在模型前固定调用API准备规则及有界历史，并构造本轮快照；这不是模型按需调用octo-cli的工具流程。群/话题历史固定补取最多最近20条，完整序列化 messages 数组最多8000 Unicode码点，身份、时间、结构及JSON转义均计入；冷启动与缺口共用本轮一次读取，不依赖模型关键词或工具选择。主历史与恢复补充共用该预算，正常接续自身输出的保守选择和同次fresh fallback恢复均由Gateway完成，见[架构约束](architecture.md#channel-context-生命周期与历史预算)。该准备只在业务入口实现，不下沉到Host、Adapter或renderer，也不扩大为附件/文档通用预下载。
 
 **MUST**：发起方决定每轮模型上下文的内容、顺序和发送时机。selection、项目背景、任务状态、引用及 extra 均由业务方选择；即使页面存在选区或状态发生变化，框架也不要求发送。业务方可以首次提供必要背景、续聊无变化时传空、有变化时只发本轮需要的项，也可以显式重复。必要的 adapter 等执行配置仍按执行合同和 defaults/mandatory 规则校验，不进入 LLM 上下文块，不使业务项变成必填。
 
