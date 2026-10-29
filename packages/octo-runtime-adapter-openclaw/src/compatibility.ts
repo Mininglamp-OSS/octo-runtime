@@ -28,11 +28,16 @@ const SESSION_PERMISSION_RELEASES = [
   "2026.9.8",
   "2026.9.9",
   "2026.9.33",
+  "2026.9.34",
+  "2026.9.35",
   "2026.10.1",
   "2026.10.2",
   "2026.10.3",
   "2026.10.4",
-  "2026.10.5"
+  "2026.10.5",
+  "2026.10.6",
+  "2026.10.7",
+  "2026.10.8"
 ];
 const RELEASES = new Map([
   ...LEGACY_RELEASES.map((version) => [version, "legacy"] as const),
