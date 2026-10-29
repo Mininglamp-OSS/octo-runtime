@@ -78,3 +78,17 @@ CI 范围约束：没有修改 workflow/job/matrix/trigger/gate，也没有默�
 通过手动入口 `verify-provider-live.mjs <provider> 'qa224:dm_中文-1'` 重验三家 Provider：OpenClaw 2026.9.4、Codex 0.164.0、CC 2.1.306 各三轮同句柄、后两轮记忆 2/2，同名 fresh 独立句柄；OpenClaw 缺失 key 仍明确失败且不派发 agent。首轮句柄分别为 `agent:main:qa224%3adm_%e4%b8%ad%e6%96%87-1-c37a32fc-455e-48f9-9c29-3acd81afc18d`、`01a1837b-e865-76f3-9673-be66d829f8e5`、`f48d54a3-1ed2-4a22-b8e3-1608c3b83718`。不操作已有用户会话、不发送 IM；本次未额外检查 CC 持久化标题，不能把前轮标题检查算成当前名称的证据。真实 IM 和通用 ACP 验收限制不变。
 
 旧 head 的远端检查列表已核对：六个平台/Node 组合中的五项通过，Ubuntu Node 26 构建运行 30 分钟后取消，CI Gate 因此失败；日志未报告名称校验错误，不能据此认定超时由 sessionName 导致。提交前相对目标基线 `.github`、`package.json`、锁文件无 diff；保留原有 CI 范围。
+
+# 2026-10-29：同步 main 与关闭延迟首次出现的审批缺口
+
+用户要求更新 main、处理冲突，并询问 Jerry-Xin 与 yujiawei 同时提出的 delayed first-seen runless P1 如何修复。先快进保留远端已有 `45041cf`，再合入 `origin/main@1dd5a09` 为 `fa42979`。冲突在 `.octospec/log.md` 与 Gateway 文件顶部：同时保留双方日志、名称生成函数以及 main 的准备期安全错误映射，没有重置外部提交。构建/类型通过；渠道/存储/准备错误/Retry-After 手动相关回归 193/193 通过。
+
+两条最新评审均针对同一真实问题：旧审批直到本轮 agent 派发后才首次出现，且没有 runId；上一节的前置快照/旧 ID 过滤无法识别它。此前仅将其写成剩余歧义不足以满足授权边界，本节修复取代上一节“本轮新无 runId 实时审批仍可处理”的无条件说法。回归先在旧实现出现 3 项失败，均将 `interaction.requested` 暴露为本轮事件，而预期为 `run.failed`。
+
+当前决定不再根据时间、snapshot 完整性、toolCallId 猜测归属：续聊派发后首次出现的无 runId 审批在进入队列/交互桥前失败，报告 `OPENCLAW_APPROVAL_RUN_UNVERIFIED` 并沿既有路径请求取消当前 Run；不回复该审批，不切 full_access，不新建 session。ask/full_access 均受此检查。派发前已知旧 ID 及其重播仍忽略；匹配本轮 runId 的审批照常处理；fresh 独立随机 session 仍支持无 runId。取消仅断言发出 `sessions.abort`，不以此声称 Provider 已确认终止。
+
+兼容代价已向用户明确：若原生 Gateway 对合法当前审批也不提供 runId，该续聊审批路径同样失败。普通不触发此类审批的续聊仍复用原句柄。真正兼容这类原生版本需要其提供可靠的逐轮关联；不能以自动放行、换 session 或客户端时钟阈值掩盖缺失信息。
+
+新增/调整审批回归覆盖迟到旧审批在 ask/full_access 下不发布交互、不发送 resolve、一次请求取消；合法当前无 runId 也明确失败；fresh 无 runId 保留；续聊匹配 runId 的人工/自动审批正常。审批 12/12 通过，两位独立审查者分别重跑 12/12 且无新高置信度问题。既有 OpenClaw 合同及连接专项 159/159 通过（增加最后一项 full_access 正例之前的运行）。全量 WebUI 35/35；Node 2381 项中 2290 通过、91 跳过、0 失败。lint、格式、docs、native 生成检查与 diff 检查通过。
+
+知识库全仓 lint 因 main 已有的三份 Issue 137 文件缺 YAML frontmatter 失败：`tasks/137-adapter-protocol-support/brief.md`、`review.md`、`journal/shared/2026-10-29-137-adapter-protocol-support.md`。这些文件相对 origin/main 无差异；本轮不改其他任务的文档元数据，不把此项记录为通过。未重新执行真实人工审批或扩大其他真实验收结论，IM/ACP 限制维持。相对最新 main，workflow、package 脚本和锁文件无 diff，专项继续只在本地显式执行。

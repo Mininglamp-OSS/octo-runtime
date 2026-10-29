@@ -63,6 +63,8 @@ Channel Gateway generates `octo-dm-{uid}-{uuid}`, `octo-group-{groupId}-{uuid}`,
 
 Native naming was checked with Codex 0.164.0, Claude Code 2.1.306 and OpenClaw 2026.9.4. OpenClaw request projections also cover its existing 27 verified release contracts; that is source-level coverage, not live testing of every release. See the [task validation](../../../.octospec/tasks/224-session-names/validation.md).
 
+During OpenClaw continuation, approvals must identify the current native run. Previously observed runless approvals are ignored. A first-seen approval without `runId` after dispatch fails with `OPENCLAW_APPROVAL_RUN_UNVERIFIED` and requests cancellation of the current run without answering the approval, changing permissions, or creating another session. This applies to both `ask` and `full_access`: a shared session key alone cannot prove turn ownership. Gateway versions omitting `runId` on legitimate approvals cannot complete that continuation approval path. Fresh sessions with independently random keys retain runless approval support; ordinary turns without such approvals still reuse the same session. A cancellation request alone does not confirm that the Provider has stopped.
+
 ## Prepare Context for the Next Turn
 
 Your application decides whether the next turn needs all background, changed material only, or no background. Runtime does not restore omitted items from a session or content hash.

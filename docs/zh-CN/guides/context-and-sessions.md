@@ -63,6 +63,8 @@ Channel Gateway 生成 `octo-dm-{uid}-{uuid}`、`octo-group-{groupId}-{uuid}` �
 
 真实命名验收版本为 Codex 0.164.0、Claude Code 2.1.306、OpenClaw 2026.9.4；OpenClaw 另覆盖既有 27 个固定版本的请求源码投影，不等于全部版本真实验收，见[验证记录](../../../.octospec/tasks/224-session-names/validation.md)。
 
+OpenClaw 续聊的审批必须标明当前原生 run。已知旧无 runId 审批会被忽略；派发后首次出现的无 `runId` 审批无法仅凭共享 sessionKey 证明归属，会以 `OPENCLAW_APPROVAL_RUN_UNVERIFIED` 明确失败并请求取消本轮，不回答审批、不改变权限、不另建 session。`ask`、`full_access` 均执行该检查；若 Gateway 连合法本轮审批也不提供 runId，该续聊审批路径同样不能完成。新建独立随机 key 的 session 仍支持无 runId 审批，普通不触发此类审批的续聊继续复用同一 session。发出取消请求不等于 Provider 已确认停止。
+
 ## 为下一轮准备 Context
 
 应用自行决定下一轮发送全部背景、仅发送变化内容，还是不发送背景。Runtime 不会根据 session 或内容 hash 补回省略项。

@@ -134,4 +134,4 @@ octo-runtime --home /path/to/runtime --profile work adapter probe openclaw
 
 每轮仍独立生成 run/idempotency key，通过 `sessions.messages.subscribe` 取流、`agent.wait` 确认终态、`sessions.abort` 取消，不能因共享 session 而接受前一轮广播。连接验证、执行完成和渠道投递分别判断；`deliver: false` 的本地验证不证明 IM 发消息成功。27 版本新增请求投影与 9.4 真实续接见 [Issue 224](../tasks/224-session-names/validation.md)。
 
-审批没有 runId 时，agent 派发前收到的同 session 广播及 pending 快照属于旧轮次，忽略并有界记住其审批 ID，防止派发后重播重新路由。本轮派发后的新无 runId 实时审批仍可处理；带 runId 的审批继续校验本轮请求身份。
+审批没有 runId 时，agent 派发前收到的同 session 广播及 pending 快照属于旧轮次，忽略并有界记住其审批 ID，防止派发后重播重新路由。续聊派发后首次出现的无 runId 审批不能仅凭 sessionKey 或到达时间证明归属：以 `OPENCLAW_APPROVAL_RUN_UNVERIFIED` 明确失败、请求取消本轮，不发布交互、不调用原生 approval.resolve，不自动提升权限或新建 session；ask 和 full_access 均受此关联检查。若原生版本对合法本轮审批同样不提供 runId，该版本的该续聊审批路径也明确失败。新建独立随机 key 的 session 可接纳派发后无 runId 审批；带 runId 的审批始终严格匹配本轮请求身份。取消使用既有 sessions.abort 清理路径，发出请求不等于 Provider 已确认终止。

@@ -58,3 +58,17 @@ Standards：0 项；Spec：1 项已修复，当前 0 项待处理。
 独立复核名称/渠道回归 19/19、审批回归 7/7；新用例真实经过 Core 输入准备，覆盖长地址、中文、旧坏名及 `/new`。未新增命名 registry 或其他调用方策略。真实 IM、通用 ACP 尚未验收，不能用离线回归替代。
 
 Standards：1 项 P1 已修复，0 项待处理；Spec：1 项 P1 已修复，0 项待处理。验证范围及原生关联字段限制见[验证记录](validation.md)。
+
+# 延迟首次出现的无 runId 审批：后续纠正与复审
+
+Jerry-Xin 与 yujiawei 针对远端 head `45041cf` 提出了同一 P1：未知旧无 runId 审批可在派发后首次出现，前一轮复审把该授权缺口作为剩余限制保留，结论不充分。先合入 main 至 `fa42979`，再以该已确认有效的 HEAD 为固定点审查 `git diff HEAD` 的修复；完整 PR 基线更新为 `1dd5a09`。用户已知晓合法当前无 runId 续聊审批也会失败的兼容代价。
+
+## Standards
+
+延迟首次出现问题已关闭，无新的高置信度缺陷。未知归属审批在进入交互桥前使队列失败并请求取消，ask/full_access 均不能批准；队列立即清积压，错误不会被后续成功终态覆盖。匹配 runId 与 fresh 独立会话仍正常。独立审批 12/12 通过，CI 范围未扩大。sessions.abort 发出不代表原生终止已确认。
+
+## Spec
+
+0 项待处理。修复不根据 sessionKey、到达时间或不完整 pending snapshot 认定当前轮次，不发送 resolve、不 fresh、不改变权限。已知旧 ID 继续过滤；续聊必须由 Provider 给出匹配 runId，无法证明即明确失败；普通续聊仍复用原生 session。独立审批 12/12 通过。文档明确了合法但缺 runId 的续聊审批不再支持；真实 IM、ACP 和旧 Gateway 审批未全面验收。
+
+Standards：原 P1 已关闭，0 项待处理；Spec：0 项待处理。当前安全规则取代前文保留歧义的旧结论，证据与兼容边界见[验证记录](validation.md)。

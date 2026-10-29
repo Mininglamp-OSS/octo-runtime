@@ -8,7 +8,9 @@ function fixture({
   ttl = 60000,
   snapshot = false,
   resume = false,
-  runless = false
+  runless = false,
+  delayedRunless = false,
+  approvalMode = "ask"
 } = {}) {
   let listener, finish, session, runId;
   if (resume) session = "agent:main:existing-session";
@@ -59,12 +61,12 @@ function fixture({
       if (method === "agents.list") return { agents: [{ id: "main" }] };
       if (method === "sessions.create") {
         session = params.key;
-        assert.equal(params.permissionMode, "guarded");
+        assert.equal(params.permissionMode, approvalMode === "ask" ? "guarded" : "full");
         return { key: session };
       }
       if (method === "sessions.describe") return { session: { key: session, agentId: "main" } };
       if (method === "sessions.patch")
-        return { ok: true, key: session, entry: { permissionMode: "guarded" } };
+        return { ok: true, key: session, entry: { permissionMode: params.permissionMode } };
       if (method === "sessions.messages.subscribe" && snapshot)
         listener({
           event: "exec.approval.requested",
@@ -108,6 +110,15 @@ function fixture({
               ...event,
               payload: { ...event.payload, id, request: { ...event.payload.request, runId: null } }
             });
+        if (delayedRunless)
+          listener({
+            ...event,
+            payload: {
+              ...event.payload,
+              id: "delayed-previous-turn",
+              request: { ...event.payload.request, runId: null, toolCallId: "previous-tool" }
+            }
+          });
         listener({
           ...event,
           payload: {
@@ -146,7 +157,7 @@ function fixture({
     prompt: "test",
     controlInstructions: "",
     context: { schema: "octo.context-envelope/v3", items: [] },
-    approvalMode: "ask",
+    approvalMode,
     agentSource: "preset",
     workdir: "",
     agentConfig: {
@@ -180,17 +191,17 @@ function fixture({
     events,
     running,
     until,
-    finish: () => finish(),
+    finish: () => finish?.(),
     resolveExternally: (decision) =>
       listener({ event: "exec.approval.resolved", payload: { id: "native-1", decision } })
   };
 }
 
 test(
-  "OpenClaw resume ignores old runless approvals but routes a new runless live request",
+  "OpenClaw resume ignores known old runless approvals and routes a matching current run",
   { timeout: 3000 },
   async () => {
-    const f = fixture({ snapshot: true, resume: true, runless: true });
+    const f = fixture({ snapshot: true, resume: true });
     try {
       const event = await f.until("interaction.requested");
       assert.equal(event.payload.request.providerDetails.approvalId, "native-1");
@@ -206,6 +217,94 @@ test(
     }
     assert.equal(f.events.at(-1).type, "run.completed");
     assert.equal(f.events.filter((event) => event.type === "interaction.requested").length, 1);
+    assert.deepEqual(
+      f.calls.filter((call) => call.method === "exec.approval.resolve"),
+      [{ method: "exec.approval.resolve", params: { id: "native-1", decision: "allow-once" } }]
+    );
+  }
+);
+
+for (const approvalMode of ["ask", "full_access"])
+  test(
+    `OpenClaw ${approvalMode} resume rejects a first-seen delayed runless approval without answering it`,
+    { timeout: 3000 },
+    async () => {
+      const f = fixture({ snapshot: true, resume: true, delayedRunless: true, approvalMode });
+      try {
+        const first = await Promise.race([f.until("run.failed"), f.until("interaction.requested")]);
+        assert.equal(first.type, "run.failed");
+      } finally {
+        f.finish();
+        await f.running.catch(() => {});
+      }
+      assert.match(f.events.at(-1).payload.message, /OPENCLAW_APPROVAL_RUN_UNVERIFIED/);
+      assert.equal(
+        f.events.some((event) => event.type === "interaction.requested"),
+        false
+      );
+      assert.equal(
+        f.calls.some((call) => call.method === "exec.approval.resolve"),
+        false
+      );
+      assert.equal(f.calls.filter((call) => call.method === "sessions.abort").length, 1);
+    }
+  );
+
+test(
+  "OpenClaw resume fails explicitly for a current approval without a run ID",
+  { timeout: 3000 },
+  async () => {
+    const f = fixture({ resume: true, runless: true });
+    try {
+      const first = await Promise.race([f.until("run.failed"), f.until("interaction.requested")]);
+      assert.equal(first.type, "run.failed");
+    } finally {
+      f.finish();
+      await f.running.catch(() => {});
+    }
+    assert.match(f.events.at(-1).payload.message, /OPENCLAW_APPROVAL_RUN_UNVERIFIED/);
+    assert.equal(
+      f.events.some((event) => event.type === "interaction.requested"),
+      false
+    );
+    assert.equal(
+      f.calls.some((call) => call.method === "exec.approval.resolve"),
+      false
+    );
+  }
+);
+
+test(
+  "OpenClaw fresh isolated sessions still route current runless approvals",
+  { timeout: 3000 },
+  async () => {
+    const f = fixture({ runless: true });
+    const event = await f.until("interaction.requested");
+    await f.adapter.respondInteraction("i", {
+      interactionId: event.payload.interactionId,
+      outcome: "accepted",
+      value: { optionId: "allow-once" }
+    });
+    await f.until("interaction.resolved");
+    f.finish();
+    await f.running;
+    assert.equal(f.events.at(-1).type, "run.completed");
+    assert.deepEqual(
+      f.calls.filter((call) => call.method === "exec.approval.resolve"),
+      [{ method: "exec.approval.resolve", params: { id: "native-1", decision: "allow-once" } }]
+    );
+  }
+);
+
+test(
+  "OpenClaw full access resume still resolves a matching current-run approval",
+  { timeout: 3000 },
+  async () => {
+    const f = fixture({ resume: true, approvalMode: "full_access" });
+    await f.until("interaction.resolved");
+    f.finish();
+    await f.running;
+    assert.equal(f.events.at(-1).type, "run.completed");
     assert.deepEqual(
       f.calls.filter((call) => call.method === "exec.approval.resolve"),
       [{ method: "exec.approval.resolve", params: { id: "native-1", decision: "allow-once" } }]

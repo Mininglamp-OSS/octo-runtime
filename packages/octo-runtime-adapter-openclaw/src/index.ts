@@ -694,6 +694,15 @@ async function* invokeOpenClawGateway(
         staleApprovals.add(id);
         return;
       }
+      // 共享旧 session 时，到达时间不能证明轮次；无 runId 则停止本轮，不回答未知归属的审批。
+      if (!request.runId && req.providerSession?.sessionId) {
+        queue.fail(
+          new Error(
+            "OPENCLAW_APPROVAL_RUN_UNVERIFIED: resumed session approval has no runId; turn ownership cannot be verified"
+          )
+        );
+        return;
+      }
       routedApprovals.add(id);
     } else if (event.event === "exec.approval.resolved") {
       const id = nonEmptyString(payload?.id);

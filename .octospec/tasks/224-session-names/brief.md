@@ -18,7 +18,7 @@ tags: [session, reset, protocol, adapter, openclaw, channel, testing]
 - Gateway 在业务 session 首次分配时确定并保存名称；私聊 `octo-dm-{uid}-{uuid}`，群 `octo-group-{groupId}-{uuid}`，话题 `octo-group-{groupId}-topic-{topicId}-{uuid}`。展示地址片段各最多 80 个码点、替换控制字符，避免 opaque 地址使名称超限；不改业务地址及 scoped binding。同代次队列、重试、闲置调度回收保持名称；reset/new 延迟换新，旧 session 缺失或非法名称由调用方补正，不能换业务 session、代次或 Provider binding。其他调用方保留自定义输入，不引入 WeCom/WebUI 业务代码。
 - OpenClaw fresh 构造可读 key，附独立随机后缀避免相同显示名称合并。续聊仅使用返回的原生 key，检查目标 Agent 与 key 归属。先只读 sessions.describe 验证存在，再按版本 patch 本轮权限并确认，订阅已有 key，然后发唯一 agent 请求。不复用 runId/idempotencyKey；保留事件、审批及取消对账过滤。
 - 缺失会话或未知 RPC 故障明确失败，不新建/重发，不实现自动 fresh fallback。旧 `resumable:false` 的真实 key 仍可显式请求恢复；新回执诚实发布 resumed/new 和 resumable:true。系统指令仅在实际 fresh 时发送。
-- 共享 OpenClaw session 不共享逐轮审批：派发前发现的旧无 runId 审批不路由到本轮，其 ID 有界保留以过滤重播；本轮派发后新到达的无 runId 审批照常处理。
+- 共享 OpenClaw session 不共享逐轮审批：派发前发现的旧无 runId 审批不路由到本轮，其 ID 有界保留以过滤重播。续聊派发后首次出现的无 runId 审批缺少可验证关联，明确失败并请求取消本轮、不发布交互或回答审批，ask/full_access 一致，不根据本地时间猜归属、不升级权限或重建 session。新建隔离 session 仍支持无 runId 审批；续聊须由 Provider 提供匹配本轮的 runId，缺失时即使是合法当前审批也明确失败。
 - Codex 在新 thread 创建后、首个 turn 前使用 thread/name/set；成功 resume 不重命名；恢复失败后新 thread 同样命名。CC 只在创建时传 --name，不改变 --resume。通用 ACP 缺少标准 setter，保留 session/load/new，名称未应用通过现有 provider_diagnostic notice 与能力记录说明，不伪造原生标题成功；不添加 Runtime capabilities registry。
 - 不扩充持久化、历史窗口、聊天正文、工作目录或授权语义；显示名称不替代当前 scoped binding，不成为恢复凭据。
 
