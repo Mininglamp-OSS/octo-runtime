@@ -13,7 +13,7 @@ Spec 来源为 [Issue 245](https://github.com/Mininglamp-OSS/octo-runtime/issues
 
 ## Standards
 
-最终核心审查未发现代码规则违反或值得单列的 smell。过程 commentary、单一 final、7.1 元数据优先、延迟工具/flush 去重和固定准入表均留在 OpenClaw Adapter。既有 message-segments 只维护原有断言，新增验证均在手动目录，默认 fixtures、测试入口和 GitHub CI 未扩大。
+初版核心审查未发现当时规则违反或值得单列的 smell。过程 commentary、单一 final、7.1 元数据优先、延迟工具/flush 去重均留在 OpenClaw Adapter。当时依既有规则保留的固定准入表已在用户指出其可用性问题后移除，见下文 stage 设计复审。既有 message-segments 只维护原有断言，新增验证均在手动目录，默认 fixtures、测试入口和 GitHub CI 未扩大。
 
 复审发现 1 项文档同步问题：规则仍写支持到 10.5、共 27 个标签；已修正为 10.8、共 32 个，并链接本次固定合同证据。validation 和 review 已补齐最终正文合同、最新验证结果和未验边界。
 
@@ -40,3 +40,11 @@ Spec 独立复审：缺失/部分实现、需求外范围、错误实现均为 0
 ## PR 248 CI 修复增量复审
 
 固定点为已发布 head `d8d3e32390b2ff14997d728cfb68e6c0e3ca50bd`，审查 `git diff HEAD -- test/adapters.test.js`。Standards 与 Spec 分别只读审查两条既有 final 断言：维护单条 `message.update` 与精确正文，保留原有隔离、工具、usage 和终态断言。Standards 建议同时捕获多余 final delta，已采纳为检查全部 final 通道事件的类型及正文数组，复审后两轴剩余发现均为 0。完整既有套件通过，详情见 validation；未增加测试项或 CI 范围。
+
+## 第三方 stage 设计复审
+
+固定点 `ce62c33062423c93e0c213dd46c0a2a845e4c608`，两轴并行审查原生产名单与 `git diff ce62c330 --`。用户的新约束覆盖旧版本准入约定，不将过去遵循旧规则倒算为违规。
+
+Standards：原名单造成兼容升级/独立版本号连接整体不可用，技术严重度 P1，按用户 P0 优先交付。删除名单及最低/格式门槛，仅保留实际协议/能力/权限校验和字段 stage；不承诺任意 fork 全部字段兼容。指出草稿曾把新增专项输入放进默认用例，已收回为只维护原有输入预期，新输入全部在 manual。Spec：确认原设计可复现阻断，修正后的 legacy/current stage 与尝试执行合同一致；指出历史 validation/review 中仍称拒绝未知版本，已改为历史证据并补齐当前策略。两轴指出的初稿残余最低/格式门槛均已移除。真实 7.1/8.1/10.8 新建与续聊结果见 validation，不冒充 LobsterAI 实测。
+
+最终再次独立复审生产、默认用例收窄及新增验证证据，两轴剩余可操作发现均为 0。完整套件通过后，仅默认输入收窄和显式构造缺失版本 hello 有后续变动，已复跑兼容性文件全部 142 项通过；Prettier、diff 检查通过。CI 与 GitHub 正式票数仍须针对推送后的当前 head 单独确认。

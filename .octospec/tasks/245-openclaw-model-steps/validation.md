@@ -48,7 +48,7 @@ uv run --no-project --with pyyaml python .octospec/scripts/lint.py
 
 ## 固定版本核验
 
-按 npm 正式版本列表补齐 9.34、9.35、10.6、10.7、10.8；7.1 到当前最新 10.8 共 31 个正式标签均有固定准入，另外保留既有 6.11。未知版本、beta/fork 继续拒绝。
+初版按 npm 正式版本列表核验 9.34、9.35、10.6、10.7、10.8；7.1 到 10.8 共 31 个正式标签，以及既有 6.11，作为固定源码与回放样本。最初的精确准入及未知版本拒绝设计已被用户后续要求覆盖，当前不以这些样本作为版本准入名单，见下文 stage 修正。
 
 新增版本的上游 commit、六份源文件 SHA256、请求字段 AST 与 required 字段比较方法见 [固定合同证据](compatibility-evidence.json)。10.6/7/8 的六份源文件与 10.5 完全一致；9.34/35 的实际发送 request/resume 字段及 required 列表也相同，因此复用既有 schema 进行手动严格校验。未把新标签加入默认 fixtures，未增加默认测试项。
 
@@ -109,3 +109,17 @@ uv run --no-project --with pyyaml python .octospec/scripts/lint.py
 - 首次本地完整运行只剩既有缺失安装测试失败：fixture 将 `dirname(process.execPath)` 放入 PATH，本机 Node 同目录存在全局 octo-cli，导致预期 ENOENT 未出现。使用 SHA256 一致的 Node 可执行文件临时副本置于独立目录，保持其余 PATH 和完整套件命令，再跑全部用例通过；未更改全局安装，临时副本已删除。
 - 目标文件 Prettier 和 `git diff --check` 通过；两轴对两条断言的增量复审均无剩余发现。
 - `.github/`、package scripts、默认测试入口和公共 fixtures 相对 main 仍无 diff；只维护已有用例，未扩展 CI 范围。CI 与本地日志分别为 run `40862090968`、`/tmp/octo-248-full-suites.log` 和 `/tmp/octo-248-full-suites-isolated-node.log`。
+
+## 第三方版本与功能 stage 修正
+
+用户指出 OpenClaw 每日发版及 LobsterAI 等独立版本号使精确名单不可维护，要求按 P0 优先处理。两轴复现同一 v4/methods/events 下 10.8 可用而 10.9/dev/fork 被提前拒绝；技术审查记录为有条件触发的 P1 可用性缺陷，交付优先级按用户 P0。英文设计审查已追加至 [PR 248 评论](https://github.com/Mininglamp-OSS/octo-runtime/pull/248#issuecomment-6495693726)。
+
+删除两张精确版本表，不再以名单、最低版本或版本格式拒绝连接。上游日期版本仅提示 2026.8.1 前后两代请求字段，独立 semver、LobsterAI 样式、dev、缺失版本尝试当前 stage。实际协议 v4、方法/事件、审批通道和授权判断保留。实际 RPC 失败只发送一次，不自动删字段、重建会话或重发 agent。
+
+固定核对 10.8 的 HelloOkSchema、server-capabilities 和 core-descriptors：hello 有 methods/events 及可选 capabilities，无每个 RPC 的参数 schema，也没有直接声明 sessions.create permissionMode 的 capability；config.schema 为配置结构，不是 RPC 入参结构。不能将 probe 成功视为新字段已确认。独立版本的旧内核 fork 仍可能真实拒绝当前请求字段，该错误如实传播；不声称所有 fork 或未知未来字段均兼容。
+
+- `pnpm typecheck`（包含完整 workspace build）、`pnpm lint` 通过。完整既有 `pnpm test:suites`：Web UI 35 通过，Node 2290 通过、0 失败、91 条原有条件跳过；使用前述独立 Node 副本隔离本机全局 octo-cli。
+- 显式手动专项 106 通过。新增 10 个代表性输入覆盖 stage 边界、较早/未来日期、数字 semver、LobsterAI 样式、beta、dev、缺失版本的新建/续聊严格请求及唯一 final；只是替换版本元数据的合同回放，不是 LobsterAI 真实联测。
+- 默认兼容性用例保留原有版本输入并修改预期；断线失败用例改为实际协议不兼容。未新增默认测试项、公共 fixture、workflow/job/矩阵/trigger/gate 或默认脚本，专项仍只手动执行。
+- 相同源码上重新运行隔离真实 Playboard，版本 2026.7.1 / 2026.8.1 / 2026.10.8，各有新建与续聊两轮：全部 completed、3 model_step、2 工具、唯一精确 final，续聊 session 不变；新建各有 3 start/finish 配对及 0 条缺 stepId 工具事件。隔离 Gateway、Kernel/worker 和临时配置/工作区均已清理，无全局安装、常驻服务重启或 IM 投递。
+- 日志 `/tmp/octo-248-stages-{typecheck,lint,suites,manual}.log`、`/tmp/octo-248-stages-live-{7.1,8.1,10.8}.log`；脱敏摘要归档于 [stage 真实证据](stage-live-evidence.json)。版本样本是验证证据，不是新的运行时准入表。

@@ -25,7 +25,7 @@ tags: [openclaw, adapter, protocol, testing]
 5. 对流式快照和持久消息做身份去重；不重复追加正文、工具或 usage。收尾沿用原生终态确认及取消/断线对账合同。
 6. 不读取 SQLite 或本地 transcript 作为生产实现依赖；原生协议差异由 Adapter 内部处理。
 7. `finalText`/IM `finalMsg` 只投递最终回答且仅一次，不能混入过程正文、thinking、工具参数/结果或错误 payload。过程 assistant 正文映射既有 commentary，不能先发 final 再依赖消费者猜测最后一轮；有原生最终可见正文时优先使用，显式空正文不能回退为过程文本。
-8. 兼容 2026.7.1 到当前正式最新版 2026.10.8 的固定标签；原生 commentary/final_answer 为可选标记，不要求所有版本或模型都提供。未知未来版本继续按既有合同明确拒绝。
+8. 保留 2026.7.1 至 2026.10.8 已核验合同；版本不作为接入门槛，不维护逐版名单、最低版本或未知版本拒绝。可识别的上游日期版本按 2026.8.1 权限字段变更点选择旧版和新版请求；独立版本号的 fork、dev 或缺失版本按当前 stage 尝试。hello 中实际协议 v4、必需方法和事件决定基础可用性，各功能按实际能力/响应处理，原生 commentary/final_answer 为可选标记。无法保证仅凭 WS 连通即可兼容任意 fork 的全部 RPC 字段；真实 RPC 失败保留诊断，不自动重发。
 
 ## 验收
 
@@ -47,3 +47,5 @@ tags: [openclaw, adapter, protocol, testing]
 用户进一步授权等待 PR #244 合并后，从最新 main rebase，完成验证和 code-review 两轴审查，提交英文 commit、普通 push 并创建英文 PR。新 PR 当前 head 获两名不同 reviewer 的有效正式 Approve、既有必需检查通过且无未处理阻塞意见后可合并 main，无需再次确认。保留配置 Git author，Codex 实施提交及最终 squash 提交包含恰好一次 Codex co-author trailer；不强推、不绕过分支保护、不删除本地 worktree。
 
 PR #244 已于 2026-10-29T10:53:37Z 合并，最新 main 为 01d0ca5d3f62f1e9dc5999ed84da4797e9acafef；开始按上述授权交付，不额外全局安装或重启服务。
+
+2026-10-29 用户指出精确版本白名单无法适应第三方每日发版和 LobsterAI 等独立版本号的魔改版，要求消除逐版维护、按功能 stage 兼容，认为此问题按 P0 优先处理。此需求覆盖原先拒绝所有未知未来版本的约定。兼容性判断归 Adapter：保留握手能力检查与两代原生字段映射，移除精确版本准入表；新版本 RPC 报错仍保留原始诊断，不删字段重试或重发任务。按用户授权实测 7.1/8.1/10.8 核心变更阶段，离线合同回放与真实 Provider 验证分别报告，不声称已实测所有未来版本或 LobsterAI。

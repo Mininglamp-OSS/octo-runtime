@@ -106,7 +106,7 @@ SDK 不读取 OpenClaw 配置或进程环境、不扫描端口。宿主可调用
 
 ## Gateway 版本与会话权限
 
-probe、invocation 和取消／断线对账新连接共用 Adapter 内部合同解析器，以真实 hello 的协议号、server.version、必要方法及事件交叉判定。当前精确表为已核对的 2026.6.11，加 2026.7.1 至 2026.10.8 的 31 个正式标签，共 32 个，包含维护后缀；不按版本大小推测 beta、fork、未知补丁或未来版本。9.34/9.35/10.6/10.7/10.8 的固定上游合同核对及手动验证见 [Issue 245](../tasks/245-openclaw-model-steps/validation.md)。probe 只检查基础调用合同和只读 agents.list，不保证特定目标 Agent 或请求权限；invocation 每次重新判定，不依赖旧 probe 缓存。
+probe、invocation 和取消／断线对账新连接共用 Adapter 内部合同解析器，以真实 hello 的协议号、必要方法及事件判定基础可用性。版本不是准入门槛：不设精确名单、最低版本或未知版本拒绝，不因第三方每日升级、独立版本号的 fork、dev 或版本缺失而提前阻断。hello 未广告 RPC 参数 schema；可识别的上游日期版本仅按 2026.8.1 这个已知会话权限变更点选择两代字段，其他版本尝试当前 stage。功能按实际广告的能力、授权和响应确认；不把 WS 连通或方法存在等同于任意 fork 的全部字段保证兼容。实际 RPC 失败保留诊断，不删字段重试或重发任务。不兼容协议、缺少实际必需能力与真实 RPC 失败仍明确报错。已核对的固定上游合同、前向/fork 版本回放与真实验收分别见 [Issue 245](../tasks/245-openclaw-model-steps/validation.md)。probe 只检查基础调用合同和只读 agents.list，不保证特定目标 Agent 或请求权限；invocation 每次重新判定，不依赖旧 probe 缓存。
 
 创建参数在实际握手后生成。6.11 和 7.x 仅发送 key/agentId/可选 model，在本次隔离会话 patch full/off 并确认 key 与保存字段后执行；不能发送新版创建 permissionMode/idempotencyKey/thinkingLevel。8.x 起使用原生会话权限创建字段，不能调用已退休的旧权限 patch。所有版本保留执行 agent.idempotencyKey、thinking、model、可信系统指令和 deliver:false。创建、patch、接纳状态未知时，不删除字段循环重试、不重建会话或重发 agent；普通 INVALID_REQUEST 不表示无副作用的可重试信号。
 

@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import Ajv from "ajv";
 import { createOpenClawAdapter } from "../../packages/octo-runtime-adapter-openclaw/dist/index.js";
+import { resolveGatewayContract } from "../../packages/octo-runtime-adapter-openclaw/dist/compatibility.js";
 import { assertCanonicalEvent } from "../../packages/octo-runtime-protocol/dist/index.js";
 import { ImRunProjector } from "../../packages/octo-runtime-extra-channel-gateway/dist/presentation/run-projector.js";
 import { reasoningPhases } from "../../packages/octo-runtime-extra-channel-gateway/dist/transport/reasoning-frame.js";
@@ -31,7 +32,13 @@ const additionalVersions = ["2026.9.34", "2026.9.35", "2026.10.6", "2026.10.7", 
 
 async function replay(
   emitFrames,
-  { resumed = false, result = { status: "ok" }, terminal = "completed", version = "2026.9.4" } = {}
+  {
+    resumed = false,
+    result = { status: "ok" },
+    terminal = "completed",
+    version = "2026.9.4",
+    schemaVersion
+  } = {}
 ) {
   let listener;
   const checkpoints = [];
@@ -68,7 +75,8 @@ async function replay(
         agent: "AgentParamsSchema"
       }[method];
       if (schemaName) {
-        const fixtureVersion = additionalVersions.includes(version) ? "2026.10.5" : version;
+        const fixtureVersion =
+          schemaVersion ?? (additionalVersions.includes(version) ? "2026.10.5" : version);
         const source = ["sessions.describe", "sessions.patch"].includes(method)
           ? resumeContracts
           : contracts;
@@ -581,6 +589,47 @@ for (const finalText of ["Done", ""])
   });
 
 // 手动事件形状回放与固定请求字段验证，不冒充真实 Gateway。
+for (const [version, family, schemaVersion] of [
+  ["2026.6.10", "legacy", "2026.7.1"],
+  ["2026.7.35", "legacy", "2026.7.35"],
+  ["2026.8.1", "session-permissions", "2026.8.1"],
+  ["2026.10.99", "session-permissions", "2026.10.5"],
+  ["2027.1.1", "session-permissions", "2026.10.5"],
+  ["LobsterAI-1.0.0", "session-permissions", "2026.10.5"],
+  ["v1.0.0", "session-permissions", "2026.10.5"],
+  ["2026.10.9-beta.1", "session-permissions", "2026.10.5"],
+  ["dev", "session-permissions", "2026.10.5"],
+  [undefined, "session-permissions", "2026.10.5"]
+])
+  test(`capability stage ${version ?? "missing version"} uses ${family} without a release gate`, async () => {
+    const handshake = {
+      protocol: 4,
+      server: { version },
+      features: {
+        methods: [
+          "agents.list",
+          "sessions.create",
+          "sessions.patch",
+          "sessions.messages.subscribe",
+          "agent",
+          "agent.wait",
+          "sessions.abort"
+        ],
+        events: ["agent"]
+      }
+    };
+    assert.equal(resolveGatewayContract(handshake).family, family);
+    for (const resumed of [false, true]) {
+      const r = await replay(({ agent }) => agent("assistant", { text: "Done" }), {
+        version: version ?? null,
+        schemaVersion,
+        resumed,
+        result: { status: "ok", result: { payloads: [{ text: "Done" }] } }
+      });
+      assert.equal(r.projector.finalReply.text, "Done");
+      assert.equal(r.events.filter((event) => event.payload.channel === "final").length, 1);
+    }
+  });
 const versions = contracts.versions
   .map((entry) => entry.tag)
   .filter((version) => version !== "2026.6.11");
