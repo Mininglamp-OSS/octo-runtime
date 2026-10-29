@@ -123,3 +123,5 @@ uv run --no-project --with pyyaml python .octospec/scripts/lint.py
 - 默认兼容性用例保留原有版本输入并修改预期；断线失败用例改为实际协议不兼容。未新增默认测试项、公共 fixture、workflow/job/矩阵/trigger/gate 或默认脚本，专项仍只手动执行。
 - 相同源码上重新运行隔离真实 Playboard，版本 2026.7.1 / 2026.8.1 / 2026.10.8，各有新建与续聊两轮：全部 completed、3 model_step、2 工具、唯一精确 final，续聊 session 不变；新建各有 3 start/finish 配对及 0 条缺 stepId 工具事件。隔离 Gateway、Kernel/worker 和临时配置/工作区均已清理，无全局安装、常驻服务重启或 IM 投递。
 - 日志 `/tmp/octo-248-stages-{typecheck,lint,suites,manual}.log`、`/tmp/octo-248-stages-live-{7.1,8.1,10.8}.log`；脱敏摘要归档于 [stage 真实证据](stage-live-evidence.json)。版本样本是验证证据，不是新的运行时准入表。
+
+后续用户明确 fork/FDE 架构：这不是为 LobsterAI 做专用适配；有协议差异的 fork 单独建 Adapter，标准实现不增加产品特判。FDE 固定版本按其独立定制交付验收，不将私有版本约束扩散为标准 Adapter 的逐版准入。此澄清仅补充文档边界，生产 stage 代码及上述实测源码未变化。

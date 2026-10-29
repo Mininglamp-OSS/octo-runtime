@@ -108,6 +108,8 @@ SDK 不读取 OpenClaw 配置或进程环境、不扫描端口。宿主可调用
 
 probe、invocation 和取消／断线对账新连接共用 Adapter 内部合同解析器，以真实 hello 的协议号、必要方法及事件判定基础可用性。版本不是准入门槛：不设精确名单、最低版本或未知版本拒绝，不因第三方每日升级、独立版本号的 fork、dev 或版本缺失而提前阻断。hello 未广告 RPC 参数 schema；可识别的上游日期版本仅按 2026.8.1 这个已知会话权限变更点选择两代字段，其他版本尝试当前 stage。功能按实际广告的能力、授权和响应确认；不把 WS 连通或方法存在等同于任意 fork 的全部字段保证兼容。实际 RPC 失败保留诊断，不删字段重试或重发任务。不兼容协议、缺少实际必需能力与真实 RPC 失败仍明确报错。已核对的固定上游合同、前向/fork 版本回放与真实验收分别见 [Issue 245](../tasks/245-openclaw-model-steps/validation.md)。probe 只检查基础调用合同和只读 agents.list，不保证特定目标 Agent 或请求权限；invocation 每次重新判定，不依赖旧 probe 缓存。
 
+标准 `openclaw` Adapter 只维护标准 Gateway 协议和功能 stage，不叠加 LobsterAI 等 fork 的产品私有协议、版本名单或特殊分支。非标准版本元数据不作为拒绝理由，仅表示尝试现有标准合同，不代表已适配该 fork。确有协议差异时单独新建 Provider Adapter，复用通用能力并独立验证，不混入标准实现。FDE 固定版本部署可对所选 Provider/版本定制开发和验收，固定版本由该交付配置与独立实现负责，不要求通用 Adapter 为此维护每日版本名单或兼容所有未来版本。
+
 创建参数在实际握手后生成。6.11 和 7.x 仅发送 key/agentId/可选 model，在本次隔离会话 patch full/off 并确认 key 与保存字段后执行；不能发送新版创建 permissionMode/idempotencyKey/thinkingLevel。8.x 起使用原生会话权限创建字段，不能调用已退休的旧权限 patch。所有版本保留执行 agent.idempotencyKey、thinking、model、可信系统指令和 deliver:false。创建、patch、接纳状态未知时，不删除字段循环重试、不重建会话或重发 agent；普通 INVALID_REQUEST 不表示无副作用的可重试信号。
 
 权限按业务意图兼容：可用的新版 ask 使用 guarded，ask 通道／授权不可用时直接采用已授权的 full_access；旧版会话参数无法确认人工 reviewer，当前按此原因回退 full/off。回退通过一次 run.notice/provider_diagnostic 告知实际版本、requested、effective 和原因；不额外询问、不改原请求／Context hash，审批桥单独按 effective full 处理本次 allow-once。full 不代表绕过宿主禁止、sandbox 或 harness 限制，不改全局策略；全部已知权限路径不可用时返回真实错误。assisted 仍不支持。
