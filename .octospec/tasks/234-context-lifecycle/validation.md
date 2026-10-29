@@ -3,8 +3,18 @@ type: Validation
 title: Issue 234 本地验证与全局安装
 description: 已完成实现、构建、专项和真实只读接口验证；用户确认真实群聊验收通过。
 tags: [channel, context, testing]
-timestamp: 2026-10-29T17:41:11+08:00
+timestamp: 2026-10-29T18:02:00+08:00
 ---
+
+# PR 244 合并预算前过滤复审修复
+
+复审发现 972ab40 的过滤发生在 loader 合并校验之后：合法静态 32 个宿主 extra.im 加合法动态 1 个业务项，仍因中间 33 项阻断准备。用户明确要求先过滤宿主 extra.im 再合并，已按此修复。通用 loader 增加显式同步来源选择入口，两个来源分别通过原有协议与容量校验后，由两个 Channel Extra 提供过滤函数，再合并并校验实际有效项。通用层不识别业务命名空间，默认行为不变；单个来源本身非法和真实业务超限仍拒绝。宿主回调每轮只执行一次，收到完整配置独立副本，共享回调池、超时取消和迟到结果保护保持。
+
+新增专项先在旧构建复现 Gateway/WeCom 静态 32+动态 1 的失败，再在修复构建验证通过；另覆盖动态 32+静态 1、单来源各自合法但合并超过 64 KiB、无回调、真实业务 33 项仍拒绝、输入不变、默认 loader 不过滤、非法来源不被选择掩盖、超时后继续占额及迟到结果不执行选择。Gateway 夹具显式设置既有默认 bot_name，完整回调配置断言移至回调外，避免测试断言被业务准备错误捕获而掩盖原因。
+
+本地验证：pnpm build、tsc --noEmit、lint、lint:names、format:check、docs:check（4/4 执行示例）均通过；完整 Node 集合 2381 项，2290 通过、91 原条件跳过、0 失败，继续使用与当前 Node 二进制一致的独占路径，未筛选或新增跳过。WebUI 35/35、六份手动专项 77/77、loader/清理/归属联合 30 通过及 1 原条件跳过。双轴只读复审 Standards 0、Spec 0，原 P2 已关闭。Octospec lint 仍仅有 Issue #137 三份既有 frontmatter 错误，无新增错误。
+
+日志 `/tmp/octo-244-budget-{red,build,focused,full-tests,manual,ui,types,lint,names,format,docs,octospec}.log`。相对 origin/main 的 .github、scripts、package.json、pnpm-lock.yaml 无差异，不扩大 CI。按用户授权提交、推送并在 PR 解释修复；本次未全局安装、重启或重新进行真实群聊验收。
 
 # PR 244 渠道命名空间归属修复
 

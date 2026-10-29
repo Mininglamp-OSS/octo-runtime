@@ -63,9 +63,11 @@ timestamp: 2026-10-29T00:00:00+08:00
 
 ## PR #244 后续：渠道命名空间归属
 
-用户明确整个 extra.im 由 channel-gateway/channel-wecom 拥有，覆盖此前保留宿主同名 history 等约定。宿主静态配置与动态 loadContexts 的 extra.im 全部忽略，再由渠道构造；没有自动项的普通轮也不透传宿主项。稳定规则的可修改来源应在渠道内部按业务合同读取，不新增配置中心接入。全局 octo.control/instructions 保留现有特殊合并，其他合法宿主项保序保留。决定权和实现均在 Channel Extra，不改变通用 Host SDK loader、协议合并、Core 或 Adapter。
+用户明确整个 extra.im 由 channel-gateway/channel-wecom 拥有，覆盖此前保留宿主同名 history 等约定。宿主静态配置与动态 loadContexts 的 extra.im 全部忽略，再由渠道构造；没有自动项的普通轮也不透传宿主项。稳定规则的可修改来源应在渠道内部按业务合同读取，不新增配置中心接入。全局 octo.control/instructions 保留现有特殊合并，其他合法宿主项保序保留。命名空间决定权和过滤策略均在 Channel Extra；通用 Host SDK loader 只提供显式选择入口，默认合并语义、协议、Core 和 Adapter 不变。
 
 可执行性 98/100：Gateway 的 build_im_contexts 和 WeCom 的 buildContext 在宿主输入进入渠道材料前过滤 extra.im；Gateway dispatcher 统一清除外来稳定说明后按刷新计划生成，避免同名项抑制默认说明及错误清除待刷新标记。historyRetry 跳过重建，保留完整冻结快照。专项手动验证静态/动态碰撞、任意保留项、首轮/普通轮/周期/新 Provider/fresh fallback/冻结重试、全局指令顺序及输入不变；仅更新受合同变化影响的既有断言，不扩大 CI。
+
+复审 P2：972ab40 在 contexts.load 完成后过滤，32 个宿主保留项加 1 个动态业务项会先触发合并预算，违反仅 warning 的合同。修复准备度 98/100：通用 mergeConfiguredContexts/createContextLoader.load 增加可选、同步的来源选择函数，每个来源先保留原有合法性与容量校验，选取后再执行原整项替换和最终预算；默认调用完全不变，通用代码不包含渠道命名空间。两个 Channel Extra 显式传入过滤函数，按两个来源实际忽略项累计 warning 数量。回调只执行一次、收到原完整配置，过滤仍在原 operation 及取消检查内，不另建池或重调宿主函数。手动补测双渠道静态/动态 32+1、单来源合法但合并超字节、真实业务超限仍失败、原输入不变及默认 loader 不过滤；不扩大 CI。
 
 Gateway 的固定规则在请求装配处统一生成：`mention-instructions` 只含稳定说明，默认 `artifact-delivery` 只约定本地交付物的 Markdown 输出格式，`history-instructions` 只约定历史理解的总体意图目标。计划刷新时进入普通 Context；其余轮次仅供显式 fresh fallback 恢复输入使用，不进入普通续聊。
 

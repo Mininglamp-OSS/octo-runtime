@@ -57,12 +57,16 @@ async function initialize(
     log: context.log,
     // 与 Gateway 共用逐轮合同：宿主数据可变，连接与 manager 仍由 Extra 整体封装。
     prepareContexts: async (bot, signal) => {
-      const items = await contexts.load(bot, signal);
-      const business = items.filter((item) => item.namespace !== "extra.im");
+      let ignored = 0;
+      const business = await contexts.load(bot, signal, (items) => {
+        const selected = items.filter((item) => item.namespace !== "extra.im");
+        ignored += items.length - selected.length;
+        return selected;
+      });
       // 保留命名空间误配只记数量，不输出内容或阻断当前任务。
-      if (business.length !== items.length)
+      if (ignored)
         context.log("warn", "channel.context.reserved_ignored", {
-          ignored_items: items.length - business.length
+          ignored_items: ignored
         });
       return business;
     },

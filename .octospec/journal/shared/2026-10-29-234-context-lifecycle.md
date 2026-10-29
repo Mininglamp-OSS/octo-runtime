@@ -3,9 +3,11 @@ type: Journal
 title: Issue 234 稳定 Context 周期与动态 actor 分离
 description: Gateway 局部生命周期修复、本地三 Adapter 输入验证及全局安装记录。
 tags: [channel, context, session, testing]
-timestamp: 2026-10-29T17:41:11+08:00
+timestamp: 2026-10-29T18:02:00+08:00
 source: self
 ---
+
+18:02 用户要求修复复审 P2，并明确宿主 extra.im 必须在合并前过滤。972ab40 合并后过滤会使合法的 32 个保留项加 1 个业务项先因预算失败；通用 loader 现支持显式来源选择，策略仍由两个 Channel Extra 提供，来源校验后过滤，再按有效项合并及校验。完整配置副本、单次回调、默认合并、原始来源合法性与共享在途/超时/迟到结果保护保持。旧构建复现失败后，新构建完整 Node 2290 通过、91 原条件跳过、0 失败，手动专项77/77、WebUI35/35；build/类型/lint/命名/格式/docs 通过，双轴复审 Standards 0、Spec 0。Octospec lint仍仅Issue137三份既有错误。未扩大CI或安装重启，按授权提交推送并更新PR；详见[验证记录](../../tasks/234-context-lifecycle/validation.md)。
 
 17:41 用户明确 extra.im 整个命名空间由 channel-gateway/channel-wecom 拥有，宿主静态/动态项均忽略，即使本轮没有渠道同名项；可修改规则应由渠道内部按业务合同读取，不新增配置中心接入。全局 octo.control/instructions 保留既有特殊合并。已先回写 rules 和设计，再修改渠道构造边界与稳定说明装配；误配只 warning 记录数量，不阻断 AgentRun，不输出内容；冻结重试复用渠道快照。完整 Node 2381 项中 2290 通过、91 原条件跳过、0 失败，WebUI35/35、手动专项74/74；build/类型/lint/命名/格式/docs 通过。用户授权 commit；本次不全局安装、重启或扩大 CI，原真实群聊验收不冒充本次修复在线验收，详见[验证记录](../../tasks/234-context-lifecycle/validation.md)。
 

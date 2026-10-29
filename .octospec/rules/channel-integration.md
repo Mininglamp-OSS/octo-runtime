@@ -34,6 +34,8 @@ Channel Gateway 是长期 IM Agent 的业务入口，管理固定 Agent workdir�
 
 宿主误配 extra.im 只写 warning 诊断并忽略，不作为配置冲突报错、不发送用户错误消息、不影响后续 AgentRun；诊断仅记录忽略数量，不输出 guidance/payload 内容。
 
+静态和动态来源分别通过原有协议、容量和有界 JSON 校验后，由渠道提供的同步选择函数排除 extra.im，再合并有效项并校验最终预算；被忽略项不能占合并预算。来源自身不合法及实际业务项超限仍按原合同拒绝。通用 Context loader 仅支持调用方显式提供的合并前选择函数，不识别 extra.im；未提供选择函数时行为不变，同一回调池的超时、取消、实际在途和迟到结果保护保持。回调仍接收完整、独立的原 Bot 配置快照，每轮只调用一次。
+
 稳定规则即使允许修改，也应由 Channel Extra 内部按业务合同读取外部规则源后构造，不通过宿主 Context 配置或 `loadContexts` 覆盖。本约束不新增配置中心接口、读取实现或配置字段，也不改变宿主提供 Bot 配置和凭据值的合同。同代次冻结重试中的 extra.im 是渠道已生成的快照，须原样复用，不重新过滤或采集。
 
 `octo.control/instructions` 属于全局公共指令，独立于 extra.im 的专属命名空间约束；保留其既有特殊合并及 mandatory 合同。公共 `mergeContext`、Host、Core、Kernel 和 Adapter 不增加渠道命名空间过滤；过滤与渠道内容构造只在对应 Channel Extra 中完成。
