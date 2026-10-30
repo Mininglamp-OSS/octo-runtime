@@ -140,6 +140,19 @@ export class GatewayTransport {
           this.deliveryOwner?.signal ?? signal,
           this.#deliveryScope.signal
         ]);
+        // 所有跨 WS 的任务 REST 分支共用同一工厂，避免失败卡/通知另走旧连接期限。
+        const restDelivery = (turnSignal = deliverySignal, obsolete?: () => boolean) =>
+          new OctoConnector(
+            this.config,
+            token,
+            AbortSignal.any([deliverySignal, turnSignal]),
+            async () => {},
+            async (requestSignal) => {
+              if (obsolete?.()) throw new ImSendError("IM_DELIVERY_CANCELLED", "failed");
+              await this.#authorizeRestDelivery(requestSignal);
+              if (obsolete?.()) throw new ImSendError("IM_DELIVERY_CANCELLED", "failed");
+            }
+          );
         const finalDispatcher = this.#delivery!;
         const replyDelivered = (effectKey: string) => {
           const key = stableEffectKey(this.identity, message, effectKey, "text");
@@ -226,20 +239,7 @@ export class GatewayTransport {
           isReplyDelivered: replyDelivered,
           replyDeliveryUnknown: async (event, effectKey, replyEffectKey, deliverySignal) => {
             if (deliverySignal.aborted || replyDelivered(replyEffectKey)) return;
-            deliverySignal = AbortSignal.any([
-              deliverySignal,
-              this.deliveryOwner?.signal ?? signal,
-              this.#deliveryScope.signal
-            ]);
-            // F27：REST 跟随 Bot/Extra 的投递期限，不跟随已断开的 WS 连接期限。
-            // 未确认通知也是旧任务的出站写入；能力查询和实际发卡均须核验当前身份。
-            const rest = new OctoConnector(
-              this.config,
-              token,
-              deliverySignal,
-              async () => {},
-              () => this.#authorizeRestDelivery()
-            );
+            const rest = restDelivery(deliverySignal);
             const sent = await rest.displayCard(
               message,
               deliveryNoticeCard(event),
@@ -249,15 +249,15 @@ export class GatewayTransport {
             if (!sent && !replyDelivered(replyEffectKey))
               throw new ImSendError("IM_DELIVERY_NOTICE_UNSUPPORTED", "failed");
           },
-          replyFailure: async (event, effectKey) => {
-            if (this.#closed || signal.aborted) return;
-            const template = await this.#api!.reasoningTemplate();
+          replyFailure: async (event, effectKey, options) => {
+            const rest = restDelivery(options?.signal, options?.obsolete);
+            const template = await rest.reasoningTemplate();
             if (!template) return;
             const projector = new ImRunProjector(`channel:${effectKey}`, message.channelType === 1);
             projector.accept(event);
             const frame = buildReasoningFrame(projector.snapshot(), template);
             if (!frame) throw Error("IM_CARD_BUDGET_EXCEEDED");
-            await this.#api!.card(
+            await rest.card(
               message,
               template,
               frame,
@@ -321,7 +321,7 @@ export class GatewayTransport {
                             name,
                             mime,
                             uploadSignal,
-                            () => this.#authorizeRestDelivery()
+                            (requestSignal) => this.#authorizeRestDelivery(requestSignal)
                           )
                       )
                     : { text, files: [] };
@@ -362,7 +362,7 @@ export class GatewayTransport {
                   finalOutputCovered = !delivered.incomplete && failures.length === 0;
                   finalSignal.throwIfAborted();
                   return prepareFinalMention(finalText, async () => {
-                    this.#authorizeRestDelivery();
+                    await this.#authorizeRestDelivery(finalSignal);
                     if ([2, 5].includes(message.channelType))
                       return getGroupMembers({
                         apiUrl: this.config.api_url,
@@ -422,15 +422,7 @@ export class GatewayTransport {
           beginPresentation: (runId, onDiagnostic, controls) => {
             // 卡片是 REST，不以 WS 存活为前提。保留同一 CardSession 的消息 ID/序号，
             // 仅 Bot 停止取消其请求；重连不将旧连接 signal 传入客户端或投递器。
-            const progressApi = this.deliveryOwner
-              ? new OctoConnector(
-                  this.config,
-                  token,
-                  deliverySignal,
-                  async () => {},
-                  () => this.#authorizeRestDelivery()
-                )
-              : this.#api!;
+            const progressApi = restDelivery();
             const interactions = new Map<
               string,
               { request: InteractionRequestedPayload; messageId: string }
@@ -604,21 +596,45 @@ export class GatewayTransport {
     if (!connection.connected) throw new ImConnectionError("IM_DISCONNECTED", true);
     this.#connected = true;
   }
-  /** 每次任务 REST 请求都核验原 Bot 生命周期和已确认的身份；不以 WS online 为前提。 */
-  #authorizeRestDelivery(): void {
-    this.#deliveryScope.signal.throwIfAborted();
-    if (this.deliveryOwner?.signal.aborted)
-      throw new ImSendError("IM_DELIVERY_CANCELLED", "failed");
-    const current = this.deliveryOwner?.current();
-    // current 在 start 前已注册；未核验的新对象不代表原凭据仍获准跨连接使用。
-    if (current && current !== this && !current.#token)
-      throw new ImSendError("IM_CONNECTION_UNAVAILABLE", "failed");
-    if (
-      current &&
-      current.#token &&
-      (current.identity !== this.identity || current.#token !== this.#token)
-    )
-      throw new ImSendError("IM_CONNECTION_IDENTITY_CHANGED", "failed");
+  /** REST 只等身份核验，不等 WS online；每次请求均有取消权和有限恢复窗口。 */
+  async #authorizeRestDelivery(signal: AbortSignal): Promise<void> {
+    const deadline = new AbortController();
+    const timeout = setTimeout(() => deadline.abort(), 15_000);
+    timeout.unref();
+    const waiting = AbortSignal.any([
+      signal,
+      this.#deliveryScope.signal,
+      ...(this.deliveryOwner ? [this.deliveryOwner.signal] : []),
+      deadline.signal
+    ]);
+    try {
+      for (;;) {
+        waiting.throwIfAborted();
+        const owner = this.deliveryOwner;
+        const current = owner?.current();
+        if (owner && current && current !== this && !current.#token) {
+          // Runtime 在 start 前发布新对象。握手未结束不代表旧身份可用，也不等于投递失败。
+          // 等待 Bot 的核验事件能跨过失败的连接尝试，不为每个等待者添加轮询计时器。
+          await owner.identity.waitForVerification(waiting);
+          continue;
+        }
+        if (
+          current &&
+          current.#token &&
+          (current.identity !== this.identity || current.#token !== this.#token)
+        )
+          throw new ImSendError("IM_CONNECTION_IDENTITY_CHANGED", "failed");
+        return;
+      }
+    } catch (error) {
+      this.#deliveryScope.signal.throwIfAborted();
+      if (signal.aborted || this.deliveryOwner?.signal.aborted)
+        throw new ImSendError("IM_DELIVERY_CANCELLED", "failed");
+      if (deadline.signal.aborted) throw new ImSendError("IM_CONNECTION_UNAVAILABLE", "failed");
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
   /** 只选择完成鉴权的同身份连接；临时离线可等待，账号或凭据变化必须拒绝转投。 */
   #currentDeliveryTransport(rejectIdentityChange = true): GatewayTransport | undefined {

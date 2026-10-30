@@ -60,3 +60,15 @@ Git 无文本冲突，但上游连接 close 新增无条件 CardSession.release�
 - yujiawei：普通上传、群成员或私聊用户查询的临时故障导致 finalReply.value 永久拒绝，不成立于现有实现。prepareArtifacts 捕获普通单文件故障并返回部分成功与失败说明；prepareFinalMention 捕获成员查询故障并返回无 mention 正文。新增三项真实 replyFinal 回归，在修改前就通过，正文照常送达，重复进入同 effect 不重复已完成上传。取消或身份撤销不能以清除 Promise 为由恢复旧准备，因此保留缓存合同并补充注释，而非无条件重跑未知上传。
 
 初始 13 项定向核验：8 失败、5 通过，日志 /tmp/octo-review2-before.log；失败覆盖鉴权空窗、连续换身份、附件中途换身份、交互卡收尾和中间连接确认。实现后增加账本边界及代次隔离回归，并在现有真实 WS 测试验证 ACK 写入；交互发卡用请求已开始时切网及已有卡两种时序验证。最终渠道测试 539/539 通过（/tmp/octo-review2-channel-tests.log），全量 build、根 TypeScript noEmit、lint、lint:names 通过。未修改 workflow、CI 脚本、默认测试入口或范围；相对 main 的这些路径 diff 为空。旧 adf2447 的 GitHub CI Gate 已成功；新提交仍需独立 CI 和三位审查者复核。当前本地服务未重新安装/重启，线上切网未在本轮复测。
+
+## yujiawei 第三轮：失败卡遗漏与鉴权等待
+
+用户指出仍未修复后重新读取 a6f769a 上的 review 5706779195；两条均成立。mochashanyao 的 review 5706764670 也指出失败卡遗漏（其评为非阻塞 P2）。上轮修复覆盖的交互卡不等于独立 replyFailure；该分支仍因旧 WS abort 直接返回。另一个遗漏是把未鉴权当作立即失败，虽然没有用旧身份写入，却会丢掉一次性卡片/通知。
+
+统一 restDelivery 工厂为失败卡、未知通知和进度/交互卡生成 Bot/身份代次级 REST 客户端。replyFailure 接受调用方 signal/obsolete，Runtime 的失败通知透传取消与收尾期限；未提交失败在通知前登记 finalDeliveries，让 /stop、/reset 取消错误卡和文本。原通知取消不触发新的副作用或递归失败通知。
+
+ImDeliveryIdentity 提供成功核验事件的可取消等待；未核验 current 的请求最多等待 15 秒，失败的认证尝试不提前消耗该通知，同身份核验成功后继续，换身份永久撤销原代次。等待期间不发 HTTP；OctoConnector 的 HTTP 3 秒期限在授权完成后才建立。能力查询和写入各自等待/核验，附件 presign/PUT 及 mention 查询同步遵守异步授权。等待者在成功、取消或超时后清除，成功 ACK 仍能抑制等待期间过期的未知通知提交。
+
+定向复现并验证失败卡在旧 WS 取消后继续、三种卡片在 profile 前/写入前的鉴权空窗、同身份恢复、换身份、Bot stop、任务取消、一次认证 503 后再次恢复及超时。保留上一轮已撤销身份不能复活的回归，将“尚未鉴权立即失败”验收改为“等待且不出站”。增加真实 Runtime 的 /stop、/reset 两项取消权透传测试。全渠道回归 553/553 通过（/tmp/octo-review3-tests.log）；全量 build、根类型检查、format:check、lint:names 通过。lint 指出等待取消不能 reject 非 Error 值，已规范化该边界并补跑 Gateway 构建、相关测试和 lint，结果在本轮 PR 评论列明。CI 配置、脚本和默认入口相对 main 无 diff；未安装或重启当前本地服务，真实 Wi-Fi 切换未在本轮执行。
+
+取消错误类型修正后，Gateway 构建、完整 lint 及 artifact/pre-execution-failure 两组测试 111/111 再次通过（/tmp/octo-review3-focused-final.log、/tmp/octo-review3-lint-final.log）。

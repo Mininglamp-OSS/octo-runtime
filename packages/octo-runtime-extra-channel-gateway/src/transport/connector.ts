@@ -18,7 +18,7 @@ export class OctoConnector {
     readonly signal: AbortSignal,
     readonly sendWsText: (address: ImAddress, text: string, effectKey: string) => Promise<void>,
     // 跨 WS 存活的 REST 客户端在每次请求前校验原身份，不把 WS online 当作 HTTP 准入。
-    readonly authorizeRequest?: () => void
+    readonly authorizeRequest?: (signal: AbortSignal) => void | Promise<void>
   ) {}
   async reasoningTemplate(): Promise<ReasoningTemplate | undefined> {
     if (this.config.cards === false) return;
@@ -26,23 +26,27 @@ export class OctoConnector {
     const profile = await getCardProfile({
       apiUrl: this.config.api_url,
       botToken: this.token,
-      signal: this.requestSignal()
+      signal: await this.requestSignal()
     });
     const template = selectReasoningTemplate(profile);
     this.#profile = { expires: Date.now() + 300_000, template };
     return template;
   }
-  requestSignal(signal?: AbortSignal): AbortSignal {
-    this.signal.throwIfAborted();
-    this.authorizeRequest?.();
-    return AbortSignal.any([this.signal, AbortSignal.timeout(3_000), ...(signal ? [signal] : [])]);
+  async requestSignal(signal?: AbortSignal): Promise<AbortSignal> {
+    const owner = signal ? AbortSignal.any([this.signal, signal]) : this.signal;
+    owner.throwIfAborted();
+    // 鉴权恢复等待有自己的截止；HTTP 的 3 秒预算仅在获准请求后开始。
+    await this.authorizeRequest?.(owner);
+    owner.throwIfAborted();
+    return AbortSignal.any([owner, AbortSignal.timeout(3_000)]);
   }
+
   async typing(address: ImAddress, signal: AbortSignal): Promise<void> {
     await sendTyping({
       apiUrl: this.config.api_url,
       botToken: this.token,
       ...address,
-      signal: this.requestSignal(signal)
+      signal: await this.requestSignal(signal)
     });
   }
   async text(address: ImAddress, text: string, effectKey: string): Promise<void> {
@@ -55,7 +59,7 @@ export class OctoConnector {
       ...address,
       content: text,
       clientMsgNo: effectKey,
-      signal: this.requestSignal()
+      signal: await this.requestSignal()
     });
     if (!receipt?.message_id) throw new Error("IM_DELIVERY_RECEIPT_UNKNOWN");
     return String(receipt.message_id);
@@ -88,7 +92,7 @@ export class OctoConnector {
     const profile = await getCardProfile({
       apiUrl: this.config.api_url,
       botToken: this.token,
-      signal: this.requestSignal()
+      signal: await this.requestSignal()
     });
     // 身份代次撤销不是能力不支持；保留取消原因供调用方区分已阻止的旧身份写入。
     this.signal.throwIfAborted();
@@ -112,6 +116,8 @@ export class OctoConnector {
       Number(profile.limits?.max_payload_bytes ?? 16384)
     )
       throw Error("IM_INTERACTION_CARD_TOO_LARGE");
+    const requestSignal = await this.requestSignal();
+    if (obsolete?.()) return;
     const result = await postJson<{ message_id?: string }>(
       this.config.api_url,
       this.token,
@@ -123,7 +129,7 @@ export class OctoConnector {
           ? { message_id: messageId, content_edit: JSON.stringify(payload) }
           : { payload, client_msg_no: effectKey })
       },
-      this.requestSignal(),
+      requestSignal,
       { retryOn429: false }
     );
     if (!messageId && !result?.message_id) throw Error("IM_DELIVERY_RECEIPT_UNKNOWN");
@@ -145,7 +151,7 @@ export class OctoConnector {
       templateRef: template.ref,
       state: frame.state,
       data: frame,
-      signal: this.requestSignal(),
+      signal: await this.requestSignal(),
       retryOn429: false
     };
     if (messageId) {

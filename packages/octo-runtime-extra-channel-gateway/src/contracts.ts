@@ -112,7 +112,11 @@ export interface ImInboundMessage {
     options?: Pick<ImFinalReplyOptions, "signal" | "obsolete">
   ): Promise<void>;
   replyFinal?(text: string, effectKey: string, options?: ImFinalReplyOptions): Promise<void>;
-  replyFailure?(event: CanonicalEvent, effectKey: string): Promise<void>;
+  replyFailure?(
+    event: CanonicalEvent,
+    effectKey: string,
+    options?: Pick<ImFinalReplyOptions, "signal" | "obsolete">
+  ): Promise<void>;
   replyDeliveryUnknown?(
     event: CanonicalEvent,
     effectKey: string,

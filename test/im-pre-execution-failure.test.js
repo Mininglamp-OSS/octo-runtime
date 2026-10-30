@@ -572,3 +572,32 @@ test("Kernel: admission proof survives real pre-write race and rejects reconstru
   assert.equal(relay.count("agent_run.invoke"), 0);
   assert.deepEqual(relay.client.invocations.snapshot(), []);
 });
+
+for (const command of ["/stop", "/reset"]) {
+  test(`Gateway: ${command} cancels pending failure-card and text delivery`, async (t) => {
+    const f = await fixture(t, "gateway");
+    const waiting = [];
+    const wait = async (options) => {
+      assert.ok(options?.signal, "Runtime must pass the failure notification cancellation signal");
+      waiting.push(options);
+      await new Promise((resolve) => {
+        if (options.signal.aborted) resolve();
+        else options.signal.addEventListener("abort", resolve, { once: true });
+      });
+      assert.equal(options.obsolete(), true);
+    };
+    f.send({
+      beginPresentation() {
+        throw Error("presentation unavailable");
+      },
+      replyFailure: (_event, _effect, options) => wait(options),
+      reply: (_text, _effect, options) => wait(options)
+    });
+    await until(() => waiting.length === 2);
+    f.send({ text: command });
+    await f.done();
+    assert.ok(waiting.every((options) => options.signal.aborted));
+    assert.equal(f.calls.length, 0);
+    assert.equal(f.replies.length, 1, "only the control acknowledgement is sent");
+  });
+}

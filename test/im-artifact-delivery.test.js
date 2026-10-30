@@ -240,7 +240,169 @@ async function ownedTransportFixture(t) {
   };
 }
 
-for (const stage of ["pre-auth", "changed-then-pre-auth", "changed-then-original"]) {
+const failedRun = {
+  protocolVersion: 2,
+  type: "run.failed",
+  payload: { code: "PROVIDER_FAILED", message: "Provider failed after reconnect" }
+};
+
+for (const path of ["failure", "notice", "progress"]) {
+  for (const stage of ["before-profile", "before-write"]) {
+    test(`auth recovery: ${path} waits ${stage} and sends once after verification`, async (t) => {
+      const f = await ownedTransportFixture(t);
+      f.sockets[0].abort();
+      await f.first.close();
+      let release,
+        authenticating = false,
+        start;
+      const auth = new Promise((resolve) => {
+        release = resolve;
+      });
+      t.after(async () => {
+        release();
+        await start?.catch(() => {});
+      });
+      f.setRequestHook(async (url) => {
+        if (url.endsWith("/auth/verify-bot")) {
+          authenticating = true;
+          await auth;
+        }
+      });
+      const recover = async () => {
+        f.setCardProfileHook(undefined);
+        const next = await f.replace(f.token, false);
+        start = next.start(f.sockets.at(-1).signal);
+      };
+      if (stage === "before-profile") await recover();
+      else f.setCardProfileHook(recover);
+      let settled = false;
+      const diagnostics = [];
+      const operation =
+        path === "failure"
+          ? f.inbound.replyFailure(failedRun, "auth:failure")
+          : path === "notice"
+            ? f.inbound.replyDeliveryUnknown(
+                deliveryNotice(),
+                "auth:notice",
+                "auth:final",
+                f.owner.signal
+              )
+            : (() => {
+                const presentation = f.inbound.beginPresentation(
+                  "auth:progress",
+                  (code) => diagnostics.push(code),
+                  {}
+                );
+                const projector = new ImRunProjector("auth:progress");
+                projector.accept({ protocolVersion: 2, type: "run.started", payload: {} });
+                projector.accept({ protocolVersion: 2, type: "run.completed", payload: {} });
+                presentation.update(projector.snapshot());
+                return presentation.finish();
+              })();
+      const result = operation.then(
+        () => {
+          settled = true;
+        },
+        (error) => {
+          settled = true;
+          return error;
+        }
+      );
+      // The failed baseline can skip replyFailure entirely; do not wait indefinitely for its profile hook.
+      for (let i = 0; i < 5; i++) await new Promise((resolve) => setImmediate(resolve));
+      assert.equal(
+        settled,
+        false,
+        "authentication must pause the operation instead of completing or failing it"
+      );
+      assert.equal(authenticating, true);
+      assert.equal(f.cardProfiles.length, stage === "before-profile" ? 0 : 1);
+      assert.equal(f.cards.length, 0);
+      release();
+      await start;
+      assert.equal(await result, undefined);
+      assert.equal(f.cards.length, 1);
+      assert.deepEqual(diagnostics, []);
+      assert.equal(f.cards[0].signal.aborted, false);
+      if (path === "failure") assert.equal(f.cards[0].body.payload.state, "error");
+      if (path === "progress") assert.equal(f.cards[0].body.payload.state, "completed");
+    });
+  }
+}
+
+for (const outcome of ["changed", "owner-stop", "task-stop", "failed-then-same", "timeout"]) {
+  test(`auth recovery: pending notice handles ${outcome}`, async (t) => {
+    const f = await ownedTransportFixture(t);
+    f.sockets[0].abort();
+    await f.first.close();
+    const pending = await f.replace(f.token, false);
+    const task = new AbortController();
+    if (outcome === "timeout") t.mock.timers.enable({ apis: ["setTimeout"] });
+    let settled = false;
+    const result = f.inbound
+      .replyDeliveryUnknown(deliveryNotice(), "auth:notice", "auth:final", task.signal)
+      .then(
+        () => {
+          settled = true;
+        },
+        (error) => {
+          settled = true;
+          return error;
+        }
+      );
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(settled, false);
+    assert.equal(f.cards.length, 0);
+    if (outcome === "changed") await f.replace(`bf_${randomUUID()}`);
+    else if (outcome === "owner-stop") f.owner.abort();
+    else if (outcome === "task-stop") task.abort();
+    else if (outcome === "timeout") t.mock.timers.tick(15000);
+    else {
+      f.setRequestHook((url) =>
+        url.endsWith("/auth/verify-bot") ? Response.json({}, { status: 503 }) : undefined
+      );
+      await assert.rejects(pending.start(f.sockets.at(-1).signal));
+      await pending.close();
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.equal(settled, false, "a failed authentication attempt must not discard the notice");
+      f.setRequestHook(undefined);
+      await f.replace();
+    }
+    const error = await result;
+    if (outcome === "failed-then-same") assert.equal(error, undefined);
+    else
+      assert.equal(
+        error?.code,
+        outcome === "changed"
+          ? "IM_CONNECTION_IDENTITY_CHANGED"
+          : outcome === "timeout"
+            ? "IM_CONNECTION_UNAVAILABLE"
+            : "IM_DELIVERY_CANCELLED"
+      );
+    assert.equal(f.cards.length, outcome === "failed-then-same" ? 1 : 0);
+  });
+}
+
+for (const stage of ["before-profile", "before-write"]) {
+  test(`auth recovery: failure card respects task cancellation ${stage}`, async (t) => {
+    const f = await ownedTransportFixture(t);
+    const task = new AbortController();
+    if (stage === "before-profile") task.abort();
+    else
+      f.setCardProfileHook(() => {
+        task.abort();
+      });
+    await assert.rejects(
+      f.inbound.replyFailure(failedRun, "auth:failure", {
+        signal: task.signal,
+        obsolete: () => task.signal.aborted
+      })
+    );
+    assert.equal(f.cards.length, 0);
+  });
+}
+
+for (const stage of ["changed-then-pre-auth", "changed-then-original"]) {
   test(`review: old REST identity remains closed during ${stage}`, async (t) => {
     const f = await ownedTransportFixture(t);
     const presentation = f.inbound.beginPresentation("identity-review", () => {}, {});
@@ -252,7 +414,7 @@ for (const stage of ["pre-auth", "changed-then-pre-auth", "changed-then-original
     f.sockets[0].abort();
     await f.first.close();
     if (stage !== "pre-auth") await f.replace(`bf_${randomUUID()}`);
-    const pending = await f.replace(f.token, stage === "changed-then-original");
+    await f.replace(f.token, stage === "changed-then-original");
     const count = f.cards.length;
     await assert.rejects(
       f.inbound.replyDeliveryUnknown(
@@ -266,16 +428,6 @@ for (const stage of ["pre-auth", "changed-then-pre-auth", "changed-then-original
     presentation.update(projector.snapshot());
     await assert.rejects(presentation.finish(), /IM_PRESENTATION_FAILED/);
     assert.equal(f.cards.length, count, "old identity must not resume HTTP writes");
-    if (stage === "pre-auth") {
-      await pending.start(f.sockets.at(-1).signal);
-      await f.inbound.replyDeliveryUnknown(
-        deliveryNotice(),
-        "review:notice",
-        "review:final",
-        f.owner.signal
-      );
-      assert.equal(f.cards.length, count + 1, "same identity may resume after verification");
-    }
   });
 }
 

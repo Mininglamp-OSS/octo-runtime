@@ -48,12 +48,13 @@ export async function uploadChatAttachment(
   filename: string,
   mime: string,
   signal: AbortSignal,
-  authorizeRequest?: () => void
+  authorizeRequest?: (signal: AbortSignal) => void | Promise<void>
 ): Promise<string> {
   signal = AbortSignal.any([signal, AbortSignal.timeout(30_000)]);
   signal.throwIfAborted();
   const query = new URLSearchParams({ filename, fileSize: String(bytes.byteLength) });
-  authorizeRequest?.();
+  await authorizeRequest?.(signal);
+  signal.throwIfAborted();
   const response = await fetch(
     `${trimTrailingSlashes(apiUrl)}/v1/bot/upload/presigned?${query.toString()}`,
     {
@@ -122,7 +123,8 @@ export async function uploadChatAttachment(
   signal.throwIfAborted();
   // PUT 必须原样回显签名的类型/文件名；临时上传地址仅在此使用，网络未知不自动重放。
   // presign 等待期间可能换身份；直传也必须重新核验，不能仅在准备入口检查。
-  authorizeRequest?.();
+  await authorizeRequest?.(signal);
+  signal.throwIfAborted();
   const stored = await fetch(upload.href, {
     method: "PUT",
     headers,

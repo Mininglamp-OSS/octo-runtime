@@ -763,7 +763,12 @@ export class ImRuntime {
     };
     const effect = `busy:${message.messageId}`;
     const notification = Promise.allSettled([
-      Promise.resolve().then(() => message.replyFailure?.(event, effect)),
+      Promise.resolve().then(() =>
+        message.replyFailure?.(event, effect, {
+          signal: this.#signal,
+          obsolete: () => this.#closed || this.#signal.aborted
+        })
+      ),
       this.#reply(
         message,
         `当前智能体繁忙，请稍后再试\n错误码：${payload.failure.code}`,
@@ -784,7 +789,8 @@ export class ImRuntime {
     message: ImInboundMessage,
     failure: FailureEnvelope,
     identity?: { runId: string; invocationId: string; sessionId: string },
-    retry = false
+    retry = false,
+    turnSignal?: AbortSignal
   ): Promise<void> {
     const data = {
       code: failure.code,
@@ -809,6 +815,16 @@ export class ImRuntime {
     };
     const delivery = this.#delivery;
     const options = { transient: true, obsolete: () => this.#closed || performance.now() >= until };
+    const deliveryOptions = {
+      signal: AbortSignal.any([
+        this.#signal,
+        ...(turnSignal ? [turnSignal] : []),
+        ...(Number.isFinite(until)
+          ? [AbortSignal.timeout(Math.max(0, Math.ceil(until - performance.now())))]
+          : [])
+      ]),
+      obsolete: () => options.obsolete() || Boolean(turnSignal?.aborted)
+    };
     const secondary = (code: string): void => {
       this.#diagnostic(code, identity?.runId, {
         ...data,
@@ -820,12 +836,15 @@ export class ImRuntime {
     };
     const send = async (operation: () => Promise<void>, key: string): Promise<void> => {
       const receipt = await delivery.deliver(key, operation, options);
+      if (turnSignal?.aborted) return;
       if (receipt.state !== "delivered") secondary(receipt.code ?? "IM_DELIVERY_FAILED");
     };
     const notification = withinShutdown(
       Promise.allSettled([
-        ...(message.replyFailure ? [send(() => message.replyFailure!(event, effect), effect)] : []),
-        send(() => message.reply(text, `${effect}:text`), `${effect}:text`)
+        ...(message.replyFailure
+          ? [send(() => message.replyFailure!(event, effect, deliveryOptions), effect)]
+          : []),
+        send(() => message.reply(text, `${effect}:text`, deliveryOptions), `${effect}:text`)
       ]),
       until,
       "IM_DELIVERY_UNKNOWN"
@@ -1395,7 +1414,15 @@ export class ImRuntime {
               }
             ).failure;
           controls.failed = false;
-          await this.#notifyFailure(message, localFailure, request, task.attempts.length > 1);
+          // 未提交失败的错误卡也可能等待重连；先移交取消权，stop/reset 才能终止待发通知。
+          this.#finalDeliveries.set(key, delivery);
+          await this.#notifyFailure(
+            message,
+            localFailure,
+            request,
+            task.attempts.length > 1,
+            delivery.signal
+          );
         } else {
           if (this.#draining) this.#drainErrors.push(new Error("IM_EXECUTION_RESULT_UNKNOWN"));
           // 流断开无法证明执行失败；尽力取消并提示核查，不自动重跑潜在的业务副作用。
