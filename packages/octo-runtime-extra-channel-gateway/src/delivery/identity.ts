@@ -25,6 +25,16 @@ export class ImDeliveryScope {
 export class ImDeliveryIdentity {
   #current?: { identity: string; token: string; scope: ImDeliveryScope };
   readonly #verified = new Set<() => void>();
+  #verificationPending = false;
+
+  /** Runtime 在回收旧连接前声明重新核验；清理/退避期间尚未发布新 current 也必须暂停出站。 */
+  beginVerification(): void {
+    this.#verificationPending = true;
+  }
+
+  get verificationPending(): boolean {
+    return this.#verificationPending;
+  }
 
   /** 等待下一次成功核验；失败重试不唤醒，取消/截止立即移除等待者。 */
   waitForVerification(signal: AbortSignal): Promise<void> {
@@ -57,6 +67,8 @@ export class ImDeliveryIdentity {
       this.#current?.scope.revoke();
       this.#current = { identity, token, scope: new ImDeliveryScope() };
     }
+    // 只有身份与空间准入成功才结束等待；WS 尚未 online 不妨碍同身份 REST 继续。
+    this.#verificationPending = false;
     for (const ready of this.#verified) ready();
     return this.#current.scope;
   }

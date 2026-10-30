@@ -616,8 +616,12 @@ export class GatewayTransport {
         waiting.throwIfAborted();
         const owner = this.deliveryOwner;
         const current = owner?.current();
-        if (owner && current && current !== this && !current.#token) {
-          // Runtime 在 start 前发布新对象。握手未结束不代表旧身份可用，也不等于投递失败。
+        if (
+          owner &&
+          (owner.identity.verificationPending || (current && current !== this && !current.#token))
+        ) {
+          // 待核验从旧连接回收前开始，包含 current 仍为旧对象或尚为空的清理/退避窗口。
+          // 未声明身份恢复的纯 REST-only 离线不受 WS online 限制。
           // 等待 Bot 的核验事件能跨过失败的连接尝试，不为每个等待者添加轮询计时器。
           await owner.identity.waitForVerification(waiting);
           continue;

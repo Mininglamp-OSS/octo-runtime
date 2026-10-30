@@ -213,6 +213,8 @@ export class ImRuntime {
     this.#log(recovering ? "channel.retry_started" : "channel.connecting", {
       attempt: this.#retry
     });
+    // 先冻结任务 REST 准入，再开始任何异步回收；不能用仍指向旧对象的 current 充当核验结果。
+    this.#deliveryIdentity?.beginVerification();
     this.#connectionAbort?.abort();
     try {
       await this.#disconnecting;
@@ -282,6 +284,8 @@ export class ImRuntime {
       if (signal.aborted) return;
       starting = false;
       const failure = connectionFailure(error);
+      // verify 成功后的注册/WS 握手也可能失败；下一次恢复前重新关闭 REST 准入窗口。
+      this.#deliveryIdentity?.beginVerification();
       this.#connectionAbort.abort();
       this.#error = failure.message;
       // 首次离线与后续断线共用恢复；服务端断开不等于永久拒绝，由传输分类决定资格。
@@ -303,6 +307,7 @@ export class ImRuntime {
     const retry = failure.retryable;
     this.#state = retry ? "retrying" : "failed";
     this.#log("channel.disconnected", { state: this.#state, code: failure.message });
+    this.#deliveryIdentity?.beginVerification();
     this.#connectionAbort?.abort();
     // 确认断线即退出 online；立即重连后追加最多十次 1 秒重试，覆盖换网恢复间隙。
     // 关闭和旧回调不能再创建连接，回收失败须单独诊断，不能以加速为由重叠连接。

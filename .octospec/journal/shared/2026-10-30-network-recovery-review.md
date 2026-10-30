@@ -82,3 +82,13 @@ ImDeliveryIdentity 提供成功核验事件的可取消等待；未核验 curren
 使用真实 ImRuntime 重连调度和 GatewayTransport/OctoConnector，仅隔离网络、WS 和计时器。33 个微任务边界扫描在基线第 10/11/12 个位置失败（/tmp/octo-race-baseline.log）；修复后 33/33 通过。另两项验证迟到 ACK 与 429 重试，35/35 通过（/tmp/octo-review4-races.log）。不扩大 CI，不安装或重启运行中服务。
 
 最终验证：完整 workspace build、根 TypeScript noEmit、lint、lint:names、format:check、git diff --check 通过；全渠道/网关测试 588/588 通过（/tmp/octo-review4-tests-final.log）。第一次将依赖 dist 的 lint/测试与全量 build 并行，build 清理产物时造成模块缺失；该轮不作为功能结论，构建结束后重跑上述检查全部通过。相对 main 的 .github、根 package.json、scripts 和 workspace 配置无 diff；远端旧 head 的检查列表仍为现有 CI/审查项目。真实 Wi-Fi/Provider 验收未在本轮重跑。
+
+## yujiawei 第五轮：旧连接回收至替代连接发布之间的空窗
+
+核验 review 5707199541，基线 90f7a89。意见成立：真实 ImRuntime 在 onDisconnect 后先等待 close，再调度重连，期间 current 仍指向旧 transport；单靠 current 的 token 检查无法表示正在重新鉴权。通过可变凭据源与受控的旧 WS close，在清理阶段及重试计时器尚未触发阶段复现旧身份请求提前发出。新增 7 项回归在基线均失败（/tmp/octo-review5-before.log）。
+
+ImDeliveryIdentity 由 Bot 持有 verificationPending，Runtime 在回收前、发起连接前及已核验后的注册/握手失败时同步设置；仅 accept 成功身份时清除。实际 HTTP 守卫先等待 pending，再保持检查与 fetch 同步执行。纯 REST-only 离线没有声明重新鉴权时仍可继续，已核验而 WS 尚未上线也可更新；不取消原 Run、不永久撤销同身份恢复的代次。
+
+8 项新回归通过（/tmp/octo-review5-retirement.log）：清理/退避期间同身份继续与换身份拒绝，任务/Bot 取消，15 秒截止，以及 verify 完成即允许 REST、握手失败后重新等待。原 33 项 dispatch 时序、迟到 ACK、限流重试和 REST-only 正例也继续验证。本轮自动检查不安装或重启本地服务；用户刚安装的版本仍为 90f7a89。
+
+最终验证：全量 build、根类型检查、lint、命名、format:check 与 diff whitespace 通过；全渠道/网关测试 596/596 通过（/tmp/octo-review5-tests.log）。相对 main 的 workflow、根 package.json、scripts 和 workspace 配置无 diff；90f7a89 的既有跨平台 CI Gate 已通过，新提交仍须独立 CI 与 review。

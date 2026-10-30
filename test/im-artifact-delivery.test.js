@@ -247,6 +247,189 @@ const failedRun = {
   payload: { code: "PROVIDER_FAILED", message: "Provider failed after reconnect" }
 };
 
+for (const stage of ["cleanup", "retry-backoff"]) {
+  for (const outcome of stage === "cleanup"
+    ? ["same", "changed", "task-stop", "owner-stop", "timeout"]
+    : ["same", "changed"]) {
+    test(`REST retirement: ${stage} waits before replacement and handles ${outcome}`, async (t) => {
+      const f = reconnectTransportFixture(t);
+      let inbound,
+        releaseCleanup,
+        closeEntered = false;
+      let credential = f.token;
+      const cleanup = new Promise((resolve) => {
+        releaseCleanup = resolve;
+      });
+      const originalStart = GatewayTransport.prototype.start;
+      t.mock.method(GatewayTransport.prototype, "start", function (signal) {
+        this.callbacks.onMessage = (message) => {
+          inbound = message;
+        };
+        return originalStart.call(this, signal);
+      });
+      const originalClose = WukongConnection.prototype.close;
+      t.mock.method(WukongConnection.prototype, "close", async function () {
+        await originalClose.call(this);
+        if (this === f.connections[0]) {
+          closeEntered = true;
+          await cleanup;
+        }
+      });
+      const runtime = new ImRuntime(
+        { ...config(process.cwd()), typing: false },
+        {
+          credentials: async () => credential,
+          kernel: {
+            async *invoke() {
+              assert.fail("delivery must not rerun execution");
+            }
+          }
+        }
+      );
+      t.after(async () => {
+        releaseCleanup();
+        t.mock.timers.reset();
+        await runtime.close();
+      });
+      await runtime.start();
+      f.connections[0].onMessage(f.message);
+      t.mock.timers.enable({ apis: ["setTimeout"] });
+      if (outcome === "changed") credential = `bf_${randomUUID()}`;
+      f.connections[0].onDisconnect(new Error("IM_DISCONNECTED"));
+      for (let i = 0; i < 80; i++) await Promise.resolve();
+      assert.equal(closeEntered, true);
+      if (stage === "retry-backoff") {
+        releaseCleanup();
+        for (let i = 0; i < 80; i++) await Promise.resolve();
+      }
+      assert.equal(runtime.status.state, "retrying");
+      assert.equal(f.connections.length, 1, "replacement must not be published yet");
+      const task = new AbortController();
+      let settled = false;
+      const operation = inbound
+        .replyFailure(failedRun, "retiring:failure", { signal: task.signal })
+        .then(
+          () => {
+            settled = true;
+          },
+          (error) => {
+            settled = true;
+            return error;
+          }
+        );
+      for (let i = 0; i < 80; i++) await Promise.resolve();
+      assert.equal(
+        f.cardProfiles.length,
+        0,
+        "no old-token profile request during planned re-authentication"
+      );
+      assert.equal(f.cards.length, 0, "no old-token POST during planned re-authentication");
+      assert.equal(settled, false, "retirement pauses instead of dropping a one-shot card");
+      if (outcome === "task-stop" || outcome === "owner-stop" || outcome === "timeout") {
+        let closing;
+        if (outcome === "task-stop") task.abort();
+        if (outcome === "owner-stop") closing = runtime.close();
+        if (outcome === "timeout") t.mock.timers.tick(15_000);
+        const error = await operation;
+        assert.equal(
+          error.code,
+          outcome === "timeout" ? "IM_CONNECTION_UNAVAILABLE" : "IM_DELIVERY_CANCELLED"
+        );
+        assert.equal(f.cardProfiles.length, 0);
+        releaseCleanup();
+        await closing;
+        return;
+      }
+      releaseCleanup();
+      for (let i = 0; i < 80; i++) await Promise.resolve();
+      t.mock.timers.tick(0);
+      for (let i = 0; i < 150; i++) await Promise.resolve();
+      const error = await operation;
+      if (outcome === "changed") {
+        assert.equal(error.code, "IM_CONNECTION_IDENTITY_CHANGED");
+        assert.equal(f.cardProfiles.length, 0);
+        assert.equal(f.cards.length, 0);
+      } else {
+        assert.equal(error, undefined);
+        assert.equal(f.cards.length, 1);
+      }
+    });
+  }
+}
+
+test("REST retirement: verification enables REST before WS online and failed handshake pauses it again", async (t) => {
+  const f = reconnectTransportFixture(t);
+  let inbound, rejectHandshake, releaseCleanup;
+  const handshake = new Promise((_, reject) => {
+    rejectHandshake = reject;
+  });
+  const cleanup = new Promise((resolve) => {
+    releaseCleanup = resolve;
+  });
+  const originalStart = GatewayTransport.prototype.start;
+  t.mock.method(GatewayTransport.prototype, "start", function (signal) {
+    this.callbacks.onMessage = (message) => {
+      inbound = message;
+    };
+    return originalStart.call(this, signal);
+  });
+  const originalConnect = WukongConnection.prototype.connect;
+  t.mock.method(WukongConnection.prototype, "connect", async function (registration) {
+    await originalConnect.call(this, registration);
+    if (this === f.connections[1]) await handshake;
+  });
+  const originalClose = WukongConnection.prototype.close;
+  t.mock.method(WukongConnection.prototype, "close", async function () {
+    await originalClose.call(this);
+    if (this === f.connections[1]) await cleanup;
+  });
+  const runtime = new ImRuntime(
+    { ...config(process.cwd()), bf_token: f.token, typing: false },
+    {
+      kernel: {
+        async *invoke() {
+          assert.fail("delivery must not rerun execution");
+        }
+      }
+    }
+  );
+  t.after(async () => {
+    releaseCleanup();
+    t.mock.timers.reset();
+    await runtime.close();
+  });
+  await runtime.start();
+  f.connections[0].onMessage(f.message);
+  let now = performance.now();
+  t.mock.method(performance, "now", () => now);
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  f.connections[0].onDisconnect(new Error("IM_DISCONNECTED"));
+  for (let i = 0; i < 80; i++) await Promise.resolve();
+  t.mock.timers.tick(0);
+  for (let i = 0; i < 150; i++) await Promise.resolve();
+  assert.equal(f.connections.length, 2);
+  assert.equal(runtime.status.state, "retrying");
+  await inbound.replyFailure(failedRun, "verified:failure");
+  assert.equal(f.cards.length, 1, "verified REST must not wait for WS online");
+  rejectHandshake(new Error("IM_DISCONNECTED"));
+  for (let i = 0; i < 80; i++) await Promise.resolve();
+  const profiles = f.cardProfiles.length;
+  const operation = inbound.replyFailure(failedRun, "failed-handshake:failure");
+  for (let i = 0; i < 80; i++) await Promise.resolve();
+  assert.equal(
+    f.cardProfiles.length,
+    profiles,
+    "failed handshake starts a new verification window before cleanup"
+  );
+  releaseCleanup();
+  for (let i = 0; i < 80; i++) await Promise.resolve();
+  now += 1000;
+  t.mock.timers.tick(1000);
+  for (let i = 0; i < 150; i++) await Promise.resolve();
+  await operation;
+  assert.equal(f.cards.length, 2);
+});
+
 // Advance the real Runtime reconnect timer at adjacent microtask boundaries. In particular,
 // cover replacement published AFTER the old authorization resolved but BEFORE its POST.
 for (let microtasks = 0; microtasks <= 32; microtasks++) {
