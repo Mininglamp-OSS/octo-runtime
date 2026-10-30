@@ -18,7 +18,7 @@ export class OctoConnector {
     readonly token: string,
     readonly signal: AbortSignal,
     readonly sendWsText: (address: ImAddress, text: string, effectKey: string) => Promise<void>,
-    // 跨 WS 存活的 REST 客户端在每次请求前校验原身份，不把 WS online 当作 HTTP 准入。
+    // 跨 WS 的 REST 使用 Bot 持有凭据及任务期限，不把 WS 状态当作 HTTP 准入。
     readonly dispatchRequest?: HttpRequestDispatch
   ) {}
   async reasoningTemplate(): Promise<ReasoningTemplate | undefined> {
@@ -38,8 +38,8 @@ export class OctoConnector {
   readonly #dispatch: HttpRequestDispatch = (signal, send) => {
     const owner = AbortSignal.any([this.signal, signal]);
     owner.throwIfAborted();
-    const dispatch = (authorized: AbortSignal): Promise<Response> =>
-      send(AbortSignal.any([authorized, AbortSignal.timeout(3_000)]));
+    const dispatch = (authorized: AbortSignal, botToken?: string): Promise<Response> =>
+      send(AbortSignal.any([authorized, AbortSignal.timeout(3_000)]), botToken);
     return this.dispatchRequest ? this.dispatchRequest(owner, dispatch) : dispatch(owner);
   };
 
@@ -136,9 +136,9 @@ export class OctoConnector {
       {
         retryOn429: false,
         dispatchRequest: (signal, send) =>
-          this.#dispatch(signal, (authorized) => {
+          this.#dispatch(signal, (authorized, botToken) => {
             if (obsolete?.()) throw new ImSendError("IM_DELIVERY_CANCELLED", "failed");
-            return send(authorized);
+            return send(authorized, botToken);
           })
       }
     ).catch((error: unknown) => {

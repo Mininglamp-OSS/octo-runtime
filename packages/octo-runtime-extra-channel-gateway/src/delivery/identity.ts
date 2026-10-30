@@ -1,6 +1,6 @@
 import { ImSendError } from "./text-send.js";
 
-/** 一次已核验身份的投递权限及有界 ACK 账本；换身份永久取消，普通 WS 重建不取消。 */
+/** 一次已核验目标身份的投递权限及有界 ACK 账本；更新 token 或重建 WS 不取消。 */
 export class ImDeliveryScope {
   readonly #abort = new AbortController();
   readonly #confirmed = new Set<string>();
@@ -23,53 +23,13 @@ export class ImDeliveryScope {
 
 /** 归 Bot 所有；只接受核验成功的身份，不随 current transport 的替换遗忘旧代次失效。 */
 export class ImDeliveryIdentity {
-  #current?: { identity: string; token: string; scope: ImDeliveryScope };
-  readonly #verified = new Set<() => void>();
-  #verificationPending = false;
+  #current?: { identity: string; scope: ImDeliveryScope };
 
-  /** Runtime 在回收旧连接前声明重新核验；清理/退避期间尚未发布新 current 也必须暂停出站。 */
-  beginVerification(): void {
-    this.#verificationPending = true;
-  }
-
-  get verificationPending(): boolean {
-    return this.#verificationPending;
-  }
-
-  /** 等待下一次成功核验；失败重试不唤醒，取消/截止立即移除等待者。 */
-  waitForVerification(signal: AbortSignal): Promise<void> {
-    signal.throwIfAborted();
-    return new Promise((resolve, reject) => {
-      const clean = (): void => {
-        this.#verified.delete(ready);
-        signal.removeEventListener("abort", aborted);
-      };
-      const ready = (): void => {
-        clean();
-        resolve();
-      };
-      const aborted = (): void => {
-        clean();
-        reject(
-          signal.reason instanceof Error
-            ? signal.reason
-            : new ImSendError("IM_DELIVERY_CANCELLED", "failed")
-        );
-      };
-      this.#verified.add(ready);
-      signal.addEventListener("abort", aborted, { once: true });
-      if (signal.aborted) aborted();
-    });
-  }
-
-  accept(identity: string, token: string): ImDeliveryScope {
-    if (this.#current?.identity !== identity || this.#current.token !== token) {
+  accept(identity: string): ImDeliveryScope {
+    if (this.#current?.identity !== identity) {
       this.#current?.scope.revoke();
-      this.#current = { identity, token, scope: new ImDeliveryScope() };
+      this.#current = { identity, scope: new ImDeliveryScope() };
     }
-    // 只有身份与空间准入成功才结束等待；WS 尚未 online 不妨碍同身份 REST 继续。
-    this.#verificationPending = false;
-    for (const ready of this.#verified) ready();
     return this.#current.scope;
   }
 }

@@ -97,6 +97,8 @@ export class ImRuntime {
   #delivery?: ImDeliveryDispatcher;
   #cardDelivery?: ImDeliveryDispatcher;
   #deliveryIdentity?: ImDeliveryIdentity;
+  // 宿主凭据来源是黑盒；沿原初始化/建联入口保存值，REST 不重新获取或等待 WS 核验。
+  #restToken?: string;
   readonly #sessions = new Map<string, ImSession>();
   readonly #sessionStore: ImSessionStore;
   readonly #seen = new Map<string, number>();
@@ -195,6 +197,7 @@ export class ImRuntime {
       // 卡片/文件回执归 Bot，跨 WS 恢复复用同一有界缓存；与文本回执分开统计。
       this.#cardDelivery = new ImDeliveryDispatcher(this.#signal);
       this.#deliveryIdentity = new ImDeliveryIdentity();
+      this.#restToken = undefined;
     }
     this.#retry = 0;
     this.#backoff = 0;
@@ -213,8 +216,7 @@ export class ImRuntime {
     this.#log(recovering ? "channel.retry_started" : "channel.connecting", {
       attempt: this.#retry
     });
-    // 先冻结任务 REST 准入，再开始任何异步回收；不能用仍指向旧对象的 current 充当核验结果。
-    this.#deliveryIdentity?.beginVerification();
+    // 只回收单次 WS；Bot 持有的 REST 凭据及任务展示不随连接清理暂停。
     this.#connectionAbort?.abort();
     try {
       await this.#disconnecting;
@@ -230,8 +232,17 @@ export class ImRuntime {
     const signal = AbortSignal.any([this.#signal, this.#connectionAbort.signal]);
     let starting = true;
     let disconnected: ImConnectionError | undefined;
-    const credentials =
-      this.dependencies.credentials ?? ((config) => Promise.resolve(config.bf_token));
+    const credentials: NonNullable<ImModuleDependencies["credentials"]> = async (
+      config,
+      signal
+    ) => {
+      const token = await (this.dependencies.credentials
+        ? this.dependencies.credentials(config, signal)
+        : Promise.resolve(config.bf_token));
+      signal.throwIfAborted();
+      this.#restToken = token?.trim();
+      return token;
+    };
     const connector = new GatewayTransport(
       this.config,
       credentials,
@@ -261,6 +272,7 @@ export class ImRuntime {
         signal: this.#signal,
         dispatcher: this.#cardDelivery!,
         identity: this.#deliveryIdentity!,
+        token: () => this.#restToken,
         // 只供旧任务选择本 Bot 当前连接；生命周期停止后旧 signal 不会随新 start 复活。
         current: () => this.#connector
       }
@@ -284,8 +296,7 @@ export class ImRuntime {
       if (signal.aborted) return;
       starting = false;
       const failure = connectionFailure(error);
-      // verify 成功后的注册/WS 握手也可能失败；下一次恢复前重新关闭 REST 准入窗口。
-      this.#deliveryIdentity?.beginVerification();
+      // 注册/WS 握手失败只影响连接恢复，不撤销 Bot 已持有的 REST 凭据。
       this.#connectionAbort.abort();
       this.#error = failure.message;
       // 首次离线与后续断线共用恢复；服务端断开不等于永久拒绝，由传输分类决定资格。
@@ -307,7 +318,6 @@ export class ImRuntime {
     const retry = failure.retryable;
     this.#state = retry ? "retrying" : "failed";
     this.#log("channel.disconnected", { state: this.#state, code: failure.message });
-    this.#deliveryIdentity?.beginVerification();
     this.#connectionAbort?.abort();
     // 确认断线即退出 online；立即重连后追加最多十次 1 秒重试，覆盖换网恢复间隙。
     // 关闭和旧回调不能再创建连接，回收失败须单独诊断，不能以加速为由重叠连接。

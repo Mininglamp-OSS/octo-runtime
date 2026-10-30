@@ -82,6 +82,7 @@ export class GatewayTransport {
       signal: AbortSignal;
       dispatcher: ImDeliveryDispatcher;
       identity: ImDeliveryIdentity;
+      token?: () => string | undefined;
       current: () => GatewayTransport | undefined;
     }
   ) {
@@ -108,8 +109,7 @@ export class GatewayTransport {
     this.#spaceId = principal.space_id;
     this.identity = `${imBotIdentity(this.config)}:${encodeURIComponent(this.#spaceId)}`;
     // 必须在身份核验及空间准入成功后推进代次；连接失败/再次重连不能复活旧代次。
-    this.#deliveryScope =
-      this.deliveryOwner?.identity.accept(this.identity, token) ?? this.#deliveryScope;
+    this.#deliveryScope = this.deliveryOwner?.identity.accept(this.identity) ?? this.#deliveryScope;
     const registration = await registerBot(this.config.api_url, token, signal);
     const toolEnvironment = octoCliEnvironment(this.config.api_url, token);
     if (signal.aborted) return;
@@ -148,9 +148,9 @@ export class GatewayTransport {
             AbortSignal.any([deliverySignal, turnSignal]),
             async () => {},
             (requestSignal, send) =>
-              this.#dispatchRestDelivery(requestSignal, (authorized) => {
+              this.#dispatchRestDelivery(requestSignal, (authorized, botToken) => {
                 if (obsolete?.()) throw new ImSendError("IM_DELIVERY_CANCELLED", "failed");
-                return send(authorized);
+                return send(authorized, botToken);
               })
           );
         const finalDispatcher = this.#delivery!;
@@ -600,50 +600,33 @@ export class GatewayTransport {
     if (!connection.connected) throw new ImConnectionError("IM_DISCONNECTED", true);
     this.#connected = true;
   }
-  /** REST 只等身份核验，不等 WS online；每次请求均有取消权和有限恢复窗口。 */
+  /** REST 消费 Bot 已持有的凭据；WS 清理/鉴权/握手均不影响其准入。 */
   readonly #dispatchRestDelivery: HttpRequestDispatch = async (signal, send) => {
-    const deadline = new AbortController();
-    const timeout = setTimeout(() => deadline.abort(), 15_000);
-    timeout.unref();
-    const waiting = AbortSignal.any([
+    const requestSignal = AbortSignal.any([
       signal,
       this.#deliveryScope.signal,
-      ...(this.deliveryOwner ? [this.deliveryOwner.signal] : []),
-      deadline.signal
+      ...(this.deliveryOwner ? [this.deliveryOwner.signal] : [])
     ]);
     try {
-      for (;;) {
-        waiting.throwIfAborted();
-        const owner = this.deliveryOwner;
-        const current = owner?.current();
-        if (
-          owner &&
-          (owner.identity.verificationPending || (current && current !== this && !current.#token))
-        ) {
-          // 待核验从旧连接回收前开始，包含 current 仍为旧对象或尚为空的清理/退避窗口。
-          // 未声明身份恢复的纯 REST-only 离线不受 WS online 限制。
-          // 等待 Bot 的核验事件能跨过失败的连接尝试，不为每个等待者添加轮询计时器。
-          await owner.identity.waitForVerification(waiting);
-          continue;
-        }
-        if (
-          current &&
-          current.#token &&
-          (current.identity !== this.identity || current.#token !== this.#token)
-        )
-          throw new ImSendError("IM_CONNECTION_IDENTITY_CHANGED", "failed");
-        // 检查 current 与发出 fetch 必须在同一个同步调用栈中，重连不能插入两者之间。
-        // 这里不 await 响应：恢复等待的期限只约束准入，HTTP 由调用方单独限时。
-        return send(signal);
-      }
+      requestSignal.throwIfAborted();
+      const owner = this.deliveryOwner;
+      const current = owner?.current();
+      if (
+        current &&
+        (imBotIdentity(current.config) !== imBotIdentity(this.config) ||
+          (current.#token && current.identity !== this.identity))
+      )
+        throw new ImSendError("IM_CONNECTION_IDENTITY_CHANGED", "failed");
+      const token = owner?.token ? owner.token()?.trim() : this.#token;
+      if (!token) throw new Error("IM_CREDENTIALS_REQUIRED");
+      if (!/^bf_[A-Za-z0-9_-]+$/.test(token)) throw new Error("IM_BOT_TOKEN_INVALID");
+      // 只读取已注入的值，不触发宿主获取/刷新；检查、替换头与 fetch 同步完成。
+      return send(requestSignal, token);
     } catch (error) {
       this.#deliveryScope.signal.throwIfAborted();
       if (signal.aborted || this.deliveryOwner?.signal.aborted)
         throw new ImSendError("IM_DELIVERY_CANCELLED", "failed");
-      if (deadline.signal.aborted) throw new ImSendError("IM_CONNECTION_UNAVAILABLE", "failed");
       throw error;
-    } finally {
-      clearTimeout(timeout);
     }
   };
   /** 只选择完成鉴权的同身份连接；临时离线可等待，账号或凭据变化必须拒绝转投。 */

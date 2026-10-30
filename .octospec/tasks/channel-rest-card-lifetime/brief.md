@@ -8,6 +8,8 @@ timestamp: 2026-10-30T00:00:00Z
 
 # 切网后 REST 进度卡继续更新
 
+当前合同已由用户进一步明确，见[REST 使用 Manager 生效凭据](../channel-rest-manager-credentials/brief.md)：REST 不等待 WS 重新核验，不要求外部最新 token。下文各轮 review 的等待策略是历史实施证据，由新合同替代。
+
 用户确认最终文本能够送达，但任务进度卡停在切网时的思考状态。原因是 CardSession 的 OctoConnector 和 ImDeliveryDispatcher 都使用单次 WS signal；正常重连将其永久取消。REST 本身不依赖 WS online。
 
 进度卡使用原 Bot 生命周期的 REST 客户端和投递器，保留原 API、凭据、收件地址、卡片 messageId 和递增序号。WS 清理不取消进度卡，离线但 REST 可达时也允许更新；Bot 停止仍取消请求，已核验的当前身份变化阻止旧卡继续请求。保持同一 Gateway 服务进程、原 Kernel invoke 和原 CardSession，不新增进程、持久恢复库或公共接口。交互按钮及轮询迁移不属于此次进度展示修复。

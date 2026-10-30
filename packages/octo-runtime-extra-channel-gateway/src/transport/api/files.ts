@@ -121,7 +121,7 @@ export async function uploadChatAttachment(
   }
   signal.throwIfAborted();
   // PUT 必须原样回显签名的类型/文件名；临时上传地址仅在此使用，网络未知不自动重放。
-  // presign 等待期间可能换身份；直传也必须重新核验，不能仅在准备入口检查。
+  // presign 等待期间目标身份或任务可能取消；直传前检查，但不等待 WS 握手。
   const stored = await fetchWithDispatch(
     upload.href,
     {

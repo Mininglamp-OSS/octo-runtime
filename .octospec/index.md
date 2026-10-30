@@ -1,6 +1,6 @@
 # Octo Runtime 工程知识目录
 
-当前修复：[长任务跨连接恢复后的最终回复](tasks/channel-reconnect-final-delivery/brief.md)、[切网后 REST 进度卡继续更新](tasks/channel-rest-card-lifetime/brief.md)。
+当前修复：[REST 使用 Manager 生效凭据](tasks/channel-rest-manager-credentials/brief.md)、[长任务跨连接恢复后的最终回复](tasks/channel-reconnect-final-delivery/brief.md)、[切网后 REST 进度卡继续更新](tasks/channel-rest-card-lifetime/brief.md)。
 
 当前实现基准为 Git `df63c8f` 与本次工作树。当前合同依据源码核对，历史证据独立记录；不把旧设计或曾经通过的测试当作现有功能。工程说明使用中文。
 

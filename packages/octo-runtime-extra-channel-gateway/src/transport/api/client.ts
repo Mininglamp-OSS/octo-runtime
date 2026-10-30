@@ -9,20 +9,29 @@ import { trimTrailingSlashes } from "./url.js";
 
 export const DEFAULT_TIMEOUT_MS = 30_000;
 
-/** 在身份核验后同步调用 send；不可先返回许可，再由异步调用方发出请求。 */
+/** 在发送边界检查生命周期，可用 Bot 持有值替换鉴权头；不返回异步许可。 */
 export type HttpRequestDispatch = (
   signal: AbortSignal,
-  send: (signal: AbortSignal) => Promise<Response>
+  send: (signal: AbortSignal, botToken?: string) => Promise<Response>
 ) => Promise<Response>;
 
-/** 所有尝试（含 429 重试）均在实际 fetch 边界重新准入；默认调用保持原 HTTP 行为。 */
+/** 每次尝试（含 429）使用生效凭据；无 Authorization 的签名 PUT 不附加 Bot Token。 */
 export function fetchWithDispatch(
   url: string,
   options: RequestInit & { signal: AbortSignal },
   dispatch?: HttpRequestDispatch
 ): Promise<Response> {
-  const send = (signal: AbortSignal): Promise<Response> => {
+  const send = (signal: AbortSignal, botToken?: string): Promise<Response> => {
     signal.throwIfAborted();
+    const headers = new Headers(options.headers);
+    if (botToken !== undefined && headers.has("Authorization")) {
+      headers.delete("Authorization");
+      return fetch(url, {
+        ...options,
+        headers: { ...Object.fromEntries(headers), Authorization: `Bearer ${botToken}` },
+        signal
+      });
+    }
     return fetch(url, { ...options, signal });
   };
   return dispatch ? dispatch(options.signal, send) : send(options.signal);

@@ -198,14 +198,18 @@ async function ownedTransportFixture(t) {
   const owner = new AbortController();
   const sockets = [];
   const transports = [];
-  let current, inbound;
+  let current,
+    inbound,
+    heldToken = f.token;
   const lifetime = {
     signal: owner.signal,
     dispatcher: new ImDeliveryDispatcher(owner.signal),
     identity: new ImDeliveryIdentity(),
+    token: () => heldToken,
     current: () => current
   };
   const replace = async (token = f.token, authenticate = true) => {
+    heldToken = token;
     const socket = new AbortController();
     sockets.push(socket);
     current = new GatewayTransport(
@@ -249,9 +253,9 @@ const failedRun = {
 
 for (const stage of ["cleanup", "retry-backoff"]) {
   for (const outcome of stage === "cleanup"
-    ? ["same", "changed", "task-stop", "owner-stop", "timeout"]
+    ? ["same", "changed", "task-stop", "owner-stop", "http-denied"]
     : ["same", "changed"]) {
-    test(`REST retirement: ${stage} waits before replacement and handles ${outcome}`, async (t) => {
+    test(`REST retirement: ${stage} remains independent of WS and handles ${outcome}`, async (t) => {
       const f = reconnectTransportFixture(t);
       let inbound,
         releaseCleanup,
@@ -305,6 +309,15 @@ for (const stage of ["cleanup", "retry-backoff"]) {
       assert.equal(runtime.status.state, "retrying");
       assert.equal(f.connections.length, 1, "replacement must not be published yet");
       const task = new AbortController();
+      if (outcome === "task-stop") task.abort();
+      if (outcome === "owner-stop") {
+        releaseCleanup();
+        await runtime.close();
+      }
+      if (outcome === "http-denied")
+        f.setRequestHook((url) =>
+          url.endsWith("/bot/sendMessage") ? new Response(null, { status: 403 }) : undefined
+        );
       let settled = false;
       const operation = inbound
         .replyFailure(failedRun, "retiring:failure", { signal: task.signal })
@@ -318,46 +331,38 @@ for (const stage of ["cleanup", "retry-backoff"]) {
           }
         );
       for (let i = 0; i < 80; i++) await Promise.resolve();
-      assert.equal(
-        f.cardProfiles.length,
-        0,
-        "no old-token profile request during planned re-authentication"
-      );
-      assert.equal(f.cards.length, 0, "no old-token POST during planned re-authentication");
-      assert.equal(settled, false, "retirement pauses instead of dropping a one-shot card");
-      if (outcome === "task-stop" || outcome === "owner-stop" || outcome === "timeout") {
-        let closing;
-        if (outcome === "task-stop") task.abort();
-        if (outcome === "owner-stop") closing = runtime.close();
-        if (outcome === "timeout") t.mock.timers.tick(15_000);
+      assert.equal(settled, true, "REST must settle without waiting for WS replacement");
+      if (outcome === "task-stop" || outcome === "owner-stop") {
         const error = await operation;
-        assert.equal(
-          error.code,
-          outcome === "timeout" ? "IM_CONNECTION_UNAVAILABLE" : "IM_DELIVERY_CANCELLED"
-        );
+        assert.ok(error.code === "IM_DELIVERY_CANCELLED" || error.name === "AbortError");
         assert.equal(f.cardProfiles.length, 0);
         releaseCleanup();
-        await closing;
         return;
+      }
+      const error = await operation;
+      if (outcome === "http-denied") {
+        assert.equal(error.status, 403);
+        assert.equal(f.cards.length, 0);
+      } else {
+        assert.equal(error, undefined);
+        assert.equal(f.cards.length, 1);
+        assert.equal(
+          new Headers(
+            f.requests.find(({ url }) => url.endsWith("/bot/sendMessage")).options.headers
+          ).get("Authorization"),
+          `Bearer ${f.token}`,
+          "use the owner-held init value; external source freshness is not required"
+        );
       }
       releaseCleanup();
       for (let i = 0; i < 80; i++) await Promise.resolve();
       t.mock.timers.tick(0);
       for (let i = 0; i < 150; i++) await Promise.resolve();
-      const error = await operation;
-      if (outcome === "changed") {
-        assert.equal(error.code, "IM_CONNECTION_IDENTITY_CHANGED");
-        assert.equal(f.cardProfiles.length, 0);
-        assert.equal(f.cards.length, 0);
-      } else {
-        assert.equal(error, undefined);
-        assert.equal(f.cards.length, 1);
-      }
     });
   }
 }
 
-test("REST retirement: verification enables REST before WS online and failed handshake pauses it again", async (t) => {
+test("REST retirement: pending and failed WS handshakes do not pause REST", async (t) => {
   const f = reconnectTransportFixture(t);
   let inbound, rejectHandshake, releaseCleanup;
   const handshake = new Promise((_, reject) => {
@@ -416,11 +421,9 @@ test("REST retirement: verification enables REST before WS online and failed han
   const profiles = f.cardProfiles.length;
   const operation = inbound.replyFailure(failedRun, "failed-handshake:failure");
   for (let i = 0; i < 80; i++) await Promise.resolve();
-  assert.equal(
-    f.cardProfiles.length,
-    profiles,
-    "failed handshake starts a new verification window before cleanup"
-  );
+  assert.equal(f.cardProfiles.length, profiles + 1, "failed WS handshake cannot block REST");
+  await operation;
+  assert.equal(f.cards.length, 2, "REST completes while failed WS cleanup is still pending");
   releaseCleanup();
   for (let i = 0; i < 80; i++) await Promise.resolve();
   now += 1000;
@@ -430,16 +433,14 @@ test("REST retirement: verification enables REST before WS online and failed han
   assert.equal(f.cards.length, 2);
 });
 
-// Advance the real Runtime reconnect timer at adjacent microtask boundaries. In particular,
-// cover replacement published AFTER the old authorization resolved but BEFORE its POST.
+// Advance the real Runtime reconnect timer at adjacent microtask boundaries;
+// publishing an unverified WS must never block REST using the owner's init credential.
 for (let microtasks = 0; microtasks <= 32; microtasks++) {
-  test(`HTTP dispatch race: reconnect after ${microtasks} continuations waits for verification`, async (t) => {
+  test(`HTTP dispatch race: reconnect after ${microtasks} continuations leaves REST independent`, async (t) => {
     const f = reconnectTransportFixture(t);
-    let inbound, beforeReplacement;
-    let starts = 0;
+    let inbound;
     const originalStart = GatewayTransport.prototype.start;
     t.mock.method(GatewayTransport.prototype, "start", function (signal) {
-      if (++starts === 2) beforeReplacement = f.requests.length;
       this.callbacks.onMessage = (message) => {
         inbound = message;
       };
@@ -481,12 +482,12 @@ for (let microtasks = 0; microtasks <= 32; microtasks++) {
     t.mock.timers.tick(0);
     for (let i = 0; i < 100; i++) await Promise.resolve();
     assert.equal(authenticating, true, "real reconnect must be pending verification");
-    assert.equal(
-      f.requests.slice(beforeReplacement).filter(({ url }) => url.endsWith("/bot/sendMessage"))
-        .length,
-      0,
-      "no old-token POST may start after unverified current is published"
-    );
+    await operation;
+    assert.equal(f.cards.length, 1, "REST must finish before WS verification is released");
+    for (const { url, options } of f.requests) {
+      if (url.endsWith("/bot/sendMessage"))
+        assert.equal(new Headers(options.headers).get("Authorization"), `Bearer ${f.token}`);
+    }
     release();
     await operation;
     assert.equal(f.cards.length, 1, "same identity resumes without duplicating the card");
@@ -495,7 +496,7 @@ for (let microtasks = 0; microtasks <= 32; microtasks++) {
 
 for (const path of ["failure", "notice", "progress"]) {
   for (const stage of ["before-profile", "before-write"]) {
-    test(`auth recovery: ${path} waits ${stage} and sends once after verification`, async (t) => {
+    test(`auth recovery: ${path} sends once ${stage} without waiting for WS verification`, async (t) => {
       const f = await ownedTransportFixture(t);
       f.sockets[0].abort();
       await f.first.close();
@@ -557,14 +558,10 @@ for (const path of ["failure", "notice", "progress"]) {
       );
       // The failed baseline can skip replyFailure entirely; do not wait indefinitely for its profile hook.
       for (let i = 0; i < 5; i++) await new Promise((resolve) => setImmediate(resolve));
-      assert.equal(
-        settled,
-        false,
-        "authentication must pause the operation instead of completing or failing it"
-      );
+      assert.equal(settled, true, "WS authentication must not pause REST");
       assert.equal(authenticating, true);
-      assert.equal(f.cardProfiles.length, stage === "before-profile" ? 0 : 1);
-      assert.equal(f.cards.length, 0);
+      assert.equal(f.cardProfiles.length, 1);
+      assert.equal(f.cards.length, 1);
       release();
       await start;
       assert.equal(await result, undefined);
@@ -577,7 +574,7 @@ for (const path of ["failure", "notice", "progress"]) {
   }
 }
 
-test("HTTP dispatch race: a late ACK suppresses a notice waiting to POST", async (t) => {
+test("HTTP dispatch race: a late ACK suppresses a notice after profile lookup", async (t) => {
   const f = await ownedTransportFixture(t);
   let release,
     start,
@@ -599,6 +596,7 @@ test("HTTP dispatch race: a late ACK suppresses a notice waiting to POST", async
     f.setCardProfileHook(undefined);
     const next = await f.replace(f.token, false);
     start = next.start(f.sockets.at(-1).signal);
+    await verification;
   });
   const operation = f.inbound.replyDeliveryUnknown(
     deliveryNotice(),
@@ -615,7 +613,7 @@ test("HTTP dispatch race: a late ACK suppresses a notice waiting to POST", async
   assert.equal(f.cards.length, 0, "a confirmed reply makes the waiting notice obsolete");
 });
 
-test("HTTP dispatch race: a rate-limited mention lookup rechecks pending identity before retry", async (t) => {
+test("HTTP dispatch race: a rate-limited mention lookup retries independently of WS authentication", async (t) => {
   const f = await ownedTransportFixture(t);
   let release,
     start,
@@ -649,7 +647,7 @@ test("HTTP dispatch race: a rate-limited mention lookup rechecks pending identit
   // Advance the HTTP retry while holding the replacement verification unresolved.
   t.mock.timers.tick(5);
   for (let i = 0; i < 100; i++) await Promise.resolve();
-  assert.equal(lookups, 1, "HTTP retry must not bypass the new handshake");
+  assert.equal(lookups, 2, "REST retry proceeds independently of the new WS handshake");
   release();
   await start;
   t.mock.timers.reset();
@@ -658,55 +656,44 @@ test("HTTP dispatch race: a rate-limited mention lookup rechecks pending identit
   assert.equal(f.sends.length, 1);
 });
 
-for (const outcome of ["changed", "owner-stop", "task-stop", "failed-then-same", "timeout"]) {
-  test(`auth recovery: pending notice handles ${outcome}`, async (t) => {
+for (const outcome of ["changed", "owner-stop", "task-stop", "failed-then-same", "http-denied"]) {
+  test(`REST notice during WS recovery handles ${outcome}`, async (t) => {
     const f = await ownedTransportFixture(t);
     f.sockets[0].abort();
     await f.first.close();
     const pending = await f.replace(f.token, false);
     const task = new AbortController();
-    if (outcome === "timeout") t.mock.timers.enable({ apis: ["setTimeout"] });
-    let settled = false;
+    f.setCardProfileHook(async () => {
+      f.setCardProfileHook(undefined);
+      if (outcome === "changed") {
+        f.setPrincipal({ bot_uid: "bot", space_id: "other" });
+        await f.replace();
+      } else if (outcome === "owner-stop") f.owner.abort();
+      else if (outcome === "task-stop") task.abort();
+      else if (outcome === "http-denied")
+        f.setRequestHook((url) =>
+          url.endsWith("/bot/sendMessage") ? new Response(null, { status: 403 }) : undefined
+        );
+      else {
+        f.setRequestHook((url) =>
+          url.endsWith("/auth/verify-bot") ? Response.json({}, { status: 503 }) : undefined
+        );
+        await assert.rejects(pending.start(f.sockets.at(-1).signal));
+        await pending.close();
+        f.setRequestHook(undefined);
+      }
+    });
     const result = f.inbound
       .replyDeliveryUnknown(deliveryNotice(), "auth:notice", "auth:final", task.signal)
       .then(
-        () => {
-          settled = true;
-        },
-        (error) => {
-          settled = true;
-          return error;
-        }
+        () => undefined,
+        (error) => error
       );
-    await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(settled, false);
-    assert.equal(f.cards.length, 0);
-    if (outcome === "changed") await f.replace(`bf_${randomUUID()}`);
-    else if (outcome === "owner-stop") f.owner.abort();
-    else if (outcome === "task-stop") task.abort();
-    else if (outcome === "timeout") t.mock.timers.tick(15000);
-    else {
-      f.setRequestHook((url) =>
-        url.endsWith("/auth/verify-bot") ? Response.json({}, { status: 503 }) : undefined
-      );
-      await assert.rejects(pending.start(f.sockets.at(-1).signal));
-      await pending.close();
-      await new Promise((resolve) => setImmediate(resolve));
-      assert.equal(settled, false, "a failed authentication attempt must not discard the notice");
-      f.setRequestHook(undefined);
-      await f.replace();
-    }
     const error = await result;
     if (outcome === "failed-then-same") assert.equal(error, undefined);
-    else
-      assert.equal(
-        error?.code,
-        outcome === "changed"
-          ? "IM_CONNECTION_IDENTITY_CHANGED"
-          : outcome === "timeout"
-            ? "IM_CONNECTION_UNAVAILABLE"
-            : "IM_DELIVERY_CANCELLED"
-      );
+    else if (outcome === "http-denied") assert.equal(error.status, 403);
+    else if (outcome === "changed") assert.equal(error?.code, "IM_CONNECTION_IDENTITY_CHANGED");
+    else assert.ok(error?.code === "IM_DELIVERY_CANCELLED" || error?.name === "AbortError");
     assert.equal(f.cards.length, outcome === "failed-then-same" ? 1 : 0);
   });
 }
@@ -741,7 +728,9 @@ for (const stage of ["changed-then-pre-auth", "changed-then-original"]) {
     await new Promise((resolve) => setImmediate(resolve));
     f.sockets[0].abort();
     await f.first.close();
-    if (stage !== "pre-auth") await f.replace(`bf_${randomUUID()}`);
+    f.setPrincipal({ bot_uid: "bot", space_id: "other" });
+    await f.replace();
+    f.setPrincipal({ bot_uid: "bot", space_id: "s" });
     await f.replace(f.token, stage === "changed-then-original");
     const count = f.cards.length;
     await assert.rejects(
@@ -777,7 +766,8 @@ for (const stage of ["presign", "put"]) {
           pendingSignal = options.signal;
           f.sockets[0].abort();
           await f.first.close();
-          await f.replace(change === "same" ? f.token : `bf_${randomUUID()}`);
+          if (change === "changed") f.setPrincipal({ bot_uid: "bot", space_id: "other" });
+          await f.replace();
         }
       });
       const result = f.inbound.replyFinal("[one](one.txt) [two](two.txt)", "review:files", {
@@ -875,18 +865,17 @@ test("review: confirmations from intermediate connections remain visible and sup
   assert.equal(f.sends.length, 2, "confirmed effect must not resend on the third connection");
 });
 
-test("review: identity confirmations are bounded and isolated across credential generations", () => {
+test("review: identity confirmations are bounded and isolated across target identities", () => {
   const identity = new ImDeliveryIdentity();
-  const token = `bf_${randomUUID()}`;
-  const first = identity.accept("bot:space", token);
+  const first = identity.accept("bot:space");
   for (let i = 0; i < 513; i++) first.confirm(`effect:${i}`);
   assert.equal(first.isConfirmed("effect:0"), false);
   assert.equal(first.isConfirmed("effect:512"), true);
-  assert.equal(identity.accept("bot:space", token), first);
-  const second = identity.accept("bot:space", `bf_${randomUUID()}`);
+  assert.equal(identity.accept("bot:space"), first);
+  const second = identity.accept("bot:other-space");
   assert.equal(first.signal.aborted, true);
   assert.equal(second.isConfirmed("effect:512"), false);
-  const third = identity.accept("bot:space", token);
+  const third = identity.accept("bot:space");
   assert.notEqual(third, first);
   assert.equal(third.isConfirmed("effect:512"), false);
   first.confirm("late-old-ack");
@@ -1018,7 +1007,7 @@ for (const scenario of ["token", "api", "space", "bot", "same", "rest-only"]) {
         "final:unknown",
         owner.signal
       );
-      if (["same", "rest-only"].includes(scenario)) {
+      if (["same", "rest-only", "token"].includes(scenario)) {
         await notice;
         assert.equal(f.cardProfiles.length, 1);
         assert.equal(f.cards.length, 1);
@@ -1263,9 +1252,10 @@ for (const scenario of ["rest-only", "recovered", "in-flight", "stop", "identity
       f.setCardResponse(undefined);
     }
     if (scenario === "recovered" || scenario === "identity") {
+      if (scenario === "identity") f.setPrincipal({ bot_uid: "bot", space_id: "other" });
       current = new GatewayTransport(
         { ...config(process.cwd()), typing: false },
-        async () => (scenario === "identity" ? `bf_${randomUUID()}` : f.token),
+        async () => f.token,
         { onMessage() {}, onDisconnect() {} },
         lifetime
       );
