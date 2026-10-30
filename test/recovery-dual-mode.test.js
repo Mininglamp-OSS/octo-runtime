@@ -164,16 +164,21 @@ for (const mode of ["cli", "sdk"]) {
         let replyCount = 1;
         for (const reason of [undefined, 12, 12, 0, 255]) {
           const connectionCount = im.connections;
+          const rowStart = connectionRows().length;
           im.disconnect(reason);
-          await waitFor(async () => {
-            const bot = (await inspectExtra(controlEndpoint)).status.bots[0];
-            return (
-              bot.state === "retrying" &&
-              bot.connected === false &&
-              bot.error ===
-                (reason === undefined ? "IM_DISCONNECTED" : `IM_SERVER_DISCONNECTED_${reason}`)
-            );
-          });
+          // 立即重连可能在两次 IPC 查询之间完成；用已发生的状态事件核验断线，不要求卡在 retrying。
+          // 后续仍核验新的单次连接、online、真实回复和执行次数，不能用日志代替恢复结果。
+          await waitFor(() =>
+            connectionRows()
+              .slice(rowStart)
+              .some(
+                (row) =>
+                  row.event === "channel.disconnected" &&
+                  row.data.state === "retrying" &&
+                  row.data.code ===
+                    (reason === undefined ? "IM_DISCONNECTED" : `IM_SERVER_DISCONNECTED_${reason}`)
+              )
+          );
           await waitFor(
             async () =>
               im.connections === connectionCount + 1 &&

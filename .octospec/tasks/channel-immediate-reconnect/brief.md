@@ -27,3 +27,5 @@ timestamp: 2026-10-29T00:00:00Z
 ## 验收
 
 更新既有连接状态机回归：断线同步退出 online、零额外退避、失败档位不跳过、成功后重置、回收完成前不重连、Retry-After 和停止语义保持。执行相关本地测试、类型检查和 lint。此前的单向无响应复现与线上记录位于仓库外的 Runtime diagnostics 目录，不能作为新代码已部署的证据。
+
+PR #251 托管 CI 补充：macOS Node 26 的 recovery-dual-mode SDK 场景在等待轮询捕获 retrying 时超时（run 40989253617 / job 123847405509）。立即重连允许该状态短于 IPC 采样间隔；改为核验本轮 channel.disconnected 记录的 retrying 与精确原因码，保留后续连接数递增一次、online、真实回复及执行次数断言。不延长测试/产品超时，不改 CI 范围。

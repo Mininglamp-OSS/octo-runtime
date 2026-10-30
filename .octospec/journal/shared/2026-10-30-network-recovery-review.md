@@ -92,3 +92,9 @@ ImDeliveryIdentity 由 Bot 持有 verificationPending，Runtime 在回收前、�
 8 项新回归通过（/tmp/octo-review5-retirement.log）：清理/退避期间同身份继续与换身份拒绝，任务/Bot 取消，15 秒截止，以及 verify 完成即允许 REST、握手失败后重新等待。原 33 项 dispatch 时序、迟到 ACK、限流重试和 REST-only 正例也继续验证。本轮自动检查不安装或重启本地服务；用户刚安装的版本仍为 90f7a89。
 
 最终验证：全量 build、根类型检查、lint、命名、format:check 与 diff whitespace 通过；全渠道/网关测试 596/596 通过（/tmp/octo-review5-tests.log）。相对 main 的 workflow、根 package.json、scripts 和 workspace 配置无 diff；90f7a89 的既有跨平台 CI Gate 已通过，新提交仍须独立 CI 与 review。
+
+## 托管 CI：快速重连的瞬时状态采样
+
+1878df7 已获 yujiawei approve（review 5707284520）。CI run 40989253617 的 macOS Node 26 单项失败：recovery-dual-mode.test.js:168 等待 SDK status 查询捕获 retrying，2 秒后 condition timeout；其余五个平台/Node job 成功。该测试仍假设退避期间能轮询看到 retrying，立即重连后此假设不成立。失败日志 /tmp/octo-pr251-macos26-failure.log。
+
+将五轮断线的中间状态证据改为本轮 channel.disconnected 日志中的 retrying 与精确断开原因，仍必须观察新连接恰好增加一次、状态 online、真实回复以及 Provider 接纳次数。没有加超时、skip、测试选择、workflow 或 CI 范围，也不修改生产行为。旧测试本地 Node 24 的 CLI/SDK 2/2 通过，未声称稳定复现托管 Node 26 失败。修改后 recovery-dual-mode、连接状态机、状态日志三个文件 106/106 通过（/tmp/octo-review6-tests.log）；托管 Node 26 仍须新提交 CI 验证。
