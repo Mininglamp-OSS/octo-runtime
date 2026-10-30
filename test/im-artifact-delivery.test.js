@@ -18,6 +18,13 @@ import { WukongConnection } from "../packages/octo-runtime-extra-channel-gateway
 import { ImRuntime } from "../packages/octo-runtime-extra-channel-gateway/dist/index.js";
 import { waitFor } from "./runtime-fixture.js";
 import { ImSendError } from "../packages/octo-runtime-extra-channel-gateway/dist/delivery/text-send.js";
+import { ImDeliveryDispatcher } from "../packages/octo-runtime-extra-channel-gateway/dist/delivery/dispatcher.js";
+import { ImRunProjector } from "../packages/octo-runtime-extra-channel-gateway/dist/presentation/run-projector.js";
+import { CardSession } from "../packages/octo-runtime-extra-channel-gateway/dist/transport/card-session.js";
+import { deliveryNotice } from "../packages/octo-runtime-extra-channel-gateway/dist/presentation/delivery-notice.js";
+
+import { stableEffectKey } from "../packages/octo-runtime-extra-channel-gateway/dist/transport/connector.js";
+import { ImDeliveryIdentity } from "../packages/octo-runtime-extra-channel-gateway/dist/delivery/identity.js";
 
 const prepareArtifacts = async (...args) => (await prepareArtifactReply(...args)).text;
 
@@ -44,6 +51,1378 @@ async function fixture(t) {
       context(workspace)
     )
   };
+}
+
+function reconnectTransportFixture(t) {
+  const connections = [],
+    sends = [],
+    files = [],
+    cards = [],
+    cardProfiles = [],
+    closed = new Set();
+  let principal = { bot_uid: "bot", space_id: "s" };
+  let cardResponse;
+  let onCardProfile;
+  let onRequest;
+  const requests = [];
+  const token = `bf_${randomUUID()}`;
+  t.mock.method(globalThis, "fetch", async (url, options = {}) => {
+    options.signal?.throwIfAborted();
+    requests.push({ url, options });
+    const intercepted = await onRequest?.(url, options);
+    if (intercepted) return intercepted;
+    if (url.endsWith("/auth/verify-bot")) return Response.json(principal);
+    if (url.endsWith("/bot/register"))
+      return Response.json({
+        robot_id: principal.bot_uid,
+        ws_url: "wss://im-test.deepminer.com.cn/ws",
+        im_token: randomUUID()
+      });
+    if (url.includes("/user/info")) return Response.json({ uid: "owner", name: "Owner" });
+    if (url.endsWith("/bot/events")) return Response.json({ results: [] });
+    if (url.endsWith("/bot/card/profile")) {
+      cardProfiles.push(url);
+      await onCardProfile?.();
+      const ref = { id: "ai.reasoning-process", version: "0.4.1" };
+      return Response.json({
+        available: true,
+        enabled: true,
+        card_version: "1.5",
+        profiles: ["octo/v1", "octo/v2"],
+        config: {
+          card_enabled: true,
+          display_enabled: true,
+          interaction_enabled: true,
+          reasoning_enabled: true,
+          reasoning_template_ref: ref
+        },
+        templating: {
+          supported: true,
+          wire: "template-ref/v1",
+          templates: [
+            {
+              ...ref,
+              views: [
+                {
+                  name: "active",
+                  wire_profile: "octo/v2",
+                  states: ["reasoning", "answering"],
+                  submit_actions: ["reasoning_stop"]
+                },
+                {
+                  name: "error",
+                  wire_profile: "octo/v2",
+                  states: ["error"],
+                  submit_actions: ["reasoning_retry"]
+                },
+                {
+                  name: "result",
+                  wire_profile: "octo/v1",
+                  states: ["completed", "stopped"],
+                  submit_actions: []
+                }
+              ]
+            }
+          ]
+        }
+      });
+    }
+    if (url.endsWith("/bot/sendMessage") || url.endsWith("/bot/message/edit")) {
+      const request = { url, body: JSON.parse(options.body), signal: options.signal };
+      cards.push(request);
+      if (cardResponse) return cardResponse(request);
+      return Response.json({ message_id: "progress-card" });
+    }
+    if (url.includes("upload/presigned"))
+      return Response.json({
+        method: "PUT",
+        uploadUrl: `https://storage.example.com/game.html?sig=${randomUUID()}`,
+        downloadUrl: "https://cdn.example.com/game.html"
+      });
+    if (url.startsWith("https://storage.example.com/")) return new Response(null, { status: 200 });
+    throw Error("unexpected-request");
+  });
+  t.mock.method(WukongConnection.prototype, "connect", async function () {
+    connections.push(this);
+  });
+  t.mock.getter(WukongConnection.prototype, "connected", function () {
+    return !closed.has(this);
+  });
+  t.mock.method(WukongConnection.prototype, "close", async function () {
+    closed.add(this);
+  });
+  t.mock.method(WukongConnection.prototype, "sendText", async function (...args) {
+    assert.equal(closed.has(this), false, "cannot send on retired connection");
+    sends.push({ connection: this, args });
+    return "sent";
+  });
+  t.mock.method(WukongConnection.prototype, "sendFile", async function (...args) {
+    assert.equal(closed.has(this), false, "cannot send file on retired connection");
+    files.push({ connection: this, args });
+    return "file-sent";
+  });
+  const message = {
+    messageId: "long-task",
+    fromUid: "owner",
+    channelId: "owner",
+    channelType: 1,
+    payload: { type: 1, content: "sleep 30 seconds, then reply" }
+  };
+  return {
+    token,
+    connections,
+    sends,
+    files,
+    cards,
+    cardProfiles,
+    requests,
+    setRequestHook(value) {
+      onRequest = value;
+    },
+    message,
+    setCardProfileHook(value) {
+      onCardProfile = value;
+    },
+    setCardResponse(value) {
+      cardResponse = value;
+    },
+    setPrincipal(value) {
+      principal = value;
+    }
+  };
+}
+
+// Exercise retained callbacks through real GatewayTransport requests and final preparation.
+async function ownedTransportFixture(t) {
+  const f = reconnectTransportFixture(t);
+  const owner = new AbortController();
+  const sockets = [];
+  const transports = [];
+  let current,
+    inbound,
+    heldToken = f.token;
+  const lifetime = {
+    signal: owner.signal,
+    dispatcher: new ImDeliveryDispatcher(owner.signal),
+    identity: new ImDeliveryIdentity(),
+    token: () => heldToken,
+    current: () => current
+  };
+  const replace = async (token = f.token, authenticate = true) => {
+    heldToken = token;
+    const socket = new AbortController();
+    sockets.push(socket);
+    current = new GatewayTransport(
+      { ...config(process.cwd()), typing: false },
+      async () => token,
+      {
+        onMessage: (message) => {
+          inbound = message;
+        },
+        onDisconnect() {}
+      },
+      lifetime
+    );
+    transports.push(current);
+    if (authenticate) await current.start(socket.signal);
+    return current;
+  };
+  t.after(async () => {
+    owner.abort();
+    await Promise.all(transports.map((transport) => transport.close()));
+  });
+  const first = await replace();
+  f.connections[0].onMessage(f.message);
+  return {
+    ...f,
+    owner,
+    sockets,
+    first,
+    get inbound() {
+      return inbound;
+    },
+    replace
+  };
+}
+
+const failedRun = {
+  protocolVersion: 2,
+  type: "run.failed",
+  payload: { code: "PROVIDER_FAILED", message: "Provider failed after reconnect" }
+};
+
+for (const stage of ["cleanup", "retry-backoff"]) {
+  for (const outcome of stage === "cleanup"
+    ? ["same", "changed", "task-stop", "owner-stop", "http-denied"]
+    : ["same", "changed"]) {
+    test(`REST retirement: ${stage} remains independent of WS and handles ${outcome}`, async (t) => {
+      const f = reconnectTransportFixture(t);
+      let inbound,
+        releaseCleanup,
+        closeEntered = false;
+      let credential = f.token;
+      const cleanup = new Promise((resolve) => {
+        releaseCleanup = resolve;
+      });
+      const originalStart = GatewayTransport.prototype.start;
+      t.mock.method(GatewayTransport.prototype, "start", function (signal) {
+        this.callbacks.onMessage = (message) => {
+          inbound = message;
+        };
+        return originalStart.call(this, signal);
+      });
+      const originalClose = WukongConnection.prototype.close;
+      t.mock.method(WukongConnection.prototype, "close", async function () {
+        await originalClose.call(this);
+        if (this === f.connections[0]) {
+          closeEntered = true;
+          await cleanup;
+        }
+      });
+      const runtime = new ImRuntime(
+        { ...config(process.cwd()), typing: false },
+        {
+          credentials: async () => credential,
+          kernel: {
+            async *invoke() {
+              assert.fail("delivery must not rerun execution");
+            }
+          }
+        }
+      );
+      t.after(async () => {
+        releaseCleanup();
+        t.mock.timers.reset();
+        await runtime.close();
+      });
+      await runtime.start();
+      f.connections[0].onMessage(f.message);
+      t.mock.timers.enable({ apis: ["setTimeout"] });
+      if (outcome === "changed") credential = `bf_${randomUUID()}`;
+      f.connections[0].onDisconnect(new Error("IM_DISCONNECTED"));
+      for (let i = 0; i < 80; i++) await Promise.resolve();
+      assert.equal(closeEntered, true);
+      if (stage === "retry-backoff") {
+        releaseCleanup();
+        for (let i = 0; i < 80; i++) await Promise.resolve();
+      }
+      assert.equal(runtime.status.state, "retrying");
+      assert.equal(f.connections.length, 1, "replacement must not be published yet");
+      const task = new AbortController();
+      if (outcome === "task-stop") task.abort();
+      if (outcome === "owner-stop") {
+        releaseCleanup();
+        await runtime.close();
+      }
+      if (outcome === "http-denied")
+        f.setRequestHook((url) =>
+          url.endsWith("/bot/sendMessage") ? new Response(null, { status: 403 }) : undefined
+        );
+      let settled = false;
+      const operation = inbound
+        .replyFailure(failedRun, "retiring:failure", { signal: task.signal })
+        .then(
+          () => {
+            settled = true;
+          },
+          (error) => {
+            settled = true;
+            return error;
+          }
+        );
+      for (let i = 0; i < 80; i++) await Promise.resolve();
+      assert.equal(settled, true, "REST must settle without waiting for WS replacement");
+      if (outcome === "task-stop" || outcome === "owner-stop") {
+        const error = await operation;
+        assert.ok(error.code === "IM_DELIVERY_CANCELLED" || error.name === "AbortError");
+        assert.equal(f.cardProfiles.length, 0);
+        releaseCleanup();
+        return;
+      }
+      const error = await operation;
+      if (outcome === "http-denied") {
+        assert.equal(error.status, 403);
+        assert.equal(f.cards.length, 0);
+      } else {
+        assert.equal(error, undefined);
+        assert.equal(f.cards.length, 1);
+        assert.equal(
+          new Headers(
+            f.requests.find(({ url }) => url.endsWith("/bot/sendMessage")).options.headers
+          ).get("Authorization"),
+          `Bearer ${f.token}`,
+          "use the owner-held init value; external source freshness is not required"
+        );
+      }
+      releaseCleanup();
+      for (let i = 0; i < 80; i++) await Promise.resolve();
+      t.mock.timers.tick(0);
+      for (let i = 0; i < 150; i++) await Promise.resolve();
+    });
+  }
+}
+
+test("REST retirement: pending and failed WS handshakes do not pause REST", async (t) => {
+  const f = reconnectTransportFixture(t);
+  let inbound, rejectHandshake, releaseCleanup;
+  const handshake = new Promise((_, reject) => {
+    rejectHandshake = reject;
+  });
+  const cleanup = new Promise((resolve) => {
+    releaseCleanup = resolve;
+  });
+  const originalStart = GatewayTransport.prototype.start;
+  t.mock.method(GatewayTransport.prototype, "start", function (signal) {
+    this.callbacks.onMessage = (message) => {
+      inbound = message;
+    };
+    return originalStart.call(this, signal);
+  });
+  const originalConnect = WukongConnection.prototype.connect;
+  t.mock.method(WukongConnection.prototype, "connect", async function (registration) {
+    await originalConnect.call(this, registration);
+    if (this === f.connections[1]) await handshake;
+  });
+  const originalClose = WukongConnection.prototype.close;
+  t.mock.method(WukongConnection.prototype, "close", async function () {
+    await originalClose.call(this);
+    if (this === f.connections[1]) await cleanup;
+  });
+  const runtime = new ImRuntime(
+    { ...config(process.cwd()), bf_token: f.token, typing: false },
+    {
+      kernel: {
+        async *invoke() {
+          assert.fail("delivery must not rerun execution");
+        }
+      }
+    }
+  );
+  t.after(async () => {
+    releaseCleanup();
+    t.mock.timers.reset();
+    await runtime.close();
+  });
+  await runtime.start();
+  f.connections[0].onMessage(f.message);
+  let now = performance.now();
+  t.mock.method(performance, "now", () => now);
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  f.connections[0].onDisconnect(new Error("IM_DISCONNECTED"));
+  for (let i = 0; i < 80; i++) await Promise.resolve();
+  t.mock.timers.tick(0);
+  for (let i = 0; i < 150; i++) await Promise.resolve();
+  assert.equal(f.connections.length, 2);
+  assert.equal(runtime.status.state, "retrying");
+  await inbound.replyFailure(failedRun, "verified:failure");
+  assert.equal(f.cards.length, 1, "verified REST must not wait for WS online");
+  rejectHandshake(new Error("IM_DISCONNECTED"));
+  for (let i = 0; i < 80; i++) await Promise.resolve();
+  const profiles = f.cardProfiles.length;
+  const operation = inbound.replyFailure(failedRun, "failed-handshake:failure");
+  for (let i = 0; i < 80; i++) await Promise.resolve();
+  assert.equal(f.cardProfiles.length, profiles + 1, "failed WS handshake cannot block REST");
+  await operation;
+  assert.equal(f.cards.length, 2, "REST completes while failed WS cleanup is still pending");
+  releaseCleanup();
+  for (let i = 0; i < 80; i++) await Promise.resolve();
+  now += 1000;
+  t.mock.timers.tick(1000);
+  for (let i = 0; i < 150; i++) await Promise.resolve();
+  await operation;
+  assert.equal(f.cards.length, 2);
+});
+
+// Advance the real Runtime reconnect timer at adjacent microtask boundaries;
+// publishing an unverified WS must never block REST using the owner's init credential.
+for (let microtasks = 0; microtasks <= 32; microtasks++) {
+  test(`HTTP dispatch race: reconnect after ${microtasks} continuations leaves REST independent`, async (t) => {
+    const f = reconnectTransportFixture(t);
+    let inbound;
+    const originalStart = GatewayTransport.prototype.start;
+    t.mock.method(GatewayTransport.prototype, "start", function (signal) {
+      this.callbacks.onMessage = (message) => {
+        inbound = message;
+      };
+      return originalStart.call(this, signal);
+    });
+    const runtime = new ImRuntime(
+      { ...config(process.cwd()), bf_token: f.token, typing: false },
+      {
+        kernel: {
+          async *invoke() {
+            assert.fail("delivery must not invoke a provider");
+          }
+        }
+      }
+    );
+    let release;
+    const verification = new Promise((resolve) => {
+      release = resolve;
+    });
+    t.after(async () => {
+      release();
+      t.mock.timers.reset();
+      await runtime.close();
+    });
+    await runtime.start();
+    f.connections[0].onMessage(f.message);
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+    f.connections[0].onDisconnect(new Error("IM_DISCONNECTED"));
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+    let authenticating = false;
+    f.setRequestHook(async (url) => {
+      if (url.endsWith("/auth/verify-bot")) {
+        authenticating = true;
+        await verification;
+      }
+    });
+    const operation = inbound.replyFailure(failedRun, "dispatch-race");
+    for (let i = 0; i < microtasks; i++) await Promise.resolve();
+    t.mock.timers.tick(0);
+    for (let i = 0; i < 100; i++) await Promise.resolve();
+    assert.equal(authenticating, true, "real reconnect must be pending verification");
+    await operation;
+    assert.equal(f.cards.length, 1, "REST must finish before WS verification is released");
+    for (const { url, options } of f.requests) {
+      if (url.endsWith("/bot/sendMessage"))
+        assert.equal(new Headers(options.headers).get("Authorization"), `Bearer ${f.token}`);
+    }
+    release();
+    await operation;
+    assert.equal(f.cards.length, 1, "same identity resumes without duplicating the card");
+  });
+}
+
+for (const path of ["failure", "notice", "progress"]) {
+  for (const stage of ["before-profile", "before-write"]) {
+    test(`auth recovery: ${path} sends once ${stage} without waiting for WS verification`, async (t) => {
+      const f = await ownedTransportFixture(t);
+      f.sockets[0].abort();
+      await f.first.close();
+      let release,
+        authenticating = false,
+        start;
+      const auth = new Promise((resolve) => {
+        release = resolve;
+      });
+      t.after(async () => {
+        release();
+        await start?.catch(() => {});
+      });
+      f.setRequestHook(async (url) => {
+        if (url.endsWith("/auth/verify-bot")) {
+          authenticating = true;
+          await auth;
+        }
+      });
+      const recover = async () => {
+        f.setCardProfileHook(undefined);
+        const next = await f.replace(f.token, false);
+        start = next.start(f.sockets.at(-1).signal);
+      };
+      if (stage === "before-profile") await recover();
+      else f.setCardProfileHook(recover);
+      let settled = false;
+      const diagnostics = [];
+      const operation =
+        path === "failure"
+          ? f.inbound.replyFailure(failedRun, "auth:failure")
+          : path === "notice"
+            ? f.inbound.replyDeliveryUnknown(
+                deliveryNotice(),
+                "auth:notice",
+                "auth:final",
+                f.owner.signal
+              )
+            : (() => {
+                const presentation = f.inbound.beginPresentation(
+                  "auth:progress",
+                  (code) => diagnostics.push(code),
+                  {}
+                );
+                const projector = new ImRunProjector("auth:progress");
+                projector.accept({ protocolVersion: 2, type: "run.started", payload: {} });
+                projector.accept({ protocolVersion: 2, type: "run.completed", payload: {} });
+                presentation.update(projector.snapshot());
+                return presentation.finish();
+              })();
+      const result = operation.then(
+        () => {
+          settled = true;
+        },
+        (error) => {
+          settled = true;
+          return error;
+        }
+      );
+      // The failed baseline can skip replyFailure entirely; do not wait indefinitely for its profile hook.
+      for (let i = 0; i < 5; i++) await new Promise((resolve) => setImmediate(resolve));
+      assert.equal(settled, true, "WS authentication must not pause REST");
+      assert.equal(authenticating, true);
+      assert.equal(f.cardProfiles.length, 1);
+      assert.equal(f.cards.length, 1);
+      release();
+      await start;
+      assert.equal(await result, undefined);
+      assert.equal(f.cards.length, 1);
+      assert.deepEqual(diagnostics, []);
+      assert.equal(f.cards[0].signal.aborted, false);
+      if (path === "failure") assert.equal(f.cards[0].body.payload.state, "error");
+      if (path === "progress") assert.equal(f.cards[0].body.payload.state, "completed");
+    });
+  }
+}
+
+test("HTTP dispatch race: a late ACK suppresses a notice after profile lookup", async (t) => {
+  const f = await ownedTransportFixture(t);
+  let release,
+    start,
+    authenticating = false;
+  const verification = new Promise((resolve) => {
+    release = resolve;
+  });
+  t.after(async () => {
+    release();
+    await start?.catch(() => {});
+  });
+  f.setRequestHook(async (url) => {
+    if (url.endsWith("/auth/verify-bot")) {
+      authenticating = true;
+      await verification;
+    }
+  });
+  f.setCardProfileHook(async () => {
+    f.setCardProfileHook(undefined);
+    const next = await f.replace(f.token, false);
+    start = next.start(f.sockets.at(-1).signal);
+    await verification;
+  });
+  const operation = f.inbound.replyDeliveryUnknown(
+    deliveryNotice(),
+    "late:notice",
+    "late:reply",
+    f.owner.signal
+  );
+  await waitFor(() => authenticating);
+  for (let i = 0; i < 40; i++) await Promise.resolve();
+  assert.equal(f.cards.length, 0);
+  f.connections[0].onDelivered(stableEffectKey(f.first.identity, f.message, "late:reply", "text"));
+  release();
+  await operation;
+  assert.equal(f.cards.length, 0, "a confirmed reply makes the waiting notice obsolete");
+});
+
+test("HTTP dispatch race: a rate-limited mention lookup retries independently of WS authentication", async (t) => {
+  const f = await ownedTransportFixture(t);
+  let release,
+    start,
+    authenticating = false,
+    lookups = 0;
+  const verification = new Promise((resolve) => {
+    release = resolve;
+  });
+  t.after(async () => {
+    release();
+    t.mock.timers.reset();
+    await start?.catch(() => {});
+  });
+  f.setRequestHook(async (url) => {
+    if (url.endsWith("/auth/verify-bot")) {
+      authenticating = true;
+      await verification;
+    }
+    if (url.includes("/user/info")) {
+      if (++lookups === 1) {
+        const next = await f.replace(f.token, false);
+        start = next.start(f.sockets.at(-1).signal);
+        return new Response("rate limited", { status: 429, headers: { "Retry-After": "0.001" } });
+      }
+    }
+  });
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const operation = f.inbound.replyFinal("@[owner:Owner] done", "retry:mention");
+  for (let i = 0; i < 100; i++) await Promise.resolve();
+  assert.equal(authenticating, true);
+  // Advance the HTTP retry while holding the replacement verification unresolved.
+  t.mock.timers.tick(5);
+  for (let i = 0; i < 100; i++) await Promise.resolve();
+  assert.equal(lookups, 2, "REST retry proceeds independently of the new WS handshake");
+  release();
+  await start;
+  t.mock.timers.reset();
+  await operation;
+  assert.equal(lookups, 2);
+  assert.equal(f.sends.length, 1);
+});
+
+for (const outcome of ["changed", "owner-stop", "task-stop", "failed-then-same", "http-denied"]) {
+  test(`REST notice during WS recovery handles ${outcome}`, async (t) => {
+    const f = await ownedTransportFixture(t);
+    f.sockets[0].abort();
+    await f.first.close();
+    const pending = await f.replace(f.token, false);
+    const task = new AbortController();
+    f.setCardProfileHook(async () => {
+      f.setCardProfileHook(undefined);
+      if (outcome === "changed") {
+        f.setPrincipal({ bot_uid: "bot", space_id: "other" });
+        await f.replace();
+      } else if (outcome === "owner-stop") f.owner.abort();
+      else if (outcome === "task-stop") task.abort();
+      else if (outcome === "http-denied")
+        f.setRequestHook((url) =>
+          url.endsWith("/bot/sendMessage") ? new Response(null, { status: 403 }) : undefined
+        );
+      else {
+        f.setRequestHook((url) =>
+          url.endsWith("/auth/verify-bot") ? Response.json({}, { status: 503 }) : undefined
+        );
+        await assert.rejects(pending.start(f.sockets.at(-1).signal));
+        await pending.close();
+        f.setRequestHook(undefined);
+      }
+    });
+    const result = f.inbound
+      .replyDeliveryUnknown(deliveryNotice(), "auth:notice", "auth:final", task.signal)
+      .then(
+        () => undefined,
+        (error) => error
+      );
+    const error = await result;
+    if (outcome === "failed-then-same") assert.equal(error, undefined);
+    else if (outcome === "http-denied") assert.equal(error.status, 403);
+    else if (outcome === "changed") assert.equal(error?.code, "IM_CONNECTION_IDENTITY_CHANGED");
+    else assert.ok(error?.code === "IM_DELIVERY_CANCELLED" || error?.name === "AbortError");
+    assert.equal(f.cards.length, outcome === "failed-then-same" ? 1 : 0);
+  });
+}
+
+for (const stage of ["before-profile", "before-write"]) {
+  test(`auth recovery: failure card respects task cancellation ${stage}`, async (t) => {
+    const f = await ownedTransportFixture(t);
+    const task = new AbortController();
+    if (stage === "before-profile") task.abort();
+    else
+      f.setCardProfileHook(() => {
+        task.abort();
+      });
+    await assert.rejects(
+      f.inbound.replyFailure(failedRun, "auth:failure", {
+        signal: task.signal,
+        obsolete: () => task.signal.aborted
+      })
+    );
+    assert.equal(f.cards.length, 0);
+  });
+}
+
+for (const stage of ["changed-then-pre-auth", "changed-then-original"]) {
+  test(`review: old REST identity remains closed during ${stage}`, async (t) => {
+    const f = await ownedTransportFixture(t);
+    const presentation = f.inbound.beginPresentation("identity-review", () => {}, {});
+    const projector = new ImRunProjector("identity-review");
+    projector.accept({ protocolVersion: 2, type: "run.started", payload: {} });
+    presentation.update(projector.snapshot());
+    await waitFor(() => f.cards.length === 1);
+    await new Promise((resolve) => setImmediate(resolve));
+    f.sockets[0].abort();
+    await f.first.close();
+    f.setPrincipal({ bot_uid: "bot", space_id: "other" });
+    await f.replace();
+    f.setPrincipal({ bot_uid: "bot", space_id: "s" });
+    await f.replace(f.token, stage === "changed-then-original");
+    const count = f.cards.length;
+    await assert.rejects(
+      f.inbound.replyDeliveryUnknown(
+        deliveryNotice(),
+        "review:notice",
+        "review:final",
+        f.owner.signal
+      )
+    );
+    projector.accept({ protocolVersion: 2, type: "run.completed", payload: {} });
+    presentation.update(projector.snapshot());
+    await assert.rejects(presentation.finish(), /IM_PRESENTATION_FAILED/);
+    assert.equal(f.cards.length, count, "old identity must not resume HTTP writes");
+  });
+}
+
+for (const stage of ["presign", "put"]) {
+  for (const change of ["same", "changed"]) {
+    test(`review: ${change} identity during artifact ${stage}`, async (t) => {
+      const f = await ownedTransportFixture(t);
+      const { workspace, policy } = await fixture(t);
+      await writeFile(join(workspace, "one.txt"), "first");
+      await writeFile(join(workspace, "two.txt"), "second");
+      let switched = false,
+        pendingSignal;
+      f.setRequestHook(async (url, options) => {
+        if (
+          !switched &&
+          (stage === "presign" ? url.includes("upload/presigned") : options.method === "PUT")
+        ) {
+          switched = true;
+          pendingSignal = options.signal;
+          f.sockets[0].abort();
+          await f.first.close();
+          if (change === "changed") f.setPrincipal({ bot_uid: "bot", space_id: "other" });
+          await f.replace();
+        }
+      });
+      const result = f.inbound.replyFinal("[one](one.txt) [two](two.txt)", "review:files", {
+        artifacts: policy,
+        signal: f.owner.signal,
+        obsolete: () => false
+      });
+      if (change === "same") await result;
+      else await assert.rejects(result, (error) => error.code === "IM_CONNECTION_IDENTITY_CHANGED");
+      assert.equal(
+        pendingSignal.aborted,
+        change === "changed",
+        "identity cancellation reaches in-flight HTTP"
+      );
+      assert.equal(
+        f.requests.filter((r) => r.url.includes("upload/presigned")).length,
+        change === "same" ? 2 : 1
+      );
+      assert.equal(
+        f.requests.filter((r) => r.options.method === "PUT").length,
+        change === "same" ? 2 : stage === "put" ? 1 : 0
+      );
+      assert.equal(f.sends.length, change === "same" ? 1 : 0);
+    });
+  }
+}
+
+for (const creation of ["before-reconnect", "during-create"]) {
+  test(`review: interaction finalization survives reconnect, created ${creation}`, async (t) => {
+    const f = await ownedTransportFixture(t);
+    const diagnostics = [];
+    const presentation = f.inbound.beginPresentation(
+      "interaction-review",
+      (code) => diagnostics.push(code),
+      {}
+    );
+    const request = {
+      interactionId: "question",
+      kind: "approval",
+      request: { operation: { summary: "continue" } },
+      expiresAt: new Date(Date.now() + 60000).toISOString()
+    };
+    const reconnect = async () => {
+      f.setCardProfileHook(undefined);
+      f.sockets[0].abort();
+      await f.first.close();
+      await f.replace();
+    };
+    if (creation === "during-create") f.setCardProfileHook(reconnect);
+    assert.equal(await presentation.interaction(request), creation === "before-reconnect");
+    if (creation === "before-reconnect") await reconnect();
+    assert.equal(
+      await presentation.interaction({ ...request, interactionId: "new-question" }),
+      false,
+      "retired button bindings cannot accept new interactions"
+    );
+    await presentation.finish();
+    assert.deepEqual(diagnostics, []);
+    const edit = f.cards.find((r) => r.url.endsWith("/message/edit"));
+    assert.equal(edit.body.message_id, "progress-card");
+    assert.match(JSON.parse(edit.body.content_edit).card.body[0].text, /invalidated/);
+  });
+}
+
+test("review: confirmations from intermediate connections remain visible and suppress notices", async (t) => {
+  const f = await ownedTransportFixture(t);
+  const confirmations = new Map();
+  t.mock.method(WukongConnection.prototype, "isDelivered", function (key) {
+    return confirmations.get(this)?.has(key) ?? false;
+  });
+  t.mock.method(WukongConnection.prototype, "sendText", async function (...args) {
+    const key = args[3];
+    const keys = confirmations.get(this) ?? new Set();
+    keys.add(key);
+    confirmations.set(this, keys);
+    this.onDelivered?.(key);
+    f.sends.push({ connection: this, args });
+    return "sent";
+  });
+  await f.first.close();
+  const second = await f.replace();
+  await f.inbound.reply("first", "review:first");
+  await second.close();
+  await f.replace();
+  await f.inbound.reply("second", "review:second");
+  assert.equal(f.inbound.isReplyDelivered("review:first"), true);
+  await f.inbound.replyDeliveryUnknown(
+    deliveryNotice(),
+    "review:notice",
+    "review:first",
+    f.owner.signal
+  );
+  assert.equal(f.cards.length, 0);
+  await f.inbound.reply("first", "review:first");
+  assert.equal(f.sends.length, 2, "confirmed effect must not resend on the third connection");
+});
+
+test("review: identity confirmations are bounded and isolated across target identities", () => {
+  const identity = new ImDeliveryIdentity();
+  const first = identity.accept("bot:space");
+  for (let i = 0; i < 513; i++) first.confirm(`effect:${i}`);
+  assert.equal(first.isConfirmed("effect:0"), false);
+  assert.equal(first.isConfirmed("effect:512"), true);
+  assert.equal(identity.accept("bot:space"), first);
+  const second = identity.accept("bot:other-space");
+  assert.equal(first.signal.aborted, true);
+  assert.equal(second.isConfirmed("effect:512"), false);
+  const third = identity.accept("bot:space");
+  assert.notEqual(third, first);
+  assert.equal(third.isConfirmed("effect:512"), false);
+  first.confirm("late-old-ack");
+  assert.equal(third.isConfirmed("late-old-ack"), false);
+});
+
+for (const failure of ["upload", "peer", "group"]) {
+  test(`review: ${failure} preparation failure degrades without poisoning final delivery`, async (t) => {
+    const f = await ownedTransportFixture(t);
+    const { workspace, policy } = await fixture(t);
+    await writeFile(join(workspace, "one.txt"), "first");
+    await writeFile(join(workspace, "two.txt"), "second");
+    // Use a fresh group callback for the member-list branch.
+    if (failure === "group") {
+      // Accept direct/group messages under the same fixture configuration.
+      f.connections[0].onMessage({
+        ...f.message,
+        channelType: 2,
+        channelId: "group",
+        payload: { type: 1, content: "@bot final", mention: { uids: ["bot"] } }
+      });
+    }
+    let failed = false;
+    f.setRequestHook(async (url) => {
+      if (
+        !failed &&
+        (failure === "upload"
+          ? url.includes("filename=two.txt")
+          : failure === "peer"
+            ? url.includes("/user/info")
+            : url.includes("/groups/group/members"))
+      ) {
+        failed = true;
+        throw new TypeError("temporary network loss");
+      }
+      if (url.includes("/groups/group/members")) return Response.json({ members: [] });
+    });
+    // An ACK-unknown outcome must not cause the completed uploads to run again.
+    let attempts = 0;
+    t.mock.method(WukongConnection.prototype, "sendText", async function (...args) {
+      f.sends.push({ connection: this, args });
+      if (++attempts === 1) throw new ImSendError("IM_DISCONNECTED", "unknown");
+      return "sent";
+    });
+    const options = { artifacts: policy, signal: f.owner.signal, obsolete: () => false };
+    const text = "[one](one.txt) [two](two.txt) @[owner:Owner]";
+    await assert.rejects(
+      f.inbound.replyFinal(text, "review:preparation", options),
+      (error) => error.state === "unknown"
+    );
+    await f.inbound.replyFinal(text, "review:preparation", options);
+    assert.equal(failed, true);
+    assert.equal(f.sends.length, 2, "preparation failure must not prevent sending the body");
+    assert.equal(
+      f.requests.filter((r) => r.url.includes("upload/presigned")).length,
+      2,
+      "successful uploads stay cached"
+    );
+    if (failure === "upload") assert.match(f.sends.at(-1).args[2], /Attachment delivery failed/);
+    else assert.match(f.sends.at(-1).args[2], /@Owner/);
+  });
+}
+
+for (const scenario of ["token", "api", "space", "bot", "same", "rest-only"]) {
+  for (const stage of ["before-profile", "before-send"]) {
+    test(`unknown delivery notice identity: ${scenario} ${stage}`, async (t) => {
+      const f = reconnectTransportFixture(t);
+      const owner = new AbortController();
+      let current, inbound;
+      const lifetime = {
+        signal: owner.signal,
+        dispatcher: new ImDeliveryDispatcher(owner.signal),
+        identity: new ImDeliveryIdentity(),
+        current: () => current
+      };
+      const first = new GatewayTransport(
+        { ...config(process.cwd()), typing: false },
+        async () => f.token,
+        {
+          onMessage(message) {
+            inbound = message;
+          },
+          onDisconnect() {}
+        },
+        lifetime
+      );
+      current = first;
+      t.after(async () => {
+        owner.abort();
+        await first.close();
+        await current?.close();
+      });
+      await first.start(owner.signal);
+      f.connections[0].onMessage(f.message);
+      t.mock.method(WukongConnection.prototype, "sendText", async function (...args) {
+        f.sends.push({ connection: this, args });
+        throw new ImSendError("IM_DISCONNECTED", "unknown");
+      });
+      await assert.rejects(
+        inbound.replyFinal("done", "final:unknown"),
+        (error) => error.state === "unknown"
+      );
+      await first.close();
+      current = undefined;
+      const recover = async () => {
+        if (scenario === "rest-only") return;
+        f.setPrincipal({
+          bot_uid: scenario === "bot" ? "other" : "bot",
+          space_id: scenario === "space" ? "other" : "s"
+        });
+        current = new GatewayTransport(
+          {
+            ...config(process.cwd()),
+            typing: false,
+            ...(scenario === "api" ? { api_url: "https://other.example/api" } : {}),
+            ...(scenario === "bot" ? { bot_id: "other" } : {})
+          },
+          async () => (scenario === "token" ? `bf_${randomUUID()}` : f.token),
+          { onMessage() {}, onDisconnect() {} },
+          lifetime
+        );
+        await current.start(owner.signal);
+      };
+      if (stage === "before-profile") await recover();
+      else f.setCardProfileHook(recover);
+      const notice = inbound.replyDeliveryUnknown(
+        deliveryNotice(),
+        "notice:unknown",
+        "final:unknown",
+        owner.signal
+      );
+      if (["same", "rest-only", "token"].includes(scenario)) {
+        await notice;
+        assert.equal(f.cardProfiles.length, 1);
+        assert.equal(f.cards.length, 1);
+        assert.equal(f.cards[0].body.payload.card.body[0].text, "回复送达结果未知");
+      } else {
+        await assert.rejects(
+          notice,
+          (error) => error.code === "IM_CONNECTION_IDENTITY_CHANGED" && error.state === "failed"
+        );
+        assert.equal(
+          f.cardProfiles.length,
+          stage === "before-profile" ? 0 : 1,
+          "guard applies before every REST request"
+        );
+        assert.equal(f.cards.length, 0, "no delivery notice may mutate a retired identity");
+      }
+      assert.equal(f.sends.length, 1, "unknown final must not be replayed");
+    });
+  }
+}
+
+test("long task invokes once, completes its original REST card and sends final after WS recovery", async (t) => {
+  const f = reconnectTransportFixture(t);
+  const releaseCard = t.mock.method(CardSession.prototype, "release");
+  const originalStart = GatewayTransport.prototype.start;
+  t.mock.method(GatewayTransport.prototype, "start", async function (signal) {
+    const receive = this.callbacks.onMessage;
+    // 保留真实回复、REST 卡片与 Runtime 恢复，仅隔离与本次验证无关的上下文读取。
+    this.callbacks.onMessage = (message) =>
+      receive({
+        ...message,
+        buildContext: async () => ({ schema, items: [] })
+      });
+    return originalStart.call(this, signal);
+  });
+  let release,
+    invokes = 0;
+  const completion = new Promise((resolve) => {
+    release = resolve;
+  });
+  const runtime = new ImRuntime(
+    { ...config(process.cwd()), bf_token: f.token, typing: false },
+    {
+      kernel: {
+        async *invoke() {
+          invokes++;
+          yield { protocolVersion: 2, type: "run.started", payload: {} };
+          await completion;
+          yield {
+            protocolVersion: 2,
+            type: "message.delta",
+            payload: { channel: "final", text: "done after sleep" }
+          };
+          yield { protocolVersion: 2, type: "run.completed", payload: {} };
+        },
+        async cancelInvocation() {
+          return { accepted: false };
+        }
+      }
+    }
+  );
+  t.after(async () => {
+    release();
+    await runtime.close();
+  });
+  await runtime.start();
+  f.connections[0].onMessage(f.message);
+  await waitFor(() => invokes === 1);
+  await waitFor(() => f.cards.length === 1);
+  f.connections[0].onDisconnect(new Error("IM_DISCONNECTED"));
+  await waitFor(() => f.connections.length === 2 && runtime.status.state === "online");
+  assert.equal(releaseCard.mock.callCount(), 0, "reconnection must preserve the running REST card");
+  release();
+  await waitFor(() => runtime.status.workingTasks === 0);
+  assert.equal(invokes, 1);
+  assert.equal(f.sends.length, 1);
+  assert.equal(f.sends[0].connection, f.connections[1]);
+  assert.equal(f.sends[0].args[0], "owner");
+  assert.equal(f.sends[0].args[2], "done after sleep");
+  assert.equal(f.cards.filter((r) => r.url.endsWith("/sendMessage")).length, 1);
+  assert.equal(f.cards.at(-1).body.message_id, "progress-card");
+  assert.equal(f.cards.at(-1).body.state, "completed");
+  assert.equal(f.cards.at(-1).body.transient, undefined);
+  assert.equal(
+    releaseCard.mock.callCount(),
+    1,
+    "task finalization releases the original card once"
+  );
+  assert.equal(
+    runtime.status.cardDeliveries,
+    f.cards.length,
+    "all retained card receipts remain visible after reconnect"
+  );
+});
+
+for (const command of ["/stop", "/reset"]) {
+  test(`empty final waiting for WS recovery respects ${command}`, async (t) => {
+    const f = reconnectTransportFixture(t);
+    let releaseTask,
+      releaseReconnect,
+      started = 0,
+      invokes = 0,
+      replyStarted = false;
+    const completion = new Promise((resolve) => {
+      releaseTask = resolve;
+    });
+    const reconnect = new Promise((resolve) => {
+      releaseReconnect = resolve;
+    });
+    const originalStart = GatewayTransport.prototype.start;
+    t.mock.method(GatewayTransport.prototype, "start", async function (signal) {
+      if (++started === 2) await reconnect;
+      const receive = this.callbacks.onMessage;
+      this.callbacks.onMessage = (message) =>
+        receive({
+          ...message,
+          buildContext: async () => ({ schema, items: [] }),
+          reply: (...args) => {
+            if (args[0] === "执行已结束，未返回文本。") replyStarted = true;
+            return message.reply(...args);
+          }
+        });
+      return originalStart.call(this, signal);
+    });
+    const runtime = new ImRuntime(
+      { ...config(process.cwd()), bf_token: f.token, cards: false, typing: false },
+      {
+        kernel: {
+          async *invoke() {
+            invokes++;
+            yield { protocolVersion: 2, type: "run.started", payload: {} };
+            await completion;
+            yield { protocolVersion: 2, type: "run.completed", payload: {} };
+          },
+          async cancelInvocation() {
+            return { accepted: false };
+          }
+        }
+      }
+    );
+    t.after(async () => {
+      releaseTask();
+      releaseReconnect();
+      await runtime.close();
+    });
+    await runtime.start();
+    f.connections[0].onMessage(f.message);
+    await waitFor(() => invokes === 1);
+    f.connections[0].onDisconnect(new Error("IM_DISCONNECTED"));
+    releaseTask();
+    await waitFor(() => replyStarted);
+    assert.equal(f.sends.length, 0, "terminal notice must be waiting for recovery");
+    releaseReconnect();
+    await waitFor(() => f.connections.length === 2 && runtime.status.state === "online");
+    f.connections[1].onMessage({
+      ...f.message,
+      messageId: `control-${command}`,
+      payload: { type: 1, content: command }
+    });
+    await waitFor(() => runtime.status.workingTasks === 0 && f.sends.length > 0);
+    assert.equal(invokes, 1);
+    assert.equal(f.sends.length, 1);
+    assert.equal(f.sends[0].args[2], command === "/stop" ? "已请求停止本轮执行。" : "会话已经重置");
+  });
+}
+
+for (const scenario of ["rest-only", "recovered", "in-flight", "stop", "identity", "transient"]) {
+  test(`REST progress card lifetime across WS close: ${scenario}`, async (t) => {
+    const f = reconnectTransportFixture(t);
+    const owner = new AbortController();
+    const oldSocket = new AbortController();
+    let current, inbound;
+    const lifetime = {
+      signal: owner.signal,
+      dispatcher: new ImDeliveryDispatcher(owner.signal),
+      identity: new ImDeliveryIdentity(),
+      current: () => current
+    };
+    const first = new GatewayTransport(
+      { ...config(process.cwd()), typing: false },
+      async () => f.token,
+      {
+        onMessage(message) {
+          inbound = message;
+        },
+        onDisconnect() {}
+      },
+      lifetime
+    );
+    current = first;
+    t.after(async () => {
+      owner.abort();
+      await first.close();
+      await current?.close();
+    });
+    await first.start(oldSocket.signal);
+    f.connections[0].onMessage(f.message);
+    const diagnostics = [];
+    const presentation = inbound.beginPresentation(
+      "long-task",
+      (code) => diagnostics.push(code),
+      {}
+    );
+    const projector = new ImRunProjector("long-task");
+    projector.accept({ protocolVersion: 2, type: "run.started", payload: {} });
+    presentation.update(projector.snapshot());
+    await waitFor(() => f.cards.length === 1);
+    await new Promise((resolve) => setImmediate(resolve));
+    let release, pendingSignal;
+    if (scenario === "in-flight" || scenario === "stop") {
+      f.setCardResponse(
+        ({ signal }) =>
+          new Promise((resolve, reject) => {
+            pendingSignal = signal;
+            const abort = () => reject(signal.reason);
+            signal.addEventListener("abort", abort, { once: true });
+            release = () => {
+              signal.removeEventListener("abort", abort);
+              resolve(Response.json({}));
+            };
+          })
+      );
+      presentation.update(projector.snapshot());
+      await waitFor(() => pendingSignal);
+    }
+    oldSocket.abort();
+    await first.close();
+    current = undefined;
+    assert.equal(f.cards[0].signal.aborted, false, "WS teardown must not cancel REST");
+    if (pendingSignal) {
+      assert.equal(pendingSignal.aborted, false, "in-flight REST must survive WS teardown");
+      if (scenario === "stop") {
+        owner.abort();
+        assert.equal(pendingSignal.aborted, true, "Bot stop cancels REST");
+        projector.accept({ protocolVersion: 2, type: "run.completed", payload: {} });
+        presentation.update(projector.snapshot());
+        await assert.rejects(presentation.finish(), /IM_PRESENTATION_FAILED/);
+        assert.equal(f.cards.length, 2);
+        return;
+      }
+      release();
+      f.setCardResponse(undefined);
+    }
+    if (scenario === "recovered" || scenario === "identity") {
+      if (scenario === "identity") f.setPrincipal({ bot_uid: "bot", space_id: "other" });
+      current = new GatewayTransport(
+        { ...config(process.cwd()), typing: false },
+        async () => f.token,
+        { onMessage() {}, onDisconnect() {} },
+        lifetime
+      );
+      assert.equal(
+        current.status.cardDeliveries,
+        1,
+        "retained receipts remain visible before new transport authentication"
+      );
+      await current.start(owner.signal);
+    }
+    if (scenario === "rest-only" || scenario === "transient") {
+      if (scenario === "transient")
+        f.setCardResponse(() => {
+          throw new TypeError("network changed");
+        });
+      presentation.update(projector.snapshot());
+      await waitFor(() => f.cards.length === 2);
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.equal(f.connections.length, 1, "REST must not wait for a replacement WS");
+      f.setCardResponse(undefined);
+    }
+    projector.accept({ protocolVersion: 2, type: "run.completed", payload: {} });
+    presentation.update(projector.snapshot());
+    if (scenario === "identity") {
+      await assert.rejects(presentation.finish(), /IM_PRESENTATION_FAILED/);
+      assert.equal(f.cards.length, 1, "identity change must stop old-card HTTP requests");
+      return;
+    }
+    await presentation.finish();
+    const terminalCount = f.cards.length;
+    presentation.update({ ...projector.snapshot(), terminal: undefined, phase: "thinking" });
+    await presentation.finish();
+    assert.equal(f.cards.length, terminalCount, "late progress must not overwrite terminal");
+    assert.equal(f.cards.filter((r) => r.url.endsWith("/sendMessage")).length, 1);
+    assert.ok(f.cards.slice(1).every((r) => r.body.message_id === "progress-card"));
+    assert.equal(f.cards.at(-1).body.state, "completed");
+    assert.equal(f.cards.at(-1).body.transient, undefined);
+    assert.ok(f.cards.slice(1).every((r, i) => r.body.card_seq === i + 2));
+    if (scenario !== "transient") assert.deepEqual(diagnostics, []);
+  });
+}
+
+for (const scenario of [
+  "recovered",
+  "file",
+  "stop",
+  "timeout",
+  "token",
+  "space",
+  "bot",
+  "api",
+  "unknown"
+]) {
+  test(`final delivery after reconnect: ${scenario}`, async (t) => {
+    const f = reconnectTransportFixture(t);
+    const owner = new AbortController();
+    let current, inbound;
+    const lifetime = {
+      signal: owner.signal,
+      dispatcher: new ImDeliveryDispatcher(owner.signal),
+      identity: new ImDeliveryIdentity(),
+      current: () => current
+    };
+    const first = new GatewayTransport(
+      config(process.cwd()),
+      async () => f.token,
+      {
+        onMessage(message) {
+          inbound = message;
+        },
+        onDisconnect() {}
+      },
+      lifetime
+    );
+    current = first;
+    const oldSignal = new AbortController();
+    await first.start(oldSignal.signal);
+    f.connections[0].onMessage(f.message);
+    oldSignal.abort();
+    await first.close();
+    current = undefined;
+    t.after(() => {
+      owner.abort();
+    });
+    let text = "done",
+      options;
+    if (scenario === "file") {
+      const { workspace, policy } = await fixture(t);
+      await writeFile(join(workspace, "game.html"), "html");
+      text = "[Game](game.html)";
+      options = { artifacts: policy, signal: owner.signal, obsolete: () => false };
+    }
+    if (scenario === "timeout") {
+      t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: 0 });
+      t.mock.method(performance, "now", () => Date.now());
+    }
+    const reply = inbound.replyFinal(text, "final:long-task", options).catch((error) => error);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(f.sends.length, 0);
+    if (scenario === "timeout") {
+      t.mock.timers.tick(15000);
+      assert.equal((await reply).code, "IM_CONNECTION_UNAVAILABLE");
+      assert.equal(f.sends.length, 0);
+      return;
+    }
+    if (scenario === "stop") {
+      owner.abort();
+      assert.equal((await reply).code, "IM_DELIVERY_CANCELLED");
+      return;
+    }
+    f.setPrincipal({
+      bot_uid: scenario === "bot" ? "other" : "bot",
+      space_id: scenario === "space" ? "other" : "s"
+    });
+    const nextConfig = {
+      ...config(process.cwd()),
+      ...(scenario === "bot" ? { bot_id: "other" } : {}),
+      ...(scenario === "api" ? { api_url: "https://other.example/api" } : {})
+    };
+    current = new GatewayTransport(
+      nextConfig,
+      async () => (scenario === "token" ? `bf_${randomUUID()}` : f.token),
+      { onMessage() {}, onDisconnect() {} },
+      lifetime
+    );
+    t.after(() => current.close());
+    await current.start(owner.signal);
+    if (scenario === "unknown") {
+      t.mock.method(WukongConnection.prototype, "sendText", async function (...args) {
+        f.sends.push({ connection: this, args });
+        throw new ImSendError("IM_DISCONNECTED", "unknown");
+      });
+    }
+    const result = await reply;
+    if (["token", "space", "bot", "api"].includes(scenario)) {
+      assert.equal(result.code, "IM_CONNECTION_IDENTITY_CHANGED");
+      assert.equal(result.state, "failed");
+      assert.equal(f.sends.length, 0);
+    } else if (scenario === "unknown") {
+      assert.equal(result.state, "unknown");
+      let attempts = 0;
+      const receipt = await new ImDeliveryDispatcher(owner.signal).deliver(
+        "final:unknown",
+        async () => {
+          attempts++;
+          throw result;
+        }
+      );
+      assert.equal(receipt.state, "unknown");
+      assert.equal(attempts, 1);
+      assert.equal(f.sends.length, 1);
+    } else {
+      assert.equal(result, undefined);
+      assert.equal(f.sends.length, 1);
+      assert.equal(f.sends[0].connection, f.connections[1]);
+      if (scenario === "file") {
+        assert.equal(f.files.length, 1);
+        assert.equal(f.files[0].connection, f.connections[1]);
+        assert.equal(
+          current.status.cardDeliveries,
+          1,
+          "file receipt is retained in Bot card statistics"
+        );
+        assert.match(f.sends[0].args[2], /https:\/\/cdn.example.com\/game.html/);
+      }
+    }
+  });
 }
 
 test("HTML games, arbitrary files and mixed images retain exact Markdown while realpaths upload once", async (t) => {

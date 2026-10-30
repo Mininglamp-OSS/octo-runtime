@@ -4,7 +4,7 @@
  */
 // Adapted from Mininglamp-OSS/openclaw-channel-octo/src/api-fetch.ts.
 import type { ChannelType } from "./types.js";
-import { DEFAULT_TIMEOUT_MS, postJson, getJson } from "./client.js";
+import { DEFAULT_TIMEOUT_MS, postJson, getJson, type HttpRequestDispatch } from "./client.js";
 import { trimTrailingSlashes } from "./url.js";
 import { messageDate } from "../message-time.js";
 
@@ -47,6 +47,7 @@ export async function getGroupMembers(params: {
   botToken: string;
   groupNo: string; // 群 ID (channel_id)
   signal?: AbortSignal;
+  dispatchRequest?: HttpRequestDispatch;
   log?: { info?: (msg: string) => void; error?: (msg: string) => void };
 }): Promise<GroupMember[]> {
   const data = await getJson<{ members?: GroupMember[] } | GroupMember[]>(
@@ -54,7 +55,7 @@ export async function getGroupMembers(params: {
     params.botToken,
     `/v1/bot/groups/${encodeURIComponent(params.groupNo)}/members`,
     AbortSignal.any([AbortSignal.timeout(5000), ...(params.signal ? [params.signal] : [])]),
-    { maxResponseBytes: 1 << 20, logRateLimit: false }
+    { maxResponseBytes: 1 << 20, logRateLimit: false, dispatchRequest: params.dispatchRequest }
   );
   // Normalize to strict array to prevent silent failures
   const members =

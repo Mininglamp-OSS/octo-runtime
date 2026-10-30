@@ -35,6 +35,7 @@ import { GatewayTransport } from "../transport/channel.js";
 import { createImInvocation } from "../execution/dispatcher.js";
 import { ImTask } from "../execution/task.js";
 import { MODEL_WAIT_TIMEOUT_MESSAGE } from "../execution/model-wait.js";
+import { ImDeliveryIdentity } from "../delivery/identity.js";
 import { ImDeliveryDispatcher } from "../delivery/dispatcher.js";
 import { ImRunProjector } from "../presentation/run-projector.js";
 import { deliveryNotice } from "../presentation/delivery-notice.js";
@@ -94,6 +95,10 @@ export class ImRuntime {
   readonly config: ImBotConfig;
   #connector?: GatewayTransport;
   #delivery?: ImDeliveryDispatcher;
+  #cardDelivery?: ImDeliveryDispatcher;
+  #deliveryIdentity?: ImDeliveryIdentity;
+  // 宿主凭据来源是黑盒；沿原初始化/建联入口保存值，REST 不重新获取或等待 WS 核验。
+  #restToken?: string;
   readonly #sessions = new Map<string, ImSession>();
   readonly #sessionStore: ImSessionStore;
   readonly #seen = new Map<string, number>();
@@ -128,6 +133,8 @@ export class ImRuntime {
   readonly #failureNotifications = new Map<string, Promise<void>>();
   readonly #busyNotifiedAt = new Map<string, number>();
   #retry = 0;
+  #backoff = 0;
+  #fastRetriesRemaining = 0;
   #disconnecting?: Promise<void>;
   constructor(
     config: ImBotConfig,
@@ -187,8 +194,14 @@ export class ImRuntime {
       };
       this.dependencies.signal?.addEventListener("abort", this.#ownerStopped, { once: true });
       this.#delivery = new ImDeliveryDispatcher(this.#signal);
+      // 卡片/文件回执归 Bot，跨 WS 恢复复用同一有界缓存；与文本回执分开统计。
+      this.#cardDelivery = new ImDeliveryDispatcher(this.#signal);
+      this.#deliveryIdentity = new ImDeliveryIdentity();
+      this.#restToken = undefined;
     }
     this.#retry = 0;
+    this.#backoff = 0;
+    this.#fastRetriesRemaining = 0;
     this.#error = undefined;
     this.#state = "connecting";
     this.#connecting = this.#connect(false);
@@ -203,6 +216,7 @@ export class ImRuntime {
     this.#log(recovering ? "channel.retry_started" : "channel.connecting", {
       attempt: this.#retry
     });
+    // 只回收单次 WS；Bot 持有的 REST 凭据及任务展示不随连接清理暂停。
     this.#connectionAbort?.abort();
     try {
       await this.#disconnecting;
@@ -218,30 +232,51 @@ export class ImRuntime {
     const signal = AbortSignal.any([this.#signal, this.#connectionAbort.signal]);
     let starting = true;
     let disconnected: ImConnectionError | undefined;
-    const credentials =
-      this.dependencies.credentials ?? ((config) => Promise.resolve(config.bf_token));
-    const connector = new GatewayTransport(this.config, credentials, {
-      authorizeSpace: this.dependencies.authorizeSpace,
-      onPosition: (position) => {
-        if (connector === this.#connector && !signal.aborted) this.#observePosition(position);
+    const credentials: NonNullable<ImModuleDependencies["credentials"]> = async (
+      config,
+      signal
+    ) => {
+      const token = await (this.dependencies.credentials
+        ? this.dependencies.credentials(config, signal)
+        : Promise.resolve(config.bf_token));
+      signal.throwIfAborted();
+      this.#restToken = token?.trim();
+      return token;
+    };
+    const connector = new GatewayTransport(
+      this.config,
+      credentials,
+      {
+        authorizeSpace: this.dependencies.authorizeSpace,
+        onPosition: (position) => {
+          if (connector === this.#connector && !signal.aborted) this.#observePosition(position);
+        },
+        onRulesChanged: (change) => {
+          if (connector !== this.#connector || signal.aborted) return;
+          this.#invalidateRules(change);
+        },
+        onMessage: (message) => {
+          if (connector === this.#connector && !signal.aborted) this.#receive(message);
+        },
+        onDiagnostic: (code) => {
+          if (connector === this.#connector && !signal.aborted) this.#diagnostic(code);
+        },
+        onDisconnect: (code, retryable = true) => {
+          if (connector !== this.#connector || this.#closed || signal.aborted) return;
+          if (disconnected) return;
+          disconnected = new ImConnectionError(code, retryable);
+          if (!starting) this.#lostConnection(connector, disconnected);
+        }
       },
-      onRulesChanged: (change) => {
-        if (connector !== this.#connector || signal.aborted) return;
-        this.#invalidateRules(change);
-      },
-      onMessage: (message) => {
-        if (connector === this.#connector && !signal.aborted) this.#receive(message);
-      },
-      onDiagnostic: (code) => {
-        if (connector === this.#connector && !signal.aborted) this.#diagnostic(code);
-      },
-      onDisconnect: (code, retryable = true) => {
-        if (connector !== this.#connector || this.#closed || signal.aborted) return;
-        if (disconnected) return;
-        disconnected = new ImConnectionError(code, retryable);
-        if (!starting) this.#lostConnection(connector, disconnected);
+      {
+        signal: this.#signal,
+        dispatcher: this.#cardDelivery!,
+        identity: this.#deliveryIdentity!,
+        token: () => this.#restToken,
+        // 只供旧任务选择本 Bot 当前连接；生命周期停止后旧 signal 不会随新 start 复活。
+        current: () => this.#connector
       }
-    });
+    );
     this.#connector = connector;
     try {
       await connector.start(signal);
@@ -255,10 +290,13 @@ export class ImRuntime {
       this.#log("channel.connected", { state: "online" });
       this.#error = undefined;
       this.#retry = 0;
+      this.#backoff = 0;
+      this.#fastRetriesRemaining = 0;
     } catch (error) {
       if (signal.aborted) return;
       starting = false;
       const failure = connectionFailure(error);
+      // 注册/WS 握手失败只影响连接恢复，不撤销 Bot 已持有的 REST 凭据。
       this.#connectionAbort.abort();
       this.#error = failure.message;
       // 首次离线与后续断线共用恢复；服务端断开不等于永久拒绝，由传输分类决定资格。
@@ -281,11 +319,15 @@ export class ImRuntime {
     this.#state = retry ? "retrying" : "failed";
     this.#log("channel.disconnected", { state: this.#state, code: failure.message });
     this.#connectionAbort?.abort();
-    // 先回收旧连接再开始退避；关闭和旧回调不能再创建连接，回收失败须单独诊断。
+    // 确认断线即退出 online；立即重连后追加最多十次 1 秒重试，覆盖换网恢复间隙。
+    // 关闭和旧回调不能再创建连接，回收失败须单独诊断，不能以加速为由重叠连接。
     this.#disconnecting = connector.close();
     void this.#disconnecting.then(
       () => {
-        if (retry) this.#scheduleReconnect(failure.retryAfterMs);
+        if (retry) {
+          this.#fastRetriesRemaining = 10;
+          this.#scheduleReconnect(failure.retryAfterMs, true);
+        }
       },
       () => {
         if (!this.#closed) this.#state = "failed";
@@ -293,7 +335,7 @@ export class ImRuntime {
       }
     );
   }
-  #scheduleReconnect(retryAfterMs = 0): void {
+  #scheduleReconnect(retryAfterMs = 0, immediate = false): void {
     if (
       this.#closed ||
       this.#draining ||
@@ -302,8 +344,14 @@ export class ImRuntime {
       this.#reconnect
     )
       return;
-    const delayMs = Math.max([5_000, 10_000, 15_000][Math.min(2, this.#retry)], retryAfterMs);
+    // 快速重试仅用于上线后的断线恢复，不消耗常规退避档位；Retry-After 仍优先。
+    // 每次失败回收完成才安排下一次，慢握手或休眠恢复不会堆积并发连接。
+    const fast = !immediate && this.#fastRetriesRemaining > 0;
+    const baseDelayMs = immediate ? 0 : fast ? 1_000 : [5_000, 10_000, 15_000][this.#backoff];
+    const delayMs = Math.max(baseDelayMs, retryAfterMs);
     this.#retry = Math.min(Number.MAX_SAFE_INTEGER, this.#retry + 1);
+    if (fast) this.#fastRetriesRemaining--;
+    else if (!immediate) this.#backoff = Math.min(2, this.#backoff + 1);
     this.#log("channel.retry_scheduled", {
       state: "retrying",
       delay_ms: delayMs,
@@ -730,7 +778,12 @@ export class ImRuntime {
     };
     const effect = `busy:${message.messageId}`;
     const notification = Promise.allSettled([
-      Promise.resolve().then(() => message.replyFailure?.(event, effect)),
+      Promise.resolve().then(() =>
+        message.replyFailure?.(event, effect, {
+          signal: this.#signal,
+          obsolete: () => this.#closed || this.#signal.aborted
+        })
+      ),
       this.#reply(
         message,
         `当前智能体繁忙，请稍后再试\n错误码：${payload.failure.code}`,
@@ -751,7 +804,8 @@ export class ImRuntime {
     message: ImInboundMessage,
     failure: FailureEnvelope,
     identity?: { runId: string; invocationId: string; sessionId: string },
-    retry = false
+    retry = false,
+    turnSignal?: AbortSignal
   ): Promise<void> {
     const data = {
       code: failure.code,
@@ -776,6 +830,16 @@ export class ImRuntime {
     };
     const delivery = this.#delivery;
     const options = { transient: true, obsolete: () => this.#closed || performance.now() >= until };
+    const deliveryOptions = {
+      signal: AbortSignal.any([
+        this.#signal,
+        ...(turnSignal ? [turnSignal] : []),
+        ...(Number.isFinite(until)
+          ? [AbortSignal.timeout(Math.max(0, Math.ceil(until - performance.now())))]
+          : [])
+      ]),
+      obsolete: () => options.obsolete() || Boolean(turnSignal?.aborted)
+    };
     const secondary = (code: string): void => {
       this.#diagnostic(code, identity?.runId, {
         ...data,
@@ -787,12 +851,15 @@ export class ImRuntime {
     };
     const send = async (operation: () => Promise<void>, key: string): Promise<void> => {
       const receipt = await delivery.deliver(key, operation, options);
+      if (turnSignal?.aborted) return;
       if (receipt.state !== "delivered") secondary(receipt.code ?? "IM_DELIVERY_FAILED");
     };
     const notification = withinShutdown(
       Promise.allSettled([
-        ...(message.replyFailure ? [send(() => message.replyFailure!(event, effect), effect)] : []),
-        send(() => message.reply(text, `${effect}:text`), `${effect}:text`)
+        ...(message.replyFailure
+          ? [send(() => message.replyFailure!(event, effect, deliveryOptions), effect)]
+          : []),
+        send(() => message.reply(text, `${effect}:text`, deliveryOptions), `${effect}:text`)
       ]),
       until,
       "IM_DELIVERY_UNKNOWN"
@@ -818,7 +885,7 @@ export class ImRuntime {
       () =>
         final && message.replyFinal
           ? message.replyFinal(text, effectKey, finalOptions)
-          : message.reply(text, effectKey),
+          : message.reply(text, effectKey, finalOptions),
       { obsolete: finalOptions ? () => finalOptions.obsolete() : undefined }
     );
     if (finalOptions?.obsolete()) return;
@@ -833,6 +900,15 @@ export class ImRuntime {
         !this.#signal.aborted
       ) {
         const notice = deliveryNotice();
+        // 未知通知仍属于原轮最终投递；stop/reset 必须取消在途请求并阻止后续重试。
+        // 迟到 ACK 与代次过期共用发送边界检查，不能因 REST 独立于 WS 而脱离任务期限。
+        const noticeSignal = finalOptions
+          ? AbortSignal.any([this.#signal, finalOptions.signal])
+          : this.#signal;
+        const obsolete = () =>
+          noticeSignal.aborted ||
+          Boolean(finalOptions?.obsolete()) ||
+          Boolean(message.isReplyDelivered?.(effectKey));
         const result = await this.#delivery.deliver(
           `delivery-unknown:${effectKey}`,
           () =>
@@ -840,11 +916,13 @@ export class ImRuntime {
               notice,
               `delivery-unknown:${effectKey}`,
               effectKey,
-              this.#signal
+              noticeSignal,
+              obsolete
             ),
-          { obsolete: () => Boolean(message.isReplyDelivered?.(effectKey)) }
+          { obsolete }
         );
-        if (result.state !== "delivered") this.#diagnostic("IM_DELIVERY_NOTICE_FAILED");
+        if (result.state !== "delivered" && !obsolete())
+          this.#diagnostic("IM_DELIVERY_NOTICE_FAILED");
       }
       if (requireDelivered) throw new Error(receipt.code ?? "IM_DELIVERY_FAILED");
     }
@@ -1362,7 +1440,15 @@ export class ImRuntime {
               }
             ).failure;
           controls.failed = false;
-          await this.#notifyFailure(message, localFailure, request, task.attempts.length > 1);
+          // 未提交失败的错误卡也可能等待重连；先移交取消权，stop/reset 才能终止待发通知。
+          this.#finalDeliveries.set(key, delivery);
+          await this.#notifyFailure(
+            message,
+            localFailure,
+            request,
+            task.attempts.length > 1,
+            delivery.signal
+          );
         } else {
           if (this.#draining) this.#drainErrors.push(new Error("IM_EXECUTION_RESULT_UNKNOWN"));
           // 流断开无法证明执行失败；尽力取消并提示核查，不自动重跑潜在的业务副作用。

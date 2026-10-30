@@ -1,0 +1,9 @@
+rules:
+  - .octospec/rules/architecture.md
+  - .octospec/rules/protocol-design.md
+  - .octospec/rules/channel-integration.md
+  - .octospec/rules/engineering.md
+  - .octospec/rules/extras.md
+  - .octospec/rules/stateless-execution.md
+scope: REST progress-card cancellation lifetime independent of WS reconnection
+authorization: User-reported frozen progress card during ongoing network recovery repair

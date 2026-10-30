@@ -9,6 +9,34 @@ import { trimTrailingSlashes } from "./url.js";
 
 export const DEFAULT_TIMEOUT_MS = 30_000;
 
+/** 在发送边界检查生命周期，可用 Bot 持有值替换鉴权头；不返回异步许可。 */
+export type HttpRequestDispatch = (
+  signal: AbortSignal,
+  send: (signal: AbortSignal, botToken?: string) => Promise<Response>
+) => Promise<Response>;
+
+/** 每次尝试（含 429）使用生效凭据；无 Authorization 的签名 PUT 不附加 Bot Token。 */
+export function fetchWithDispatch(
+  url: string,
+  options: RequestInit & { signal: AbortSignal },
+  dispatch?: HttpRequestDispatch
+): Promise<Response> {
+  const send = (signal: AbortSignal, botToken?: string): Promise<Response> => {
+    signal.throwIfAborted();
+    const headers = new Headers(options.headers);
+    if (botToken !== undefined && headers.has("Authorization")) {
+      headers.delete("Authorization");
+      return fetch(url, {
+        ...options,
+        headers: { ...Object.fromEntries(headers), Authorization: `Bearer ${botToken}` },
+        signal
+      });
+    }
+    return fetch(url, { ...options, signal });
+  };
+  return dispatch ? dispatch(options.signal, send) : send(options.signal);
+}
+
 /**
  * 生成出站消息的客户端幂等编号 client_msg_no（UUID）。
  *
@@ -90,6 +118,7 @@ function backoffSleep(ms: number, signal: AbortSignal | undefined, cause: unknow
 }
 
 interface JsonRequestOptions {
+  dispatchRequest?: HttpRequestDispatch;
   retryOn429?: boolean;
   /** Receipt uploads use the caller's throttled diagnostic instead. */
   logRateLimit?: boolean;
@@ -151,17 +180,21 @@ async function requestJson<T>(
       ? AbortSignal.any([signal, AbortSignal.timeout(POST_HARD_CEILING_MS)])
       : AbortSignal.timeout(DEFAULT_POST_TIMEOUT_MS);
 
-    const response = await fetch(url, {
-      method,
-      headers: {
-        ...(payload ? DEFAULT_HEADERS : {}),
-        Authorization: `Bearer ${botToken}`,
-        ...(opts.idempotencyKey ? { "Idempotency-Key": opts.idempotencyKey } : {})
+    const response = await fetchWithDispatch(
+      url,
+      {
+        method,
+        headers: {
+          ...(payload ? DEFAULT_HEADERS : {}),
+          Authorization: `Bearer ${botToken}`,
+          ...(opts.idempotencyKey ? { "Idempotency-Key": opts.idempotencyKey } : {})
+        },
+        ...(payload ? { body: JSON.stringify(payload) } : {}),
+        signal: fetchSignal,
+        ...(opts.redirect ? { redirect: opts.redirect } : {})
       },
-      ...(payload ? { body: JSON.stringify(payload) } : {}),
-      signal: fetchSignal,
-      ...(opts.redirect ? { redirect: opts.redirect } : {})
-    });
+      opts.dispatchRequest
+    );
 
     if (response.ok) {
       if (opts.expectedStatus !== undefined && response.status !== opts.expectedStatus) {

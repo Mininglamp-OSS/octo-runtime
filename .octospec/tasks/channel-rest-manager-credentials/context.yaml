@@ -1,0 +1,10 @@
+rules:
+  - .octospec/rules/architecture.md
+  - .octospec/rules/protocol-design.md
+  - .octospec/rules/channel-integration.md
+  - .octospec/rules/engineering.md
+  - .octospec/rules/extras.md
+  - .octospec/rules/stateless-execution.md
+  - .octospec/rules/session-reset.md
+scope: Gateway REST authorization independent of WS reconnection
+authorization: User requested OctoSpec update and implementation using Manager effective credentials without external freshness requirements

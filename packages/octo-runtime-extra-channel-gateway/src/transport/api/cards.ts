@@ -5,7 +5,13 @@
 // Adapted from Mininglamp-OSS/openclaw-channel-octo/src/api-fetch.ts.
 import type { ChannelType } from "./types.js";
 import { MessageType, type SendMessageResult } from "./types.js";
-import { postJson, generateClientMsgNo, DEFAULT_TIMEOUT_MS } from "./client.js";
+import {
+  postJson,
+  generateClientMsgNo,
+  DEFAULT_TIMEOUT_MS,
+  fetchWithDispatch,
+  type HttpRequestDispatch
+} from "./client.js";
 import { OctoApiError } from "./errors.js";
 import { trimTrailingSlashes } from "./url.js";
 
@@ -99,6 +105,7 @@ export async function sendTemplateCardMessage(params: {
   data: object;
   clientMsgNo?: string;
   signal?: AbortSignal;
+  dispatchRequest?: HttpRequestDispatch;
   /**
    * Forwarded to postJson. A transient progress frame passes false: it is discardable,
    * and holding the flush while we back off would block the frames behind it. A finalize
@@ -126,7 +133,7 @@ export async function sendTemplateCardMessage(params: {
       client_msg_no: params.clientMsgNo ?? generateClientMsgNo()
     },
     params.signal,
-    { retryOn429: params.retryOn429 ?? true }
+    { retryOn429: params.retryOn429 ?? true, dispatchRequest: params.dispatchRequest }
   );
 }
 
@@ -143,6 +150,7 @@ export async function editTemplateCardMessage(params: {
   cardSeq: number;
   transient?: boolean;
   signal?: AbortSignal;
+  dispatchRequest?: HttpRequestDispatch;
   /**
    * Forwarded to postJson. A transient progress frame passes false: it is discardable,
    * and holding the flush while we back off would block the frames behind it. A finalize
@@ -171,7 +179,7 @@ export async function editTemplateCardMessage(params: {
       ...(params.transient ? { transient: true } : {})
     },
     params.signal,
-    { retryOn429: params.retryOn429 ?? true }
+    { retryOn429: params.retryOn429 ?? true, dispatchRequest: params.dispatchRequest }
   );
 }
 
@@ -319,13 +327,18 @@ export async function getCardProfile(params: {
   apiUrl: string;
   botToken: string;
   signal?: AbortSignal;
+  dispatchRequest?: HttpRequestDispatch;
 }): Promise<CardProfileManifest> {
   const url = `${trimTrailingSlashes(params.apiUrl)}/v1/bot/card/profile`;
-  const resp = await fetch(url, {
-    method: "GET",
-    headers: { Authorization: `Bearer ${params.botToken}` },
-    signal: params.signal ?? AbortSignal.timeout(DEFAULT_TIMEOUT_MS)
-  });
+  const resp = await fetchWithDispatch(
+    url,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${params.botToken}` },
+      signal: params.signal ?? AbortSignal.timeout(DEFAULT_TIMEOUT_MS)
+    },
+    params.dispatchRequest
+  );
   // 端点尚未部署时 fail closed；不使用本地开关猜测服务端 Bot 策略。
   if (resp.status === 404) return { available: false, enabled: false };
   if (!resp.ok) {

@@ -10,7 +10,7 @@ import {
   type RichTextBlock,
   type SendMessageResult
 } from "./types.js";
-import { postJson, generateClientMsgNo } from "./client.js";
+import { postJson, generateClientMsgNo, type HttpRequestDispatch } from "./client.js";
 
 /**
  * Send a media message (image or file) to a channel.
@@ -98,6 +98,7 @@ export async function sendMessage(params: {
   onBehalfOf?: string;
   clientMsgNo?: string;
   signal?: AbortSignal;
+  dispatchRequest?: HttpRequestDispatch;
 }): Promise<SendMessageResult | undefined> {
   // Last-line guard: never POST an empty channel_id — the server answers an
   // opaque 500. Upstream resolvers should already reject this, but any future
@@ -142,7 +143,8 @@ export async function sendMessage(params: {
       client_msg_no: params.clientMsgNo ?? generateClientMsgNo(),
       ...(params.onBehalfOf ? { on_behalf_of: params.onBehalfOf } : {})
     },
-    params.signal
+    params.signal,
+    { dispatchRequest: params.dispatchRequest }
   );
 }
 
@@ -229,6 +231,7 @@ export async function sendTyping(params: {
   channelType: ChannelType;
   onBehalfOf?: string;
   signal?: AbortSignal;
+  dispatchRequest?: HttpRequestDispatch;
 }): Promise<void> {
   await postJson(
     params.apiUrl,
@@ -242,7 +245,7 @@ export async function sendTyping(params: {
       // only adds pressure to a bucket that is already empty.
     },
     params.signal,
-    { retryOn429: false }
+    { retryOn429: false, dispatchRequest: params.dispatchRequest }
   );
 }
 

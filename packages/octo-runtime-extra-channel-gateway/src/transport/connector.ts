@@ -1,6 +1,6 @@
 /**
  * Octo 出站适配：统一文本、typing 和模板卡片发送，以及服务端能力发现。
- * 持有当前连接的凭据与取消信号，为上层屏蔽 REST/WS 差异，不决定执行或业务流程。
+ * 持有调用方提供的凭据与取消期限；任务 REST 可使用 Bot 期限，不依赖单次 WS 存活。
  */
 import { createHash } from "node:crypto";
 import type { ImAddress, OctoBotConfig } from "../contracts.js";
@@ -8,7 +8,8 @@ import { getCardProfile, sendTemplateCardMessage, editTemplateCardMessage } from
 import { sendMessage, sendTyping } from "./api/messages.js";
 import { selectReasoningTemplate } from "./cards.js";
 import type { ReasoningFrame, ReasoningTemplate } from "./reasoning-frame.js";
-import { postJson } from "./api/client.js";
+import { postJson, type HttpRequestDispatch } from "./api/client.js";
+import { ImSendError } from "../delivery/text-send.js";
 
 export class OctoConnector {
   #profile?: { expires: number; template?: ReasoningTemplate };
@@ -16,7 +17,9 @@ export class OctoConnector {
     readonly config: OctoBotConfig,
     readonly token: string,
     readonly signal: AbortSignal,
-    readonly sendWsText: (address: ImAddress, text: string, effectKey: string) => Promise<void>
+    readonly sendWsText: (address: ImAddress, text: string, effectKey: string) => Promise<void>,
+    // 跨 WS 的 REST 使用 Bot 持有凭据及任务期限，不把 WS 状态当作 HTTP 准入。
+    readonly dispatchRequest?: HttpRequestDispatch
   ) {}
   async reasoningTemplate(): Promise<ReasoningTemplate | undefined> {
     if (this.config.cards === false) return;
@@ -24,21 +27,29 @@ export class OctoConnector {
     const profile = await getCardProfile({
       apiUrl: this.config.api_url,
       botToken: this.token,
-      signal: this.requestSignal()
+      signal: this.signal,
+      dispatchRequest: this.#dispatch
     });
     const template = selectReasoningTemplate(profile);
     this.#profile = { expires: Date.now() + 300_000, template };
     return template;
   }
-  requestSignal(signal?: AbortSignal): AbortSignal {
-    return AbortSignal.any([this.signal, AbortSignal.timeout(3_000), ...(signal ? [signal] : [])]);
-  }
+  // 3 秒 HTTP 预算从获准发出请求起算；准入回调直接执行 fetch，不返回异步许可。
+  readonly #dispatch: HttpRequestDispatch = (signal, send) => {
+    const owner = AbortSignal.any([this.signal, signal]);
+    owner.throwIfAborted();
+    const dispatch = (authorized: AbortSignal, botToken?: string): Promise<Response> =>
+      send(AbortSignal.any([authorized, AbortSignal.timeout(3_000)]), botToken);
+    return this.dispatchRequest ? this.dispatchRequest(owner, dispatch) : dispatch(owner);
+  };
+
   async typing(address: ImAddress, signal: AbortSignal): Promise<void> {
     await sendTyping({
       apiUrl: this.config.api_url,
       botToken: this.token,
       ...address,
-      signal: this.requestSignal(signal)
+      signal,
+      dispatchRequest: this.#dispatch
     });
   }
   async text(address: ImAddress, text: string, effectKey: string): Promise<void> {
@@ -51,7 +62,8 @@ export class OctoConnector {
       ...address,
       content: text,
       clientMsgNo: effectKey,
-      signal: this.requestSignal()
+      signal: this.signal,
+      dispatchRequest: this.#dispatch
     });
     if (!receipt?.message_id) throw new Error("IM_DELIVERY_RECEIPT_UNKNOWN");
     return String(receipt.message_id);
@@ -84,9 +96,12 @@ export class OctoConnector {
     const profile = await getCardProfile({
       apiUrl: this.config.api_url,
       botToken: this.token,
-      signal: this.requestSignal()
+      signal: this.signal,
+      dispatchRequest: this.#dispatch
     });
-    if (this.signal.aborted || obsolete?.()) return;
+    // 身份代次撤销不是能力不支持；保留取消原因供调用方区分已阻止的旧身份写入。
+    this.signal.throwIfAborted();
+    if (obsolete?.()) return;
     if (
       !profile.available ||
       !profile.enabled ||
@@ -117,9 +132,20 @@ export class OctoConnector {
           ? { message_id: messageId, content_edit: JSON.stringify(payload) }
           : { payload, client_msg_no: effectKey })
       },
-      this.requestSignal(),
-      { retryOn429: false }
-    );
+      this.signal,
+      {
+        retryOn429: false,
+        dispatchRequest: (signal, send) =>
+          this.#dispatch(signal, (authorized, botToken) => {
+            if (obsolete?.()) throw new ImSendError("IM_DELIVERY_CANCELLED", "failed");
+            return send(authorized, botToken);
+          })
+      }
+    ).catch((error: unknown) => {
+      if (obsolete?.()) return undefined;
+      throw error;
+    });
+    if (obsolete?.() && !result) return;
     if (!messageId && !result?.message_id) throw Error("IM_DELIVERY_RECEIPT_UNKNOWN");
     return messageId ?? String(result!.message_id);
   }
@@ -139,7 +165,8 @@ export class OctoConnector {
       templateRef: template.ref,
       state: frame.state,
       data: frame,
-      signal: this.requestSignal(),
+      signal: this.signal,
+      dispatchRequest: this.#dispatch,
       retryOn429: false
     };
     if (messageId) {
