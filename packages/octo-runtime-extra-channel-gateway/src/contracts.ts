@@ -139,7 +139,7 @@ export interface ImInboundMessage {
   runMetadata?: Record<string, unknown>;
   beginPresentation?(
     runId: string,
-    onDiagnostic: (code: string) => void,
+    onDiagnostic: (code: string, data?: Record<string, unknown>) => void,
     controls: ImRunControls
   ): ImPresentation;
 }

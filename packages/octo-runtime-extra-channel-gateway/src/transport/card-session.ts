@@ -1,14 +1,19 @@
 import { imBotIdentity } from "../lifecycle/configuration.js";
 /**
  * 单 Run 卡片会话：首次创建、后续编辑同一消息，并用序号和终态屏障收敛状态。
- * 终态卡片失败由 finish 返回，最终文本仍由执行编排投递；回执不代表客户端已经渲染。
+ * 终态展示被拒绝时有界降级到精简帧；确认投递后 finish 正常返回，仍失败则保留诊断。
+ * 最终文本由执行编排独立投递；服务端回执不代表客户端已经渲染。
  */
 import type { ImAddress } from "../contracts.js";
 import type { OctoConnector } from "./connector.js";
 import { stableEffectKey } from "./connector.js";
 import type { ImDeliveryDispatcher } from "../delivery/dispatcher.js";
 import { ProgressScheduler } from "../delivery/scheduler.js";
-import { buildReasoningFrame } from "./reasoning-frame.js";
+import {
+  buildReasoningFrame,
+  type ReasoningFrame,
+  type ReasoningTemplate
+} from "./reasoning-frame.js";
 import type { RunPresentation } from "../presentation/run-projector.js";
 
 export class CardSession {
@@ -17,7 +22,7 @@ export class CardSession {
   #terminalFailed = false;
   #scheduler?: ProgressScheduler<RunPresentation>;
   #stopTyping?: () => void;
-  #onDiagnostic?: (code: string) => void;
+  #onDiagnostic?: (code: string, data?: Record<string, unknown>) => void;
   readonly effectKey: string;
   constructor(
     readonly connector: OctoConnector,
@@ -25,7 +30,7 @@ export class CardSession {
     readonly address: ImAddress,
     runId: string,
     stopTyping: () => void,
-    onDiagnostic: (code: string) => void
+    onDiagnostic: (code: string, data?: Record<string, unknown>) => void
   ) {
     this.#stopTyping = stopTyping;
     this.#onDiagnostic = onDiagnostic;
@@ -63,8 +68,52 @@ export class CardSession {
     }
     // 模板查询期间可能已收到终态；旧快照必须在出站前再次检查。
     if (!this.#scheduler || (this.#scheduler.terminal && !settled)) return;
+    let receipt = await this.#deliver(frame, template, settled);
+    // 400 不是业务终态。只在明确拒收后替换展示内容再投一次，不重放未知投递或另起可见卡片。
+    if (
+      settled &&
+      receipt.state === "failed" &&
+      (receipt.code === "IM_CARD_SEND_400" || receipt.code === "IM_CARD_EDIT_400")
+    ) {
+      const compact: ReasoningFrame = {
+        reasoningId: frame.reasoningId,
+        state: frame.state,
+        title: "执行结果",
+        statusLabel: frame.statusLabel,
+        statusTone: frame.statusTone,
+        traceExpanded: false,
+        traceCollapsed: true,
+        collapsedSummary: frame.statusLabel + " · 过程详情暂不可用，请查看最终回复或运行记录。",
+        phases: [
+          {
+            thought: "过程详情暂不可用，请查看最终回复或运行记录。",
+            actions: [
+              {
+                tool: "任务状态",
+                detail: frame.statusLabel,
+                statusGlyph: "●",
+                statusTone: "Accent"
+              }
+            ]
+          }
+        ],
+        ...(frame.state === "error"
+          ? { errorTitle: "执行失败", errorMessage: "请查看最终回复或运行记录。" }
+          : {})
+      };
+      receipt = await this.#deliver(compact, template, settled);
+      if (receipt.state === "delivered") this.#onDiagnostic?.("IM_CARD_TERMINAL_DEGRADED");
+    }
+    if (receipt.state === "delivered") {
+      // 后续更新绑定第一次成功发送的消息，不另起卡片；可见卡片接替 typing 提示。
+      this.#messageId = receipt.messageId;
+      this.#stopTyping?.();
+    } else if (settled) this.#terminalFailed = true;
+  }
+  /** 沿同一卡片串行发送；降级帧也使用新序号和独立回执，保留取消与旧帧屏障。 */
+  #deliver(frame: ReasoningFrame, template: ReasoningTemplate, settled: boolean) {
     const seq = ++this.#seq;
-    const receipt = await this.delivery.deliver(
+    return this.delivery.deliver(
       `${this.effectKey}:${seq}`,
       () =>
         this.connector.card(
@@ -78,17 +127,11 @@ export class CardSession {
         ),
       {
         transient: !settled,
-        obsolete: () => !this.#scheduler || (this.#scheduler.terminal && !settled)
+        obsolete: () => !this.#scheduler || (this.#scheduler.terminal && !settled),
+        cardOperation: this.#messageId ? "edit" : "send",
+        onDiagnostic: (code, data) => this.#onDiagnostic?.(code, data)
       }
     );
-    if (receipt.state === "delivered") {
-      // 后续更新绑定第一次成功发送的消息，不另起卡片；可见卡片接替 typing 提示。
-      this.#messageId = receipt.messageId;
-      this.#stopTyping?.();
-    } else {
-      if (settled) this.#terminalFailed = true;
-      this.#onDiagnostic?.(receipt.code ?? "IM_CARD_FAILED");
-    }
   }
   async finish(): Promise<void> {
     this.#stopTyping?.();

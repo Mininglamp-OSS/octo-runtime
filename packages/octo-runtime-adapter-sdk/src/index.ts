@@ -71,7 +71,7 @@ export {
   type ExtraStatusRecord,
   type KernelStatusRecord
 } from "./service-status.js";
-export { sanitizePublicValue } from "./public-display.js";
+export { sanitizePublicValue, sanitizeDiagnosticBody } from "./public-display.js";
 export {
   DEFAULT_REASONING_LEVEL_MAPS,
   OMNI_REASONING_LEVELS,

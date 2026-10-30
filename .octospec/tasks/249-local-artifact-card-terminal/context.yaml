@@ -1,0 +1,20 @@
+baseline: ed7a4c89
+issue: 249
+rules_read:
+  - .octospec/rules/_index.yaml
+  - .octospec/rules/architecture.md
+  - .octospec/rules/protocol-design.md
+  - .octospec/rules/channel-integration.md
+  - .octospec/rules/extras.md
+  - .octospec/rules/context-input.md
+  - .octospec/rules/invoke-input.md
+  - .octospec/rules/session-reset.md
+  - .octospec/rules/stateless-execution.md
+  - .octospec/rules/engineering.md
+  - .octospec/rules/collaboration.md
+constraints:
+  - manual_local_regressions_only
+  - preserve_execution_terminal_and_final_markdown
+  - no_ci_scope_expansion
+  - user_authorized_commit_push_and_pr_2026_10_30
+  - no_merge_or_deploy

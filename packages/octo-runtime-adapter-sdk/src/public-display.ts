@@ -16,6 +16,27 @@ export function sanitizePublicValue(value: unknown, key = "", depth = 0): unknow
   );
 }
 
+/** Response summaries parse JSON before redaction; truncated credentials must also stay private. */
+export function sanitizeDiagnosticBody(body: string): string {
+  let safe: string;
+  try {
+    safe = JSON.stringify(sanitizePublicValue(JSON.parse(body)));
+  } catch {
+    safe = String(sanitizePublicValue(body));
+  }
+  if (/\\u[0-9a-f]{0,4}/i.test(safe)) safe = "[REDACTED]";
+  // Headers can occur inside a JSON message too. Drop the entire suffix at the first
+  // sensitive key instead of guessing where a spaced or truncated credential ends.
+  const keys = /["']?([\w-]+)[\\"']*\s*[:=]/g;
+  for (const match of safe.matchAll(keys)) {
+    if (SENSITIVE_OUTPUT_KEY.test(match[1])) {
+      safe = `${safe.slice(0, match.index)}[REDACTED]`;
+      break;
+    }
+  }
+  return Array.from(safe).slice(0, 200).join("");
+}
+
 function redactCredentialText(value: string): string {
   // 单向扫描 PEM，避免多个未闭合 BEGIN 反复扫描后缀；截断的私钥同样不能公开。
   const begin = /-----BEGIN [^-]*PRIVATE KEY-----/gi;
