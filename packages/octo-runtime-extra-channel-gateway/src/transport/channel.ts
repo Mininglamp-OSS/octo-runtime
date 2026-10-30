@@ -102,8 +102,16 @@ export class GatewayTransport {
     if (!token) throw new Error("IM_CREDENTIALS_REQUIRED");
     if (!/^bf_[A-Za-z0-9_-]+$/.test(token)) throw new Error("IM_BOT_TOKEN_INVALID");
     const principal = await verifyBotIdentity(this.config.api_url, token, signal);
-    if (principal.bot_uid !== this.config.bot_id) throw new Error("IM_BOT_IDENTITY_MISMATCH");
-    this.callbacks.authorizeSpace?.(principal.space_id);
+    try {
+      if (principal.bot_uid !== this.config.bot_id) throw new Error("IM_BOT_IDENTITY_MISMATCH");
+      this.callbacks.authorizeSpace?.(principal.space_id);
+    } catch (error) {
+      // REST 不等待 WS 验证；但目标已明确被拒绝时，不能继续把旧任务交给该凭据。
+      // 只在明确身份/空间拒绝后撤销，网络失败、单纯换 token 和握手失败不走此分支。
+      this.deliveryOwner?.identity.revoke();
+      this.#deliveryScope.revoke();
+      throw error;
+    }
     signal.throwIfAborted();
     this.#token = token;
     this.#spaceId = principal.space_id;
@@ -237,16 +245,24 @@ export class GatewayTransport {
             channelType: message.channelType
           },
           isReplyDelivered: replyDelivered,
-          replyDeliveryUnknown: async (event, effectKey, replyEffectKey, deliverySignal) => {
-            if (deliverySignal.aborted || replyDelivered(replyEffectKey)) return;
-            const rest = restDelivery(deliverySignal);
+          replyDeliveryUnknown: async (
+            event,
+            effectKey,
+            replyEffectKey,
+            deliverySignal,
+            obsolete
+          ) => {
+            const noticeObsolete = () =>
+              deliverySignal.aborted || Boolean(obsolete?.()) || replyDelivered(replyEffectKey);
+            if (noticeObsolete()) return;
+            const rest = restDelivery(deliverySignal, noticeObsolete);
             const sent = await rest.displayCard(
               message,
               deliveryNoticeCard(event),
               stableEffectKey(this.identity, message, effectKey, "delivery"),
-              () => replyDelivered(replyEffectKey)
+              noticeObsolete
             );
-            if (!sent && !replyDelivered(replyEffectKey))
+            if (!sent && !noticeObsolete())
               throw new ImSendError("IM_DELIVERY_NOTICE_UNSUPPORTED", "failed");
           },
           replyFailure: async (event, effectKey, options) => {
@@ -494,7 +510,15 @@ export class GatewayTransport {
                   request: structuredClone(request),
                   messageId: receipt.messageId
                 });
-                return true;
+                // REST 发卡期间 WS 可能已退出并清除按钮绑定。保留回执用于收尾，
+                // 但仅仍可处理按钮的原绑定算可用，否则由 Runtime 发送文字交互命令。
+                const binding = this.#bindings.get(runId);
+                return (
+                  !this.#closed &&
+                  !signal.aborted &&
+                  binding?.active === true &&
+                  binding.interactions === interactions
+                );
               },
               resolveInteraction,
               update: (snapshot) => card.update(snapshot),

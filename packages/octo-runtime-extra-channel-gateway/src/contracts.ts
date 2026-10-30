@@ -117,11 +117,13 @@ export interface ImInboundMessage {
     effectKey: string,
     options?: Pick<ImFinalReplyOptions, "signal" | "obsolete">
   ): Promise<void>;
+  /** 原轮未知通知继承最终投递取消及过期判断，在实际 REST 发送前再次检查。 */
   replyDeliveryUnknown?(
     event: CanonicalEvent,
     effectKey: string,
     replyEffectKey: string,
-    signal: AbortSignal
+    signal: AbortSignal,
+    obsolete?: () => boolean
   ): Promise<void>;
   isReplyDelivered?(effectKey: string): boolean;
   buildContext(

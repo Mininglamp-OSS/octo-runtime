@@ -900,6 +900,15 @@ export class ImRuntime {
         !this.#signal.aborted
       ) {
         const notice = deliveryNotice();
+        // 未知通知仍属于原轮最终投递；stop/reset 必须取消在途请求并阻止后续重试。
+        // 迟到 ACK 与代次过期共用发送边界检查，不能因 REST 独立于 WS 而脱离任务期限。
+        const noticeSignal = finalOptions
+          ? AbortSignal.any([this.#signal, finalOptions.signal])
+          : this.#signal;
+        const obsolete = () =>
+          noticeSignal.aborted ||
+          Boolean(finalOptions?.obsolete()) ||
+          Boolean(message.isReplyDelivered?.(effectKey));
         const result = await this.#delivery.deliver(
           `delivery-unknown:${effectKey}`,
           () =>
@@ -907,11 +916,13 @@ export class ImRuntime {
               notice,
               `delivery-unknown:${effectKey}`,
               effectKey,
-              this.#signal
+              noticeSignal,
+              obsolete
             ),
-          { obsolete: () => Boolean(message.isReplyDelivered?.(effectKey)) }
+          { obsolete }
         );
-        if (result.state !== "delivered") this.#diagnostic("IM_DELIVERY_NOTICE_FAILED");
+        if (result.state !== "delivered" && !obsolete())
+          this.#diagnostic("IM_DELIVERY_NOTICE_FAILED");
       }
       if (requireDelivered) throw new Error(receipt.code ?? "IM_DELIVERY_FAILED");
     }

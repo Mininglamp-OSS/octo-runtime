@@ -25,6 +25,12 @@ export class ImDeliveryScope {
 export class ImDeliveryIdentity {
   #current?: { identity: string; scope: ImDeliveryScope };
 
+  /** 明确拒绝目标身份/空间后关闭旧代次；后续恢复到相同身份也不能复活旧投递。 */
+  revoke(): void {
+    this.#current?.scope.revoke();
+    this.#current = undefined;
+  }
+
   accept(identity: string): ImDeliveryScope {
     if (this.#current?.identity !== identity) {
       this.#current?.scope.revoke();

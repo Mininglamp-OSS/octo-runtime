@@ -817,7 +817,7 @@ for (const creation of ["before-reconnect", "during-create"]) {
       await f.replace();
     };
     if (creation === "during-create") f.setCardProfileHook(reconnect);
-    assert.equal(await presentation.interaction(request), true);
+    assert.equal(await presentation.interaction(request), creation === "before-reconnect");
     if (creation === "before-reconnect") await reconnect();
     assert.equal(
       await presentation.interaction({ ...request, interactionId: "new-question" }),
