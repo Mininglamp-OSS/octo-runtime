@@ -72,3 +72,13 @@ ImDeliveryIdentity 提供成功核验事件的可取消等待；未核验 curren
 定向复现并验证失败卡在旧 WS 取消后继续、三种卡片在 profile 前/写入前的鉴权空窗、同身份恢复、换身份、Bot stop、任务取消、一次认证 503 后再次恢复及超时。保留上一轮已撤销身份不能复活的回归，将“尚未鉴权立即失败”验收改为“等待且不出站”。增加真实 Runtime 的 /stop、/reset 两项取消权透传测试。全渠道回归 553/553 通过（/tmp/octo-review3-tests.log）；全量 build、根类型检查、format:check、lint:names 通过。lint 指出等待取消不能 reject 非 Error 值，已规范化该边界并补跑 Gateway 构建、相关测试和 lint，结果在本轮 PR 评论列明。CI 配置、脚本和默认入口相对 main 无 diff；未安装或重启当前本地服务，真实 Wi-Fi 切换未在本轮执行。
 
 取消错误类型修正后，Gateway 构建、完整 lint 及 artifact/pre-execution-failure 两组测试 111/111 再次通过（/tmp/octo-review3-focused-final.log、/tmp/octo-review3-lint-final.log）。
+
+## Jerry-Xin 第四轮：授权与实际 HTTP 出站之间的竞态
+
+核验 review 5706932239，基线 e8fc3ae。意见成立：authorizeRestDelivery 返回后，任务工厂、requestSignal 和 card 各自的 await 仍让出执行权，新的 current 可以在 POST 前发布；身份代次尚未撤销并不能证明该 pending current 已核验。
+
+在 HTTP 基础层加入内部 fetchWithDispatch 入口，所有相关请求在实际 fetch 前进入同一身份守卫；守卫在成功检查后同步执行发送回调，不返回供异步调用方使用的许可。能力查询、失败/进度/交互/未知卡片、附件 presign/PUT 和 mention 查询均接入，JSON 的 429 重试逐次重新准入。Bot/任务/身份取消、15 秒有界核验等待及卡片发出后的 3 秒 HTTP 期限继续保留。未知通知等待期间收到成功 ACK 时，发出前抑制通知且正常完成。
+
+使用真实 ImRuntime 重连调度和 GatewayTransport/OctoConnector，仅隔离网络、WS 和计时器。33 个微任务边界扫描在基线第 10/11/12 个位置失败（/tmp/octo-race-baseline.log）；修复后 33/33 通过。另两项验证迟到 ACK 与 429 重试，35/35 通过（/tmp/octo-review4-races.log）。不扩大 CI，不安装或重启运行中服务。
+
+最终验证：完整 workspace build、根 TypeScript noEmit、lint、lint:names、format:check、git diff --check 通过；全渠道/网关测试 588/588 通过（/tmp/octo-review4-tests-final.log）。第一次将依赖 dist 的 lint/测试与全量 build 并行，build 清理产物时造成模块缺失；该轮不作为功能结论，构建结束后重跑上述检查全部通过。相对 main 的 .github、根 package.json、scripts 和 workspace 配置无 diff；远端旧 head 的检查列表仍为现有 CI/审查项目。真实 Wi-Fi/Provider 验收未在本轮重跑。

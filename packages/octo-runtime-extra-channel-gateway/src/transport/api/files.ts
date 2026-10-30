@@ -5,7 +5,7 @@
 // Adapted from Mininglamp-OSS/openclaw-channel-octo/src/api-fetch.ts.
 import path from "node:path";
 import { open } from "node:fs/promises";
-import { readResponseText } from "./client.js";
+import { readResponseText, fetchWithDispatch, type HttpRequestDispatch } from "./client.js";
 import { trimTrailingSlashes } from "./url.js";
 
 /** 校验服务端返回的长期下载地址；不把 PUT 地址、签名有效期或 Bot 鉴权路由冒充附件。 */
@@ -48,21 +48,20 @@ export async function uploadChatAttachment(
   filename: string,
   mime: string,
   signal: AbortSignal,
-  authorizeRequest?: (signal: AbortSignal) => void | Promise<void>
+  dispatchRequest?: HttpRequestDispatch
 ): Promise<string> {
   signal = AbortSignal.any([signal, AbortSignal.timeout(30_000)]);
   signal.throwIfAborted();
   const query = new URLSearchParams({ filename, fileSize: String(bytes.byteLength) });
-  await authorizeRequest?.(signal);
-  signal.throwIfAborted();
-  const response = await fetch(
+  const response = await fetchWithDispatch(
     `${trimTrailingSlashes(apiUrl)}/v1/bot/upload/presigned?${query.toString()}`,
     {
       method: "GET",
       headers: { Authorization: `Bearer ${token}` },
       signal,
       redirect: "error"
-    }
+    },
+    dispatchRequest
   );
   const body = await readResponseText(response, 64 << 10);
   if (!response.ok) throw new Error("upload-rejected");
@@ -123,15 +122,17 @@ export async function uploadChatAttachment(
   signal.throwIfAborted();
   // PUT 必须原样回显签名的类型/文件名；临时上传地址仅在此使用，网络未知不自动重放。
   // presign 等待期间可能换身份；直传也必须重新核验，不能仅在准备入口检查。
-  await authorizeRequest?.(signal);
-  signal.throwIfAborted();
-  const stored = await fetch(upload.href, {
-    method: "PUT",
-    headers,
-    body: new Uint8Array(bytes),
-    redirect: "error",
-    signal
-  });
+  const stored = await fetchWithDispatch(
+    upload.href,
+    {
+      method: "PUT",
+      headers,
+      body: new Uint8Array(bytes),
+      redirect: "error",
+      signal
+    },
+    dispatchRequest
+  );
   await stored.body?.cancel();
   signal.throwIfAborted();
   if (!stored.ok) throw new Error("upload-rejected");

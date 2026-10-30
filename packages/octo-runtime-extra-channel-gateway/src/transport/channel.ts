@@ -26,7 +26,7 @@ import { octoCliEnvironment } from "../execution/tool-environment.js";
 import { downloadImageInput } from "./image-input.js";
 import { prepareFinalMention } from "./mentions.js";
 import { getGroupMembers, type GroupMember } from "./api/conversations.js";
-import { getJson } from "./api/client.js";
+import { getJson, type HttpRequestDispatch } from "./api/client.js";
 import { connectionFailure, ImConnectionError } from "./connection-error.js";
 import { sendReadReceipt } from "./api/messages.js";
 import { deliveryNoticeCard } from "../presentation/delivery-notice.js";
@@ -147,11 +147,11 @@ export class GatewayTransport {
             token,
             AbortSignal.any([deliverySignal, turnSignal]),
             async () => {},
-            async (requestSignal) => {
-              if (obsolete?.()) throw new ImSendError("IM_DELIVERY_CANCELLED", "failed");
-              await this.#authorizeRestDelivery(requestSignal);
-              if (obsolete?.()) throw new ImSendError("IM_DELIVERY_CANCELLED", "failed");
-            }
+            (requestSignal, send) =>
+              this.#dispatchRestDelivery(requestSignal, (authorized) => {
+                if (obsolete?.()) throw new ImSendError("IM_DELIVERY_CANCELLED", "failed");
+                return send(authorized);
+              })
           );
         const finalDispatcher = this.#delivery!;
         const replyDelivered = (effectKey: string) => {
@@ -321,7 +321,7 @@ export class GatewayTransport {
                             name,
                             mime,
                             uploadSignal,
-                            (requestSignal) => this.#authorizeRestDelivery(requestSignal)
+                            this.#dispatchRestDelivery
                           )
                       )
                     : { text, files: [] };
@@ -362,12 +362,12 @@ export class GatewayTransport {
                   finalOutputCovered = !delivered.incomplete && failures.length === 0;
                   finalSignal.throwIfAborted();
                   return prepareFinalMention(finalText, async () => {
-                    await this.#authorizeRestDelivery(finalSignal);
                     if ([2, 5].includes(message.channelType))
                       return getGroupMembers({
                         apiUrl: this.config.api_url,
                         botToken: token,
                         groupNo: groupScope(message.channelId).groupNo,
+                        dispatchRequest: this.#dispatchRestDelivery,
                         signal: finalSignal
                       });
                     const peer = await getJson<GroupMember>(
@@ -375,7 +375,11 @@ export class GatewayTransport {
                       token,
                       `/v1/bot/user/info?uid=${encodeURIComponent(message.fromUid)}`,
                       AbortSignal.any([finalSignal, AbortSignal.timeout(5000)]),
-                      { maxResponseBytes: 64 << 10, logRateLimit: false }
+                      {
+                        maxResponseBytes: 64 << 10,
+                        logRateLimit: false,
+                        dispatchRequest: this.#dispatchRestDelivery
+                      }
                     );
                     return peer?.uid === message.fromUid ? [peer] : [];
                   });
@@ -597,7 +601,7 @@ export class GatewayTransport {
     this.#connected = true;
   }
   /** REST 只等身份核验，不等 WS online；每次请求均有取消权和有限恢复窗口。 */
-  async #authorizeRestDelivery(signal: AbortSignal): Promise<void> {
+  readonly #dispatchRestDelivery: HttpRequestDispatch = async (signal, send) => {
     const deadline = new AbortController();
     const timeout = setTimeout(() => deadline.abort(), 15_000);
     timeout.unref();
@@ -624,7 +628,9 @@ export class GatewayTransport {
           (current.identity !== this.identity || current.#token !== this.#token)
         )
           throw new ImSendError("IM_CONNECTION_IDENTITY_CHANGED", "failed");
-        return;
+        // 检查 current 与发出 fetch 必须在同一个同步调用栈中，重连不能插入两者之间。
+        // 这里不 await 响应：恢复等待的期限只约束准入，HTTP 由调用方单独限时。
+        return send(signal);
       }
     } catch (error) {
       this.#deliveryScope.signal.throwIfAborted();
@@ -635,7 +641,7 @@ export class GatewayTransport {
     } finally {
       clearTimeout(timeout);
     }
-  }
+  };
   /** 只选择完成鉴权的同身份连接；临时离线可等待，账号或凭据变化必须拒绝转投。 */
   #currentDeliveryTransport(rejectIdentityChange = true): GatewayTransport | undefined {
     if (this.#deliveryScope.signal.aborted) {

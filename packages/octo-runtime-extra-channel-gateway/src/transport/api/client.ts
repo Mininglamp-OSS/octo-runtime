@@ -9,6 +9,25 @@ import { trimTrailingSlashes } from "./url.js";
 
 export const DEFAULT_TIMEOUT_MS = 30_000;
 
+/** 在身份核验后同步调用 send；不可先返回许可，再由异步调用方发出请求。 */
+export type HttpRequestDispatch = (
+  signal: AbortSignal,
+  send: (signal: AbortSignal) => Promise<Response>
+) => Promise<Response>;
+
+/** 所有尝试（含 429 重试）均在实际 fetch 边界重新准入；默认调用保持原 HTTP 行为。 */
+export function fetchWithDispatch(
+  url: string,
+  options: RequestInit & { signal: AbortSignal },
+  dispatch?: HttpRequestDispatch
+): Promise<Response> {
+  const send = (signal: AbortSignal): Promise<Response> => {
+    signal.throwIfAborted();
+    return fetch(url, { ...options, signal });
+  };
+  return dispatch ? dispatch(options.signal, send) : send(options.signal);
+}
+
 /**
  * 生成出站消息的客户端幂等编号 client_msg_no（UUID）。
  *
@@ -90,6 +109,7 @@ function backoffSleep(ms: number, signal: AbortSignal | undefined, cause: unknow
 }
 
 interface JsonRequestOptions {
+  dispatchRequest?: HttpRequestDispatch;
   retryOn429?: boolean;
   /** Receipt uploads use the caller's throttled diagnostic instead. */
   logRateLimit?: boolean;
@@ -151,17 +171,21 @@ async function requestJson<T>(
       ? AbortSignal.any([signal, AbortSignal.timeout(POST_HARD_CEILING_MS)])
       : AbortSignal.timeout(DEFAULT_POST_TIMEOUT_MS);
 
-    const response = await fetch(url, {
-      method,
-      headers: {
-        ...(payload ? DEFAULT_HEADERS : {}),
-        Authorization: `Bearer ${botToken}`,
-        ...(opts.idempotencyKey ? { "Idempotency-Key": opts.idempotencyKey } : {})
+    const response = await fetchWithDispatch(
+      url,
+      {
+        method,
+        headers: {
+          ...(payload ? DEFAULT_HEADERS : {}),
+          Authorization: `Bearer ${botToken}`,
+          ...(opts.idempotencyKey ? { "Idempotency-Key": opts.idempotencyKey } : {})
+        },
+        ...(payload ? { body: JSON.stringify(payload) } : {}),
+        signal: fetchSignal,
+        ...(opts.redirect ? { redirect: opts.redirect } : {})
       },
-      ...(payload ? { body: JSON.stringify(payload) } : {}),
-      signal: fetchSignal,
-      ...(opts.redirect ? { redirect: opts.redirect } : {})
-    });
+      opts.dispatchRequest
+    );
 
     if (response.ok) {
       if (opts.expectedStatus !== undefined && response.status !== opts.expectedStatus) {

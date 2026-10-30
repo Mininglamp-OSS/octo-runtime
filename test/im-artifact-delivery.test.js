@@ -23,6 +23,7 @@ import { ImRunProjector } from "../packages/octo-runtime-extra-channel-gateway/d
 import { CardSession } from "../packages/octo-runtime-extra-channel-gateway/dist/transport/card-session.js";
 import { deliveryNotice } from "../packages/octo-runtime-extra-channel-gateway/dist/presentation/delivery-notice.js";
 
+import { stableEffectKey } from "../packages/octo-runtime-extra-channel-gateway/dist/transport/connector.js";
 import { ImDeliveryIdentity } from "../packages/octo-runtime-extra-channel-gateway/dist/delivery/identity.js";
 
 const prepareArtifacts = async (...args) => (await prepareArtifactReply(...args)).text;
@@ -246,6 +247,69 @@ const failedRun = {
   payload: { code: "PROVIDER_FAILED", message: "Provider failed after reconnect" }
 };
 
+// Advance the real Runtime reconnect timer at adjacent microtask boundaries. In particular,
+// cover replacement published AFTER the old authorization resolved but BEFORE its POST.
+for (let microtasks = 0; microtasks <= 32; microtasks++) {
+  test(`HTTP dispatch race: reconnect after ${microtasks} continuations waits for verification`, async (t) => {
+    const f = reconnectTransportFixture(t);
+    let inbound, beforeReplacement;
+    let starts = 0;
+    const originalStart = GatewayTransport.prototype.start;
+    t.mock.method(GatewayTransport.prototype, "start", function (signal) {
+      if (++starts === 2) beforeReplacement = f.requests.length;
+      this.callbacks.onMessage = (message) => {
+        inbound = message;
+      };
+      return originalStart.call(this, signal);
+    });
+    const runtime = new ImRuntime(
+      { ...config(process.cwd()), bf_token: f.token, typing: false },
+      {
+        kernel: {
+          async *invoke() {
+            assert.fail("delivery must not invoke a provider");
+          }
+        }
+      }
+    );
+    let release;
+    const verification = new Promise((resolve) => {
+      release = resolve;
+    });
+    t.after(async () => {
+      release();
+      t.mock.timers.reset();
+      await runtime.close();
+    });
+    await runtime.start();
+    f.connections[0].onMessage(f.message);
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+    f.connections[0].onDisconnect(new Error("IM_DISCONNECTED"));
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+    let authenticating = false;
+    f.setRequestHook(async (url) => {
+      if (url.endsWith("/auth/verify-bot")) {
+        authenticating = true;
+        await verification;
+      }
+    });
+    const operation = inbound.replyFailure(failedRun, "dispatch-race");
+    for (let i = 0; i < microtasks; i++) await Promise.resolve();
+    t.mock.timers.tick(0);
+    for (let i = 0; i < 100; i++) await Promise.resolve();
+    assert.equal(authenticating, true, "real reconnect must be pending verification");
+    assert.equal(
+      f.requests.slice(beforeReplacement).filter(({ url }) => url.endsWith("/bot/sendMessage"))
+        .length,
+      0,
+      "no old-token POST may start after unverified current is published"
+    );
+    release();
+    await operation;
+    assert.equal(f.cards.length, 1, "same identity resumes without duplicating the card");
+  });
+}
+
 for (const path of ["failure", "notice", "progress"]) {
   for (const stage of ["before-profile", "before-write"]) {
     test(`auth recovery: ${path} waits ${stage} and sends once after verification`, async (t) => {
@@ -329,6 +393,87 @@ for (const path of ["failure", "notice", "progress"]) {
     });
   }
 }
+
+test("HTTP dispatch race: a late ACK suppresses a notice waiting to POST", async (t) => {
+  const f = await ownedTransportFixture(t);
+  let release,
+    start,
+    authenticating = false;
+  const verification = new Promise((resolve) => {
+    release = resolve;
+  });
+  t.after(async () => {
+    release();
+    await start?.catch(() => {});
+  });
+  f.setRequestHook(async (url) => {
+    if (url.endsWith("/auth/verify-bot")) {
+      authenticating = true;
+      await verification;
+    }
+  });
+  f.setCardProfileHook(async () => {
+    f.setCardProfileHook(undefined);
+    const next = await f.replace(f.token, false);
+    start = next.start(f.sockets.at(-1).signal);
+  });
+  const operation = f.inbound.replyDeliveryUnknown(
+    deliveryNotice(),
+    "late:notice",
+    "late:reply",
+    f.owner.signal
+  );
+  await waitFor(() => authenticating);
+  for (let i = 0; i < 40; i++) await Promise.resolve();
+  assert.equal(f.cards.length, 0);
+  f.connections[0].onDelivered(stableEffectKey(f.first.identity, f.message, "late:reply", "text"));
+  release();
+  await operation;
+  assert.equal(f.cards.length, 0, "a confirmed reply makes the waiting notice obsolete");
+});
+
+test("HTTP dispatch race: a rate-limited mention lookup rechecks pending identity before retry", async (t) => {
+  const f = await ownedTransportFixture(t);
+  let release,
+    start,
+    authenticating = false,
+    lookups = 0;
+  const verification = new Promise((resolve) => {
+    release = resolve;
+  });
+  t.after(async () => {
+    release();
+    t.mock.timers.reset();
+    await start?.catch(() => {});
+  });
+  f.setRequestHook(async (url) => {
+    if (url.endsWith("/auth/verify-bot")) {
+      authenticating = true;
+      await verification;
+    }
+    if (url.includes("/user/info")) {
+      if (++lookups === 1) {
+        const next = await f.replace(f.token, false);
+        start = next.start(f.sockets.at(-1).signal);
+        return new Response("rate limited", { status: 429, headers: { "Retry-After": "0.001" } });
+      }
+    }
+  });
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const operation = f.inbound.replyFinal("@[owner:Owner] done", "retry:mention");
+  for (let i = 0; i < 100; i++) await Promise.resolve();
+  assert.equal(authenticating, true);
+  // Advance the HTTP retry while holding the replacement verification unresolved.
+  t.mock.timers.tick(5);
+  for (let i = 0; i < 100; i++) await Promise.resolve();
+  assert.equal(lookups, 1, "HTTP retry must not bypass the new handshake");
+  release();
+  await start;
+  t.mock.timers.reset();
+  await operation;
+  assert.equal(lookups, 2);
+  assert.equal(f.sends.length, 1);
+});
 
 for (const outcome of ["changed", "owner-stop", "task-stop", "failed-then-same", "timeout"]) {
   test(`auth recovery: pending notice handles ${outcome}`, async (t) => {
