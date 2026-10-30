@@ -47,3 +47,16 @@ Git 无文本冲突，但上游连接 close 新增无条件 CardSession.release�
 修复后 6 组相关测试 200/200 通过（日志 /tmp/octo-runtime-jerry-tests.log），全量 build、根 TypeScript noEmit、lint、修改文件 Prettier 与 git diff --check 通过。没有修改 workflow、脚本或默认测试入口，没有代发消息或更改运行中服务。
 
 审查提到的旧 CI run 40925449476 单独核验：Windows Node 24 job 123629601527 在 Verify Windows installation and independent component cleanup 的 Offline npm install 阶段，触发既有 60000 ms 超时，stdout/stderr 为空。未将该失败归因于此次 REST 代码，也未修改 CI 超时或范围；新提交沿既有 PR 触发条件重新验证。
+
+## 三位审查者第二轮意见核验
+
+用户要求核验所有审查意见并请所有审查者重新 review。核验基线 adf2447，最新审查为 Jerry-Xin 5702954820、mochashanyao 5702981842、yujiawei 5703044181。
+
+- Jerry-Xin：新 current 尚未完成 verify 时旧 REST 被放行，成立。守卫在不同 current 未持有已核验 token 时拒绝请求；同身份核验完成可恢复，不以 WS online 为前提。
+- mochashanyao：附件准备中途切身份后仍继续旧上传，成立。Bot 持有 ImDeliveryIdentity，每次成功身份/空间准入后取得投递代次；换 Bot/API/空间/凭据取消原代次，原任务准备、HTTP 和 WS 均使用该信号。presign 与 PUT 入口各自再校验，已开始请求通知取消，不承诺撤销服务端已接受的数据。
+- mochashanyao：A → 已核验 B → 未核验 C 会复活 A，成立。身份代次在 Bot 生命周期内保存；即使之后重新使用 A 的凭据，也不会复活 A 的旧任务或确认账本。
+- yujiawei：交互卡收尾仍用被取消的旧连接 REST，成立。创建过程中及已显示卡的 resolve/finish 改用任务级 REST connector，按钮已接纳响应后的编辑复用同一 resolveInteraction，只有确认编辑成功才删除关联。旧按钮轮询不迁移；连接回收后拒绝通过旧绑定创建新的交互。
+- yujiawei：中间连接的确认不再可见，成立。成功 WuKong ACK 通过回调进入身份代次内最多 512 条的确认账本，后续发送及未知通知查询该账本；不持有所有历史连接，也不跨身份/重启持久化。真实二进制 WS fixture 验证成功文本/文件 ACK 回调，失败 ACK 不记账。
+- yujiawei：普通上传、群成员或私聊用户查询的临时故障导致 finalReply.value 永久拒绝，不成立于现有实现。prepareArtifacts 捕获普通单文件故障并返回部分成功与失败说明；prepareFinalMention 捕获成员查询故障并返回无 mention 正文。新增三项真实 replyFinal 回归，在修改前就通过，正文照常送达，重复进入同 effect 不重复已完成上传。取消或身份撤销不能以清除 Promise 为由恢复旧准备，因此保留缓存合同并补充注释，而非无条件重跑未知上传。
+
+初始 13 项定向核验：8 失败、5 通过，日志 /tmp/octo-review2-before.log；失败覆盖鉴权空窗、连续换身份、附件中途换身份、交互卡收尾和中间连接确认。实现后增加账本边界及代次隔离回归，并在现有真实 WS 测试验证 ACK 写入；交互发卡用请求已开始时切网及已有卡两种时序验证。最终渠道测试 539/539 通过（/tmp/octo-review2-channel-tests.log），全量 build、根 TypeScript noEmit、lint、lint:names 通过。未修改 workflow、CI 脚本、默认测试入口或范围；相对 main 的这些路径 diff 为空。旧 adf2447 的 GitHub CI Gate 已成功；新提交仍需独立 CI 和三位审查者复核。当前本地服务未重新安装/重启，线上切网未在本轮复测。

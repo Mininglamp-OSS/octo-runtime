@@ -197,7 +197,8 @@ export class WukongConnection {
       messageId: string;
       clientMsgNo: string;
       spaceId?: unknown;
-    }) => void
+    }) => void,
+    readonly onDelivered?: (clientMsgNo: string) => void
   ) {}
   get connected(): boolean {
     return this.#ready && this.#socket?.readyState === WebSocket.OPEN;
@@ -357,6 +358,7 @@ export class WukongConnection {
                   this.#confirmed.add(pending.key);
                   if (this.#confirmed.size > 512)
                     this.#confirmed.delete(this.#confirmed.values().next().value!);
+                  this.onDelivered?.(pending.key);
                   this.#forget(pending.operation);
                 }
                 pending.operation.ack(id, reason);

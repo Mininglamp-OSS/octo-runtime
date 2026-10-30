@@ -35,6 +35,7 @@ import { GatewayTransport } from "../transport/channel.js";
 import { createImInvocation } from "../execution/dispatcher.js";
 import { ImTask } from "../execution/task.js";
 import { MODEL_WAIT_TIMEOUT_MESSAGE } from "../execution/model-wait.js";
+import { ImDeliveryIdentity } from "../delivery/identity.js";
 import { ImDeliveryDispatcher } from "../delivery/dispatcher.js";
 import { ImRunProjector } from "../presentation/run-projector.js";
 import { deliveryNotice } from "../presentation/delivery-notice.js";
@@ -95,6 +96,7 @@ export class ImRuntime {
   #connector?: GatewayTransport;
   #delivery?: ImDeliveryDispatcher;
   #cardDelivery?: ImDeliveryDispatcher;
+  #deliveryIdentity?: ImDeliveryIdentity;
   readonly #sessions = new Map<string, ImSession>();
   readonly #sessionStore: ImSessionStore;
   readonly #seen = new Map<string, number>();
@@ -192,6 +194,7 @@ export class ImRuntime {
       this.#delivery = new ImDeliveryDispatcher(this.#signal);
       // 卡片/文件回执归 Bot，跨 WS 恢复复用同一有界缓存；与文本回执分开统计。
       this.#cardDelivery = new ImDeliveryDispatcher(this.#signal);
+      this.#deliveryIdentity = new ImDeliveryIdentity();
     }
     this.#retry = 0;
     this.#backoff = 0;
@@ -255,6 +258,7 @@ export class ImRuntime {
       {
         signal: this.#signal,
         dispatcher: this.#cardDelivery!,
+        identity: this.#deliveryIdentity!,
         // 只供旧任务选择本 Bot 当前连接；生命周期停止后旧 signal 不会随新 start 复活。
         current: () => this.#connector
       }

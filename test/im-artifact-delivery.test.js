@@ -23,6 +23,8 @@ import { ImRunProjector } from "../packages/octo-runtime-extra-channel-gateway/d
 import { CardSession } from "../packages/octo-runtime-extra-channel-gateway/dist/transport/card-session.js";
 import { deliveryNotice } from "../packages/octo-runtime-extra-channel-gateway/dist/presentation/delivery-notice.js";
 
+import { ImDeliveryIdentity } from "../packages/octo-runtime-extra-channel-gateway/dist/delivery/identity.js";
+
 const prepareArtifacts = async (...args) => (await prepareArtifactReply(...args)).text;
 
 const schema = "octo.context-envelope/v3";
@@ -60,9 +62,14 @@ function reconnectTransportFixture(t) {
   let principal = { bot_uid: "bot", space_id: "s" };
   let cardResponse;
   let onCardProfile;
+  let onRequest;
+  const requests = [];
   const token = `bf_${randomUUID()}`;
   t.mock.method(globalThis, "fetch", async (url, options = {}) => {
     options.signal?.throwIfAborted();
+    requests.push({ url, options });
+    const intercepted = await onRequest?.(url, options);
+    if (intercepted) return intercepted;
     if (url.endsWith("/auth/verify-bot")) return Response.json(principal);
     if (url.endsWith("/bot/register"))
       return Response.json({
@@ -167,6 +174,10 @@ function reconnectTransportFixture(t) {
     files,
     cards,
     cardProfiles,
+    requests,
+    setRequestHook(value) {
+      onRequest = value;
+    },
     message,
     setCardProfileHook(value) {
       onCardProfile = value;
@@ -180,6 +191,285 @@ function reconnectTransportFixture(t) {
   };
 }
 
+// Exercise retained callbacks through real GatewayTransport requests and final preparation.
+async function ownedTransportFixture(t) {
+  const f = reconnectTransportFixture(t);
+  const owner = new AbortController();
+  const sockets = [];
+  const transports = [];
+  let current, inbound;
+  const lifetime = {
+    signal: owner.signal,
+    dispatcher: new ImDeliveryDispatcher(owner.signal),
+    identity: new ImDeliveryIdentity(),
+    current: () => current
+  };
+  const replace = async (token = f.token, authenticate = true) => {
+    const socket = new AbortController();
+    sockets.push(socket);
+    current = new GatewayTransport(
+      { ...config(process.cwd()), typing: false },
+      async () => token,
+      {
+        onMessage: (message) => {
+          inbound = message;
+        },
+        onDisconnect() {}
+      },
+      lifetime
+    );
+    transports.push(current);
+    if (authenticate) await current.start(socket.signal);
+    return current;
+  };
+  t.after(async () => {
+    owner.abort();
+    await Promise.all(transports.map((transport) => transport.close()));
+  });
+  const first = await replace();
+  f.connections[0].onMessage(f.message);
+  return {
+    ...f,
+    owner,
+    sockets,
+    first,
+    get inbound() {
+      return inbound;
+    },
+    replace
+  };
+}
+
+for (const stage of ["pre-auth", "changed-then-pre-auth", "changed-then-original"]) {
+  test(`review: old REST identity remains closed during ${stage}`, async (t) => {
+    const f = await ownedTransportFixture(t);
+    const presentation = f.inbound.beginPresentation("identity-review", () => {}, {});
+    const projector = new ImRunProjector("identity-review");
+    projector.accept({ protocolVersion: 2, type: "run.started", payload: {} });
+    presentation.update(projector.snapshot());
+    await waitFor(() => f.cards.length === 1);
+    await new Promise((resolve) => setImmediate(resolve));
+    f.sockets[0].abort();
+    await f.first.close();
+    if (stage !== "pre-auth") await f.replace(`bf_${randomUUID()}`);
+    const pending = await f.replace(f.token, stage === "changed-then-original");
+    const count = f.cards.length;
+    await assert.rejects(
+      f.inbound.replyDeliveryUnknown(
+        deliveryNotice(),
+        "review:notice",
+        "review:final",
+        f.owner.signal
+      )
+    );
+    projector.accept({ protocolVersion: 2, type: "run.completed", payload: {} });
+    presentation.update(projector.snapshot());
+    await assert.rejects(presentation.finish(), /IM_PRESENTATION_FAILED/);
+    assert.equal(f.cards.length, count, "old identity must not resume HTTP writes");
+    if (stage === "pre-auth") {
+      await pending.start(f.sockets.at(-1).signal);
+      await f.inbound.replyDeliveryUnknown(
+        deliveryNotice(),
+        "review:notice",
+        "review:final",
+        f.owner.signal
+      );
+      assert.equal(f.cards.length, count + 1, "same identity may resume after verification");
+    }
+  });
+}
+
+for (const stage of ["presign", "put"]) {
+  for (const change of ["same", "changed"]) {
+    test(`review: ${change} identity during artifact ${stage}`, async (t) => {
+      const f = await ownedTransportFixture(t);
+      const { workspace, policy } = await fixture(t);
+      await writeFile(join(workspace, "one.txt"), "first");
+      await writeFile(join(workspace, "two.txt"), "second");
+      let switched = false,
+        pendingSignal;
+      f.setRequestHook(async (url, options) => {
+        if (
+          !switched &&
+          (stage === "presign" ? url.includes("upload/presigned") : options.method === "PUT")
+        ) {
+          switched = true;
+          pendingSignal = options.signal;
+          f.sockets[0].abort();
+          await f.first.close();
+          await f.replace(change === "same" ? f.token : `bf_${randomUUID()}`);
+        }
+      });
+      const result = f.inbound.replyFinal("[one](one.txt) [two](two.txt)", "review:files", {
+        artifacts: policy,
+        signal: f.owner.signal,
+        obsolete: () => false
+      });
+      if (change === "same") await result;
+      else await assert.rejects(result, (error) => error.code === "IM_CONNECTION_IDENTITY_CHANGED");
+      assert.equal(
+        pendingSignal.aborted,
+        change === "changed",
+        "identity cancellation reaches in-flight HTTP"
+      );
+      assert.equal(
+        f.requests.filter((r) => r.url.includes("upload/presigned")).length,
+        change === "same" ? 2 : 1
+      );
+      assert.equal(
+        f.requests.filter((r) => r.options.method === "PUT").length,
+        change === "same" ? 2 : stage === "put" ? 1 : 0
+      );
+      assert.equal(f.sends.length, change === "same" ? 1 : 0);
+    });
+  }
+}
+
+for (const creation of ["before-reconnect", "during-create"]) {
+  test(`review: interaction finalization survives reconnect, created ${creation}`, async (t) => {
+    const f = await ownedTransportFixture(t);
+    const diagnostics = [];
+    const presentation = f.inbound.beginPresentation(
+      "interaction-review",
+      (code) => diagnostics.push(code),
+      {}
+    );
+    const request = {
+      interactionId: "question",
+      kind: "approval",
+      request: { operation: { summary: "continue" } },
+      expiresAt: new Date(Date.now() + 60000).toISOString()
+    };
+    const reconnect = async () => {
+      f.setCardProfileHook(undefined);
+      f.sockets[0].abort();
+      await f.first.close();
+      await f.replace();
+    };
+    if (creation === "during-create") f.setCardProfileHook(reconnect);
+    assert.equal(await presentation.interaction(request), true);
+    if (creation === "before-reconnect") await reconnect();
+    assert.equal(
+      await presentation.interaction({ ...request, interactionId: "new-question" }),
+      false,
+      "retired button bindings cannot accept new interactions"
+    );
+    await presentation.finish();
+    assert.deepEqual(diagnostics, []);
+    const edit = f.cards.find((r) => r.url.endsWith("/message/edit"));
+    assert.equal(edit.body.message_id, "progress-card");
+    assert.match(JSON.parse(edit.body.content_edit).card.body[0].text, /invalidated/);
+  });
+}
+
+test("review: confirmations from intermediate connections remain visible and suppress notices", async (t) => {
+  const f = await ownedTransportFixture(t);
+  const confirmations = new Map();
+  t.mock.method(WukongConnection.prototype, "isDelivered", function (key) {
+    return confirmations.get(this)?.has(key) ?? false;
+  });
+  t.mock.method(WukongConnection.prototype, "sendText", async function (...args) {
+    const key = args[3];
+    const keys = confirmations.get(this) ?? new Set();
+    keys.add(key);
+    confirmations.set(this, keys);
+    this.onDelivered?.(key);
+    f.sends.push({ connection: this, args });
+    return "sent";
+  });
+  await f.first.close();
+  const second = await f.replace();
+  await f.inbound.reply("first", "review:first");
+  await second.close();
+  await f.replace();
+  await f.inbound.reply("second", "review:second");
+  assert.equal(f.inbound.isReplyDelivered("review:first"), true);
+  await f.inbound.replyDeliveryUnknown(
+    deliveryNotice(),
+    "review:notice",
+    "review:first",
+    f.owner.signal
+  );
+  assert.equal(f.cards.length, 0);
+  await f.inbound.reply("first", "review:first");
+  assert.equal(f.sends.length, 2, "confirmed effect must not resend on the third connection");
+});
+
+test("review: identity confirmations are bounded and isolated across credential generations", () => {
+  const identity = new ImDeliveryIdentity();
+  const token = `bf_${randomUUID()}`;
+  const first = identity.accept("bot:space", token);
+  for (let i = 0; i < 513; i++) first.confirm(`effect:${i}`);
+  assert.equal(first.isConfirmed("effect:0"), false);
+  assert.equal(first.isConfirmed("effect:512"), true);
+  assert.equal(identity.accept("bot:space", token), first);
+  const second = identity.accept("bot:space", `bf_${randomUUID()}`);
+  assert.equal(first.signal.aborted, true);
+  assert.equal(second.isConfirmed("effect:512"), false);
+  const third = identity.accept("bot:space", token);
+  assert.notEqual(third, first);
+  assert.equal(third.isConfirmed("effect:512"), false);
+  first.confirm("late-old-ack");
+  assert.equal(third.isConfirmed("late-old-ack"), false);
+});
+
+for (const failure of ["upload", "peer", "group"]) {
+  test(`review: ${failure} preparation failure degrades without poisoning final delivery`, async (t) => {
+    const f = await ownedTransportFixture(t);
+    const { workspace, policy } = await fixture(t);
+    await writeFile(join(workspace, "one.txt"), "first");
+    await writeFile(join(workspace, "two.txt"), "second");
+    // Use a fresh group callback for the member-list branch.
+    if (failure === "group") {
+      // Accept direct/group messages under the same fixture configuration.
+      f.connections[0].onMessage({
+        ...f.message,
+        channelType: 2,
+        channelId: "group",
+        payload: { type: 1, content: "@bot final", mention: { uids: ["bot"] } }
+      });
+    }
+    let failed = false;
+    f.setRequestHook(async (url) => {
+      if (
+        !failed &&
+        (failure === "upload"
+          ? url.includes("filename=two.txt")
+          : failure === "peer"
+            ? url.includes("/user/info")
+            : url.includes("/groups/group/members"))
+      ) {
+        failed = true;
+        throw new TypeError("temporary network loss");
+      }
+      if (url.includes("/groups/group/members")) return Response.json({ members: [] });
+    });
+    // An ACK-unknown outcome must not cause the completed uploads to run again.
+    let attempts = 0;
+    t.mock.method(WukongConnection.prototype, "sendText", async function (...args) {
+      f.sends.push({ connection: this, args });
+      if (++attempts === 1) throw new ImSendError("IM_DISCONNECTED", "unknown");
+      return "sent";
+    });
+    const options = { artifacts: policy, signal: f.owner.signal, obsolete: () => false };
+    const text = "[one](one.txt) [two](two.txt) @[owner:Owner]";
+    await assert.rejects(
+      f.inbound.replyFinal(text, "review:preparation", options),
+      (error) => error.state === "unknown"
+    );
+    await f.inbound.replyFinal(text, "review:preparation", options);
+    assert.equal(failed, true);
+    assert.equal(f.sends.length, 2, "preparation failure must not prevent sending the body");
+    assert.equal(
+      f.requests.filter((r) => r.url.includes("upload/presigned")).length,
+      2,
+      "successful uploads stay cached"
+    );
+    if (failure === "upload") assert.match(f.sends.at(-1).args[2], /Attachment delivery failed/);
+    else assert.match(f.sends.at(-1).args[2], /@Owner/);
+  });
+}
+
 for (const scenario of ["token", "api", "space", "bot", "same", "rest-only"]) {
   for (const stage of ["before-profile", "before-send"]) {
     test(`unknown delivery notice identity: ${scenario} ${stage}`, async (t) => {
@@ -189,6 +479,7 @@ for (const scenario of ["token", "api", "space", "bot", "same", "rest-only"]) {
       const lifetime = {
         signal: owner.signal,
         dispatcher: new ImDeliveryDispatcher(owner.signal),
+        identity: new ImDeliveryIdentity(),
         current: () => current
       };
       const first = new GatewayTransport(
@@ -423,6 +714,7 @@ for (const scenario of ["rest-only", "recovered", "in-flight", "stop", "identity
     const lifetime = {
       signal: owner.signal,
       dispatcher: new ImDeliveryDispatcher(owner.signal),
+      identity: new ImDeliveryIdentity(),
       current: () => current
     };
     const first = new GatewayTransport(
@@ -554,6 +846,7 @@ for (const scenario of [
     const lifetime = {
       signal: owner.signal,
       dispatcher: new ImDeliveryDispatcher(owner.signal),
+      identity: new ImDeliveryIdentity(),
       current: () => current
     };
     const first = new GatewayTransport(

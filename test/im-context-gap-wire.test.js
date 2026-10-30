@@ -499,10 +499,12 @@ test("wire positions distinguish SENDACK client/message sequences, observe own R
   const messages = [];
   const positions = [];
   const acknowledgements = [];
+  const confirmations = [];
   const connection = new WukongConnection(
     (message) => messages.push(message),
     () => {},
-    (position) => positions.push(position)
+    (position) => positions.push(position),
+    (key) => confirmations.push(key)
   );
   context.after(async () => {
     await connection.close();
@@ -563,6 +565,11 @@ test("wire positions distinguish SENDACK client/message sequences, observe own R
   assert.deepEqual(payloads.at(-1), { type: 8, ...file, space_id: "space" });
   assert.deepEqual(acknowledgements, [701, 703]);
   assert.equal(connection.isDelivered("file-accepted"), true);
+  assert.deepEqual(
+    confirmations,
+    ["accepted", "file-accepted"],
+    "only successful wire ACKs enter the shared ledger"
+  );
   const cancelled = new AbortController();
   cancelled.abort();
   await assert.rejects(

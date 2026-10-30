@@ -90,7 +90,9 @@ export class OctoConnector {
       botToken: this.token,
       signal: this.requestSignal()
     });
-    if (this.signal.aborted || obsolete?.()) return;
+    // 身份代次撤销不是能力不支持；保留取消原因供调用方区分已阻止的旧身份写入。
+    this.signal.throwIfAborted();
+    if (obsolete?.()) return;
     if (
       !profile.available ||
       !profile.enabled ||
