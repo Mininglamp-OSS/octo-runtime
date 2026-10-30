@@ -17,14 +17,15 @@ import { GatewayTransport } from "../packages/octo-runtime-extra-channel-gateway
 import { WukongConnection } from "../packages/octo-runtime-extra-channel-gateway/dist/transport/wukong.js";
 import { ImRuntime } from "../packages/octo-runtime-extra-channel-gateway/dist/index.js";
 import { waitFor } from "./runtime-fixture.js";
-import { ImSendError } from "../packages/octo-runtime-extra-channel-gateway/dist/delivery/text-send.js";
+import { ImSendError } from "../packages/octo-runtime-extra-channel-gateway/dist/delivery/send-error.js";
 import { ImDeliveryDispatcher } from "../packages/octo-runtime-extra-channel-gateway/dist/delivery/dispatcher.js";
 import { ImRunProjector } from "../packages/octo-runtime-extra-channel-gateway/dist/presentation/run-projector.js";
 import { CardSession } from "../packages/octo-runtime-extra-channel-gateway/dist/transport/card-session.js";
-import { deliveryNotice } from "../packages/octo-runtime-extra-channel-gateway/dist/presentation/delivery-notice.js";
 
 import { stableEffectKey } from "../packages/octo-runtime-extra-channel-gateway/dist/transport/connector.js";
 import { ImDeliveryIdentity } from "../packages/octo-runtime-extra-channel-gateway/dist/delivery/identity.js";
+import { OctoConnector } from "../packages/octo-runtime-extra-channel-gateway/dist/transport/connector.js";
+import { OctoApiError } from "../packages/octo-runtime-extra-channel-gateway/dist/transport/api/errors.js";
 
 const prepareArtifacts = async (...args) => (await prepareArtifactReply(...args)).text;
 
@@ -129,6 +130,21 @@ function reconnectTransportFixture(t) {
     }
     if (url.endsWith("/bot/sendMessage") || url.endsWith("/bot/message/edit")) {
       const request = { url, body: JSON.parse(options.body), signal: options.signal };
+      const { payload, channel_id, channel_type, client_msg_no } = request.body;
+      if (payload?.type === 1 || payload?.type === 8) {
+        const args = [
+          channel_id,
+          channel_type,
+          payload.type === 1
+            ? payload.content
+            : Object.fromEntries(Object.entries(payload).filter(([key]) => key !== "type")),
+          client_msg_no,
+          undefined,
+          payload.mention
+        ];
+        (payload.type === 1 ? sends : files).push({ args });
+        return Response.json({ message_id: `rest-${sends.length}-${files.length}` });
+      }
       cards.push(request);
       if (cardResponse) return cardResponse(request);
       return Response.json({ message_id: "progress-card" });
@@ -150,16 +166,6 @@ function reconnectTransportFixture(t) {
   });
   t.mock.method(WukongConnection.prototype, "close", async function () {
     closed.add(this);
-  });
-  t.mock.method(WukongConnection.prototype, "sendText", async function (...args) {
-    assert.equal(closed.has(this), false, "cannot send on retired connection");
-    sends.push({ connection: this, args });
-    return "sent";
-  });
-  t.mock.method(WukongConnection.prototype, "sendFile", async function (...args) {
-    assert.equal(closed.has(this), false, "cannot send file on retired connection");
-    files.push({ connection: this, args });
-    return "file-sent";
   });
   const message = {
     messageId: "long-task",
@@ -205,8 +211,7 @@ async function ownedTransportFixture(t) {
     signal: owner.signal,
     dispatcher: new ImDeliveryDispatcher(owner.signal),
     identity: new ImDeliveryIdentity(),
-    token: () => heldToken,
-    current: () => current
+    token: () => heldToken
   };
   const replace = async (token = f.token, authenticate = true) => {
     heldToken = token;
@@ -494,7 +499,7 @@ for (let microtasks = 0; microtasks <= 32; microtasks++) {
   });
 }
 
-for (const path of ["failure", "notice", "progress"]) {
+for (const path of ["failure", "progress"]) {
   for (const stage of ["before-profile", "before-write"]) {
     test(`auth recovery: ${path} sends once ${stage} without waiting for WS verification`, async (t) => {
       const f = await ownedTransportFixture(t);
@@ -528,25 +533,18 @@ for (const path of ["failure", "notice", "progress"]) {
       const operation =
         path === "failure"
           ? f.inbound.replyFailure(failedRun, "auth:failure")
-          : path === "notice"
-            ? f.inbound.replyDeliveryUnknown(
-                deliveryNotice(),
-                "auth:notice",
-                "auth:final",
-                f.owner.signal
-              )
-            : (() => {
-                const presentation = f.inbound.beginPresentation(
-                  "auth:progress",
-                  (code) => diagnostics.push(code),
-                  {}
-                );
-                const projector = new ImRunProjector("auth:progress");
-                projector.accept({ protocolVersion: 2, type: "run.started", payload: {} });
-                projector.accept({ protocolVersion: 2, type: "run.completed", payload: {} });
-                presentation.update(projector.snapshot());
-                return presentation.finish();
-              })();
+          : (() => {
+              const presentation = f.inbound.beginPresentation(
+                "auth:progress",
+                (code) => diagnostics.push(code),
+                {}
+              );
+              const projector = new ImRunProjector("auth:progress");
+              projector.accept({ protocolVersion: 2, type: "run.started", payload: {} });
+              projector.accept({ protocolVersion: 2, type: "run.completed", payload: {} });
+              presentation.update(projector.snapshot());
+              return presentation.finish();
+            })();
       const result = operation.then(
         () => {
           settled = true;
@@ -573,45 +571,6 @@ for (const path of ["failure", "notice", "progress"]) {
     });
   }
 }
-
-test("HTTP dispatch race: a late ACK suppresses a notice after profile lookup", async (t) => {
-  const f = await ownedTransportFixture(t);
-  let release,
-    start,
-    authenticating = false;
-  const verification = new Promise((resolve) => {
-    release = resolve;
-  });
-  t.after(async () => {
-    release();
-    await start?.catch(() => {});
-  });
-  f.setRequestHook(async (url) => {
-    if (url.endsWith("/auth/verify-bot")) {
-      authenticating = true;
-      await verification;
-    }
-  });
-  f.setCardProfileHook(async () => {
-    f.setCardProfileHook(undefined);
-    const next = await f.replace(f.token, false);
-    start = next.start(f.sockets.at(-1).signal);
-    await verification;
-  });
-  const operation = f.inbound.replyDeliveryUnknown(
-    deliveryNotice(),
-    "late:notice",
-    "late:reply",
-    f.owner.signal
-  );
-  await waitFor(() => authenticating);
-  for (let i = 0; i < 40; i++) await Promise.resolve();
-  assert.equal(f.cards.length, 0);
-  f.connections[0].onDelivered(stableEffectKey(f.first.identity, f.message, "late:reply", "text"));
-  release();
-  await operation;
-  assert.equal(f.cards.length, 0, "a confirmed reply makes the waiting notice obsolete");
-});
 
 test("HTTP dispatch race: a rate-limited mention lookup retries independently of WS authentication", async (t) => {
   const f = await ownedTransportFixture(t);
@@ -657,7 +616,7 @@ test("HTTP dispatch race: a rate-limited mention lookup retries independently of
 });
 
 for (const outcome of ["changed", "owner-stop", "task-stop", "failed-then-same", "http-denied"]) {
-  test(`REST notice during WS recovery handles ${outcome}`, async (t) => {
+  test(`REST failure card during WS recovery handles ${outcome}`, async (t) => {
     const f = await ownedTransportFixture(t);
     f.sockets[0].abort();
     await f.first.close();
@@ -684,7 +643,10 @@ for (const outcome of ["changed", "owner-stop", "task-stop", "failed-then-same",
       }
     });
     const result = f.inbound
-      .replyDeliveryUnknown(deliveryNotice(), "auth:notice", "auth:final", task.signal)
+      .replyFailure(failedRun, "auth:failure", {
+        signal: task.signal,
+        obsolete: () => task.signal.aborted
+      })
       .then(
         () => undefined,
         (error) => error
@@ -733,14 +695,7 @@ for (const stage of ["changed-then-pre-auth", "changed-then-original"]) {
     f.setPrincipal({ bot_uid: "bot", space_id: "s" });
     await f.replace(f.token, stage === "changed-then-original");
     const count = f.cards.length;
-    await assert.rejects(
-      f.inbound.replyDeliveryUnknown(
-        deliveryNotice(),
-        "review:notice",
-        "review:final",
-        f.owner.signal
-      )
-    );
+    await assert.rejects(f.inbound.replyFailure(failedRun, "review:failure"));
     projector.accept({ protocolVersion: 2, type: "run.completed", payload: {} });
     presentation.update(projector.snapshot());
     await assert.rejects(presentation.finish(), /IM_PRESENTATION_FAILED/);
@@ -832,34 +787,14 @@ for (const creation of ["before-reconnect", "during-create"]) {
   });
 }
 
-test("review: confirmations from intermediate connections remain visible and suppress notices", async (t) => {
+test("REST confirmations survive repeated WS replacement without resending", async (t) => {
   const f = await ownedTransportFixture(t);
-  const confirmations = new Map();
-  t.mock.method(WukongConnection.prototype, "isDelivered", function (key) {
-    return confirmations.get(this)?.has(key) ?? false;
-  });
-  t.mock.method(WukongConnection.prototype, "sendText", async function (...args) {
-    const key = args[3];
-    const keys = confirmations.get(this) ?? new Set();
-    keys.add(key);
-    confirmations.set(this, keys);
-    this.onDelivered?.(key);
-    f.sends.push({ connection: this, args });
-    return "sent";
-  });
   await f.first.close();
   const second = await f.replace();
   await f.inbound.reply("first", "review:first");
   await second.close();
   await f.replace();
   await f.inbound.reply("second", "review:second");
-  assert.equal(f.inbound.isReplyDelivered("review:first"), true);
-  await f.inbound.replyDeliveryUnknown(
-    deliveryNotice(),
-    "review:notice",
-    "review:first",
-    f.owner.signal
-  );
   assert.equal(f.cards.length, 0);
   await f.inbound.reply("first", "review:first");
   assert.equal(f.sends.length, 2, "confirmed effect must not resend on the third connection");
@@ -913,18 +848,30 @@ for (const failure of ["upload", "peer", "group"]) {
       }
       if (url.includes("/groups/group/members")) return Response.json({ members: [] });
     });
-    // An ACK-unknown outcome must not cause the completed uploads to run again.
+    // A confirmed HTTP rejection may retry delivery without repeating completed uploads.
     let attempts = 0;
-    t.mock.method(WukongConnection.prototype, "sendText", async function (...args) {
-      f.sends.push({ connection: this, args });
-      if (++attempts === 1) throw new ImSendError("IM_DISCONNECTED", "unknown");
-      return "sent";
-    });
+    const originalMessage = OctoConnector.prototype.message;
+    t.mock.method(
+      OctoConnector.prototype,
+      "message",
+      async function (address, payload, key, observe) {
+        if (payload.type === 1 && ++attempts === 1) {
+          f.sends.push({ args: [address.channelId, address.channelType, payload.content, key] });
+          throw new OctoApiError({
+            status: 429,
+            path: "/fixture",
+            body: "limited",
+            retryAfterMs: 0
+          });
+        }
+        return originalMessage.call(this, address, payload, key, observe);
+      }
+    );
     const options = { artifacts: policy, signal: f.owner.signal, obsolete: () => false };
     const text = "[one](one.txt) [two](two.txt) @[owner:Owner]";
     await assert.rejects(
       f.inbound.replyFinal(text, "review:preparation", options),
-      (error) => error.state === "unknown"
+      (error) => error.status === 429
     );
     await f.inbound.replyFinal(text, "review:preparation", options);
     assert.equal(failed, true);
@@ -941,15 +888,14 @@ for (const failure of ["upload", "peer", "group"]) {
 
 for (const scenario of ["token", "api", "space", "bot", "same", "rest-only"]) {
   for (const stage of ["before-profile", "before-send"]) {
-    test(`unknown delivery notice identity: ${scenario} ${stage}`, async (t) => {
+    test(`REST failure card identity: ${scenario} ${stage}`, async (t) => {
       const f = reconnectTransportFixture(t);
       const owner = new AbortController();
       let current, inbound;
       const lifetime = {
         signal: owner.signal,
         dispatcher: new ImDeliveryDispatcher(owner.signal),
-        identity: new ImDeliveryIdentity(),
-        current: () => current
+        identity: new ImDeliveryIdentity()
       };
       const first = new GatewayTransport(
         { ...config(process.cwd()), typing: false },
@@ -970,14 +916,6 @@ for (const scenario of ["token", "api", "space", "bot", "same", "rest-only"]) {
       });
       await first.start(owner.signal);
       f.connections[0].onMessage(f.message);
-      t.mock.method(WukongConnection.prototype, "sendText", async function (...args) {
-        f.sends.push({ connection: this, args });
-        throw new ImSendError("IM_DISCONNECTED", "unknown");
-      });
-      await assert.rejects(
-        inbound.replyFinal("done", "final:unknown"),
-        (error) => error.state === "unknown"
-      );
       await first.close();
       current = undefined;
       const recover = async () => {
@@ -1001,20 +939,15 @@ for (const scenario of ["token", "api", "space", "bot", "same", "rest-only"]) {
       };
       if (stage === "before-profile") await recover();
       else f.setCardProfileHook(recover);
-      const notice = inbound.replyDeliveryUnknown(
-        deliveryNotice(),
-        "notice:unknown",
-        "final:unknown",
-        owner.signal
-      );
+      const failure = inbound.replyFailure(failedRun, "failure");
       if (["same", "rest-only", "token"].includes(scenario)) {
-        await notice;
+        await failure;
         assert.equal(f.cardProfiles.length, 1);
         assert.equal(f.cards.length, 1);
-        assert.equal(f.cards[0].body.payload.card.body[0].text, "回复送达结果未知");
+        assert.equal(f.cards[0].body.payload.state, "error");
       } else {
         await assert.rejects(
-          notice,
+          failure,
           (error) => error.code === "IM_CONNECTION_IDENTITY_CHANGED" && error.state === "failed"
         );
         assert.equal(
@@ -1022,9 +955,9 @@ for (const scenario of ["token", "api", "space", "bot", "same", "rest-only"]) {
           stage === "before-profile" ? 0 : 1,
           "guard applies before every REST request"
         );
-        assert.equal(f.cards.length, 0, "no delivery notice may mutate a retired identity");
+        assert.equal(f.cards.length, 0, "no failure card may mutate a retired identity");
       }
-      assert.equal(f.sends.length, 1, "unknown final must not be replayed");
+      assert.equal(f.sends.length, 0, "failure cards must not send an extra text message");
     });
   }
 }
@@ -1084,7 +1017,13 @@ test("long task invokes once, completes its original REST card and sends final a
   await waitFor(() => runtime.status.workingTasks === 0);
   assert.equal(invokes, 1);
   assert.equal(f.sends.length, 1);
-  assert.equal(f.sends[0].connection, f.connections[1]);
+  assert.equal(
+    f.requests.filter(
+      ({ url, options }) =>
+        url.endsWith("/bot/sendMessage") && JSON.parse(options.body).payload?.type === 1
+    ).length,
+    1
+  );
   assert.equal(f.sends[0].args[0], "owner");
   assert.equal(f.sends[0].args[2], "done after sleep");
   assert.equal(f.cards.filter((r) => r.url.endsWith("/sendMessage")).length, 1);
@@ -1104,7 +1043,7 @@ test("long task invokes once, completes its original REST card and sends final a
 });
 
 for (const command of ["/stop", "/reset"]) {
-  test(`empty final waiting for WS recovery respects ${command}`, async (t) => {
+  test(`empty final in-flight REST delivery respects ${command}`, async (t) => {
     const f = reconnectTransportFixture(t);
     let releaseTask,
       releaseReconnect,
@@ -1116,6 +1055,17 @@ for (const command of ["/stop", "/reset"]) {
     });
     const reconnect = new Promise((resolve) => {
       releaseReconnect = resolve;
+    });
+    f.setRequestHook(async (url, options) => {
+      if (
+        url.endsWith("/bot/sendMessage") &&
+        JSON.parse(options.body).payload?.content === "执行已结束，未返回文本。"
+      )
+        await new Promise((_, reject) => {
+          const cancel = () => reject(options.signal.reason);
+          if (options.signal.aborted) cancel();
+          else options.signal.addEventListener("abort", cancel, { once: true });
+        });
     });
     const originalStart = GatewayTransport.prototype.start;
     t.mock.method(GatewayTransport.prototype, "start", async function (signal) {
@@ -1159,7 +1109,7 @@ for (const command of ["/stop", "/reset"]) {
     f.connections[0].onDisconnect(new Error("IM_DISCONNECTED"));
     releaseTask();
     await waitFor(() => replyStarted);
-    assert.equal(f.sends.length, 0, "terminal notice must be waiting for recovery");
+    assert.equal(f.sends.length, 0, "terminal HTTP request remains in flight until cancelled");
     releaseReconnect();
     await waitFor(() => f.connections.length === 2 && runtime.status.state === "online");
     f.connections[1].onMessage({
@@ -1183,8 +1133,7 @@ for (const scenario of ["rest-only", "recovered", "in-flight", "stop", "identity
     const lifetime = {
       signal: owner.signal,
       dispatcher: new ImDeliveryDispatcher(owner.signal),
-      identity: new ImDeliveryIdentity(),
-      current: () => current
+      identity: new ImDeliveryIdentity()
     };
     const first = new GatewayTransport(
       { ...config(process.cwd()), typing: false },
@@ -1302,7 +1251,7 @@ for (const scenario of [
   "recovered",
   "file",
   "stop",
-  "timeout",
+  "rest-only",
   "token",
   "space",
   "bot",
@@ -1316,8 +1265,7 @@ for (const scenario of [
     const lifetime = {
       signal: owner.signal,
       dispatcher: new ImDeliveryDispatcher(owner.signal),
-      identity: new ImDeliveryIdentity(),
-      current: () => current
+      identity: new ImDeliveryIdentity()
     };
     const first = new GatewayTransport(
       config(process.cwd()),
@@ -1348,22 +1296,15 @@ for (const scenario of [
       text = "[Game](game.html)";
       options = { artifacts: policy, signal: owner.signal, obsolete: () => false };
     }
-    if (scenario === "timeout") {
-      t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: 0 });
-      t.mock.method(performance, "now", () => Date.now());
-    }
-    const reply = inbound.replyFinal(text, "final:long-task", options).catch((error) => error);
-    await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(f.sends.length, 0);
-    if (scenario === "timeout") {
-      t.mock.timers.tick(15000);
-      assert.equal((await reply).code, "IM_CONNECTION_UNAVAILABLE");
+    if (scenario === "stop") {
+      owner.abort();
+      await assert.rejects(inbound.replyFinal(text, "final:long-task", options));
       assert.equal(f.sends.length, 0);
       return;
     }
-    if (scenario === "stop") {
-      owner.abort();
-      assert.equal((await reply).code, "IM_DELIVERY_CANCELLED");
+    if (scenario === "rest-only") {
+      await inbound.replyFinal(text, "final:long-task", options);
+      assert.equal(f.sends.length, 1, "REST succeeds while WS remains unavailable");
       return;
     }
     f.setPrincipal({
@@ -1384,13 +1325,15 @@ for (const scenario of [
     t.after(() => current.close());
     await current.start(owner.signal);
     if (scenario === "unknown") {
-      t.mock.method(WukongConnection.prototype, "sendText", async function (...args) {
-        f.sends.push({ connection: this, args });
+      t.mock.method(OctoConnector.prototype, "message", async function (address, payload, key) {
+        f.sends.push({ args: [address.channelId, address.channelType, payload.content, key] });
         throw new ImSendError("IM_DISCONNECTED", "unknown");
       });
     }
-    const result = await reply;
-    if (["token", "space", "bot", "api"].includes(scenario)) {
+    const result = await inbound
+      .replyFinal(text, "final:long-task", options)
+      .catch((error) => error);
+    if (["space", "bot", "api"].includes(scenario)) {
       assert.equal(result.code, "IM_CONNECTION_IDENTITY_CHANGED");
       assert.equal(result.state, "failed");
       assert.equal(f.sends.length, 0);
@@ -1410,10 +1353,10 @@ for (const scenario of [
     } else {
       assert.equal(result, undefined);
       assert.equal(f.sends.length, 1);
-      assert.equal(f.sends[0].connection, f.connections[1]);
+      assert.equal(f.sends[0].args[0], "owner");
       if (scenario === "file") {
         assert.equal(f.files.length, 1);
-        assert.equal(f.files[0].connection, f.connections[1]);
+        assert.equal(f.files[0].args[0], "owner");
         assert.equal(
           current.status.cardDeliveries,
           1,
@@ -1820,7 +1763,7 @@ for (const cardState of ["failed", "unknown"]) {
       uploads = 0;
     const sends = [];
     const cards = [];
-    t.mock.method(globalThis, "fetch", async (url) => {
+    t.mock.method(globalThis, "fetch", async (url, request) => {
       if (url.endsWith("/auth/verify-bot")) return Response.json({ bot_uid: "bot", space_id: "s" });
       if (url.endsWith("/bot/register"))
         return Response.json({
@@ -1842,6 +1785,28 @@ for (const cardState of ["failed", "unknown"]) {
       }
       if (url.includes("/user/info"))
         return Response.json({ uid: "owner", name: "Owner", robot: false });
+      if (url.endsWith("/bot/sendMessage")) {
+        const { channel_id, channel_type, payload, client_msg_no } = JSON.parse(request.body);
+        const args = [
+          channel_id,
+          channel_type,
+          payload.type === 1
+            ? payload.content
+            : Object.fromEntries(Object.entries(payload).filter(([key]) => key !== "type")),
+          client_msg_no,
+          undefined,
+          payload.mention
+        ];
+        if (payload.type === 8) {
+          cards.push(args);
+          if (payload.name === "notes.md") throw new ImSendError("IM_SEND_TEST_RECEIPT", cardState);
+        } else {
+          sends.push(args);
+          if (sends.length === 1)
+            return Response.json({}, { status: 429, headers: { "Retry-After": "0.001" } });
+        }
+        return Response.json({ message_id: `sent-${cards.length}-${sends.length}` });
+      }
       throw new Error("unexpected-request");
     });
     t.mock.method(WukongConnection.prototype, "connect", async function () {
@@ -1849,16 +1814,6 @@ for (const cardState of ["failed", "unknown"]) {
     });
     t.mock.getter(WukongConnection.prototype, "connected", () => true);
     t.mock.method(WukongConnection.prototype, "close", async () => {});
-    t.mock.method(WukongConnection.prototype, "sendFile", async (...args) => {
-      cards.push(args);
-      if (args[2].name === "notes.md") throw new ImSendError("IM_SEND_TEST_RECEIPT", cardState);
-      return "file-sent";
-    });
-    t.mock.method(WukongConnection.prototype, "sendText", async (...args) => {
-      sends.push(args);
-      if (sends.length === 1) throw new Error("retry");
-      return "sent";
-    });
     const transport = new GatewayTransport(
       { ...config(workspace), cards: false },
       async () => token,
@@ -1885,7 +1840,10 @@ for (const cardState of ["failed", "unknown"]) {
       signal,
       obsolete: () => false
     };
-    await assert.rejects(inbound.replyFinal(text, "final:run", options), /retry/);
+    await assert.rejects(
+      inbound.replyFinal(text, "final:run", options),
+      (error) => error.status === 429
+    );
     await inbound.replyFinal(text, "final:run", options);
     assert.equal(uploads, 3);
     assert.equal(cards.length, 2);

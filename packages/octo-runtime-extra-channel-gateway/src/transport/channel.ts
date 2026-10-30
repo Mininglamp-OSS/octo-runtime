@@ -29,8 +29,7 @@ import { getGroupMembers, type GroupMember } from "./api/conversations.js";
 import { getJson, type HttpRequestDispatch } from "./api/client.js";
 import { connectionFailure, ImConnectionError } from "./connection-error.js";
 import { sendReadReceipt } from "./api/messages.js";
-import { deliveryNoticeCard } from "../presentation/delivery-notice.js";
-import { ImSendError } from "../delivery/text-send.js";
+import { ImSendError } from "../delivery/send-error.js";
 import type { ImGapTurnToken } from "../application/context-gap.js";
 import { assistantOutputFingerprint } from "../application/context-gap.js";
 import { observesImScope } from "./normalize.js";
@@ -77,13 +76,12 @@ export class GatewayTransport {
     readonly config: OctoBotConfig,
     readonly credentials: ImCredentialSource,
     readonly callbacks: ChannelCallbacks,
-    // Bot 生命周期与单次 WS 分离，用于未发送的回复和任务 REST 进度展示。
+    // Bot 持有任务准备与 REST 投递的期限、凭据及身份，接收 WS 不拥有这些资源。
     readonly deliveryOwner?: {
       signal: AbortSignal;
       dispatcher: ImDeliveryDispatcher;
       identity: ImDeliveryIdentity;
       token?: () => string | undefined;
-      current: () => GatewayTransport | undefined;
     }
   ) {
     this.identity = imBotIdentity(config);
@@ -143,18 +141,16 @@ export class GatewayTransport {
         if (!acceptsImMessage(this.scopedConfig, message)) return;
         let finalReply: { key: string; value: ReturnType<typeof prepareFinalMention> } | undefined;
         let finalOutputCovered = false;
-        let replyConnection = connection;
         const deliverySignal = AbortSignal.any([
           this.deliveryOwner?.signal ?? signal,
           this.#deliveryScope.signal
         ]);
-        // 所有跨 WS 的任务 REST 分支共用同一工厂，避免失败卡/通知另走旧连接期限。
+        // 任务的普通回复、final、进度及失败卡共用 REST 工厂和任务期限。
         const restDelivery = (turnSignal = deliverySignal, obsolete?: () => boolean) =>
           new OctoConnector(
             this.config,
             token,
             AbortSignal.any([deliverySignal, turnSignal]),
-            async () => {},
             (requestSignal, send) =>
               this.#dispatchRestDelivery(requestSignal, (authorized, botToken) => {
                 if (obsolete?.()) throw new ImSendError("IM_DELIVERY_CANCELLED", "failed");
@@ -162,14 +158,6 @@ export class GatewayTransport {
               })
           );
         const finalDispatcher = this.#delivery!;
-        const replyDelivered = (effectKey: string) => {
-          const key = stableEffectKey(this.identity, message, effectKey, "text");
-          return (
-            this.#deliveryScope.isConfirmed(key) ||
-            connection.isDelivered(key) ||
-            replyConnection.isDelivered(key)
-          );
-        };
         let historyTurn: ImGapTurnToken | undefined;
         const outputObserver = (payload?: Record<string, unknown>) => {
           const turn = historyTurn;
@@ -177,9 +165,7 @@ export class GatewayTransport {
             return undefined;
           return (messageSeq: number) => {
             if (deliverySignal.aborted) return;
-            const current = this.#currentDeliveryTransport(false);
-            if (!current) return;
-            current.callbacks.onPosition?.({
+            (this.callbacks.onTaskPosition ?? this.callbacks.onPosition)?.({
               conversationId: message.channelId,
               conversationKind: message.channelType === 5 ? "thread" : "group",
               messageSeq,
@@ -190,6 +176,36 @@ export class GatewayTransport {
                 : {})
             });
           };
+        };
+        // 同一次在途 HTTP 共用 Promise；失败交回当前投递器，只有收尾拥有三次重试预算。
+        const sends = new Map<string, Promise<string>>();
+        const sendMessage = (
+          payload: Record<string, unknown>,
+          key: string,
+          turnSignal: AbortSignal,
+          obsolete?: () => boolean,
+          observe?: (sequence: number) => void
+        ): Promise<string> => {
+          turnSignal.throwIfAborted();
+          if (obsolete?.()) throw new ImSendError("IM_DELIVERY_CANCELLED", "failed");
+          if (this.#deliveryScope.isConfirmed(key)) return Promise.resolve("");
+          const pending = sends.get(key);
+          if (pending) return pending;
+          const sending = restDelivery(turnSignal, obsolete)
+            .message(message, payload, key, observe)
+            .then(
+              (id) => {
+                this.#deliveryScope.confirm(key);
+                sends.delete(key);
+                return id;
+              },
+              (error: unknown) => {
+                sends.delete(key);
+                throw error;
+              }
+            );
+          sends.set(key, sending);
+          return sending;
         };
         this.callbacks.onMessage({
           messageId: message.messageId,
@@ -204,11 +220,11 @@ export class GatewayTransport {
           markRead: (turnSignal) =>
             sendReadReceipt({
               apiUrl: this.config.api_url,
-              botToken: token,
+              botToken: this.#taskToken(deliverySignal),
               channelId: message.channelId,
               channelType: message.channelType,
               messageIds: [message.messageId],
-              signal: AbortSignal.any([signal, turnSignal])
+              signal: AbortSignal.any([deliverySignal, turnSignal])
             }),
           senderId: message.fromUid,
           conversationId: message.channelId,
@@ -230,40 +246,19 @@ export class GatewayTransport {
                   downloadImageInput(
                     message.payload.url,
                     this.config.api_url,
-                    token,
-                    AbortSignal.any([signal, turnSignal])
+                    this.#taskToken(deliverySignal),
+                    AbortSignal.any([deliverySignal, turnSignal])
                   )
               }
             : {}),
           executionEnvironment: () => {
-            if (this.#closed || signal.aborted) throw new Error("IM_CONNECTION_REPLACED");
+            deliverySignal.throwIfAborted();
             return { executionEnvOverrides: structuredClone(toolEnvironment) };
           },
           runMetadata: {
             spaceId: this.#spaceId,
             botId: this.config.bot_id,
             channelType: message.channelType
-          },
-          isReplyDelivered: replyDelivered,
-          replyDeliveryUnknown: async (
-            event,
-            effectKey,
-            replyEffectKey,
-            deliverySignal,
-            obsolete
-          ) => {
-            const noticeObsolete = () =>
-              deliverySignal.aborted || Boolean(obsolete?.()) || replyDelivered(replyEffectKey);
-            if (noticeObsolete()) return;
-            const rest = restDelivery(deliverySignal, noticeObsolete);
-            const sent = await rest.displayCard(
-              message,
-              deliveryNoticeCard(event),
-              stableEffectKey(this.identity, message, effectKey, "delivery"),
-              noticeObsolete
-            );
-            if (!sent && !noticeObsolete())
-              throw new ImSendError("IM_DELIVERY_NOTICE_UNSUPPORTED", "failed");
           },
           replyFailure: async (event, effectKey, options) => {
             const rest = restDelivery(options?.signal, options?.obsolete);
@@ -284,30 +279,22 @@ export class GatewayTransport {
             );
           },
           reply: async (text, effectKey, options) => {
-            // 地址、身份及凭据仍冻结在原消息；只允许同身份的新连接接管未发送的回复。
-            // 空回复/失败等终态提示也遵守该轮取消，不能在 stop 后从等待中恢复发送。
+            // 目标归属冻结在原消息，REST 使用 Bot 期限和持有凭据，不等待 WS 恢复。
             const replySignal = options
               ? AbortSignal.any([deliverySignal, options.signal])
               : deliverySignal;
             if (options?.obsolete()) throw new ImSendError("IM_DELIVERY_CANCELLED", "failed");
-            const current = await this.#resolveDeliveryTransport(replySignal);
-            if (options?.obsolete()) throw new ImSendError("IM_DELIVERY_CANCELLED", "failed");
-            replyConnection = current.#connection!;
             const key = stableEffectKey(
               this.identity,
               message,
               effectKey ?? message.messageId,
               "text"
             );
-            if (this.#deliveryScope.isConfirmed(key)) return;
-            await replyConnection.sendText(
-              message.channelId,
-              message.channelType,
-              text,
+            await sendMessage(
+              { type: 1, content: text },
               key,
-              this.#spaceId,
-              undefined,
               replySignal,
+              options?.obsolete,
               outputObserver()
             );
           },
@@ -315,8 +302,8 @@ export class GatewayTransport {
             const finalSignal = options
               ? AbortSignal.any([deliverySignal, options.signal])
               : deliverySignal;
-            // 在准备上传前也核验归属；网络重连不取消交付，但停止/换账号不能继续。
-            await this.#resolveDeliveryTransport(finalSignal);
+            // 准备与投递共用任务身份，切网不取消；停止/换账号不能继续。
+            this.#taskToken(finalSignal);
             if (options?.obsolete()) throw new ImSendError("IM_DELIVERY_CANCELLED", "failed");
             if (finalReply?.key !== effectKey)
               finalReply = {
@@ -351,14 +338,11 @@ export class GatewayTransport {
                     const receipt = await finalDispatcher.deliver(
                       key,
                       async () => {
-                        const current = await this.#resolveDeliveryTransport(finalSignal);
-                        return current.#connection!.sendFile(
-                          message.channelId,
-                          message.channelType,
-                          file,
+                        return sendMessage(
+                          { type: 8, ...file },
                           key,
-                          this.#spaceId,
                           finalSignal,
+                          () => Boolean(options?.obsolete()),
                           outputObserver(delivered.incomplete ? undefined : { type: 8, ...file })
                         );
                       },
@@ -402,18 +386,16 @@ export class GatewayTransport {
                 })()
               };
             const result = await finalReply.value;
-            const current = await this.#resolveDeliveryTransport(finalSignal);
             if (options?.obsolete()) throw new ImSendError("IM_DELIVERY_CANCELLED", "failed");
-            if (replyDelivered(effectKey)) return;
-            replyConnection = current.#connection!;
-            await replyConnection.sendText(
-              message.channelId,
-              message.channelType,
-              result.text,
+            await sendMessage(
+              {
+                type: 1,
+                content: result.text,
+                ...(result.mention ? { mention: result.mention } : {})
+              },
               stableEffectKey(this.identity, message, effectKey, "text"),
-              this.#spaceId,
-              result.mention,
               finalSignal,
+              () => Boolean(options?.obsolete()),
               outputObserver(
                 finalOutputCovered
                   ? {
@@ -430,8 +412,8 @@ export class GatewayTransport {
             items: await build_im_contexts(
               this.scopedConfig,
               message,
-              token,
-              AbortSignal.any([signal, turnSignal]),
+              this.#taskToken(deliverySignal),
+              AbortSignal.any([deliverySignal, turnSignal]),
               {
                 ...options,
                 initialSession: options?.initialSession ?? false,
@@ -590,21 +572,10 @@ export class GatewayTransport {
           own,
           ...(binding?.turn ? { turn: binding.turn } : {})
         });
-      },
-      // ACK 写入身份代次账本，旧连接释放后不丢失中间连接已确认的 effect。
-      (key) => this.#deliveryScope.confirm(key)
+      }
     );
     this.#connection = connection;
-    this.#api = new OctoConnector(this.config, token, signal, async (address, text, effectKey) => {
-      if (this.#closed || signal.aborted) throw new Error("IM_CONNECTION_REPLACED");
-      await connection.sendText(
-        address.channelId,
-        address.channelType,
-        text,
-        effectKey,
-        this.#spaceId
-      );
-    });
+    this.#api = new OctoConnector(this.config, token, signal);
     this.#delivery = this.deliveryOwner?.dispatcher ?? new ImDeliveryDispatcher(signal);
     this.#typing = new TypingController(
       (address, typingSignal) => this.#api!.typing(address, typingSignal),
@@ -632,18 +603,7 @@ export class GatewayTransport {
       ...(this.deliveryOwner ? [this.deliveryOwner.signal] : [])
     ]);
     try {
-      requestSignal.throwIfAborted();
-      const owner = this.deliveryOwner;
-      const current = owner?.current();
-      if (
-        current &&
-        (imBotIdentity(current.config) !== imBotIdentity(this.config) ||
-          (current.#token && current.identity !== this.identity))
-      )
-        throw new ImSendError("IM_CONNECTION_IDENTITY_CHANGED", "failed");
-      const token = owner?.token ? owner.token()?.trim() : this.#token;
-      if (!token) throw new Error("IM_CREDENTIALS_REQUIRED");
-      if (!/^bf_[A-Za-z0-9_-]+$/.test(token)) throw new Error("IM_BOT_TOKEN_INVALID");
+      const token = this.#taskToken(requestSignal);
       // 只读取已注入的值，不触发宿主获取/刷新；检查、替换头与 fetch 同步完成。
       return send(requestSignal, token);
     } catch (error) {
@@ -653,38 +613,17 @@ export class GatewayTransport {
       throw error;
     }
   };
-  /** 只选择完成鉴权的同身份连接；临时离线可等待，账号或凭据变化必须拒绝转投。 */
-  #currentDeliveryTransport(rejectIdentityChange = true): GatewayTransport | undefined {
-    if (this.#deliveryScope.signal.aborted) {
-      if (rejectIdentityChange) this.#deliveryScope.signal.throwIfAborted();
-      return undefined;
-    }
-    const current = this.deliveryOwner ? this.deliveryOwner.current() : this;
-    if (!current || current.#closed || !current.#connected || !current.#connection?.connected)
-      return undefined;
-    if (current.identity !== this.identity || current.#token !== this.#token) {
-      if (rejectIdentityChange) throw new ImSendError("IM_CONNECTION_IDENTITY_CHANGED", "failed");
-      return undefined;
-    }
-    return current;
-  }
-  async #resolveDeliveryTransport(signal: AbortSignal): Promise<GatewayTransport> {
-    const deadline = performance.now() + 15_000;
-    while (!signal.aborted) {
-      const current = this.#currentDeliveryTransport();
-      if (current) return current;
-      // 等待发生在首次发送之前；已开始发送的 unknown 由原确认窗口处理，不能跨连接重放。
-      const remaining = deadline - performance.now();
-      if (!this.deliveryOwner || remaining <= 0)
-        throw new ImSendError("IM_CONNECTION_UNAVAILABLE", "failed");
-      try {
-        await delay(Math.min(100, remaining), undefined, { signal });
-      } catch {
-        break;
-      }
-    }
+  /** 同步读取 Bot 已持有凭据并核验原任务归属；不检查或等待任何 WS 状态。 */
+  #taskToken(signal: AbortSignal): string {
+    signal.throwIfAborted();
     this.#deliveryScope.signal.throwIfAborted();
-    throw new ImSendError("IM_DELIVERY_CANCELLED", "failed");
+    this.deliveryOwner?.signal.throwIfAborted();
+    const owner = this.deliveryOwner;
+    // 身份撤销由 Bot 持有的 deliveryScope 保证，不读取当前 WS 或连接代次。
+    const token = owner?.token ? owner.token()?.trim() : this.#token;
+    if (!token) throw new ImSendError("IM_CREDENTIALS_REQUIRED", "failed");
+    if (!/^bf_[A-Za-z0-9_-]+$/.test(token)) throw new ImSendError("IM_BOT_TOKEN_INVALID", "failed");
+    return token;
   }
   async #pollActions(token: string, signal: AbortSignal): Promise<void> {
     if (this.config.cards === false) return;

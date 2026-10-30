@@ -1,6 +1,6 @@
 # SDK Channel Gateway 接入
 
-长任务跨网络重连后，尚未发送的最终文本及文件通过同一 Bot、API、空间和凭据的当前连接投递；每次发送前最多等待 15 秒恢复，并响应停止或该轮取消。已经发送但确认未知的消息不跨连接自动重放。进度卡通过 REST 更新，使用 Bot 生命周期的取消信号，WS 重建不会取消它；沿用原卡片消息 ID 和序号，最终更新同一张卡。REST 网络错误仍按既有有限重试处理，不保证长期断网后的补投。交互按钮绑定暂不迁移到新连接。
+任务受理后，排队、Context/执行环境准备和 AgentRun 不依赖接收 WS；普通回复、最终文本、文件及卡片通过 REST 投递，不等待 WS 恢复。仅当前 finalMsg 和卡片 finish 对暂态失败首发后最多重试三次，耗尽后记录可由 `octo-runtime channel-gateway logs` 查询的错误并结束；普通过程卡片每个快照只尝试一次。卡片沿用原消息 ID 和序号，不强制持久化待发结果，也不在 WS 恢复后补投。停止、该轮取消及身份撤销仍生效。断线期间未收到的新消息不补收，不增加宿主接入要求。交互按钮绑定暂不迁移到新连接。
 
 通用 Extra 架构和生命周期见开发者文档：[English](docs/en/guides/extras.md) / [简体中文](docs/zh-CN/guides/extras.md)。本篇保留 IM 配置、会话存储和业务接入细节。
 
@@ -20,9 +20,9 @@ Electron/Buddy 通过 submodule 接入时，必须使用最新远端 `main`。�
 4. extra.status() 的 plugin 为插件 JSON；Bot online 与 kernel_available 分别判断。
 5. 配置变更先等待 extra.close() 且 complete=true，再保存并创建新实例；Kernel 保持运行。
 
-连接恢复在 Gateway 内完成：上线后收到可恢复的断线回调，立即进入 retrying，旧连接回收成功后立即首次重连；失败后追加最多 10 次快速重试，每次失败清理完成后等待 1 秒再试，仍失败才按 5、10、15 秒退避，之后每 15 秒。首次启动暂态失败仍按 5、10、15 秒退避；Retry-After 可延长等待。宿主无需另写重连或重建服务。合法服务端 DISCONNECT 默认重连（含 reason 12、滚动更新及未知断开码）；明确认证/权限/封禁/协议错误仍失败。握手同样默认重试未知服务端原因；HTTP 超时、冲突、限流、5xx 及未知服务故障默认重试，只有明确认证/配置/协议错误停止。立即重连指确认断线后不再增加固定退避，不是连接成功时限：仍需检测断网、回收旧连接和完成鉴权握手；静默失联通过每 5 秒发送协议 PING、等待最多一个 5 秒周期的 PONG 检测，普通推送不能代替 PONG。正常调度下约 5–10 秒发现，睡眠或事件循环阻塞会延迟检测；未订阅操作系统网络切换事件，不能保证点击切网即断开或固定时限内上线。旧任务结果未知时不重新 invoke。
+连接恢复在 Gateway 内完成：上线后收到可恢复的断线回调，立即进入 retrying，旧连接回收成功后立即首次重连；失败后追加最多 10 次快速重试，每次失败清理完成后等待 1 秒再试，仍失败才按 5、10、15 秒退避，之后每 15 秒。首次启动暂态失败仍按 5、10、15 秒退避；Retry-After 可延长等待。宿主无需另写重连或重建服务。合法服务端 DISCONNECT 默认重连（含 reason 12、滚动更新及未知断开码）；明确认证/权限/封禁/协议错误仍失败。握手同样默认重试未知服务端原因；HTTP 超时、冲突、限流、5xx 及未知服务故障默认重试，只有明确认证/配置/协议错误停止。立即重连指确认断线后不再增加固定退避，不是连接成功时限：仍需检测断网、回收旧连接和完成鉴权握手；静默失联通过每 10 秒发送协议 PING、等待最多一个 10 秒周期的 PONG 检测，普通推送不能代替 PONG。正常调度下约 10–20 秒发现，仅影响接收连接恢复，不阻塞已受理任务或 REST 投递。睡眠或事件循环阻塞会延迟检测；未订阅操作系统网络切换事件，不能保证点击切网即断开或固定时限内上线。旧任务结果未知时不重新 invoke。
 
-原生Extra可选 `logging: { directory: absolutePath, statusOutput: record => hostLogger(record) }` 是宿主代码选项，不放入Bot JSON。SDK默认不写stdout；sink只收到服务生命周期、Kernel可用性转换和Gateway连接/重试，不含chat、session/run/message标识、模型输出、工具参数及凭据。状态同时镜像到directory下 `extras/<extra>-status-<UTC小时>.log`，最多三份、每份100MiB；日志失败不改变执行结果。CLI自动接入stdout，使用 `octo-runtime channel-gateway logs --follow` 查看状态。业务onStatus仍同步，不负责异步探测或重启。
+原生Extra可选 `logging: { directory: absolutePath, statusOutput: record => hostLogger(record) }` 是宿主代码选项，不放入Bot JSON。SDK默认不写stdout；sink收到服务生命周期、Kernel可用性转换、Gateway连接/重试及投递失败诊断。Gateway投递诊断仅允许错误码和经过格式校验的run_id用于关联，不包含chat、session/message标识、模型输出、工具参数及凭据。状态同时镜像到directory下 `extras/<extra>-status-<UTC小时>.log`，最多三份、每份100MiB；日志失败不改变执行结果。CLI自动接入stdout，使用 `octo-runtime channel-gateway logs --follow` 查看状态。业务onStatus仍同步，不负责异步探测或重启。
 
 ## 逐轮 Context
 
@@ -169,7 +169,7 @@ HTML、Markdown 与其他文件采用相同附件合同，不根据企业服务�
 
 Bot 的 `artifact_delivery.mode: "tools"` 可关闭固定交付；省略为 `channel`。默认对成功 final 引用的本机路径尝试实际读取，不以 Agent 来源或工作区拒绝，无需新增配置；宿主可用绝对 `allowed_roots`（空数组拒绝全部）、`allowed_mime_types` 及更小的文件/总量/数量/超时预算收紧。文件不存在或无法读取按实际失败报告，不主动下载远端文件；超限、显式目录限制越界、符号链接逃逸或部分上传失败在同条回复明确标注，不重跑模型。发送重试复用上传结果；stop/reset 撤销在途交付和旧代次 final，shutdown 沿既有共享期限。完整字段及限制见下方 Schema。
 
-上传准备按 final 缓存，每张文件卡拥有独立稳定编号和确认回执，沿既有 WS ACK/取消路径发送；最终文本重试不会重新上传或补发卡片。卡片未确认时在同条 final 明确提示，已上传的下载链接仍保留，不把卡片失败当作模型生成失败。原生文件卡不受进度/互动卡片的 `cards` 开关控制。
+上传准备按 final 缓存，每张文件卡拥有独立稳定编号，通过 REST 发送并以有效 message_id 确认；任务取消仍生效，不读取 WS 状态或等待 WS ACK。最终文本重试不会重新上传或补发卡片。卡片未确认时在同条 final 明确提示，已上传的下载链接仍保留，不把卡片失败当作模型生成失败。原生文件卡不受进度/互动卡片的 `cards` 开关控制。
 
 完整字段见 [Gateway JSON Schema](packages/octo-runtime-extra-channel-gateway/config-schema.json)，业务行为见 [Gateway README](packages/octo-runtime-extra-channel-gateway/README.md)。宿主负责令牌取得、存储、更新与授权流程；Extra 消费实际配置值，不扫描 CLI Home 或其他凭据文件。Electron/Tauri 使用 SDK，不调用 Runtime CLI。
 

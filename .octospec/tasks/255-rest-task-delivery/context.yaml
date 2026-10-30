@@ -1,0 +1,21 @@
+rules:
+  - .octospec/rules/architecture.md
+  - .octospec/rules/protocol-design.md
+  - .octospec/rules/channel-integration.md
+  - .octospec/rules/context-input.md
+  - .octospec/rules/environment.md
+  - .octospec/rules/extras.md
+  - .octospec/rules/session-reset.md
+  - .octospec/rules/stateless-execution.md
+  - .octospec/rules/engineering.md
+  - .octospec/rules/collaboration.md
+baseline: 332413ae
+initial_baseline: ed7a4c899e5666238bc67e6a8418e3805ac924da
+rebase: User requested latest origin/main on 2026-10-30; uncommitted changes restored without conflicts
+scope: Gateway accepted task lifetime and REST replies across repeated network handovers
+terminal_delivery: Only current finalMsg and card finish allow up to three retries after the initial attempt; failures must be visible in channel-gateway logs without durable delivery storage
+heartbeat: User approved a 10-second PING interval and one 10-second PONG budget; detection only controls inbound WS recovery
+cleanup: User explicitly authorized removal of obsolete WS business sending, late acknowledgements, unknown notices and REST checks of the current WS; no compatibility shims
+github_comment: User authorized an English clarification comment on issue 255 explaining the former coupling, REST-only business output and cleanup results
+excluded: Offline new-message recovery, task event polling, second task ingress, new host or SDK integration requirements
+authorization: New isolated worktree, OctoSpec planning, readiness at least 95/100, implementation and verification; user subsequently authorized review and Git commit, without push or deployment

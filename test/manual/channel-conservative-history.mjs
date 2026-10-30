@@ -439,6 +439,8 @@ for (const mode of ["normal", "control", "artifact-failure", "no-completion"]) {
           ws_url: "wss://im-test.deepminer.com.cn/ws",
           im_token: randomUUID()
         });
+      if (url.endsWith("/bot/sendMessage"))
+        return Response.json({ message_id: "sent", message_seq: 101 });
       return Response.json({ uid: "owner", name: "Owner" });
     });
     t.mock.method(WukongConnection.prototype, "connect", async function () {
@@ -446,10 +448,6 @@ for (const mode of ["normal", "control", "artifact-failure", "no-completion"]) {
     });
     t.mock.getter(WukongConnection.prototype, "connected", () => true);
     t.mock.method(WukongConnection.prototype, "close", async () => {});
-    t.mock.method(WukongConnection.prototype, "sendText", async (...args) => {
-      args[7]?.(101);
-      return "sent";
-    });
     const transport = new GatewayTransport(config, async () => `bf_${randomUUID()}`, {
       onMessage(message) {
         inbound = message;
