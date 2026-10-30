@@ -2,6 +2,7 @@
 import { isAbsolute } from "node:path";
 import { Worker } from "node:worker_threads";
 import { extraStatusRecord, kernelStatusRecord, type ExtraStatusRecord } from "./service-status.js";
+import { sanitizeDiagnosticBody } from "./public-display.js";
 
 export type RuntimeLogLevel = "info" | "warn" | "error";
 export type RuntimeLog = (
@@ -191,6 +192,27 @@ export class RuntimeLogging {
         new Date(occurredAt).toISOString() === occurredAt
       )
         safe.occurred_at = occurredAt;
+      // 仅放行 Gateway 卡片投递诊断；响应摘要不进入状态镜像，且不得携带请求或鉴权信息。
+      if (
+        source === "extra" &&
+        extra === "channel-gateway" &&
+        event === "channel.diagnostic" &&
+        typeof safe.code === "string" &&
+        /^IM_CARD_(?:SEND|EDIT)_\d{3}$/.test(safe.code)
+      ) {
+        const path = data?.path;
+        if (path === "/v1/bot/sendMessage" || path === "/v1/bot/message/edit") safe.path = path;
+        const status = data?.http_status;
+        if (
+          typeof status === "number" &&
+          Number.isInteger(status) &&
+          status >= 100 &&
+          status <= 599
+        )
+          safe.http_status = status;
+        const body = data?.response_body;
+        if (typeof body === "string") safe.response_body = sanitizeDiagnosticBody(body);
+      }
       const record = {
         time: new Date().toISOString(),
         level,

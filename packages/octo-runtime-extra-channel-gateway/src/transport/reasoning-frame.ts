@@ -4,6 +4,7 @@
  */
 // Port of octo-agent-app-channel/internal/transport/progress.go display rules.
 import { failureMessage } from "@mininglamp-oss/octo-runtime-protocol";
+import { fromMarkdown } from "mdast-util-from-markdown";
 import { MODEL_WAIT_TIMEOUT_MESSAGE } from "../execution/model-wait.js";
 import type { CardTemplateRef } from "./api/cards.js";
 import {
@@ -49,8 +50,41 @@ export function formatDuration(ms: number): string {
   if (ms < 60_000) return `${(ms / 1000).toFixed(1).replace(/\.0$/, "")}s`;
   return `${Math.floor(ms / 60_000)}m ${Math.floor((ms % 60_000) / 1000)}s`;
 }
+interface CardTextNode {
+  type: string;
+  value?: string;
+  alt?: string | null;
+  children?: CardTextNode[];
+}
+
+/** 进度只展示文字；产物链接与图片由独立 final 交付，不能进入服务端卡片的 URL 校验面。 */
+function plainText(text: string): string {
+  const read = (node: CardTextNode): string => {
+    if (node.type === "definition") return "";
+    if (node.type === "break") return "\n";
+    return (
+      node.value ??
+      node.alt ??
+      node.children
+        ?.map(read)
+        .join(["root", "list", "blockquote"].includes(node.type) ? "\n" : "") ??
+      ""
+    );
+  };
+  return read(fromMarkdown(text));
+}
+function literalText(text: string): string {
+  // code/HTML/标签本身也可能含 Markdown；还原可读文字后转义，避免再次被模板解释为链接。
+  return (
+    plainText(text)
+      .trim()
+      .replace(/[\\`*[\]<>]/g, "\\$&")
+      // 单词内部的下划线不是 emphasis；保留诊断编号等标识的原样表达。
+      .replace(/(?<![\p{L}\p{N}])_|_(?![\p{L}\p{N}])/gu, "\\$&") || "—"
+  );
+}
 function thought(text: string): string {
-  text = text.replace(/\s+/g, " ").trim();
+  text = plainText(text).replace(/\s+/g, " ").trim();
   if (/OPENCLAW_INTERNAL/i.test(text)) return "Reasoning summary hidden";
   return text ? compactRunes(text, 180) : "—";
 }
@@ -239,6 +273,7 @@ export function buildReasoningFrame(
     progressText: (snapshot.label ?? label) + (elapsed ? " · 已耗时 " + elapsed : ""),
     phases: reasoningPhases(snapshot)
   };
+  let errorIdentity = "";
   if (snapshot.phase === "accepted" && !snapshot.terminal) {
     // 第一帧立即显示思考中，只展示状态，不伪造 reasoning 内容或计数。
     frame.title = "思考中";
@@ -317,11 +352,12 @@ export function buildReasoningFrame(
           ]
         }
       ];
-      const identity = snapshot.failure
-        ? `\n错误码：${snapshot.failure.code}\n诊断编号：${snapshot.failure.diagnosticId}`
+      errorIdentity = snapshot.failure
+        ? "\n" +
+          literalText(
+            `错误码：${snapshot.failure.code}\n诊断编号：${snapshot.failure.diagnosticId}`
+          )
         : "";
-      frame.errorMessage =
-        clampRunes(frame.errorMessage, Math.max(1, 121 - Array.from(identity).length)) + identity;
     }
   }
   const thoughtMax = template.ref.version === "0.4.0" ? 4000 : 280;
@@ -388,6 +424,7 @@ export function buildReasoningFrame(
     if (confirmed) {
       frame.errorTitle = "请求超时";
       frame.errorMessage = MODEL_WAIT_TIMEOUT_MESSAGE + detail;
+      errorIdentity = "";
       delete frame.progressText;
     } else if (!snapshot.resultUnknown) {
       frame.traceExpanded = true;
@@ -395,7 +432,20 @@ export function buildReasoningFrame(
       frame.progressText = MODEL_WAIT_TIMEOUT_MESSAGE + detail;
     } else frame.collapsedSummary += detail;
   }
-  for (const phase of frame.phases) phase.thought = clampRunes(phase.thought, thoughtMax);
+  // 转换发生在展示副本上，并先于字符/字节预算；不改 projector 的原正文或附件交付输入。
+  for (const phase of frame.phases) {
+    phase.thought = clampRunes(literalText(phase.thought), thoughtMax);
+    for (const action of phase.actions) {
+      action.tool = clampRunes(literalText(action.tool), 81);
+      action.detail = clampRunes(literalText(action.detail), 192);
+    }
+  }
+  if (frame.errorMessage)
+    frame.errorMessage =
+      clampRunes(
+        literalText(frame.errorMessage),
+        Math.max(1, 121 - Array.from(errorIdentity).length)
+      ) + errorIdentity;
   let total = frame.phases.reduce((size, phase) => size + Array.from(phase.thought).length, 0);
   for (const phase of frame.phases) {
     if (total <= 540) break;

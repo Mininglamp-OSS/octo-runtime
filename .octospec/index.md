@@ -59,6 +59,8 @@
 
 - [已确认断线后的立即重连](tasks/channel-immediate-reconnect/brief.md)：用户要求从 onDisconnect 回调起尽快恢复；去掉首次固定 5 秒等待，保留失败退避、限流等待及旧连接回收约束。
 
+- [Issue 249：本地附件后的卡片终态](tasks/249-local-artifact-card-terminal/brief.md)：本地链接转纯文字，补充 SEND/EDIT 失败响应诊断和 400 后同一卡片的精简终态投递。同步 main@ed7a4c89，完成双轴审查及凭据脱敏修复；手动专项 35 项通过，全量仅一项主线同样失败的 CLI 环境隔离用例未过。用户已授权提交 PR，未授权合并或部署；[证据与未验边界](tasks/249-local-artifact-card-terminal/validation.md)。
+
 - [Issue 234：接续历史保守选择](tasks/234-context-lifecycle/conservative-history-plan.md)：首轮、补位和恢复不明保留自身消息，channel-gateway 只排除明确由接续会话覆盖的具体输出；实现、双轴审查和全局安装完成，不做全面去重，用户已确认真实群聊验收通过。
 
 - [Issue 243：OpenClaw 远端产物交付](tasks/234-context-lifecycle/remote-artifact-backlog.md)：用户确认按 P2 暂缓；记录 Adapter 位置判定及远端引用转换、Gateway 附件投递的边界，代码仅留两个 TODO，远端能力尚未实现。

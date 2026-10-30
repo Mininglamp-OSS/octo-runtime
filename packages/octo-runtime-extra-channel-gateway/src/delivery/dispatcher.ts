@@ -3,6 +3,7 @@
  * 只重试投递操作；执行失败或网络结果未知都不能由此触发 AgentRun 重跑。
  */
 import type { ImDeliveryReceipt } from "../contracts.js";
+import { sanitizeDiagnosticBody } from "@mininglamp-oss/octo-runtime-adapter-sdk";
 import { OctoApiError } from "../transport/api/errors.js";
 import { ImSendError } from "./text-send.js";
 
@@ -17,7 +18,12 @@ export class ImDeliveryDispatcher {
   async deliver(
     effectKey: string,
     operation: () => Promise<string | void>,
-    options: { transient?: boolean; obsolete?: () => boolean } = {}
+    options: {
+      transient?: boolean;
+      obsolete?: () => boolean;
+      cardOperation?: "send" | "edit";
+      onDiagnostic?: (code: string, data?: Record<string, unknown>) => void;
+    } = {}
   ): Promise<ImDeliveryReceipt> {
     const previous = this.#receipts.get(effectKey);
     if (previous?.state === "delivered") return { ...previous };
@@ -42,10 +48,27 @@ export class ImDeliveryDispatcher {
             error instanceof ImSendError
               ? error.code
               : status
-                ? `IM_HTTP_${status}`
+                ? options.cardOperation
+                  ? `IM_CARD_${options.cardOperation.toUpperCase()}_${status}`
+                  : `IM_HTTP_${status}`
                 : "IM_DELIVERY_UNKNOWN"
         };
         this.#record(receipt);
+        // HTTP 状态只描述本次投递，不代表业务永久失败；诊断先脱敏再限长，不记录请求正文。
+        try {
+          options.onDiagnostic?.(
+            receipt.code!,
+            options.cardOperation && error instanceof OctoApiError
+              ? {
+                  path: error.path.split(/[?#]/, 1)[0],
+                  http_status: error.status,
+                  response_body: sanitizeDiagnosticBody(error.body)
+                }
+              : undefined
+          );
+        } catch {
+          /* 诊断回调失败不得改变投递结果或触发额外发送。 */
+        }
         // WS 已在同一确认窗口完成四次预算，不再叠乘 REST 的重试次数。
         if (error instanceof ImSendError) break;
         if (status && status !== 429 && status < 500) break;
@@ -74,8 +97,14 @@ export class ImDeliveryDispatcher {
         }
       }
     }
-    if (receipt.state === "pending")
+    if (receipt.state === "pending") {
       receipt = { effectKey, state: "failed", code: "IM_DELIVERY_CANCELLED" };
+      try {
+        options.onDiagnostic?.(receipt.code!);
+      } catch {
+        /* 取消诊断同样不能阻断清理。 */
+      }
+    }
     this.#record(receipt);
     return receipt;
   }

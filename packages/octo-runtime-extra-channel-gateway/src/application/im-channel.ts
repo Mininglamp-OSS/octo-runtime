@@ -1310,7 +1310,7 @@ export class ImRuntime {
       try {
         presentation = message.beginPresentation?.(
           rootRunId,
-          (code) => this.#diagnostic(code, rootRunId),
+          (code, data) => this.#diagnostic(code, rootRunId, data),
           controls
         );
         presentation?.update(snapshot());
