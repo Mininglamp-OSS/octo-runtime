@@ -73,7 +73,7 @@ function reader(b) {
   };
 }
 
-test("IM owns one binary WS, reuses session, resets provider handle, and replies only after Host terminal", async (t) => {
+test("IM receives over binary WS, reuses session, and replies over REST only after Host terminal", async (t) => {
   const dir = await mkdtemp(join(tmpdir(), "oh-im-"));
   let conn, key;
   const iv = Buffer.from("0123456789abcdef");
@@ -130,6 +130,12 @@ test("IM owns one binary WS, reuses session, resets provider handle, and replies
     else if (req.url === "/v1/bot/card/profile") res.end(JSON.stringify(imCardProfile()));
     else if (req.url === "/v1/bot/sendMessage") {
       const body = JSON.parse(Buffer.concat(chunks));
+      if (body.payload.type === 1) {
+        payloads.push(body.payload);
+        replies.push(body.payload.content);
+        res.end(JSON.stringify({ message_id: `reply-${replies.length}` }));
+        return;
+      }
       const messageId = String(2000 + cards.length);
       cards.push({ messageId, frame: body.payload.data, interaction: body.payload.card });
       res.end(JSON.stringify({ message_id: messageId }));
@@ -204,23 +210,7 @@ test("IM owns one binary WS, reuses session, resets provider handle, and replies
         );
       }
       if (kind === 3) {
-        assert.equal(header & 2, 2, "normal messages must update conversation unread state");
-        r.byte();
-        const seq = r.u32(),
-          clientNo = r.str(),
-          channel = r.str(),
-          type = r.byte();
-        r.u32();
-        const hash = r.str(),
-          payload = r.rest().toString();
-        assert.equal(hash, md5(crypt(`${seq}${clientNo}${channel}${type}${payload}`)));
-        const value = JSON.parse(crypt(payload, true));
-        assert.equal(value.space_id, "space");
-        payloads.push(value);
-        replies.push(value.content);
-        socket.send(
-          pack(0x40, Buffer.concat([u64(100 + seq), u32(seq), u32(seq), Buffer.from([1])]))
-        );
+        assert.fail("task replies must use REST");
       }
     });
   });

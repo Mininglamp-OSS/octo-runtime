@@ -1,6 +1,6 @@
 /**
- * WuKong 传输：负责 Bot 注册、加密握手、二进制帧编解码和收发确认。
- * 保留原通道的协议兼容性；授权、Context 和执行策略由上层处理。
+ * WuKong 接收传输：负责 Bot 注册、加密握手、入站消息、接收 ACK 及 PING/PONG。
+ * 业务消息统一由上层通过 REST 发送；本层不持有结果投递、发送重试或迟到确认状态。
  */
 import {
   createCipheriv,
@@ -12,8 +12,6 @@ import {
   randomUUID
 } from "node:crypto";
 import WebSocket from "ws";
-import { ImSendError, ImTextSend } from "../delivery/text-send.js";
-import type { ImTextMention } from "./mentions.js";
 import { isRulesNotification } from "./normalize.js";
 import { trimTrailingSlashes } from "./api/url.js";
 import {
@@ -113,10 +111,6 @@ class Writer {
     this.chunks.push(h, b);
     return this;
   }
-  bytes(b: Buffer): this {
-    this.chunks.push(b);
-    return this;
-  }
   finish(): Buffer {
     return Buffer.concat(this.chunks);
   }
@@ -166,26 +160,10 @@ export class WukongConnection {
   #iv?: Buffer;
   #version = 0;
   #buffer = Buffer.alloc(0);
-  #seq = 0;
   #heartbeat?: NodeJS.Timeout;
   #awaitingPong = false;
   #closed = false;
   #ready = false;
-  #sends = new Map<
-    number,
-    {
-      operation: ImTextSend;
-      key: string;
-      channelId: string;
-      channelType: number;
-      spaceId?: string;
-      onPosition?: (sequence: number) => void;
-    }
-  >();
-  #active = new Set<ImTextSend>();
-  #confirmed = new Set<string>();
-  #retained = new Map<ImTextSend, NodeJS.Timeout>();
-  #abort = new AbortController();
   constructor(
     readonly onMessage: (message: ImMessage) => void,
     readonly onDisconnect: (error: Error) => void = () => {},
@@ -197,8 +175,7 @@ export class WukongConnection {
       messageId: string;
       clientMsgNo: string;
       spaceId?: unknown;
-    }) => void,
-    readonly onDelivered?: (clientMsgNo: string) => void
+    }) => void
   ) {}
   get connected(): boolean {
     return this.#ready && this.#socket?.readyState === WebSocket.OPEN;
@@ -251,10 +228,6 @@ export class WukongConnection {
         this.#ready = false;
         clearTimeout(timeout);
         if (this.#heartbeat) clearInterval(this.#heartbeat);
-        for (const pending of [...this.#active]) pending.disconnected();
-        this.#sends.clear();
-        for (const timer of this.#retained.values()) clearTimeout(timer);
-        this.#retained.clear();
         const error = failure ?? new ImConnectionError("IM_DISCONNECTED", true);
         if (!ready) reject(error);
         else if (!this.#closed) this.onDisconnect(error);
@@ -326,7 +299,8 @@ export class WukongConnection {
               this.#ready = true;
               clearTimeout(timeout);
               // 切网不一定触发 TCP close，必须主动确认这条连接的双向协议链路。
-              // 每 5 秒 PING，下一次检查仍无 PONG 即关闭；推送或服务端 PING 不能续命。
+              // 每 10 秒 PING，下一次检查仍无 PONG 即关闭；推送或服务端 PING 不能续命。
+              // 此探测只恢复入站连接，不取消已受理任务，也不阻塞其 REST 投递。
               // 单连接最多一个在途探测，回调延迟时不补发积压 PING；close 负责通知上层重连。
               this.#heartbeat = setInterval(() => {
                 if (this.#awaitingPong) {
@@ -338,7 +312,7 @@ export class WukongConnection {
                   this.#awaitingPong = true;
                   socket.send(Buffer.from([7 << 4]));
                 }
-              }, 5_000);
+              }, 10_000);
               this.#heartbeat.unref();
               resolve();
             } else if (kind === 9) {
@@ -346,24 +320,6 @@ export class WukongConnection {
               throw wukongConnectionFailure("SERVER_DISCONNECTED", reader.byte());
             } else if (!ready) throw new Error("IM_HANDSHAKE_REQUIRED");
             else if (kind === 5) this.#receive(reader, registration.robot_id);
-            else if (kind === 4) {
-              const id = reader.u64().toString();
-              const seq = reader.u32();
-              const messageSeq = reader.u32();
-              const reason = reader.byte();
-              const pending = this.#sends.get(seq);
-              if (pending) {
-                if (reason === 1) {
-                  pending.onPosition?.(messageSeq);
-                  this.#confirmed.add(pending.key);
-                  if (this.#confirmed.size > 512)
-                    this.#confirmed.delete(this.#confirmed.values().next().value!);
-                  this.onDelivered?.(pending.key);
-                  this.#forget(pending.operation);
-                }
-                pending.operation.ack(id, reason);
-              }
-            }
           }
         } catch (error) {
           this.#ready = false;
@@ -410,16 +366,6 @@ export class WukongConnection {
     const payload = JSON.parse(plain.toString()) as Record<string, unknown>;
     if (!payload || typeof payload !== "object" || Array.isArray(payload))
       throw new Error("IM_PAYLOAD_INVALID");
-    if (fromUid === ownUid) {
-      const pending = [...this.#sends.values()].find(
-        (entry) =>
-          entry.key === clientNo &&
-          entry.channelId === channelId &&
-          entry.channelType === channelType &&
-          (!payload.space_id || payload.space_id === entry.spaceId)
-      );
-      pending?.onPosition?.(messageSeq);
-    }
     this.onPosition?.({
       channelId,
       channelType,
@@ -442,125 +388,9 @@ export class WukongConnection {
     // 此 ACK 仅确认 IM 消息已接收，不代表 AgentRun 已执行完成。
     this.#socket?.send(frame(6, new Writer().u64(messageId).u32(messageSeq).finish()));
   }
-  sendText(
-    channelId: string,
-    channelType: number,
-    text: string,
-    clientMsgNo: string = randomUUID(),
-    spaceId?: string,
-    mention?: ImTextMention,
-    signal?: AbortSignal,
-    onPosition?: (sequence: number) => void
-  ): Promise<string> {
-    return this.#sendPayload(
-      channelId,
-      channelType,
-      { type: 1, content: text, ...(mention ? { mention } : {}) },
-      clientMsgNo,
-      spaceId,
-      signal,
-      onPosition
-    );
-  }
-  /** 原生文件消息复用文本的加密、稳定编号、ACK/迟到确认和取消窗口；不使用互动卡服务。 */
-  sendFile(
-    channelId: string,
-    channelType: number,
-    file: { url: string; name: string; size: number; extension: string },
-    clientMsgNo: string,
-    spaceId?: string,
-    signal?: AbortSignal,
-    onPosition?: (sequence: number) => void
-  ): Promise<string> {
-    return this.#sendPayload(
-      channelId,
-      channelType,
-      { type: 8, url: file.url, name: file.name, size: file.size, extension: file.extension },
-      clientMsgNo,
-      spaceId,
-      signal,
-      onPosition
-    );
-  }
-  #sendPayload(
-    channelId: string,
-    channelType: number,
-    payload: Record<string, unknown>,
-    clientMsgNo: string,
-    spaceId?: string,
-    signal?: AbortSignal,
-    onPosition?: (sequence: number) => void
-  ): Promise<string> {
-    if (this.#socket?.readyState !== WebSocket.OPEN || !this.#key)
-      return Promise.reject(new ImSendError("IM_NOT_READY", "failed"));
-    const serialized = JSON.stringify({ ...payload, ...(spaceId ? { space_id: spaceId } : {}) });
-    if (
-      Buffer.byteLength(serialized) > 256 * 1024 ||
-      this.#active.size >= 64 ||
-      this.#socket.bufferedAmount > LIMIT
-    )
-      return Promise.reject(new ImSendError("IM_SEND_CAPACITY_EXHAUSTED", "failed"));
-    const encrypted = this.#encrypt(serialized);
-    const operation = new ImTextSend(
-      () => {
-        if (!this.connected) throw new ImSendError("IM_NOT_READY", "failed");
-        if (this.#socket!.bufferedAmount > LIMIT)
-          throw new ImSendError("IM_SEND_CAPACITY_EXHAUSTED", "failed");
-        const seq = ++this.#seq;
-        const body = new Writer()
-          .byte(0)
-          .u32(seq)
-          .string(clientMsgNo)
-          .string(channelId)
-          .byte(channelType);
-        if (this.#version >= 3) body.u32(0);
-        body
-          .string(md5(this.#encrypt(`${seq}${clientMsgNo}${channelId}${channelType}${encrypted}`)))
-          .bytes(Buffer.from(encrypted));
-        this.#sends.set(seq, {
-          operation,
-          key: clientMsgNo,
-          channelId,
-          channelType,
-          spaceId,
-          onPosition
-        });
-        this.#socket!.send(frame(3, body.finish(), 2), (error) => {
-          if (error) operation.disconnected();
-        });
-      },
-      (state) => {
-        this.#active.delete(operation);
-        if (state === "unknown" && !this.#closed) {
-          // 留出 REST 降级窗口关联迟到 ACK；映射与计时器均有界。
-          while (this.#retained.size >= 64) this.#forget(this.#retained.keys().next().value!);
-          const timer = setTimeout(() => this.#forget(operation), 30_000);
-          timer.unref();
-          this.#retained.set(operation, timer);
-        } else this.#forget(operation);
-      },
-      signal ? AbortSignal.any([this.#abort.signal, signal]) : this.#abort.signal
-    );
-    this.#active.add(operation);
-    operation.start();
-    return operation.result;
-  }
-  isDelivered(clientMsgNo: string): boolean {
-    return this.#confirmed.has(clientMsgNo);
-  }
-  #forget(operation: ImTextSend): void {
-    clearTimeout(this.#retained.get(operation));
-    this.#retained.delete(operation);
-    for (const [seq, pending] of this.#sends)
-      if (pending.operation === operation) this.#sends.delete(seq);
-  }
   close(): Promise<void> {
     if (this.#closing) return this.#closing;
     this.#closed = true;
-    this.#abort.abort();
-    for (const timer of this.#retained.values()) clearTimeout(timer);
-    this.#retained.clear();
-    this.#sends.clear();
     this.#ready = false;
     if (this.#heartbeat) clearInterval(this.#heartbeat);
     const socket = this.#socket;

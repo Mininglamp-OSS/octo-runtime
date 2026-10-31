@@ -247,6 +247,14 @@ for (const [rejectSvg, rejectTerminal] of [
           });
         if (parsed.pathname.endsWith("/sendMessage") || parsed.pathname.endsWith("/message/edit")) {
           const body = JSON.parse(init.body);
+          if (body.payload?.type === 1) {
+            finals.push(body.payload.content);
+            return Response.json({ message_id: "final-message" });
+          }
+          if (body.payload?.type === 8) {
+            files.push(body.payload);
+            return Response.json({ message_id: `file-${files.length}` });
+          }
           const frame = body.data ?? body.payload.data;
           const validation = render(frame, version);
           if (rejectTerminal && frame.state === "completed" && !terminalRejected) {
@@ -284,14 +292,6 @@ for (const [rejectSvg, rejectTerminal] of [
       });
       t.mock.getter(WukongConnection.prototype, "connected", () => true);
       t.mock.method(WukongConnection.prototype, "close", async () => {});
-      t.mock.method(WukongConnection.prototype, "sendFile", async (...args) => {
-        files.push(args);
-        return "file-message";
-      });
-      t.mock.method(WukongConnection.prototype, "sendText", async (...args) => {
-        finals.push(args[2]);
-        return "final-message";
-      });
       const text = `Written and verified: [HTML](${join(workspace, "hello.html")}) ![PNG](${join(workspace, "a.png")}) [SVG](${join(workspace, "a.svg")})`;
       const runtime = new ImRuntime(
         {

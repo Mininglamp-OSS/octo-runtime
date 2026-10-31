@@ -68,10 +68,13 @@ export class CardSession {
     }
     // 模板查询期间可能已收到终态；旧快照必须在出站前再次检查。
     if (!this.#scheduler || (this.#scheduler.terminal && !settled)) return;
-    let receipt = await this.#deliver(frame, template, settled);
+    // 同一 finish 的原帧与精简帧共用四次预算，切换展示内容不能重开重试窗口。
+    const budget = { remaining: settled ? 4 : 1 };
+    let receipt = await this.#deliver(frame, template, settled, budget);
     // 400 不是业务终态。只在明确拒收后替换展示内容再投一次，不重放未知投递或另起可见卡片。
     if (
       settled &&
+      budget.remaining > 0 &&
       receipt.state === "failed" &&
       (receipt.code === "IM_CARD_SEND_400" || receipt.code === "IM_CARD_EDIT_400")
     ) {
@@ -101,7 +104,7 @@ export class CardSession {
           ? { errorTitle: "执行失败", errorMessage: "请查看最终回复或运行记录。" }
           : {})
       };
-      receipt = await this.#deliver(compact, template, settled);
+      receipt = await this.#deliver(compact, template, settled, budget);
       if (receipt.state === "delivered") this.#onDiagnostic?.("IM_CARD_TERMINAL_DEGRADED");
     }
     if (receipt.state === "delivered") {
@@ -111,12 +114,18 @@ export class CardSession {
     } else if (settled) this.#terminalFailed = true;
   }
   /** 沿同一卡片串行发送；降级帧也使用新序号和独立回执，保留取消与旧帧屏障。 */
-  #deliver(frame: ReasoningFrame, template: ReasoningTemplate, settled: boolean) {
+  #deliver(
+    frame: ReasoningFrame,
+    template: ReasoningTemplate,
+    settled: boolean,
+    budget: { remaining: number }
+  ) {
     const seq = ++this.#seq;
     return this.delivery.deliver(
       `${this.effectKey}:${seq}`,
-      () =>
-        this.connector.card(
+      () => {
+        budget.remaining--;
+        return this.connector.card(
           this.address,
           template,
           frame,
@@ -124,9 +133,11 @@ export class CardSession {
           this.#messageId,
           seq,
           !settled
-        ),
+        );
+      },
       {
         transient: !settled,
+        ...(settled ? { attempts: budget.remaining as 1 | 2 | 3 | 4 } : {}),
         obsolete: () => !this.#scheduler || (this.#scheduler.terminal && !settled),
         cardOperation: this.#messageId ? "edit" : "send",
         onDiagnostic: (code, data) => this.#onDiagnostic?.(code, data)

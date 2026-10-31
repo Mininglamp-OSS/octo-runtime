@@ -214,7 +214,7 @@ test("transport without sender or group lists admits non-owner mentions and repl
   let receive;
   const admitted = [],
     sends = [];
-  t.mock.method(globalThis, "fetch", async (url) => {
+  t.mock.method(globalThis, "fetch", async (url, options) => {
     if (url.endsWith("/auth/verify-bot"))
       return Response.json({ bot_uid: "bot", space_id: "space" });
     if (url.endsWith("/bot/register"))
@@ -225,6 +225,11 @@ test("transport without sender or group lists admits non-owner mentions and repl
         ws_url: "wss://im-test.deepminer.com.cn/ws",
         im_token: "fixture"
       });
+    if (url.endsWith("/bot/sendMessage")) {
+      const body = JSON.parse(options.body);
+      sends.push([body.channel_id, body.channel_type, body.payload.content]);
+      return Response.json({ message_id: "reply-id" });
+    }
     throw new Error("unexpected request");
   });
   t.mock.method(WukongConnection.prototype, "connect", async function () {
@@ -232,10 +237,6 @@ test("transport without sender or group lists admits non-owner mentions and repl
   });
   t.mock.getter(WukongConnection.prototype, "connected", () => true);
   t.mock.method(WukongConnection.prototype, "close", async () => {});
-  t.mock.method(WukongConnection.prototype, "sendText", async (...args) => {
-    sends.push(args);
-    return "reply-id";
-  });
   const withoutGroups = { ...config };
   delete withoutGroups.group_ids;
   for (const overrides of [{}, { group_ids: null }, { group_ids: [] }, { groups_enabled: false }]) {

@@ -86,6 +86,10 @@ test("gateway observation keeps scope gates, separates execution admission and b
         if (options.signal.aborted) done();
         else options.signal.addEventListener("abort", done, { once: true });
       });
+    if (url.endsWith("/bot/sendMessage")) {
+      sends.push(JSON.parse(options.body));
+      return Response.json({ message_id: "output", message_seq: 102 });
+    }
     throw Error("unexpected fixture request");
   });
   context.mock.method(WukongConnection.prototype, "connect", async function () {
@@ -93,10 +97,6 @@ test("gateway observation keeps scope gates, separates execution admission and b
   });
   context.mock.method(WukongConnection.prototype, "close", async () => {});
   context.mock.getter(WukongConnection.prototype, "connected", () => true);
-  context.mock.method(WukongConnection.prototype, "sendText", async (...args) => {
-    sends.push(args);
-    return "output";
-  });
   context.mock.getter(CardSession.prototype, "messageId", () => "known-card");
   const transport = new GatewayTransport(
     {
@@ -186,7 +186,6 @@ test("gateway observation keeps scope gates, separates execution admission and b
     }
   });
   admitted[0].bindHistoryTurn({ ...original, sessionId: "new-session", generation: 2 });
-  sends[0][7](102);
   assert.deepEqual(observed.at(-1).turn, original);
   wire.onPosition({ ...position, fromUid: "bot", messageId: "known-card", messageSeq: 103 });
   assert.deepEqual(observed.at(-1).turn, original);
@@ -410,12 +409,12 @@ for (const mode of ["disabled", "404", "healthy"]) {
   }
 }
 
-test("wire positions distinguish SENDACK client/message sequences, observe own RECV without executing it, and ignore failed ACKs", async (context) => {
+test("wire positions observe own RECV without executing it and ACK incoming messages", async (context) => {
   const server = new WebSocketServer({ host: "127.0.0.1", port: 0 });
   await new Promise((resolve) => server.once("listening", resolve));
   let socket;
   let key;
-  const payloads = [];
+  const acknowledgements = [];
   const iv = Buffer.from("0123456789abcdef");
   const encrypt = (value) => {
     const cipher = createCipheriv("aes-128-cbc", key, iv);
@@ -464,47 +463,22 @@ test("wire positions distinguish SENDACK client/message sequences, observe own R
             1
           )
         );
-      } else if (kind === 3) {
-        incoming.byte();
-        const clientSequence = incoming.uint();
-        const clientNo = incoming.text();
-        incoming.text();
-        incoming.byte();
-        incoming.skip(4);
-        incoming.text();
-        const decipher = createDecipheriv("aes-128-cbc", key, iv);
-        payloads.push(
-          JSON.parse(
-            Buffer.concat([
-              decipher.update(Buffer.from(incoming.rest().toString(), "base64")),
-              decipher.final()
-            ]).toString()
-          )
-        );
-        const reason = clientNo === "rejected" ? 2 : 1;
-        connection.send(
-          packet(
-            4,
-            Buffer.concat([
-              integer(900 + clientSequence, 8),
-              integer(clientSequence),
-              integer(700 + clientSequence),
-              Buffer.from([reason])
-            ])
-          )
-        );
+      } else if (kind === 6) {
+        incoming.skip(8);
+        acknowledgements.push(incoming.uint());
+      } else if (kind === 7) {
+        connection.send(Buffer.from([0x80]));
+      } else {
+        assert.fail(`unexpected outbound WS kind ${kind}`);
       }
     });
   });
   const messages = [];
   const positions = [];
-  const acknowledgements = [];
-  const confirmations = [];
   const connection = new WukongConnection(
     (message) => messages.push(message),
     () => {},
-    (position) => positions.push(position),
-    (key) => confirmations.push(key)
+    (position) => positions.push(position)
   );
   context.after(async () => {
     await connection.close();
@@ -517,66 +491,6 @@ test("wire positions distinguish SENDACK client/message sequences, observe own R
     owner_channel_id: "owner",
     ws_url: `ws://127.0.0.1:${server.address().port}`
   });
-  assert.equal(
-    await connection.sendText(
-      "group____topic",
-      5,
-      "fixture",
-      "accepted",
-      "space",
-      undefined,
-      undefined,
-      (sequence) => acknowledgements.push(sequence)
-    ),
-    "901"
-  );
-  assert.deepEqual(acknowledgements, [701]);
-  await assert.rejects(
-    connection.sendText(
-      "group____topic",
-      5,
-      "fixture",
-      "rejected",
-      "space",
-      undefined,
-      undefined,
-      (sequence) => acknowledgements.push(sequence)
-    )
-  );
-  assert.deepEqual(acknowledgements, [701]);
-  const file = {
-    url: "https://cdn.example.com/game.html",
-    name: "game.html",
-    size: 42,
-    extension: "html"
-  };
-  assert.equal(
-    await connection.sendFile(
-      "group____topic",
-      5,
-      file,
-      "file-accepted",
-      "space",
-      undefined,
-      (sequence) => acknowledgements.push(sequence)
-    ),
-    "903"
-  );
-  assert.deepEqual(payloads.at(-1), { type: 8, ...file, space_id: "space" });
-  assert.deepEqual(acknowledgements, [701, 703]);
-  assert.equal(connection.isDelivered("file-accepted"), true);
-  assert.deepEqual(
-    confirmations,
-    ["accepted", "file-accepted"],
-    "only successful wire ACKs enter the shared ledger"
-  );
-  const cancelled = new AbortController();
-  cancelled.abort();
-  await assert.rejects(
-    connection.sendFile("group____topic", 5, file, "file-cancelled", "space", cancelled.signal),
-    /IM_DELIVERY_CANCELLED/
-  );
-  assert.equal(payloads.length, 3);
   for (const [fromUid, sequence] of [
     ["bot", 702],
     ["peer", 703],
@@ -616,6 +530,8 @@ test("wire positions distinguish SENDACK client/message sequences, observe own R
     );
   }
   for (let attempt = 0; positions.length < 3 && attempt < 1000; attempt++) await settle();
+  for (let attempt = 0; acknowledgements.length < 3 && attempt < 1000; attempt++) await settle();
+  assert.deepEqual(acknowledgements, [702, 703, 704]);
   assert.deepEqual(
     positions.map((position) => position.messageSeq),
     [702, 703, 704]

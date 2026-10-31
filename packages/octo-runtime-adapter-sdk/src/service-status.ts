@@ -118,7 +118,16 @@ export function extraStatusRecord(
     !Number.isFinite(Date.parse(time))
   )
     return;
-  if (event === "channel.diagnostic" && data?.code !== "IM_DISPOSE_FAILED") return;
+  // Gateway 投递失败须能由 channel-gateway logs 查询；不放开执行正文或其他诊断。
+  const deliveryDiagnostic =
+    extra === "channel-gateway" &&
+    event === "channel.diagnostic" &&
+    typeof data?.code === "string" &&
+    (/^(?:IM_DELIVERY_|IM_CARD_|IM_HTTP_)[A-Z0-9_]+$/.test(data.code) ||
+      data.code === "IM_CREDENTIALS_REQUIRED" ||
+      data.code === "IM_BOT_TOKEN_INVALID");
+  if (event === "channel.diagnostic" && data?.code !== "IM_DISPOSE_FAILED" && !deliveryDiagnostic)
+    return;
   const safe: Record<string, string | number> = {};
   for (const key of ["state", "code", "endpoint_id"] as const) {
     const value = data?.[key];
@@ -136,6 +145,14 @@ export function extraStatusRecord(
     const value = data?.[key];
     if (typeof value === "number" && Number.isSafeInteger(value) && value >= 0) safe[key] = value;
   }
+  const runId = data?.run_id;
+  if (
+    deliveryDiagnostic &&
+    typeof runId === "string" &&
+    /^[A-Za-z0-9][A-Za-z0-9_.:@+-]{0,127}$/.test(runId) &&
+    !/^(?:bf_|sk-|Bearer)/i.test(runId)
+  )
+    safe.run_id = runId;
   return Object.freeze({
     time,
     level,

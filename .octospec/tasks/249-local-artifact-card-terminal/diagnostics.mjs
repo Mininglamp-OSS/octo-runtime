@@ -39,8 +39,7 @@ async function fixture(t, reject) {
   const connector = new OctoConnector(
     { bot_id: "fixture", api_url: `http://127.0.0.1:${server.address().port}`, adapter: {} },
     randomUUID(),
-    abort.signal,
-    async () => {}
+    abort.signal
   );
   t.mock.method(connector, "reasoningTemplate", async () => template);
   const card = new CardSession(
@@ -182,7 +181,7 @@ for (const status of [401, 403, 409, undefined]) {
     await assert.rejects(card.finish(), /IM_CARD_FINALIZATION_FAILED/);
     assert.equal(
       calls,
-      status ? 1 : 3,
+      status ? 1 : 4,
       "no additional compact delivery after unknown or unrelated HTTP failures"
     );
     card.release();
@@ -261,7 +260,10 @@ test("dispatch diagnostics survive the actual log whitelist with redaction and b
     );
   }
   const row = logs.find(
-    (row) => row.extra_type === "channel-gateway" && row.event === "channel.diagnostic"
+    (row) =>
+      row.extra_type === "channel-gateway" &&
+      row.event === "channel.diagnostic" &&
+      row.data.path === "/v1/bot/message/edit"
   );
   assert.equal(row.data.path, "/v1/bot/message/edit");
   assert.equal(row.data.http_status, 400);
@@ -343,7 +345,10 @@ test("structured and truncated credential fields stay private in dispatch and di
     for (const secret of secrets) assert.ok(!text.includes(secret));
     rows.push(...text.trim().split("\n").map(JSON.parse));
   }
-  assert.equal(rows.length, count * 2);
-  assert.ok(rows.every((row) => Array.from(row.data.response_body).length <= 200));
-  assert.ok(rows.every((row) => /card_invalid/.test(row.data.response_body)));
+  assert.equal(rows.length, count * 4);
+  const detailed = rows.filter((row) => row.data.response_body !== undefined);
+  assert.equal(detailed.length, count * 2);
+  assert.ok(detailed.every((row) => Array.from(row.data.response_body).length <= 200));
+  assert.ok(detailed.every((row) => /card_invalid/.test(row.data.response_body)));
+  assert.ok(rows.every((row) => row.data.code === "IM_CARD_EDIT_400"));
 });

@@ -204,7 +204,7 @@ for (const mode of ["cli", "sdk"]) {
             assert.equal((await admissions()).length, replyCount);
             assert.equal(im.activeConnections, 1);
           };
-          // 服务停机期间真实 TCP 拒绝连接，须继续 5/10/15 秒退避，而非只在恢复后测试一次。
+          // 服务停机期间真实 TCP 拒绝连接，验证立即重连、十次快速重试及后续 5/10/15 秒退避。
           const stoppedAt = performance.now();
           const rowStart = connectionRows().length;
           await im.stopServer();
@@ -212,8 +212,8 @@ for (const mode of ["cli", "sdk"]) {
             () =>
               connectionRows()
                 .slice(rowStart)
-                .filter((row) => row.event === "channel.connection_failed").length >= 2,
-            20000
+                .filter((row) => row.event === "channel.connection_failed").length >= 13,
+            40000
           );
           const offline = (await inspectExtra(controlEndpoint)).status.bots[0];
           assert.equal(offline.state, "retrying");
@@ -222,7 +222,7 @@ for (const mode of ["cli", "sdk"]) {
             .slice(rowStart)
             .filter((row) => row.event === "channel.retry_scheduled")
             .map((row) => row.data.delay_ms);
-          assert.deepEqual(backoff, [5000, 10000, 15000]);
+          assert.deepEqual(backoff, [0, ...Array(10).fill(1000), 5000, 10000, 15000]);
           const resumedAt = performance.now();
           await im.startServer();
           await waitFor(
@@ -242,22 +242,23 @@ for (const mode of ["cli", "sdk"]) {
             })
           );
 
-          // 静默丢弃 PING/PONG，不主动断 socket；必须由真实 90 秒阈值发现半开连接。
+          // 静默丢弃 PING/PONG，不主动断 socket；使用真实 10 秒探测及 10 秒 PONG 预算。
           const silentAt = performance.now();
           im.setBlackhole(true);
           await waitFor(async () => {
             const bot = (await inspectExtra(controlEndpoint)).status.bots[0];
             return bot.state === "retrying" && bot.error === "IM_HEARTBEAT_TIMEOUT";
-          }, 125000);
+          }, 30000);
           const detectedAt = performance.now();
           im.setBlackhole(false);
           assert.ok(
-            detectedAt - silentAt >= 85000,
+            detectedAt - silentAt >= 9500,
             "real heartbeat deadline must not be accelerated"
           );
+          // 立即重连的 CONNECT 可能在解除丢包前已被丢弃，须容纳原有 15 秒握手超时及下一次重试。
           await waitFor(
             async () => (await inspectExtra(controlEndpoint)).status.bots[0].connected,
-            8000
+            22000
           );
           extraConnections++;
           await replyAfterRecovery("after silent network recovery");

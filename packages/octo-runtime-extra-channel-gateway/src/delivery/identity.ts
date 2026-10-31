@@ -1,6 +1,6 @@
-import { ImSendError } from "./text-send.js";
+import { ImSendError } from "./send-error.js";
 
-/** 一次已核验目标身份的投递权限及有界 ACK 账本；更新 token 或重建 WS 不取消。 */
+/** 一次已核验目标身份的投递权限及有界 REST 回执缓存；更新 token 或重建 WS 不取消。 */
 export class ImDeliveryScope {
   readonly #abort = new AbortController();
   readonly #confirmed = new Set<string>();
