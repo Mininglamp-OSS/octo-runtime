@@ -51,6 +51,8 @@ invoke ACK 丢失仅查询原输入身份，不重新 invoke。订阅断开使�
 
 Provider 的 native requestId 是 opaque；canonical interactionId 与原 invocation/Run 绑定。响应经过同一 Kernel/worker 路由，不猜测身份，不将回答转成新输入或重新 invoke。错误在最先违反合同的责任模块修复，不在下游猜正文补意图。
 
+Codex 异步问题通过 `delivery: async` 与版本化 question request/response 表达；Adapter 冻结原 thread/turn/message，仅向该活动轮次发送一次 `turn/steer`。匹配 RPC 确认才发布 provider_accepted，不声明模型已消费；终态、resume 和重启不接管旧问题。消息快照用于展示，活动 interaction 才授权回答。异步交互不产生 waiting_input，也不豁免 watchdog；同步问答与审批仍按原路径处理。
+
 Core shutdown 的完整/未确认清理语义保持 [Core 合同](../../packages/octo-runtime-executor-core/README.md)。Kernel/Host SDK 的所有权、退避、限额和清理详见 [本地执行](local-execution.md)、[生命周期](runtime-lifecycle.md) 与 [Extra](extras.md)。
 
 ## 核对位置

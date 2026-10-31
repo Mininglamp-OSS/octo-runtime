@@ -55,6 +55,18 @@ HostFrame control messages report interaction states: `pending`, `resolved`, `ex
 
 The `full_access` policy can handle supported approvals, but does not answer user questions or requests for additional information.
 
+### Async Question Contract
+
+Codex can emit `interaction.requested` with `kind: "question"` and `delivery: "async"` while continuing work. Keep reading events while the form is open. Its request is `{schema: "octo.question-request/v1", messageId, questions: [{id, title, options, allowCustom: true}]}`. Options may be `null` or empty; custom text is always allowed. Message snapshots preserve native questions too, but only the active interaction authorizes answering. Associate both by `messageId` to display one form.
+
+Submit the entire batch once: `outcome: "answered"`, `value: {schema: "octo.question-response/v1", answers: [{questionId: "q:0", text: "option or custom answer"}]}`. Supply every positional question ID exactly once. Each answer must be nonblank and at most 4096 Unicode code points. See [asyncQuestionForm](../../examples/interactions.mts), which imports only public SDK APIs.
+
+Runtime sends one `turn/steer` to the original active turn. The Promise succeeds and `interaction.resolved` reports `resolved/answered/provider_accepted` only after a matching RPC reply. This proves acceptance, not persistence, model consumption, or task completion. `ASYNC_ANSWER_REJECTED` means explicit rejection; `OPERATION_OUTCOME_UNKNOWN` means sent but unconfirmed. Do not automatically retry either. `INVALID_QUESTION_RESPONSE` permits correction before sending; `INTERACTION_NOT_ACTIVE` rejects duplicate or inactive answers.
+
+`outcome: "cancelled"` without a value dismisses a pending form locally (`user_cancelled`), without cancelling the run or retracting input. Pending forms expire after ten minutes. Ending the originating turn invalidates unanswered forms; Runtime never opens another turn for a late answer. The same live RunRef can replay its interaction after reconnection, without extending the deadline. A new invocation, session resume, or worker/Kernel restart cannot reactivate old questions. If a response ACK is lost, inspect the original stream for its resolved event rather than resubmitting.
+
+The shared limit is 16 active interactions, with at most 50 questions per batch, 50 options per question, and 4096 code points per title/option. Oversized or malformed snapshots fail explicitly. Synchronous questions, elicitation, approvals and `full_access` behavior remain unchanged. Host UI integration is still required; no Markdown parsing is needed. The built-in channel-gateway currently ignores async interaction controls and their resolution: it continues work without presenting a form or entering a waiting state, while displaying ordinary message text as before.
+
 ## Errors and Recovery
 
 Record the error object's stable code before choosing recovery. For example, fix parameters for input errors and query the original execution after an output disconnect. If a submission receipt is lost, the Provider may already be working; retrying `invoke` can execute the task twice. See [Kernel IPC](kernel-ipc.md) for reconnection and [Troubleshooting](../guides/troubleshooting.md) for common errors.

@@ -379,6 +379,11 @@ export async function startKernelServer(options: KernelServerOptions, signal?: A
                   message: "Kernel request failed",
                   data: {
                     code,
+                    ...(code === "ASYNC_ANSWER_REJECTED" &&
+                    record(error) &&
+                    Number.isSafeInteger(error.providerRpcCode)
+                      ? { provider_rpc_code: error.providerRpcCode }
+                      : {}),
                     ...(error instanceof KernelError &&
                     error.data?.invocation_not_submitted === true
                       ? { invocation_not_submitted: true, kernel_instance_id: instance }
@@ -490,6 +495,8 @@ function record(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
 function safeCode(error: unknown): string {
+  if (record(error) && typeof error.code === "string" && /^[A-Z][A-Z0-9_]{1,80}$/.test(error.code))
+    return error.code;
   return error instanceof Error && /^[A-Z][A-Z0-9_]{1,80}$/.test(error.message)
     ? error.message
     : "KERNEL_REQUEST_FAILED";

@@ -1,4 +1,15 @@
 import { randomUUID } from "node:crypto";
+import { assertAsyncQuestions, assertQuestionRequest } from "./questions.js";
+export {
+  assertAsyncQuestions,
+  assertQuestionRequest,
+  assertQuestionResponse
+} from "./questions.js";
+export type {
+  AsyncUserInputQuestion,
+  QuestionRequest,
+  QuestionResponse
+} from "./generated/protocol-types.js";
 import { assertSessionName } from "./invoke-input.js";
 export { assertJsonByteLimit } from "./json-size.js";
 export { INVOKE_REQUEST_MAX_BYTES, assertInvokeRequestSize } from "./invoke-size.js";
@@ -570,6 +581,14 @@ export function assertCanonicalEvent(event: unknown): asserts event is Canonical
   if (event.protocolVersion !== PROTOCOL_VERSION)
     throw new TypeError("canonical protocolVersion must be 2");
   const payload = isRecord(event.payload) ? event.payload : {};
+  if (event.type.startsWith("message.")) {
+    if (payload.delivery !== undefined && payload.delivery !== "async")
+      throw new TypeError("INVALID_MESSAGE_DELIVERY");
+    if (payload.questions !== undefined) {
+      if (payload.delivery !== "async") throw new TypeError("INVALID_MESSAGE_DELIVERY");
+      assertAsyncQuestions(payload.questions);
+    }
+  }
   if (event.type === "execution.update") assertExecutionEvidence(payload);
   assertExperiencePayload(event.type, payload);
   if (event.type === "run.failed" && payload.failure !== undefined) {
@@ -652,6 +671,11 @@ export function assertCanonicalEvent(event: unknown): asserts event is Canonical
     }
     if (!isRecord(payload.request))
       throw new TypeError("interaction.requested payload.request must be an object");
+    if (payload.delivery !== undefined) {
+      if (payload.delivery !== "async" || payload.kind !== "question")
+        throw new TypeError("INVALID_INTERACTION_DELIVERY");
+      assertQuestionRequest(payload.request);
+    }
     if (payload.kind === "approval") assertApprovalRequest(payload.request);
   }
   if (event.type === "interaction.resolved") {
