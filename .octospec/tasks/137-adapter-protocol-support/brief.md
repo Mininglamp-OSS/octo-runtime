@@ -1,3 +1,11 @@
+---
+type: Task
+title: Issue 137 Adapter 协议元数据的编写与注册合同
+description: 记录 Adapter 编写输入、工厂默认值与注册类型的需求和验收标准。
+tags: [adapter, protocol, typescript]
+timestamp: 2026-10-29T00:00:00+08:00
+---
+
 # Issue 137：Adapter 协议元数据的编写与注册合同
 
 ## 目标与归属

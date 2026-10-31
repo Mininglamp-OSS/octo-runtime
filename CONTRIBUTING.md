@@ -118,6 +118,22 @@ verifies real global installation, independent component cleanup and uninstall. 
 `CI Gate` succeeds only when both paths succeed.
 See [GitHub CI and release operations](.github/CI.md) for workflow details.
 
+For a manual audit of current root, app/package and architecture-guide links, run:
+
+```bash
+node scripts/check-developer-docs.mjs --scope current
+node --test scripts/checks/developer-doc-links.test.mjs
+```
+
+These commands require installed development dependencies but no Runtime build.
+The audit reads tracked Markdown files from the working tree, checks local files,
+GitHub heading fragments and explicit HTML anchors, and reports all failures.
+Historical task and journal files are checked only when a current document links
+to them. External URLs are counted and skipped; non-Markdown fragments are not
+validated. The existing `pnpm docs:check` retains its `docs/` scope, bilingual
+examples and protocol checks. The expanded audit and its tests are manual and
+are not added to default tests or required CI.
+
 ## Commits and Pull Requests
 
 1. Use a focused `feat/`, `fix/`, `docs/`, `refactor/`, `test/` or `chore/` branch.

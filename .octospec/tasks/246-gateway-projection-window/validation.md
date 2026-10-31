@@ -1,3 +1,11 @@
+---
+type: Task
+title: Issue 246 验证记录
+description: 记录 Gateway 投影窗口修复的验证环境、检查结果与验收限制。
+tags: [gateway, projection, testing]
+timestamp: 2026-10-29T00:00:00+08:00
+---
+
 # Issue 246 验证记录
 
 2026-10-29，基线 `ba2a706380bf244bc428b3465c0487c5b58e6975`，验证对象为分支 `fix/246-gateway-projection-window` 的修复代码。

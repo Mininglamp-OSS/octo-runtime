@@ -9,7 +9,7 @@ implementation_baseline: feat/executor-kernel-host-lifecycle
 
 # 工作区与开发组织
 
-当前包边界见 [Runtime 合同](../rules/runtime-lifecycle.md)。Host SDK 独立管理 Kernel 和 Extra；Kernel 只监督 worker，worker 使用唯一 AgentExecutor。SDK 宿主不依赖 apps/cli 或未选用的业务 Extra。
+当前包边界见 [Runtime 合同](../rules/runtime-lifecycle.md)。CLI 与 SDK 宿主通过相同的 `createKernelService` / `createExtraService` 在调用进程原生构造服务；宿主决定对象的创建/关闭顺序，并管理宿主进程和部署。Kernel 只监督内部执行 worker，worker 使用唯一 AgentExecutor；Extra 只连接指定 Kernel，不启动或停止 Kernel。SDK 宿主不依赖 apps/cli 或未选用的业务 Extra。
 
 Octo Runtime 使用 pnpm workspace 管理多项目。workspace 边界由根目录 [pnpm-workspace.yaml](../../pnpm-workspace.yaml) 定义：
 
@@ -25,12 +25,12 @@ packages:
 
 ```text
 apps/
-  cli/                  面向用户的 Unix socket CLI
+  cli/                              面向用户的 Runtime 宿主及各组件服务入口
 
 packages/
   octo-runtime-protocol/             canonical protocol
-  octo-runtime-executor-core/                 local execution context resolution
-  octo-runtime-host-sdk/             owned Kernel/Extra、依赖代理、原生组件启动
+  octo-runtime-executor-core/        唯一 AgentExecutor、执行输入解析与进程内 API
+  octo-runtime-host-sdk/             原生服务装配、Extra 加载与宿主依赖注入
   octo-runtime-extra-channel-gateway/ optional Octo IM integration
   octo-runtime-extra-channel-wecom/   optional WeCom integration
   octo-runtime-extra-webui/           optional local WebUI with canonical SSE
@@ -45,13 +45,15 @@ packages/
 ```text
 apps -> packages
 octo-runtime-adapter-* -> octo-runtime-adapter-sdk / provider protocol helpers
-octo-runtime-host-sdk -> Kernel / Protocol / Adapter SDK
+octo-runtime-host-sdk -> Kernel / Protocol / Adapter SDK（原生服务对象，不代启服务进程）
 optional extras -> Host SDK 的插件类型与 Protocol
-HostApp composition -> 显式选择 Kernel worker 入口及 Extra 声明
-octo-runtime-executor-kernel -> Core / Protocol / Adapter SDK / runner 所需 Provider Adapter
+HostApp composition -> 原生导入所选 Adapter/Extra，显式选择 Kernel worker 入口
+octo-runtime-executor-kernel -> Core / Protocol / Adapter SDK
 ```
 
 Kernel 和 Host SDK 的生产依赖不引入业务 Channel；HostApp 携带并显式启用所需 Extra。标准根发行物携带内置模块，不代表源码 SDK 宿主必须部署全部模块。旧 daemon、adapter-host、worker-access 和 Context Builder 包已移除。
+
+SDK 不提供 owned Kernel/Extra launcher、外部原生组件启动器或依赖代理。执行隔离来自 Kernel 内部 worker；宿主注入的函数在服务所在进程直接调用，应用数据库由宿主创建和关闭。CLI 的 Unix socket / Windows Named Pipe、manifest 和系统服务管理不成为其他 SDK 宿主的部署要求。
 
 `packages/*` 不应 import `apps/*`。provider 命令构造、native event parser、session codec 和权限适配必须留在 `packages/octo-runtime-adapter-*`；apps 只做配置、进程启动和 I/O 装配。
 
