@@ -5,6 +5,10 @@ import http from "node:http";
 import https from "node:https";
 import http2 from "node:http2";
 import dgram from "node:dgram";
+import workers from "node:worker_threads";
+import cluster from "node:cluster";
+import fs from "node:fs";
+import fsPromises from "node:fs/promises";
 import { registerHooks, syncBuiltinESMExports } from "node:module";
 
 // 仅由手动 runner 预加载到被测进程；连同被捕获的异常也留下标记，父进程据此判失败。
@@ -19,6 +23,71 @@ function deny(operation) {
 
 for (const name of ["spawn", "spawnSync", "exec", "execSync", "execFile", "execFileSync", "fork"])
   childProcess[name] = deny(`child_process.${name}`);
+workers.Worker = deny("worker_threads.Worker");
+cluster.fork = deny("cluster.fork");
+
+// 保留加载构建产物所需的只读操作；包括只读 FileHandle 在内，不允许修改文件元数据。
+const mutations = [
+  "appendFile",
+  "chmod",
+  "chown",
+  "copyFile",
+  "cp",
+  "createWriteStream",
+  "fchmod",
+  "fchown",
+  "ftruncate",
+  "futimes",
+  "lchmod",
+  "lchown",
+  "link",
+  "lutimes",
+  "mkdir",
+  "mkdtemp",
+  "mkdtempDisposable",
+  "rename",
+  "rm",
+  "rmdir",
+  "symlink",
+  "truncate",
+  "unlink",
+  "utimes",
+  "write",
+  "writeFile",
+  "writev"
+];
+for (const name of mutations) {
+  for (const key of [name, `${name}Sync`])
+    if (typeof fs[key] === "function") fs[key] = deny(`fs.${key}`);
+  if (typeof fsPromises[name] === "function") fsPromises[name] = deny(`fs.promises.${name}`);
+}
+function checkOpen(flags = "r") {
+  const writes =
+    typeof flags === "number"
+      ? flags &
+        (fs.constants.O_WRONLY |
+          fs.constants.O_RDWR |
+          fs.constants.O_CREAT |
+          fs.constants.O_TRUNC |
+          fs.constants.O_APPEND)
+      : flags !== "r" && flags !== "rs" && flags !== "sr";
+  if (writes) deny("fs.open:write")();
+}
+for (const name of ["open", "openSync"]) {
+  const original = fs[name];
+  fs[name] = function (path, flags, ...args) {
+    checkOpen(flags);
+    return original.call(this, path, flags, ...args);
+  };
+}
+const open = fsPromises.open;
+fsPromises.open = async function (path, flags, ...args) {
+  checkOpen(flags);
+  const handle = await open.call(this, path, flags, ...args);
+  for (const name of mutations)
+    if (typeof handle[name] === "function") handle[name] = deny(`FileHandle.${name}`);
+  return handle;
+};
 net.connect = deny("net.connect");
 net.createConnection = deny("net.createConnection");
 net.Socket.prototype.connect = deny("Socket.connect");

@@ -14,3 +14,7 @@ tags: [testing, integration]
 首轮全仓知识 lint 被 #267 三份既有文档 frontmatter 错误阻断，按流程返回规格审查。用户随后授权检查 metadata 并交付 PR；同步主线 `c35b261b31573bc2f08a16eeced12f18705b2560` 后主线已含该修复，本项不重复修改 #267。重新构建、手动 20 项及全仓知识检查通过，按授权提交、推送并创建 PR，IM 缺项继续披露，不自动合并。
 
 本次进一步验证：JS 语法解析通过不能证明 ESM 导出、执行器构造或 Adapter 注册成功；真实入口的受保护启动检查及故障注入提供更直接的边界证据，但不替代 live 断言。
+
+## PR 复审更新
+
+根据 [PR #278](https://github.com/Mininglamp-OSS/octo-runtime/pull/278) 的两项意见，补齐 Worker/cluster/文件修改 API 保护，forwarding 改为严格参数解析，并将回执限制为调用方私有临时 cwd 的固定文件。同步 `main@49f9b11f`，手动专项扩大为 46 项且全部通过；本轮真实 forwarding 也重跑通过，原生工具、HTTP 200、marker、终态断言均执行。专项仍仅显式手动运行，CI 范围未变。完整版本与环境见验证记录。

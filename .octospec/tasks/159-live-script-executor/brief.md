@@ -54,6 +54,7 @@ node scripts/verify-codex-forwarding-live.mjs --check-startup
 - 成功输出一行 JSON：`{ "check": "startup", "script": "<脚本文件名>", "adapters": ["<已注册类型>"], "cleanup": "complete" }`，退出码为 0。该输出不是 live 成功结果，不包含账号、提示词或凭据。
 - 缺构建产物、缺导出、构造/注册/清理失败均返回非零并保留原始诊断；不能捕获异常后仍输出成功或以 skip 代替失败。
 - forwarding 的原生 `--check-endpoint <receiptPath>` 子命令保持独立行为；与 `--check-startup` 同时出现时，在任何联网前明确拒绝，不能因参数顺序触发实网请求。
+- PR #278 复审补充：forwarding 只接受空参数、单个 `--check-startup` 或精确的 `--check-endpoint <receiptPath>`。未知、重复、缺失或多余参数在加载执行器/联网前失败。回执必须是调用方私有 `octo-codex-forwarding-*` 临时 cwd 中的绝对 `receipt.json`；独占打开成功后才请求固定端点，拒绝已有目标及符号链接。该约束不承诺同账号恶意进程之间的沙箱隔离。
 - IM Context 的旧 `--delivery` / `--delivery-disconnect` 拒绝逻辑继续有效；与离线参数组合也不得绕过该拒绝。现有合法 live 参数不改变含义。
 
 ### 3. 手动离线回归入口
@@ -67,6 +68,7 @@ node .octospec/tasks/159-live-script-executor/verify-startup.mjs
 - 使用 `process.execPath` 和绝对脚本路径启动独立子进程，工作目录固定为仓库根目录，每个进程设置有限超时（15 秒）并收集 stdout/stderr、退出码和 signal。
 - 子进程移除 Provider/Octo 凭据及 QA 账号路径，至少补跑 IM Context 使用不存在账号路径的反例；保留操作系统运行和包加载所需环境。不输出原始环境变量。
 - 子进程通过任务目录中的 Node preload guard 禁止 `fetch`、HTTP(S)/Socket 联网和 `child_process` 业务启动；先安装 guard 再加载实际脚本，ESM 内建导出须同步。触发禁止动作就抛错并使该用例失败。父进程启动被测 Node 属于测试编排，不在禁止范围。
+- PR #278 复审补充：guard 同时禁止 `worker_threads.Worker`、`cluster.fork` 及 Node fs/fs.promises 的写入、创建、删除、元数据修改和可写 open，包含只读 FileHandle 上的修改操作；保留模块加载所需只读 IO。手动 runner 加入这些 API 的真实调用反例。保护对象是这里列出的 Node API，不宣称拦截原生扩展、内部绑定或主动绕过补丁的代码；不是 OS 沙箱。
 - 只有子进程正常退出、JSON 回执匹配脚本名/Adapter 集合/清理状态，才计为通过；缺失导出导致没有回执时仍须直接报告原始模块错误。
 - 覆盖 forwarding 冲突参数及 IM 已废弃参数的拒绝，断言非零并保留具体诊断，避免“任何失败都算通过”。
 - 保留对两处旧导出来源的失败检出能力：离线参数必须实际走同一导入/装配路径，不能绕过默认路径中仍遗留的错误。代码审查核对该调用关系，`node --check` 或源码字符串扫描只作为补充。

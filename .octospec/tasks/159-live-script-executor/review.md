@@ -30,3 +30,9 @@ reviewer 首轮独立运行 17 项离线检查，作者在故障注入补强后�
 ## 交付前增量复审
 
 同步 `c35b261b31573bc2f08a16eeced12f18705b2560` 后，两名独立 reviewer 再次检查该基线至最终工作区的差异及新增文件：Standards 0 项、Spec 0 项。本项四份知识文档必填 YAML 字段齐全；旧 Codex live 和新基线本地复验区分准确，IM 缺项及历史字段不足如实披露。#267 修复已在主线，相对交付基线无重复差异；CI、默认测试入口及生产实现未扩大。
+
+## PR #278 复审修正
+
+外部 review 对 `b40a9ed5` 的规格结论为通过，但要求补齐启动副作用 guard 和 forwarding 参数/回执约束。已同步 `main@49f9b11f`，扩展 Worker/cluster/fs/FileHandle 保护，明确 API 补丁的保证边界；forwarding 严格解析参数，限制私有临时 cwd 固定回执，独占打开后才联网。
+
+本轮两个独立 reviewer 分别复审规范和规格：Standards **0 项**、Spec **0 项**；两者均独立运行 46 项手动套件通过。严格解析先于执行器加载/联网，原 live 断言和启动装配保持，CI 范围不变。作者另外重跑真实 forwarding 通过；reviewer 的离线结果不替代该实网记录，版本与限制见 [validation.md](validation.md)。

@@ -7,6 +7,19 @@ tags: [testing, integration]
 
 # 结论
 
+## PR #278 复审修正（2026-11-01）
+
+旧 PR head `b40a9ed58c01df9b06feebbb94967d65f7cf2edb` 的 review 指出启动 guard 缺少 Worker/cluster/fs，以及 forwarding 参数和回执路径约束不足。两项均修正；同步 `origin/main@49f9b11f58c13a65cc62e74d2c4751cac99a3707`，合并提交 `d98847f364378555db2f614a14634909531f101d`，以下运行绑定该提交加本轮未提交补丁。
+
+- 手动专项 **46 项 PASS**：保留原 20 项；新增严格参数 9 项、非法回执路径 3 项、固定 HTTP 替身下合法回执/已有目标/错误文件名 3 项、Worker/cluster/fs 保护 11 项。替身结果不是实网结果。
+- guard 保留只读文件加载，禁止常规 Node 文件修改 API、可写 open 和只读 FileHandle 的修改；具名 ESM 导出同步。它是列举 API 的回归保护，不是抵御主动绕过的 OS 沙箱。
+- forwarding 仅允许空参数、单个 startup 或精确 endpoint 子命令。端点回执限调用方独占临时 cwd 的固定绝对路径，POSIX 核对目录 owner/私有 mode，独占打开后才联网。Windows 使用同样路径/独占创建约束，本轮未在 Windows 实测。
+- `pnpm build`、`pnpm lint`、`pnpm lint:names`、本轮 JS 格式及 diff 空白检查 PASS；全仓知识 lint PASS（561 单元、20 规则、3509 链接）。CI 工作流/默认测试入口无本项差异。
+- **当前 forwarding 真实 Codex 重跑 PASS**：macOS arm64、Node `v24.22.2`、Codex CLI `0.164.0`，cwd `/tmp`，命令 `node /Users/lvsijia/github.com/Mininglamp-OSS/octo-runtime-issue-159/scripts/verify-codex-forwarding-live.mjs`。退出 0，`run.completed`、`completedTools: 1`、`nativeCommandCalled: true`、`markerReturned: true`、`executionFeatureField: false`；实际子命令成功生成固定端点 HTTP 200 回执并回传随机 marker，脚本 finally 完成关闭与临时目录删除。未显式选模型，未采集实际模型 ID。
+- act-mode 本轮未重跑，沿用下方绑定旧版本的历史证据；IM QA 仍未配置。没有把旧 CI 的通过当作本轮新提交通过。
+
+以下是首次交付与历史运行，保留其版本边界。
+
 两处残留导入已修复，三份实际脚本可在离线模式完成加载、构造、注册与清理。手动专项 20 项通过，真实 Codex act-mode 三轮和 forwarding 均通过；原业务断言保留。
 
 首轮因全仓文档 lint 的三个既有错误返回待规格审查。用户随后授权检查 metadata 并提交 PR；同步到 `c35b261b31573bc2f08a16eeced12f18705b2560` 后，主线已修复这三份文档，本地构建、20 项专项、lint、命名、格式及全仓知识检查复验通过。本 PR 不重复修改 #267。IM Context 真实验收缺 QA 账号配置，未执行，不计通过。

@@ -1,6 +1,7 @@
 brief: .octospec/tasks/159-live-script-executor/brief.md
 baseline: a5a32835882deab5e2364b559dd06bf1675c1335
 delivery_baseline: c35b261b31573bc2f08a16eeced12f18705b2560
+review_update_baseline: 49f9b11f58c13a65cc62e74d2c4751cac99a3707
 injected:
   - id: runtime-architecture
     source: repo
