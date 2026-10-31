@@ -536,6 +536,8 @@ export class ImRuntime {
     }
     this.#seen.set(dedupe, now + 120_000);
     const command = message.text.trim();
+    // null 表示 Gateway 已拒绝控制授权；不能用 ?? 回退原文，避免广播裸命令绕过。
+    const sessionControl = message.sessionControl === undefined ? command : message.sessionControl;
     if (/^\/(approve|decline|respond)\s/.test(command)) {
       void this.#respond(message, key).catch(() =>
         this.#diagnostic("IM_INTERACTION_RESPONSE_FAILED")
@@ -558,7 +560,7 @@ export class ImRuntime {
       return;
     }
     try {
-      if (command === "/reset" || command === "/new") {
+      if (sessionControl === "/reset" || sessionControl === "/new") {
         try {
           const binding = this.#sessionStore.reset(key, message.messageId);
           this.#finalDeliveries.get(key)?.abort();
@@ -586,7 +588,7 @@ export class ImRuntime {
         }
         return;
       }
-      if (command === "/stop" || command === "/cancel") {
+      if (sessionControl === "/stop" || command === "/cancel") {
         // 控制命令绕过普通消息队列，否则 stop 会排在待取消的长任务之后。
         const preparation = this.#preparing.get(key);
         preparation?.abort();
