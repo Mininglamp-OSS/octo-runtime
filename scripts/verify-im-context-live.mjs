@@ -26,11 +26,19 @@ import { interactionAnswer } from "../packages/octo-runtime-extra-channel-gatewa
 import { RuntimeLogging } from "../packages/octo-runtime-adapter-sdk/dist/index.js";
 import { AgentExecutor } from "../packages/octo-runtime-executor-core/dist/index.js";
 import { createCodexAdapter } from "../packages/octo-runtime-adapter-codex/dist/index.js";
+import { reportVerificationStartup } from "./verification-startup.mjs";
 import { ExtraPlugins } from "../packages/octo-runtime-host-sdk/dist/index.js";
 import {
   getChannelMessages,
   fetchBotGroups
 } from "../packages/octo-runtime-extra-channel-gateway/dist/transport/api/conversations.js";
+
+// live 包装器保留动态上下文断言；两种入口共用 Core 构造与注册，脚本拥有执行器生命周期。
+function createHost({ log, wrapAdapter = (adapter) => adapter } = {}) {
+  const host = new AgentExecutor({ log });
+  host.register(wrapAdapter(createCodexAdapter()));
+  return host;
+}
 
 // Octospec F01: 仅使用显式指定的测试账号；不输出凭据、正文或签名地址。
 // 旧 WS 投递/未知通知场景已删除，拒绝旧参数，避免误跑默认实网验收。
@@ -38,6 +46,10 @@ assert.ok(
   !process.argv.some((arg) => ["--delivery", "--delivery-disconnect"].includes(arg)),
   "QA_WS_DELIVERY_MODES_REMOVED: use .octospec/tasks/255-rest-task-delivery/verify-im-live.mjs"
 );
+if (process.argv.includes("--check-startup")) {
+  await reportVerificationStartup(createHost(), import.meta.url, ["codex"]);
+  process.exit(0);
+}
 assert.ok(process.env.OCTO_CHANNEL_QA_ACCOUNTS);
 const accounts = (await readFile(process.env.OCTO_CHANNEL_QA_ACCOUNTS, "utf8"))
   .split(/(?=Bot Name:)/)
@@ -270,20 +282,23 @@ if (
   });
   const root = await mkdtemp(join(tmpdir(), "octo-f31-live-"));
   const logging = new RuntimeLogging({ directory: join(root, "logs") });
-  const host = new AgentExecutor({ log: logging.kernel });
-  const adapter = createCodexAdapter();
-  const invoke = adapter.invoke.bind(adapter);
-  host.register({
-    ...adapter,
-    invoke: async function* (request, context) {
-      if (dynamic) {
-        providerCalls++;
-        assert.equal(
-          request.controlInstructions,
-          "我是明略科技的Octo助理\n只回复 OCTO_CONTEXT_DYNAMIC_OK，不调用工具。"
-        );
-      }
-      yield* invoke(request, context);
+  const host = createHost({
+    log: logging.kernel,
+    wrapAdapter(adapter) {
+      const invoke = adapter.invoke.bind(adapter);
+      return {
+        ...adapter,
+        invoke: async function* (request, context) {
+          if (dynamic) {
+            providerCalls++;
+            assert.equal(
+              request.controlInstructions,
+              "我是明略科技的Octo助理\n只回复 OCTO_CONTEXT_DYNAMIC_OK，不调用工具。"
+            );
+          }
+          yield* invoke(request, context);
+        }
+      };
     }
   });
   const registrations = [

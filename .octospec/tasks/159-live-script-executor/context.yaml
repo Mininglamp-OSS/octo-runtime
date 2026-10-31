@@ -1,0 +1,53 @@
+brief: .octospec/tasks/159-live-script-executor/brief.md
+baseline: a5a32835882deab5e2364b559dd06bf1675c1335
+delivery_baseline: c35b261b31573bc2f08a16eeced12f18705b2560
+review_update_baseline: 49f9b11f58c13a65cc62e74d2c4751cac99a3707
+injected:
+  - id: runtime-architecture
+    source: repo
+    sections_read:
+      - GitHub CI 范围约束
+      - 统一原生服务构造与部署边界
+      - ExecutorCore 抽取后的执行边界
+      - KernelClient 与 AgentExecutor 的选型合同
+    reason: 验证脚本显式使用 Core，同进程资源归脚本；不恢复 Kernel 兼容导出或扩大 CI。
+  - id: runtime-engineering
+    source: repo
+    reason: 核对规格责任、真实与离线验收、原始错误及资源关闭证据要求。
+  - id: commit
+    source: repo
+    reason: 内部规格中文；用户要求 OSS 公开 commit、issue、PR 英文，提交须另有授权并按要求署名。
+additional_read:
+  - AGENTS.md
+  - .octospec/index.md
+  - .octospec/rules/_index.yaml
+  - .octospec/tasks/_brief.template.md
+  - .claude/skills/octospec-workflow/SKILL.md
+  - .octospec/guides/provider-live-acceptance.md
+  - .octospec/tasks/160-stateless-live-status/context.yaml
+  - scripts/verify-actmode-live.mjs
+  - scripts/verify-im-context-live.mjs
+  - scripts/verify-codex-forwarding-live.mjs
+  - /Users/lvsijia/.agents/skills/code-review/SKILL.md
+  - packages/octo-runtime-executor-core/src/index.ts
+  - packages/octo-runtime-executor-kernel/src/index.ts
+files_expected:
+  - scripts/verify-actmode-live.mjs
+  - scripts/verify-im-context-live.mjs
+  - scripts/verify-codex-forwarding-live.mjs
+  - scripts/verification-startup.mjs
+  - .octospec/tasks/159-live-script-executor/brief.md
+  - .octospec/tasks/159-live-script-executor/context.yaml
+  - .octospec/tasks/159-live-script-executor/verify-startup.mjs
+  - .octospec/tasks/159-live-script-executor/verify-startup-guard.mjs
+  - .octospec/tasks/159-live-script-executor/validation.md
+workflow:
+  execution: ORT-58-20261101-delivery-01
+  command: start-implement
+  source_comment: e69d3077-10dd-44b0-8635-092e7f5b2f62
+  request: 看一下spec是否已经都有yaml metadata，然后提交PR
+  implementation_authorized: true
+  commit_push_authorized: true
+  pr_authorized: true
+  merge_authorized: false
+updated_at: 2026-11-01

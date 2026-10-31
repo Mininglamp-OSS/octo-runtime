@@ -61,6 +61,8 @@
 
 - [Issue 145：公共 SDK 示例与协议说明](tasks/145-sdk-protocol-docs/brief.md)：文档与专项实现完成；手动 8 项及相关回归通过，双轴审查已修复。已补强 YAML 强制约束并补齐历史文档；同步最新主线后复验并按授权交付 PR，专项仅手动本地运行。
 
+- [Issue 159：真实验证脚本执行依赖](tasks/159-live-script-executor/brief.md)：两处导入迁移、三入口手动离线 20 项和真实 Codex 三轮/forwarding 通过，双轴审查无问题；同步最新主线后 metadata 阻塞已消除，按用户授权复验并提交 PR，IM QA 未验，见[验证](tasks/159-live-script-executor/validation.md)。未扩大 CI。
+
 - [Issue 263：长时执行预算](tasks/263-long-running-invocations/brief.md)：默认 24 小时、上限七天，保留独立无响应检测；本地手动专项、真实 DSH 与交付边界见[验证记录](tasks/263-long-running-invocations/validation.md)。
 
 - [Issue 149：Provider 接入文档与所有权说明](tasks/149-provider-onboarding/brief.md)：已修正文档与注释，明确当前配置、完整会话 binding、Codex 图片及分平台进程清理；同步 main 并修复既有 OKF 格式问题，交付验证见[记录](tasks/149-provider-onboarding/validation.md)。

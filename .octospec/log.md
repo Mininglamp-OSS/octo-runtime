@@ -10,6 +10,8 @@
 
 - [Issue 254](journal/shared/2026-11-01-254-npm-pack-json.md)：兼容 npm pack 数组与包名索引 JSON，显式选包并校验字段；63 项回归、npm 12.2.1 打包及现有发行验收通过，双轴审查各 0 发现。主线既有 3 份文档缺 frontmatter 已获用户认可为交付已知问题，按成功进入验证审查并创建 PR；未扩大 CI。
 
+- [Issue 159](journal/shared/2026-11-01-159-live-script-executor.md)：恢复两处 Core 导入、三脚本离线入口；手动 20 项与真实 Codex act-mode/forwarding 通过，双轴审查 0 项。用户授权检查 metadata 并交付 PR，同步主线消除 #267 文档阻塞，复验后交付；IM QA 缺项继续披露，未扩大 CI。
+
 - [Issue 158](journal/shared/2026-11-01-158-launchd-query-ownership.md)：launchd 查询失败传播并保留定义，仅明确缺失可幂等卸载；CLI 错误状态自启 unknown。相关回归 84 通过/13 Windows 跳过，手动专项 22 通过，原生 macOS 1 通过；双轴审查修正后无未解决项，未扩大 CI，未提交或推送。
 
 - [Issue 263](journal/shared/2026-11-01-263-long-running-invocations.md)：默认整轮预算 24 小时、最大七天，保留独立无响应检测；手动长时、原生协议及真实 DSH 验证通过，隔离既有环境问题后全量通过。修复四份 frontmatter，双轴审查问题闭环；未扩大 CI，未提交或推送，外部宿主验收独立记录。
