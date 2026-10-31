@@ -5,7 +5,7 @@
 import type { ImDeliveryReceipt } from "../contracts.js";
 import { sanitizeDiagnosticBody } from "@mininglamp-oss/octo-runtime-adapter-sdk";
 import { OctoApiError } from "../transport/api/errors.js";
-import { ImSendError } from "./text-send.js";
+import { ImSendError } from "./send-error.js";
 
 export class ImDeliveryDispatcher {
   readonly #receipts = new Map<string, ImDeliveryReceipt>();
@@ -20,6 +20,8 @@ export class ImDeliveryDispatcher {
     operation: () => Promise<string | void>,
     options: {
       transient?: boolean;
+      /** 仅当前 finalMsg/卡片 finish 显式指定剩余尝试数，包含首发，最多四次。 */
+      attempts?: 1 | 2 | 3 | 4;
       obsolete?: () => boolean;
       cardOperation?: "send" | "edit";
       onDiagnostic?: (code: string, data?: Record<string, unknown>) => void;
@@ -27,7 +29,7 @@ export class ImDeliveryDispatcher {
   ): Promise<ImDeliveryReceipt> {
     const previous = this.#receipts.get(effectKey);
     if (previous?.state === "delivered") return { ...previous };
-    const attempts = options.transient ? 1 : 3;
+    const attempts = options.transient ? 1 : (options.attempts ?? 3);
     let receipt: ImDeliveryReceipt = { effectKey, state: "pending" };
     this.#record(receipt);
     for (let attempt = 0; attempt < attempts && !this.signal.aborted; attempt++) {
@@ -69,8 +71,8 @@ export class ImDeliveryDispatcher {
         } catch {
           /* 诊断回调失败不得改变投递结果或触发额外发送。 */
         }
-        // WS 已在同一确认窗口完成四次预算，不再叠乘 REST 的重试次数。
-        if (error instanceof ImSendError) break;
+        // 仅本轮 REST 收尾可重试未知响应；明确取消/拒绝立即结束，不另开确认窗口。
+        if (error instanceof ImSendError && !(options.attempts && error.state === "unknown")) break;
         if (status && status !== 429 && status < 500) break;
         if (attempt + 1 === attempts) break;
         const delay =

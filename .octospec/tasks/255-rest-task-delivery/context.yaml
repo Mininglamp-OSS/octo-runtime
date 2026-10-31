@@ -1,0 +1,24 @@
+rules:
+  - .octospec/rules/architecture.md
+  - .octospec/rules/protocol-design.md
+  - .octospec/rules/channel-integration.md
+  - .octospec/rules/context-input.md
+  - .octospec/rules/environment.md
+  - .octospec/rules/extras.md
+  - .octospec/rules/session-reset.md
+  - .octospec/rules/stateless-execution.md
+  - .octospec/rules/engineering.md
+  - .octospec/rules/collaboration.md
+baseline: 332413ae
+initial_baseline: ed7a4c899e5666238bc67e6a8418e3805ac924da
+rebase: User requested latest origin/main on 2026-10-30; uncommitted changes restored without conflicts
+scope: Gateway accepted task lifetime and REST replies across repeated network handovers
+terminal_delivery: Only current finalMsg and card finish allow up to three retries after the initial attempt; failures must be visible in channel-gateway logs without durable delivery storage
+heartbeat: User approved a 10-second PING interval and one 10-second PONG budget; detection only controls inbound WS recovery
+cleanup: User explicitly authorized removal of obsolete WS business sending, late acknowledgements, unknown notices and REST checks of the current WS; no compatibility shims
+github_comment: User authorized an English clarification comment on issue 255 explaining the former coupling, REST-only business output and cleanup results
+excluded: Offline new-message recovery, task event polling, second task ingress, new host or SDK integration requirements
+authorization: New isolated worktree, OctoSpec planning, implementation, review and commits; user subsequently authorized PR creation/push and the 2026-10-31 script cleanup plus explanatory PR comment; no merge or deployment
+review_followup: Retire obsolete WS delivery verification modes, move drain failure injection to REST and explain why the two P1 findings do not apply; production core and CI scope stay unchanged
+credential_followup: User subsequently authorized publishing replacement credentials only after Bot/space verification, preserving old-token REST during verification and revoking delivery on explicit registration identity mismatch; supersedes the prior script-only restriction, without CI expansion
+attachment_followup: User authorized fixing and committing the missing four-attempt budget for each final attachment; preserve cached uploads and confirmed output across outer text retries, add only manually invoked regressions, keep physical Wi-Fi acceptance unverified

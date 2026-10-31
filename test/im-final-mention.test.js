@@ -119,12 +119,12 @@ test("per-turn trigger example separates the actor from stable mention rules", a
   );
 });
 
-test("transport resolves topic members once and sends mention with final text on the original connection", async (t) => {
+test("transport resolves topic members once and sends mention with final text through REST", async (t) => {
   let receive,
     queries = 0;
   const sends = [],
     admitted = [];
-  t.mock.method(globalThis, "fetch", async (url) => {
+  t.mock.method(globalThis, "fetch", async (url, options) => {
     if (url.endsWith("/auth/verify-bot"))
       return Response.json({ bot_uid: "sender-bot", space_id: "s" });
     if (url.endsWith("/bot/register"))
@@ -139,6 +139,18 @@ test("transport resolves topic members once and sends mention with final text on
       queries++;
       return Response.json({ members });
     }
+    if (url.endsWith("/bot/sendMessage")) {
+      const { channel_id, channel_type, payload } = JSON.parse(options.body);
+      sends.push([
+        channel_id,
+        channel_type,
+        payload.content,
+        undefined,
+        undefined,
+        payload.mention
+      ]);
+      return Response.json({ message_id: `rest-${sends.length}` });
+    }
     throw new Error("unexpected request");
   });
   t.mock.method(WukongConnection.prototype, "connect", async function () {
@@ -146,10 +158,6 @@ test("transport resolves topic members once and sends mention with final text on
   });
   t.mock.getter(WukongConnection.prototype, "connected", () => true);
   t.mock.method(WukongConnection.prototype, "close", async () => {});
-  t.mock.method(WukongConnection.prototype, "sendText", async function (...args) {
-    sends.push(args);
-    return "message";
-  });
   const transport = new GatewayTransport(
     {
       bot_id: "sender-bot",

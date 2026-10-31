@@ -38,7 +38,6 @@ import { MODEL_WAIT_TIMEOUT_MESSAGE } from "../execution/model-wait.js";
 import { ImDeliveryIdentity } from "../delivery/identity.js";
 import { ImDeliveryDispatcher } from "../delivery/dispatcher.js";
 import { ImRunProjector } from "../presentation/run-projector.js";
-import { deliveryNotice } from "../presentation/delivery-notice.js";
 import { MemoryImSessionStore, type ImSessionStore } from "./session-store.js";
 import { addRulesRecovery, selectRulesContext, type ImRulesVersions } from "./rules-context.js";
 import { planStableContext } from "./stable-context.js";
@@ -97,7 +96,7 @@ export class ImRuntime {
   #delivery?: ImDeliveryDispatcher;
   #cardDelivery?: ImDeliveryDispatcher;
   #deliveryIdentity?: ImDeliveryIdentity;
-  // 宿主凭据来源是黑盒；沿原初始化/建联入口保存值，REST 不重新获取或等待 WS 核验。
+  // 仅保存已核验 Bot/空间的凭据；候选值核验期间 REST 继续使用旧值，不等待 WS。
   #restToken?: string;
   readonly #sessions = new Map<string, ImSession>();
   readonly #sessionStore: ImSessionStore;
@@ -240,7 +239,6 @@ export class ImRuntime {
         ? this.dependencies.credentials(config, signal)
         : Promise.resolve(config.bf_token));
       signal.throwIfAborted();
-      this.#restToken = token?.trim();
       return token;
     };
     const connector = new GatewayTransport(
@@ -250,6 +248,11 @@ export class ImRuntime {
         authorizeSpace: this.dependencies.authorizeSpace,
         onPosition: (position) => {
           if (connector === this.#connector && !signal.aborted) this.#observePosition(position);
+        },
+        onTaskPosition: (position) => {
+          // 原任务目标身份生成 key；重连中 current connector 可能尚未核验空间。
+          if (!this.#signal.aborted)
+            this.#observePosition(position, this.#key(position, connector.identity));
         },
         onRulesChanged: (change) => {
           if (connector !== this.#connector || signal.aborted) return;
@@ -273,8 +276,9 @@ export class ImRuntime {
         dispatcher: this.#cardDelivery!,
         identity: this.#deliveryIdentity!,
         token: () => this.#restToken,
-        // 只供旧任务选择本 Bot 当前连接；生命周期停止后旧 signal 不会随新 start 复活。
-        current: () => this.#connector
+        acceptToken: (token) => {
+          this.#restToken = token;
+        }
       }
     );
     this.#connector = connector;
@@ -403,9 +407,12 @@ export class ImRuntime {
     if (this.#draining) this.#drainErrors.push(new Error(code));
     this.#diagnostic(code, runId);
   }
-  #key(message: Pick<ImInboundMessage, "conversationKind" | "conversationId">): string {
+  #key(
+    message: Pick<ImInboundMessage, "conversationKind" | "conversationId">,
+    identity = this.#connector!.identity
+  ): string {
     return [
-      this.#connector!.identity,
+      identity,
       imBotIdentity(this.config),
       this.config.adapter.adapter_type ?? "",
       message.conversationKind,
@@ -414,9 +421,8 @@ export class ImRuntime {
       .map(encodeURIComponent)
       .join("/");
   }
-  #observePosition(position: ImPositionObservation): void {
+  #observePosition(position: ImPositionObservation, key = this.#key(position)): void {
     if (this.#closed || !validMessageSeq(position.messageSeq)) return;
-    const key = this.#key(position);
     try {
       const binding = this.#sessionStore.read(key);
       if (!binding?.id || !this.#sessionStore.patchGap) return;
@@ -876,8 +882,8 @@ export class ImRuntime {
     effectKey: string,
     requireDelivered = false,
     final = false,
-    allowUnknownNotice = true,
-    finalOptions?: ImFinalReplyOptions
+    finalOptions?: ImFinalReplyOptions,
+    runId?: string
   ): Promise<void> {
     if (this.#closed || this.#signal.aborted || !this.#delivery) return;
     const receipt = await this.#delivery.deliver(
@@ -886,44 +892,15 @@ export class ImRuntime {
         final && message.replyFinal
           ? message.replyFinal(text, effectKey, finalOptions)
           : message.reply(text, effectKey, finalOptions),
-      { obsolete: finalOptions ? () => finalOptions.obsolete() : undefined }
+      {
+        obsolete: finalOptions ? () => finalOptions.obsolete() : undefined,
+        ...(finalOptions ? { attempts: 4 as const } : {})
+      }
     );
     if (finalOptions?.obsolete()) return;
     if (receipt.state !== "delivered") {
       if (this.#draining) this.#drainErrors.push(new Error(receipt.code ?? "IM_DELIVERY_FAILED"));
-      this.#diagnostic(receipt.code ?? "IM_DELIVERY_FAILED");
-      if (
-        allowUnknownNotice &&
-        receipt.state === "unknown" &&
-        message.replyDeliveryUnknown &&
-        !this.#closed &&
-        !this.#signal.aborted
-      ) {
-        const notice = deliveryNotice();
-        // 未知通知仍属于原轮最终投递；stop/reset 必须取消在途请求并阻止后续重试。
-        // 迟到 ACK 与代次过期共用发送边界检查，不能因 REST 独立于 WS 而脱离任务期限。
-        const noticeSignal = finalOptions
-          ? AbortSignal.any([this.#signal, finalOptions.signal])
-          : this.#signal;
-        const obsolete = () =>
-          noticeSignal.aborted ||
-          Boolean(finalOptions?.obsolete()) ||
-          Boolean(message.isReplyDelivered?.(effectKey));
-        const result = await this.#delivery.deliver(
-          `delivery-unknown:${effectKey}`,
-          () =>
-            message.replyDeliveryUnknown!(
-              notice,
-              `delivery-unknown:${effectKey}`,
-              effectKey,
-              noticeSignal,
-              obsolete
-            ),
-          { obsolete }
-        );
-        if (result.state !== "delivered" && !obsolete())
-          this.#diagnostic("IM_DELIVERY_NOTICE_FAILED");
-      }
+      this.#diagnostic(receipt.code ?? "IM_DELIVERY_FAILED", runId);
       if (requireDelivered) throw new Error(receipt.code ?? "IM_DELIVERY_FAILED");
     }
   }
@@ -1610,12 +1587,12 @@ export class ImRuntime {
           `final:${rootRunId}`,
           false,
           allowMention,
-          projector.snapshot().terminal !== "cancelled",
           {
             artifacts: prepared.artifacts,
             signal: deliverySignal,
             obsolete: () => deliverySignal.aborted || (allowMention && obsolete())
-          }
+          },
+          rootRunId
         );
       } finally {
         if (this.#finalDeliveries.get(key) === delivery) this.#finalDeliveries.delete(key);

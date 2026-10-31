@@ -591,7 +591,7 @@ test("real handshake rejection preserves reason even without optional success fi
   });
 });
 
-test("missing PONG disconnects after a 5-second probe and 5-second reply budget and releases sends", async (t) => {
+test("missing PONG disconnects after a 10-second probe and 10-second reply budget", async (t) => {
   const s = await server(t);
   s.ws.on("connection", (peer) => peer.once("message", () => peer.send(handshake())));
   let disconnected;
@@ -602,17 +602,15 @@ test("missing PONG disconnects after a 5-second probe and 5-second reply budget 
   t.after(() => client.close());
   t.mock.timers.enable({ apis: ["setInterval", "Date"], now: Date.now() });
   await client.connect(s.registration);
-  const pending = assert.rejects(client.sendText("qa", 1, "test"), { message: "IM_DISCONNECTED" });
-  t.mock.timers.tick(4999);
+  t.mock.timers.tick(9999);
   assert.equal(client.connected, true);
   t.mock.timers.tick(1);
   assert.equal(client.connected, true);
-  t.mock.timers.tick(4999);
+  t.mock.timers.tick(9999);
   assert.equal(client.connected, true);
   t.mock.timers.tick(1);
   assert.equal(client.connected, false);
   const error = await closed;
-  await pending;
   assert.equal(error.message, "IM_HEARTBEAT_TIMEOUT");
   assert.equal(error.retryable, true);
   assert.equal(client.connected, false);
@@ -635,7 +633,7 @@ test("timely protocol PONG keeps the connection online across heartbeat cycles",
   await client.connect(s.registration);
   for (let i = 0; i < 4; i++) {
     const ping = once(peer, "message");
-    t.mock.timers.tick(5000);
+    t.mock.timers.tick(10000);
     assert.deepEqual((await ping)[0], Buffer.from([0x70]));
     const reply = once(peer, "message");
     // 服务端 PING 紧随 PONG：收到客户端回复证明两帧均已消费，避免真实 IO 与假时钟竞态。
@@ -665,17 +663,17 @@ test("inbound protocol traffic cannot hide a missing PONG", async (t) => {
   t.mock.timers.enable({ apis: ["setInterval"] });
   await client.connect(s.registration);
   const ping = once(peer, "message");
-  t.mock.timers.tick(5000);
+  t.mock.timers.tick(10000);
   assert.deepEqual((await ping)[0], Buffer.from([0x70]));
   for (let i = 0; i < 4; i++) {
-    t.mock.timers.tick(1000);
+    t.mock.timers.tick(2000);
     const reply = once(peer, "message");
     // 合法但无待确认发送的 SENDACK，再附服务端 PING，证明普通数据与心跳请求均不能续命。
     peer.send(Buffer.concat([Buffer.from([0x40, 17]), Buffer.alloc(17), Buffer.from([0x70])]));
     assert.deepEqual((await reply)[0], Buffer.from([0x80]));
     assert.equal(client.connected, true);
   }
-  t.mock.timers.tick(1000);
+  t.mock.timers.tick(2000);
   assert.equal((await closed).message, "IM_HEARTBEAT_TIMEOUT");
   assert.equal(client.connected, false);
 });

@@ -26,7 +26,7 @@ import { OctoConnector } from "../packages/octo-runtime-extra-channel-gateway/di
 import { CardSession } from "../packages/octo-runtime-extra-channel-gateway/dist/transport/card-session.js";
 import { parseCardAction } from "../packages/octo-runtime-extra-channel-gateway/dist/transport/card-action.js";
 import { ImDeliveryDispatcher } from "../packages/octo-runtime-extra-channel-gateway/dist/delivery/dispatcher.js";
-import { ImSendError } from "../packages/octo-runtime-extra-channel-gateway/dist/delivery/text-send.js";
+import { ImSendError } from "../packages/octo-runtime-extra-channel-gateway/dist/delivery/send-error.js";
 import { ProgressScheduler } from "../packages/octo-runtime-extra-channel-gateway/dist/delivery/scheduler.js";
 import { TypingController } from "../packages/octo-runtime-extra-channel-gateway/dist/presentation/typing.js";
 import { createImInvocation as createChannelInput } from "../packages/octo-runtime-extra-channel-gateway/dist/execution/dispatcher.js";
@@ -674,12 +674,7 @@ test("Cards create/edit one stable message with monotone card_seq and persistent
   });
   const abort = new AbortController();
   t.after(() => abort.abort());
-  const connector = new OctoConnector(
-    config({ api_url: f.apiUrl }),
-    "bf_fixture",
-    abort.signal,
-    async () => {}
-  );
+  const connector = new OctoConnector(config({ api_url: f.apiUrl }), "bf_fixture", abort.signal);
   const delivery = new ImDeliveryDispatcher(abort.signal);
   let stopped = 0;
   const card = new CardSession(

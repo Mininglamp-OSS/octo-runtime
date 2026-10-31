@@ -12,8 +12,7 @@ import { OctoConnector } from "../../../packages/octo-runtime-extra-channel-gate
 import { artifactPolicy } from "../../../packages/octo-runtime-extra-channel-gateway/dist/delivery/artifact-policy.js";
 
 import { ImRuntime } from "../../../packages/octo-runtime-extra-channel-gateway/dist/index.js";
-import { ImSendError } from "../../../packages/octo-runtime-extra-channel-gateway/dist/delivery/text-send.js";
-import { deliveryNotice } from "../../../packages/octo-runtime-extra-channel-gateway/dist/presentation/delivery-notice.js";
+import { ImSendError } from "../../../packages/octo-runtime-extra-channel-gateway/dist/delivery/send-error.js";
 import { waitFor } from "../../../test/runtime-fixture.js";
 
 const failed = { protocolVersion: 2, type: "run.failed", payload: { message: "failure" } };
@@ -28,7 +27,7 @@ async function fixture(t) {
     hook;
   const requests = [],
     connections = [],
-    wsReplies = [],
+    restReplies = [],
     transports = [];
   let current;
   const identity = new ImDeliveryIdentity();
@@ -90,8 +89,11 @@ async function fixture(t) {
           ]
         }
       });
-    if (url.endsWith("/bot/sendMessage") || url.endsWith("/bot/message/edit"))
+    if (url.endsWith("/bot/sendMessage") || url.endsWith("/bot/message/edit")) {
+      const body = JSON.parse(options.body);
+      if (body.payload?.type === 1) restReplies.push({ text: body.payload.content });
       return Response.json({ message_id: "card" });
+    }
     if (url.includes("/user/info")) return Response.json({ uid: "owner", name: "Owner" });
     if (url.includes("upload/presigned"))
       return Response.json({
@@ -108,11 +110,6 @@ async function fixture(t) {
   });
   t.mock.getter(WukongConnection.prototype, "connected", () => true);
   t.mock.method(WukongConnection.prototype, "close", async () => {});
-  t.mock.method(WukongConnection.prototype, "sendText", async function (...args) {
-    wsReplies.push({ connection: this, text: args[2] });
-    return "sent";
-  });
-  t.mock.method(WukongConnection.prototype, "sendFile", async () => "sent");
   const config = {
     bot_id: "bot",
     api_url: "https://im.example/api",
@@ -123,8 +120,7 @@ async function fixture(t) {
     signal: owner.signal,
     dispatcher: new ImDeliveryDispatcher(owner.signal),
     identity,
-    token: () => heldToken,
-    current: () => current
+    token: () => heldToken
   };
   const transport = new GatewayTransport(
     config,
@@ -158,7 +154,7 @@ async function fixture(t) {
     owner,
     transport,
     connections,
-    wsReplies,
+    restReplies,
     async replace(authorizeSpace) {
       heldToken = "bf_" + randomUUID();
       current = new GatewayTransport(
@@ -311,12 +307,11 @@ test("attachments use held credentials for presign and never forward bfToken to 
   assert.equal(f.reads(), 1);
 });
 
-// Manual-only review regressions: final-notice cancellation is independent of WS readiness.
+// Manual-only review regressions: final cancellation is independent of WS readiness.
 for (const command of ["/stop", "/reset"]) {
-  test(command + " cancels a pending unknown-delivery notice", async (t) => {
-    let receive, noticeSignal, noticeObsolete, finalOptions, release;
-    let posted = 0,
-      invokes = 0;
+  test(command + " cancels pending final delivery without a fallback notice", async (t) => {
+    let receive, finalOptions, release;
+    let invokes = 0;
     const replies = [];
     const pending = new Promise((resolve) => {
       release = resolve;
@@ -367,35 +362,27 @@ for (const command of ["/stop", "/reset"]) {
       },
       async replyFinal(_text, _key, options) {
         finalOptions = options;
-        throw new ImSendError("IM_DELIVERY_UNKNOWN", "unknown");
-      },
-      async replyDeliveryUnknown(_event, _key, _originalKey, signal, obsolete) {
-        noticeSignal = signal;
-        noticeObsolete = obsolete;
         await pending;
-        signal.throwIfAborted();
-        if (!obsolete?.()) posted++;
+        options.signal.throwIfAborted();
+        throw new ImSendError("IM_DELIVERY_UNKNOWN", "unknown");
       }
     };
     receive(message);
-    await waitFor(() => noticeSignal !== undefined);
+    await waitFor(() => finalOptions !== undefined);
     receive({ ...message, messageId: "control", text: command });
     await waitFor(() => replies.length > 0);
-    const wasAborted = noticeSignal.aborted;
+    const wasAborted = finalOptions.signal.aborted;
     release();
     await waitFor(() => runtime.status.workingTasks === 0);
     assert.equal(finalOptions.signal.aborted, true);
     assert.equal(finalOptions.obsolete(), true);
     assert.equal(wasAborted, true);
-    assert.equal(typeof noticeObsolete, "function");
-    assert.equal(noticeObsolete(), true);
-    assert.equal(posted, 0);
     assert.equal(invokes, 1);
   });
 }
 
 for (const outcome of ["cancelled", "obsolete", "deliver"]) {
-  test("unknown notice after pending REST profile: " + outcome, async (t) => {
+  test("failure card after pending REST profile: " + outcome, async (t) => {
     const f = await fixture(t);
     const task = new AbortController();
     let release,
@@ -414,7 +401,7 @@ for (const outcome of ["cancelled", "obsolete", "deliver"]) {
       }
     });
     const result = f.inbound
-      .replyDeliveryUnknown(deliveryNotice(), "notice", "final", task.signal, () => obsolete)
+      .replyFailure(failed, "failure", { signal: task.signal, obsolete: () => obsolete })
       .then(
         () => ({ ok: true }),
         (error) => ({ ok: false, error })
@@ -428,7 +415,7 @@ for (const outcome of ["cancelled", "obsolete", "deliver"]) {
     if (outcome === "cancelled") {
       assert.equal(profileSignal.aborted, true);
       assert.equal(settled.ok, false);
-    } else assert.equal(settled.ok, true);
+    } else assert.equal(settled.ok, outcome === "deliver");
     assert.equal(f.reads(), 1);
   });
 }
@@ -481,9 +468,7 @@ for (const rejection of ["bot", "space"]) {
       assert.equal(revoked, true);
       assert.equal(settled.ok, false);
       const before = f.requests.length;
-      await assert.rejects(
-        f.inbound.replyDeliveryUnknown(deliveryNotice(), "notice", "final", f.owner.signal)
-      );
+      await assert.rejects(f.inbound.reply("later", "revoked-text"));
       await assert.rejects(f.inbound.replyFailure(failed, "later"));
       assert.equal(f.requests.length, before, "rejected target must not receive old-task HTTP");
       assert.equal(f.sends().length, 0);
@@ -599,11 +584,7 @@ for (const stage of ["profile", "post"]) {
       await waitFor(() => f.connections.at(-1) !== first && runtime.status.state === "online");
       const replacement = f.connections.at(-1);
       release();
-      await waitFor(() => f.wsReplies.some((reply) => reply.text.includes("/approve question")));
-      assert.equal(
-        f.wsReplies.find((reply) => reply.text.includes("/approve question")).connection,
-        replacement
-      );
+      await waitFor(() => f.restReplies.some((reply) => reply.text.includes("/approve question")));
       replacement.onMessage({
         ...message,
         messageId: "answer",
@@ -693,9 +674,7 @@ for (const rejection of ["bot", "space"]) {
     assert.equal(credentialReads, 2);
     const afterRejection = f.requests.length;
     await assert.rejects(inbound.replyFailure(failed, "rejected-failure"));
-    await assert.rejects(
-      inbound.replyDeliveryUnknown(deliveryNotice(), "rejected-notice", "final", f.owner.signal)
-    );
+    await assert.rejects(inbound.reply("later", "rejected-text"));
     release();
     await waitFor(() => runtime.status.workingTasks === 0);
     assert.equal(
