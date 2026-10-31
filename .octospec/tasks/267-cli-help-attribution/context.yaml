@@ -1,0 +1,28 @@
+baseline: 0bcd89c528018ffd508ca8099c8ac9c6b88de35d
+task: ORT-85
+issue: https://github.com/Mininglamp-OSS/octo-runtime/issues/267
+branch: feat/267-cli-help-attribution
+phase: implementation
+rules:
+  - path: .octospec/rules/_index.yaml
+    scope: rule-discovery
+  - path: .octospec/rules/architecture.md
+    scope: GitHub CI scope, CLI ownership, product intent boundaries
+  - path: .octospec/rules/engineering.md
+    scope: build metadata, local verification, evidence requirements
+  - path: .octospec/rules/collaboration.md
+    scope: Chinese internal documentation; user OSS English commit and PR instructions take precedence
+sources:
+  - AGENTS.md
+  - CONTRIBUTING.md
+  - .octospec/index.md
+  - apps/cli/src/command-tree.ts
+  - apps/cli/src/help.ts
+  - test/cli-help.test.js
+  - README.md
+  - package.json
+  - .octospec/tasks/cli-extra-display/context.yaml
+  - Loop ORT-85 description and comments
+  - User request to start spec
+  - User approval to start implementation
+  - /Users/lvsijia/.agents/skills/code-review/SKILL.md
