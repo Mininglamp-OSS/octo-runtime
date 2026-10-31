@@ -296,7 +296,9 @@ export async function parseCliCommand(
 
   const root = command(
     "octo-runtime",
-    "Manage the local Octo Agent runtime and independent services."
+    "Manage the local Octo Agent runtime and independent services.\n\n" +
+      "Octo Runtime by Mininglamp Technology\n" +
+      "Open source on GitHub: https://github.com/Mininglamp-OSS/octo-runtime"
   );
   addHostOptions(
     root,
