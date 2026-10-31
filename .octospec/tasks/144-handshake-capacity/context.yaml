@@ -1,0 +1,33 @@
+task: 144-handshake-capacity
+status: implementation-validated-awaiting-code-review
+baseline: c35b261b31573bc2f08a16eeced12f18705b2560
+branch: fix/144-handshake-capacity
+rules_read:
+  - .octospec/rules/_index.yaml
+  - .octospec/rules/architecture.md
+  - .octospec/rules/engineering.md
+  - .octospec/rules/stateless-execution.md
+  - .octospec/rules/local-execution.md
+  - .octospec/rules/output-protocol.md
+  - .octospec/rules/collaboration.md
+workflow_read:
+  - .octospec/index.md
+  - .claude/skills/octospec-workflow/SKILL.md
+  - .claude/commands/octospec-plan.md
+  - .octospec/tasks/_brief.template.md
+references:
+  - https://github.com/Mininglamp-OSS/octo-runtime/issues/144
+  - loop:ORT-46
+  - test/host-run-service.test.js
+  - test/runtime-fixture.js
+  - packages/octo-runtime-executor-kernel/src/host-run-service.ts
+  - packages/octo-runtime-protocol/src/run-protocol.ts
+decisions_pending: []
+validation:
+  spec_readiness: 97/100-self-assessment
+  implementation: complete
+  runtime_tests: passed-7-host-run-service-tests
+  mutation_checks: both-rejected-lost-terminal
+  typecheck: passed-including-build
+  lint: passed-after-build
+  ci_scope: unchanged
