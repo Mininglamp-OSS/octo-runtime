@@ -2,6 +2,8 @@
 
 ## 2026-11-01
 
+- [Issue 22 / PR 275](journal/shared/2026-11-01-22-secret-scan-closeout.md)：核对既有 45 条历史处置和 main 扫描证据，准备英文收尾草稿。按用户及远端审查补齐 frontmatter、Validation 类型、独立 review/journal 与索引入口，实际执行知识检查；检测行为和 CI 范围不变，原 Issue 未关闭。
+
 - [Issue 144](journal/shared/2026-11-01-144-handshake-capacity.md)：修正待握手容量夹具，全部 128 次成功终态、输出保留、精确 TTL 边界与 fresh 完成均有断言；7 项通过、两次负向实验捕获、双轴审查各 0 发现。类型/构建、lint 与知识检查通过，CI 范围不变，按授权准备 PR。
 
 - [Issue 145](journal/shared/2026-11-01-145-sdk-protocol-docs.md)：修正 SDK 连接、公共模式、native-only、mandatory 覆盖和 Kernel 共享订阅容量说明。手动 8 项及相关回归通过，双轴审查完成；用户授权补强 YAML 约束并补齐历史文档后知识检查通过，现同步主线复验并准备 PR，CI 不扩围。
