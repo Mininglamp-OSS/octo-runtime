@@ -3,6 +3,7 @@ import { mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import {
+  assertCommandSucceeded,
   definitionDrift,
   escapeXml,
   normalizeServiceSpec,
@@ -90,7 +91,7 @@ export class LaunchdUserBackend implements ServiceBackend {
     }
   }
 
-  /** Return what launchd is actually using plus whether the installed plist differs from `spec`. */
+  /** 只返回已确认的原生状态与定义漂移；查询失败抛错，调用方不得视为停止或已启用。 */
   async inspect(spec: ServiceSpec): Promise<ServiceStatus> {
     const normalized = this.#normalize(spec);
     const label = launchdLabel(normalized);
@@ -145,7 +146,7 @@ export class LaunchdUserBackend implements ServiceBackend {
     }
   }
 
-  /** Finish with no loaded LaunchAgent and no plist; Runtime home data remains untouched. */
+  /** 确认 job 消失后才删除 plist；查询或停止失败保留定义供重试，不修改 Home 数据。 */
   async uninstall(spec: ServiceSpec): Promise<void> {
     const normalized = this.#normalize(spec);
     const label = launchdLabel(normalized);
@@ -251,11 +252,23 @@ export class LaunchdUserBackend implements ServiceBackend {
     return `${this.#domain()}/${label}`;
   }
 
-  #print(label: string) {
-    return runCommand(this.#runner, this.kind, this.#launchctl, ["print", this.#target(label)], {
-      checked: false,
-      env: this.#environment
-    });
+  /** 仅接受目标服务的明确缺失；域、权限和超时错误不能释放管理器所有权。 */
+  async #print(label: string) {
+    const result = await runCommand(
+      this.#runner,
+      this.kind,
+      this.#launchctl,
+      ["print", this.#target(label)],
+      { checked: false, env: this.#environment }
+    );
+    const missing = new RegExp(
+      `^Could not find service "${escapeRegExp(label)}" in domain for user gui: ${this.#uid}\\r?$`,
+      "m"
+    );
+    if (result.exitCode !== 113 || !missing.test(result.stderr || result.stdout)) {
+      assertCommandSucceeded(result, this.kind);
+    }
+    return result;
   }
 
   async #disabled(label: string): Promise<boolean> {
@@ -265,11 +278,9 @@ export class LaunchdUserBackend implements ServiceBackend {
       this.#launchctl,
       ["print-disabled", this.#domain()],
       {
-        checked: false,
         env: this.#environment
       }
     );
-    if (result.exitCode !== 0) return false;
     const match = result.stdout.match(
       new RegExp(`["']?${escapeRegExp(label)}["']?\\s*=>\\s*(true|false|enabled|disabled)`)
     );
@@ -300,6 +311,7 @@ export class LaunchdUserBackend implements ServiceBackend {
     );
   }
 
+  /** 首次查询与停止后轮询均须确认缺失；任何查询失败都保留 plist 并传播。 */
   async #bootout(label: string, timeoutSeconds: number): Promise<void> {
     if ((await this.#print(label)).exitCode !== 0) return;
     await runCommand(this.#runner, this.kind, this.#launchctl, ["bootout", this.#target(label)], {

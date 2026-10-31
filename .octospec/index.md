@@ -57,6 +57,8 @@
 
 ## 当前任务
 
+- [Issue 22：既有 Secret Scan 修复验收与收尾](tasks/ort-10-secret-scan-closeout/brief.md)：45 个原指纹及最新 main 扫描证据已核对；[验收记录](tasks/ort-10-secret-scan-closeout/validation.md)、[审查整改](tasks/ort-10-secret-scan-closeout/review.md)和[journal](journal/shared/2026-11-01-22-secret-scan-closeout.md)记录 PR #275 的元数据补齐。英文评论仍为草稿，原 Issue 未关闭。
+
 - [Issue 145：公共 SDK 示例与协议说明](tasks/145-sdk-protocol-docs/brief.md)：文档与专项实现完成；手动 8 项及相关回归通过，双轴审查已修复。已补强 YAML 强制约束并补齐历史文档；同步最新主线后复验并按授权交付 PR，专项仅手动本地运行。
 
 - [Issue 159：真实验证脚本执行依赖](tasks/159-live-script-executor/brief.md)：两处导入迁移、三入口手动离线 20 项和真实 Codex 三轮/forwarding 通过，双轴审查无问题；同步最新主线后 metadata 阻塞已消除，按用户授权复验并提交 PR，IM QA 未验，见[验证](tasks/159-live-script-executor/validation.md)。未扩大 CI。

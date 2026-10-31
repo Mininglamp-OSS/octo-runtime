@@ -24,8 +24,12 @@ export function formatStatus(name: string, snapshot: ComponentSnapshot): string 
   const runtime = record(snapshot.runtime);
   const business = record(runtime.status);
   const ipc = runtime.available === false ? "unavailable" : "ready";
+  // 查询失败的 enabled=false 只是兼容占位值，不代表已确认关闭自启。
+  const managerQueryFailed =
+    service.state === "unknown" && service.detail && /^[A-Z][A-Z0-9_]+$/.test(service.detail);
+  const autostart = managerQueryFailed ? "unknown" : service.enabled ? "on" : "off";
   const lines = [
-    `${name}  service: ${service.state}  autostart: ${service.enabled ? "on" : "off"}  IPC: ${ipc}`,
+    `${name}  service: ${service.state}  autostart: ${autostart}  IPC: ${ipc}`,
     `  Manager: ${service.manager}${service.pid ? `  PID: ${service.pid}` : runtime.pid ? `  PID: ${text(runtime.pid)}` : ""}`
   ];
   if (runtime.execution_ready !== undefined)
@@ -42,8 +46,7 @@ export function formatStatus(name: string, snapshot: ComponentSnapshot): string 
   if (service.lastExitCode !== undefined && service.lastExitCode !== 0)
     lines.push(`  Last exit: ${service.lastExitCode}`);
   if (service.definitionPath) lines.push(`  Definition: ${service.definitionPath}`);
-  if (service.state === "unknown" && service.detail && /^[A-Z][A-Z0-9_]+$/.test(service.detail))
-    lines.push(`  Manager status: ${service.detail}`);
+  if (managerQueryFailed) lines.push(`  Manager status: ${service.detail}`);
   const summarize = (value: unknown, depth = 0): string => {
     if (Array.isArray(value)) return `${value.length} entries`;
     if (value !== null && typeof value === "object") {

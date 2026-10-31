@@ -61,6 +61,9 @@ test("drain waits for direct invocation streams and closes admission", async () 
   }
 });
 test("Host counts pending handshakes toward capacity and releases expired terminal runs", async (t) => {
+  const startedAt = 1_800_000_000_000;
+  let now = startedAt;
+  t.mock.method(Date, "now", () => now);
   let release;
   const gate = new Promise((resolve) => {
     release = resolve;
@@ -77,36 +80,111 @@ test("Host counts pending handshakes toward capacity and releases expired termin
         protocol_mode: "canonical",
         protocol: "fixture.canonical"
       };
-      yield { ...identity, seq: 1, kind: "control", control: { type: "state", state: "accepted" } };
+      yield { ...identity, seq: 1, kind: "control", control: { type: "state", state: "running" } };
       yield {
         ...identity,
         seq: 2,
+        kind: "canonical",
+        event: {
+          protocolVersion: 2,
+          type: "message.delta",
+          payload: { text: `answer for ${request.runId}`, channel: "final" }
+        }
+      };
+      yield {
+        ...identity,
+        seq: 3,
         kind: "control",
         control: { type: "state", state: "completed" }
       };
     },
     cancel: async () => ({ cancelled: true })
   });
-  t.after(() => host.close());
-  const pending = Array.from({ length: 128 }, (_, index) =>
-    preparedSubmit(host, "fixture", {
-      ...input(),
-      runId: `capacity-${index}`,
-      invocationId: `invocation-${index}`
-    })
-  );
+  let pending = [];
+  t.after(async () => {
+    release();
+    await Promise.allSettled(pending);
+    await host.close();
+  });
+  const requests = Array.from({ length: 128 }, (_, index) => ({
+    ...input(),
+    runId: `capacity-${index}`,
+    invocationId: `invocation-${index}`
+  }));
+  const submit = (request) =>
+    preparedSubmit(host, "fixture", request, { protocolMode: "canonical" });
+  // TTL 时钟保持固定；执行等待必须用独立的单调时钟限定，失败时也能退出。
+  const waitForTerminals = async (receipts) => {
+    const deadline = performance.now() + 2_000;
+    while (!receipts.every((receipt) => host.get(receipt.run_id).terminal)) {
+      assert.ok(performance.now() < deadline, "capacity runs did not reach terminal states");
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+  };
+  const assertCompletedOutput = (request, receipt) => {
+    assert.deepEqual(receipt, {
+      run_id: request.runId,
+      invocation_id: request.invocationId,
+      stream_id: request.runId,
+      agent_session_id: request.agentSessionId,
+      session_generation: 0,
+      protocol_mode: "canonical",
+      protocol: "fixture.canonical"
+    });
+    const terminal = {
+      ...receipt,
+      seq: 3,
+      kind: "control",
+      control: { type: "state", state: "completed" }
+    };
+    assert.deepEqual(host.get(request.runId).terminal, terminal);
+    assert.deepEqual(
+      host.read(request.runId, receipt.stream_id, 0).events.map(({ event }) => event),
+      [
+        { ...receipt, seq: 1, kind: "control", control: { type: "state", state: "running" } },
+        {
+          ...receipt,
+          seq: 2,
+          kind: "canonical",
+          event: {
+            protocolVersion: 2,
+            type: "message.delta",
+            payload: { text: `answer for ${request.runId}`, channel: "final" }
+          }
+        },
+        terminal
+      ]
+    );
+  };
+  pending = requests.map(submit);
   assert.equal(host.status.admittingRuns, 128);
+  await assert.rejects(submit({ ...input(), runId: "overflow" }), /RUN_CAPACITY_EXHAUSTED/);
+  release();
+  const receipts = await Promise.all(pending);
+  await waitForTerminals(receipts);
+  requests.forEach((request, index) => assertCompletedOutput(request, receipts[index]));
+
+  now = startedAt + 119_999;
+  requests.forEach((request, index) => assertCompletedOutput(request, receipts[index]));
   await assert.rejects(
-    preparedSubmit(host, "fixture", { ...input(), runId: "overflow" }),
+    submit({ ...input(), runId: "retained-overflow" }),
     /RUN_CAPACITY_EXHAUSTED/
   );
-  release();
-  await Promise.all(pending);
-  await waitFor(() => host.status.activeRuns === 0);
-  const now = Date.now();
-  t.mock.method(Date, "now", () => now + 120_000);
-  assert.throws(() => host.get("capacity-0"), /RUN_NOT_AVAILABLE/);
-  await preparedSubmit(host, "fixture", { ...input(), runId: "fresh", invocationId: "fresh" });
+
+  now = startedAt + 120_000;
+  requests.forEach((request, index) => {
+    assert.throws(() => host.get(request.runId), /RUN_NOT_AVAILABLE/);
+    assert.throws(
+      () => host.read(request.runId, receipts[index].stream_id, 0),
+      /RUN_NOT_AVAILABLE/
+    );
+  });
+  const fresh = { ...input(), runId: "fresh", invocationId: "fresh" };
+  const freshReceipt = await submit(fresh);
+  await waitForTerminals([freshReceipt]);
+  assertCompletedOutput(fresh, freshReceipt);
+  assert.equal(host.status.activeRuns, 0);
+  assert.equal(host.status.admittingRuns, 0);
 });
 test("local submit retains source frames before subscribe and never executes on replay", async () => {
   let count = 0;
