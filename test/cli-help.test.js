@@ -65,6 +65,16 @@ test("Root help lists the effective directory once without importing modules or 
     /channel-gateway|channel-wecom|webui|<extra-name>|namespaces|Components:|Extra commands:|extraset|extraget/
   );
   assert.ok(root.output.startsWith(cliHelpHeader));
+  const attribution = "Octo Runtime by Mininglamp Technology";
+  const repository = "Open source on GitHub: https://github.com/Mininglamp-OSS/octo-runtime";
+  for (const line of [attribution, repository])
+    assert.equal(root.output.split("\n").filter((item) => item === line).length, 1);
+  assert.ok(
+    root.output.includes(
+      `Manage the local Octo Agent runtime and independent services.\n\n${attribution}\n${repository}\n\nUsage:`
+    )
+  );
+  assert.equal(root.errors, "");
   for (const title of ["commit:", "build:", "Usage:", "Examples:", "Available Commands:", "Flags:"])
     assert.equal(root.output.split(title).length, 2);
   assert.ok(root.output.indexOf("Examples:") < root.output.indexOf("Available Commands:"));
