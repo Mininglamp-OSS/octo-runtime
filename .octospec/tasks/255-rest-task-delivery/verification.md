@@ -6,6 +6,23 @@ tags: [channel, delivery, lifecycle, testing]
 timestamp: 2026-10-30T00:00:00Z
 ---
 
+# 验收脚本修正（2026-10-31）
+
+PR #262@6ab97c16 的后续评审确认两个手动验收入口仍引用已删除的 WS 发送 API。本次只改脚本与任务记录，不修改 packages 下的运行时实现、CI 或默认测试选择。
+
+- `scripts/verify-im-context-live.mjs` 删除旧 `--delivery` 和 `--delivery-disconnect` 的迟到 ACK/未知通知验收及相关 import。旧参数在账号/网络访问前明确拒绝并指向现有 #255 REST 实网验收，避免静默落入默认模式。Context、交互、容量、日志、生命周期等其余检查保留；交互 Connector 构造不再传旧发送回调。
+- 启动 smoke 继续暴露同文件原有 AgentExecutor 旧 Kernel 导出引用，已改为当前 Core 导出。没有恢复兼容导出或修改 Core。
+- `scripts/verify-gateway-drain-live.mjs` 的 preload 改用 `delivery/send-error.js`，将明确拒收注入移到 `OctoConnector.message`；卡片观察/故障分支和一次永久拒绝断言保留。CLI 和 SDK 继续共用生成的模块，没有新增运行时开关。
+
+验证环境 Darwin arm64 / Node 24.22.2，基线 6ab97c16 加本次未提交脚本变更：
+
+- 无账号启动两个入口均到达预期账号检查；两个已删除参数均在实网前明确拒绝，无模块缺失错误。共四种入口检查通过。
+- 通过 TypeScript AST 定位脚本实际的 preload 生成块，生成并执行三种模块：REST 明确拒收、正常卡片观察、终态卡片拒收。真实 dispatcher 证明永久拒收只发一次，正常卡片调用原方法并写出观察记录。使用本地 fixture 和独占临时目录，结束恢复 prototype 并删除目录；不是实网或真实 Provider 验收。
+- 显式 #255 回归 21/21 通过；两个“第 4 次成功”的卡片序列 `503/503/503/200` 与 `400/503/503/200` 已在同一核心源码上实际执行，均恰好四次并成功。
+- `pnpm lint`、两个脚本的 `node --check`、修改脚本/配置的 Prettier 及 `git diff --check` 均通过。packages、.github、依赖与默认检查入口没有差异。仅脚本修改，不重复无关全量构建或调用模型。真实 IM、Provider、Wi-Fi 及完整实网 drain 本轮 not run，不把 smoke 当作 live acceptance。
+
+两个 P1 的核对：默认 Extra 凭据入口仅读取配置 `bf_token`，同一配置的 WS 重连不产生新 token；凭据源抛错不会执行赋值，验证/握手网络失败不会清除该值。自定义来源另行返回空/畸形值是凭据输入变化，按明确失败处理，不据此增加“last verified token”或等待 WS 验证。重试意见误将回调定义当作执行：`attempts: budget.remaining` 在调用 dispatcher 前已求值为四，实际调用回调时才扣减；第四次成功实测与代码一致。说明这些意见不构成所述 P1，同时单独承认并修正遗留脚本问题。
+
 # 提交前审查
 
 本轮按用户授权 review、修复并提交。审查范围为 HEAD@332413ae4bafb3ad5afec952bad761298f78f3ff 的完整工作树差异及新增文件；对照昨天 PR #251 的 ed7a4c899e5666238bc67e6a8418e3805ac924da，单独区分中间主线 #256。环境为 Darwin arm64、Node 24.22.2，审查时工作树有未提交改动。

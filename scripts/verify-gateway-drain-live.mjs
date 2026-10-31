@@ -205,18 +205,18 @@ try {
     if (instrumented) {
       const source = [
         `import { appendFile } from 'node:fs/promises';
-import { ImSendError } from ${JSON.stringify(new URL("../packages/octo-runtime-extra-channel-gateway/dist/delivery/text-send.js", import.meta.url).href)};
+import { ImSendError } from ${JSON.stringify(new URL("../packages/octo-runtime-extra-channel-gateway/dist/delivery/send-error.js", import.meta.url).href)};
+import { OctoConnector } from ${JSON.stringify(new URL("../packages/octo-runtime-extra-channel-gateway/dist/transport/connector.js", import.meta.url).href)};
 `
       ];
       if (failDelivery)
-        source.push(`import { WukongConnection } from ${JSON.stringify(new URL("../packages/octo-runtime-extra-channel-gateway/dist/transport/wukong.js", import.meta.url).href)};
-WukongConnection.prototype.sendText = async function () {
+        // 明确拒收故障注入 REST 消息入口；不恢复旧 WS 发送或叠加暂态重试。
+        source.push(`OctoConnector.prototype.message = async function () {
   await appendFile(${JSON.stringify(attemptsFile)}, 'attempt;');
-  throw new ImSendError('IM_SEND_REJECTED_TEST', 'failed');
+  throw new ImSendError('IM_DELIVERY_REJECTED_TEST', 'failed');
 };\n`);
       if (cards)
-        source.push(`import { OctoConnector } from ${JSON.stringify(new URL("../packages/octo-runtime-extra-channel-gateway/dist/transport/connector.js", import.meta.url).href)};
-const originalCard = OctoConnector.prototype.card;
+        source.push(`const originalCard = OctoConnector.prototype.card;
 OctoConnector.prototype.card = async function (...args) {
   const frame = args[2];
   if (${failCard} && ['completed', 'stopped', 'error'].includes(frame.state)) {

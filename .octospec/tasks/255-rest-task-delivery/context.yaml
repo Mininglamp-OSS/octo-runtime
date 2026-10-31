@@ -18,4 +18,5 @@ heartbeat: User approved a 10-second PING interval and one 10-second PONG budget
 cleanup: User explicitly authorized removal of obsolete WS business sending, late acknowledgements, unknown notices and REST checks of the current WS; no compatibility shims
 github_comment: User authorized an English clarification comment on issue 255 explaining the former coupling, REST-only business output and cleanup results
 excluded: Offline new-message recovery, task event polling, second task ingress, new host or SDK integration requirements
-authorization: New isolated worktree, OctoSpec planning, readiness at least 95/100, implementation and verification; user subsequently authorized review and Git commit, without push or deployment
+authorization: New isolated worktree, OctoSpec planning, implementation, review and commits; user subsequently authorized PR creation/push and the 2026-10-31 script cleanup plus explanatory PR comment; no merge or deployment
+review_followup: Retire obsolete WS delivery verification modes, move drain failure injection to REST and explain why the two P1 findings do not apply; production core and CI scope stay unchanged
