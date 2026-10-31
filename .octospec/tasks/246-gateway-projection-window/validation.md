@@ -1,5 +1,5 @@
 ---
-type: Task
+type: Validation
 title: Issue 246 验证记录
 description: 记录 Gateway 投影窗口修复的验证环境、检查结果与验收限制。
 tags: [gateway, projection, testing]

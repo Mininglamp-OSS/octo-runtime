@@ -16,7 +16,7 @@ SDK 安装完成后，选择连接已有 Kernel，或由应用创建 Kernel。�
 
 ## 连接已有 Kernel
 
-先取得服务实际监听的 endpoint：macOS/Linux 使用 socket 路径，Windows 使用 Named Pipe 地址。`attachKernel(endpoint)` 创建客户端，在调用时才连接服务；Kernel 必须已经启动。
+先取得服务实际监听的 endpoint：macOS/Linux 使用 socket 路径，Windows 使用 Named Pipe 地址。`attachKernel({ endpoint })` 创建客户端，在调用时才连接服务；Kernel 必须已经启动。
 
 完整代码见 [attach.mts](../../examples/attach.mts)。它使用公开 SDK 接口，两个受支持的 Node.js 主版本都可以直接运行该 `.mts` 文件，无需先编译 TypeScript。
 

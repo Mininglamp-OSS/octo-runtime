@@ -16,7 +16,7 @@ Use a release matching this documentation's architecture. See [CLI installation]
 
 ## Connect to an Existing Kernel
 
-Obtain the service's actual endpoint: a socket path on macOS/Linux or a Named Pipe address on Windows. `attachKernel(endpoint)` creates a client that connects when used; Kernel must already be running.
+Obtain the service's actual endpoint: a socket path on macOS/Linux or a Named Pipe address on Windows. `attachKernel({ endpoint })` creates a client that connects when used; Kernel must already be running.
 
 See [attach.mts](../../examples/attach.mts) for complete code using public SDK APIs. Both supported Node.js majors can run this `.mts` file directly without compiling TypeScript first.
 

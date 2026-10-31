@@ -49,7 +49,7 @@ supersedes: []
 
 ## 合并与冻结
 
-业务发起方使用共享配置合同按 key 合并 defaults 与 request。请求中的同名 key 覆盖默认值，未提交的 key 保留。mandatory 逐 key 约束：请求显式提交不同值时返回 `CONTEXT_MANDATORY_CONFLICT`；未提交时补入强制值，不限制请求增加其他 key。本地 `resolveLocalContext` 提供 defaults 与 request 的解析；不要据此要求执行层读取业务 Agent 配置。
+业务发起方使用 `resolveContextConfiguration` 按 key 依次合并 defaults、request、mandatory。请求中的同名 key 覆盖默认值，mandatory 中的同名 key 最后覆盖请求值；即使请求显式提交不同值，也不因此返回 `CONTEXT_MANDATORY_CONFLICT`。未被覆盖的默认项和请求新增项保留；空列表不删除低优先级变量。例如 defaults `A=base`、request `A=request`、mandatory `A=locked` 得到 `A=locked`。这是 envs 合并规则，不取消其他输入、权限或冻结一致性校验。本地 `resolveLocalContext` 提供 defaults 与 request 的解析；不要据此要求执行层读取业务 Agent 配置。
 
 有效值以同一列表结构进入 `effective_context` 与 `resolved_execution_plan.envs`，参与 context hash。Runtime 在准备阶段检查两份数据是否一致，防止冻结后篡改。会话复用策略由调用方按执行配置决定；不再使用 Compiler 或 compiled hash。
 

@@ -149,15 +149,17 @@ Recovery fails on Kernel instance changes, execution identifier mismatches, inva
 
 Default output-cache and connection limits are:
 
-| Item                                         | Default limit           |
-| -------------------------------------------- | ----------------------- |
-| Output cache per execution                   | 4096 frames, 32 MiB     |
-| Output cache overall                         | 128 executions, 128 MiB |
-| Retention after execution ends               | 120 seconds             |
-| Subscriptions per execution                  | 16                      |
-| Frames per batch / size per frame            | 32 frames / 20 MiB      |
-| Concurrent Kernel / client connections       | 64 / 32                 |
-| Wait for the write buffer to become writable | At most 5 seconds       |
+| Item                                         | Default limit                            |
+| -------------------------------------------- | ---------------------------------------- |
+| Output cache per execution                   | 4096 frames, 32 MiB                      |
+| Output cache overall                         | 128 executions, 128 MiB                  |
+| Retention after execution ends               | 120 seconds                              |
+| Concurrent subscriptions across the Kernel   | 16, shared by all executions and clients |
+| Frames per batch / size per frame            | 32 frames / 20 MiB                       |
+| Concurrent Kernel / client connections       | 64 / 32                                  |
+| Wait for the write buffer to become writable | At most 5 seconds                        |
+
+The subscription budget is separate from the Kernel and per-client connection limits. Ending a subscription releases its slot; it does not cancel the execution.
 
 Byte limits count serialized data, rather than total process memory. Trusted Adapter execution settings can adjust output-cache policy within allowed bounds. Ordinary Context cannot change it.
 

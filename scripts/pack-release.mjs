@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import { bundleDshClient, dshAdapterName, dshClientName } from "./bundle-dsh-client.mjs";
+import { parseNpmPackResult } from "./parse-npm-pack-result.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const readManifest = async (directory) =>
@@ -176,13 +177,14 @@ try {
           ? "node_modules/npm/bin/npm-cli.js"
           : "../lib/node_modules/npm/bin/npm-cli.js"
       );
-  const result = JSON.parse(
+  const result = parseNpmPackResult(
     execFileSync(
       process.execPath,
       [npm, "pack", "--json", "--ignore-scripts", "--pack-destination", output],
       { cwd: temporary, encoding: "utf8" }
-    )
-  )[0];
+    ),
+    manifest.name
+  );
   if (result.bundled.length !== packages.size) throw new Error("npm 未完整打包生产依赖，禁止发布");
   console.log(join(output, result.filename));
 } finally {

@@ -53,7 +53,7 @@ export const echoAdapter = defineAdapter({
 ## 接口默认你遵守的规则
 
 - 你拿到的是准备好的 `InvokeRequest`，不是公开的 `InvokeInput`。
-- 返回 `CanonicalEvent`。如果同时声明 native 支持，`context.protocolMode` 要自己处理。
+- 按声明及本轮选择的模式输出：canonical 模式返回 `CanonicalEvent`，native 模式返回原生负载与控制输出。native-only Adapter 无须 canonical 转换器。通过内部 `context.protocolMode` 读取已选模式；公共调用方使用 `InvokeInput.protocol_mode` 选择。
 - 不支持的设置要看得见。Provider 拒绝或忽略了的设置，不能报成"已应用"。
 - 取消必须落到真正的 Provider 操作上，清理必须 await。终态事件或停止迭代都不证明子进程已经退出。
 

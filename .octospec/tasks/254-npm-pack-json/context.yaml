@@ -1,0 +1,54 @@
+task: 254-npm-pack-json
+issue: https://github.com/Mininglamp-OSS/octo-runtime/issues/254
+loop_task: ORT-80
+loop_task_id: 848e9b48-1144-448a-ae33-5ad640011d7c
+baseline: a5a32835882deab5e2364b559dd06bf1675c1335
+branch: fix/254-npm-pack-json
+worktree: /Users/lvsijia/github.com/Mininglamp-OSS/octo-runtime-issue-254
+stage: pull-request
+execution: ORT-80-implement-20261031T180925Z
+rules_read:
+  - .octospec/rules/_index.yaml
+  - .octospec/rules/architecture.md
+  - .octospec/rules/engineering.md
+  - .octospec/rules/collaboration.md
+references_read:
+  - AGENTS.md
+  - .octospec/index.md
+  - .octospec/tasks/_brief.template.md
+  - .octospec/tasks/162-architecture-docs/context.yaml
+  - .octospec/scripts/lint.py
+  - .claude/skills/octospec-workflow/SKILL.md
+  - .claude/commands/octospec-plan.md
+  - CONTRIBUTING.md
+  - scripts/pack-release.mjs
+  - scripts/verify-release.mjs
+  - test/release-manifest.test.js
+  - package.json
+  - .github/workflows/ci.yml
+  - scripts/parse-npm-pack-result.mjs
+  - test/manual/npm-pack-json.test.mjs
+skills:
+  - /Users/lvsijia/.agents/skills/octo-shared/SKILL.md
+  - /Users/lvsijia/.agents/skills/octo-loop/SKILL.md
+  - /Users/lvsijia/.agents/skills/code-review/SKILL.md
+confirmed_constraints:
+  - Support array and package-keyed JSON with explicit package selection.
+  - Preserve dependency count validation and archive path output.
+  - Do not expand GitHub CI scope; run new regression checks manually.
+  - Update original worktree from latest main before writing the specification.
+review_decisions:
+  - D1 Explicit array name and object key identity; reject conflicting names.
+  - D2 Validate filename and bundled without expanding dependency completeness policy.
+  - D3 Fixture compatibility for arrays and actual npm 12.2.1 packaging locally.
+authorization:
+  current_command: create-pr
+  source: User accepted validation, requested correction to success and verification review, then create-pr.
+  implementation: authorized
+  commits: authorized_for_pull_request
+  push: authorized_for_pull_request
+  pull_request: authorized
+accepted_baseline_issue:
+  check: uv run --with pyyaml python .octospec/scripts/lint.py
+  result: failed_on_three_existing_issue_267_frontmatter_files
+  disposition: accepted_by_user_for_this_delivery

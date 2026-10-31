@@ -25,7 +25,7 @@ CLI 默认加载集合以 [manifest.json](../../apps/cli/src/manifest.json) 为�
 | Hermes、Kimi Code、MCode、Qoder CLI、Qoder CN | ACP stdio | canonical |
 | [Grok Build](../../packages/octo-runtime-adapter-grok-build/README.md) | Grok CLI ACP stdio，共享通用 client | canonical |
 
-公共 `invoke` 默认 native。使用 canonical-only Adapter，或需要统一事件的业务方，必须在输入中显式指定 `{ protocol_mode: "canonical" }`。模式不支持时在接纳前拒绝，不从 canonical 重建原生输出，见 [输出模式合同](../rules/output-protocol.md)。当前仓库不再提供 Worker 远程接入包。
+Host 公共 `invoke` 默认 native。使用 canonical-only Adapter，或需要统一事件的业务方，必须在 `InvokeInput` 中显式指定 `{ protocol_mode: "canonical" }`。公共字段与内部 Adapter context、`HostInvokeOptions` 的 `protocolMode` 不同。模式不支持时在接纳前拒绝，不从 canonical 重建原生输出，见 [输出模式合同](../rules/output-protocol.md)。当前仓库不再提供 Worker 远程接入包。
 
 `agentSources` 声明来源支持，`protocolSupport` 描述输出协议；可用状态由真实 probe 单独判断。Runtime 已删除 `executionFeatures` 标签机制；功能入口归宿主管理，Adapter 按具体执行合同适配或明确拒绝。详见 [执行元数据](../rules/adapter-metadata.md)。Host 当前没有公开 fork 流程，不因 Provider 原生具有 fork 就声明端到端支持。
 
@@ -39,7 +39,7 @@ OpenClaw 新会话使用独立 key，续聊显式复用返回的原生句柄；�
 
 ## Canonical 事件
 
-Adapter 将原生消息、工具、活动、用量、交互和终态转换为规范事件，保留实际身份与公开性。Codex commentary 与 final、ACP thought 与正文等分别映射到对应通道；未知工具中间状态不能被当作终态。Host 等待执行器清理后发布终态，不把命令 ACK 或订阅断开解释成执行完成。
+在声明支持并选择 canonical 模式时，Adapter 将原生消息、工具、活动、用量、交互和终态转换为规范事件，保留实际身份与公开性。Codex commentary 与 final、ACP thought 与正文等分别映射到对应通道；未知工具中间状态不能被当作终态。Host 等待执行器清理后发布终态，不把命令 ACK 或订阅断开解释成执行完成。
 
 native 模式保留 Provider 原始消息结构，由独立 Host control 表达执行状态。业务消费者不能直接用原生 payload 中的 `completed` 字样推断 Host 已完成。
 
