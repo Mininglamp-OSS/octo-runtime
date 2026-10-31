@@ -1,9 +1,9 @@
 task: ORT-47
 issue: https://github.com/Mininglamp-OSS/octo-runtime/issues/145
 baseline: f7384fcbc63b3392af6972c0da6e756bee80ac60
-observed_target: a5a32835882deab5e2364b559dd06bf1675c1335
+observed_target: db427e85dbaf1c19e79452ed4a45f6080c440a0f
 branch: fix/145-sdk-protocol-docs
-phase: implementation
+phase: ready_for_pr
 rules:
   - path: .octospec/rules/_index.yaml
     scope: rule discovery
@@ -61,10 +61,14 @@ sources:
   - .claude/skills/octospec-workflow/SKILL.md
   - /Users/lvsijia/.agents/skills/code-review/SKILL.md
 authorization:
-  current: implementation, local validation, review and Loop workflow records
+  current: implementation, local validation, review, commits, main synchronization, push and PR creation
   implementation: approved by user request to start implementation
-  commit_push_pr_merge: not authorized
+  yaml_workflow_and_historical_headers: explicitly approved by user
+  commit_push_pr: explicitly approved by user request to commit, update main and create PR
+  merge_pr: not authorized
 verification:
   local_contracts: passed
-  global_okf_lint: failed with seven unchanged baseline frontmatter errors
-  workflow_result: return to spec review on verification failure
+  validated_code_commit: 8c95ea7065c713b52396794f0df09269a6fef6cd
+  global_okf_lint: passed after authorized metadata repair and main synchronization
+  review: Standards and Spec both zero remaining findings after main synchronization
+  workflow_result: implementation retry passed; proceed to verification review and authorized PR creation

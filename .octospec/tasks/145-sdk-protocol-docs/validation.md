@@ -12,7 +12,20 @@ timestamp: 2026-11-01T02:30:00+08:00
 
 用户随后明确要求补强 workflow 的 YAML 元数据约束，并补齐这 7 份历史文档。补齐后全库 OKF lint 已通过，详见下方复验记录。此次补齐不自动迁移 Loop 阶段，也不表示已获提交、推送或创建 PR 授权。
 
-本轮未提交、推送、创建 PR、发布或合并，全部修改保留在原 worktree。
+首次实现阶段未提交或推送；用户随后已授权交付，合并主线后的当前验证与提交状态见下节。
+
+## 主线同步后的交付复验
+
+- 用户授权：任务分支提交、同步最新 main、推送并创建 PR；不包含合并 PR 或发布。
+- 任务提交 `1c1909d1`；合入 `origin/main@db427e85dbaf1c19e79452ed4a45f6080c440a0f` 后代码版本 `8c95ea7065c713b52396794f0df09269a6fef6cd`，验证前工作区干净。
+- 合并冲突仅涉及知识索引、日志及同一批元数据；保留双方任务入口与主线已有标题、描述、标签和时间戳，审查/验证文档分别使用 Review/Validation。历史正文未改写。
+- 合并后重新执行 `pnpm typecheck`、`pnpm docs:check`、`pnpm lint`、`pnpm lint:names`、`pnpm format:check`，均退出 0；文档运行示例 4/4 通过。
+- `node scripts/manual/145-sdk-protocol-contracts.mjs`：8/8 通过；同上所列五个文件的相关回归共 71 项，70 通过、1 Windows 平台条件跳过、0 失败。
+- `uv run --no-project --with pyyaml python .octospec/scripts/lint.py`：退出 0，541 个知识单元、20 条规则、3428 个本地链接通过。此前 7 处失败已消除。
+- Standards / Spec 对 `origin/main...8c95ea70` 分别独立复核，无剩余问题；要求补齐的当前交付记录已更新。之后仅修改本任务的知识记录，未改变已验证代码和专项。
+- 相对目标分支 `.github/workflows`、`package.json`、`pnpm-lock.yaml`、`docs/checks` 和 `scripts/check-developer-docs.mjs` 的 diff 为空；没有增加 CI 或默认检查范围。
+- 本轮日志位于 `/tmp/ort47-delivery-{typecheck,docs,manual,regression,lint,names,format}.log`。当前交付记录随单独文档提交归档；最终提交和 PR 引用记录在 Loop 任务交付评论中。
+- 未执行真实 Provider、远端模型、IM、Electron、原生 Windows/Linux 或全量 `pnpm test`，原验收边界不变。不将本地通过写成 GitHub 托管检查通过。
 
 ## 版本与环境
 

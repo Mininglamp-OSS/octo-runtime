@@ -34,3 +34,9 @@ Standards 与 Spec 由两个独立子执行者并行完成，均只读；主执�
 ## 最终验证绑定
 
 手动脚本 SHA-256 `123529d53e88e77d4dcb69ba7d7406b4b61f0936de14041d2a0e842a028a0223`；最终 8 项通过，含清理和 ACK 后传输错误的故障注入。两个生产 TypeScript 文件的可执行 token 未改变；CI 与默认验证范围未扩大。全库 OKF lint 的 7 处基线失败继续单独报告。
+
+## 主线同步后的独立复核
+
+用户授权补齐 YAML、提交、同步主线及创建 PR 后，对固定目标 `origin/main@db427e85` 与合并结果 `8c95ea70` 执行 `git diff origin/main...HEAD`，Standards / Spec 两轴独立并行复核，均为 0 项可操作问题。
+
+复核覆盖知识冲突解决、workflow 强制元数据要求、追加授权范围及原 R1–R6/A1–A7 合同；CI、依赖及默认检查入口相对目标无变更。主执行者补齐 brief/context/validation/journal 的当前状态，保留早期失败记录的历史含义。合并后功能与格式复验结果见 validation；全库知识检查现已通过，原 7 处失败不再是当前阻塞。
