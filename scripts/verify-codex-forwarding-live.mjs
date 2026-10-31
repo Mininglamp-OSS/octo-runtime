@@ -4,8 +4,28 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { reportVerificationStartup } from "./verification-startup.mjs";
 
 const endpoint = "https://im.deepminer.com.cn/";
+
+// endpoint 子命令不加载执行器；真实执行与离线检查复用此 Core 装配，调用方负责 shutdown。
+async function createHost() {
+  const { AgentExecutor } = await import("../packages/octo-runtime-executor-core/dist/index.js");
+  const { default: codex } = await import("../packages/octo-runtime-adapter-codex/dist/index.js");
+  const host = new AgentExecutor();
+  host.register(codex);
+  return host;
+}
+
+const checkStartup = process.argv.includes("--check-startup");
+assert.ok(
+  !(checkStartup && process.argv.includes("--check-endpoint")),
+  "QA_STARTUP_ENDPOINT_CONFLICT: choose startup or endpoint verification"
+);
+if (checkStartup) {
+  await reportVerificationStartup(await createHost(), import.meta.url, ["codex"]);
+  process.exit(0);
+}
 
 // The native tool performs one fixed, read-only request; no credentials are used.
 if (process.argv[2] === "--check-endpoint") {
@@ -16,10 +36,7 @@ if (process.argv[2] === "--check-endpoint") {
   await writeFile(process.argv[3], JSON.stringify(receipt), { flag: "wx", mode: 0o600 });
   console.log(receipt.marker);
 } else {
-  const { AgentExecutor } = await import("../packages/octo-runtime-executor-kernel/dist/index.js");
-  const { default: codex } = await import("../packages/octo-runtime-adapter-codex/dist/index.js");
-  const host = new AgentExecutor();
-  host.register(codex);
+  const host = await createHost();
   const directory = await mkdtemp(join(tmpdir(), "octo-codex-forwarding-"));
   const receiptPath = join(directory, "receipt.json");
   const shellQuote = (value) => "'" + value.replaceAll("'", "'\\''") + "'";
