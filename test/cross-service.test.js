@@ -295,7 +295,8 @@ test("launchd install then start bootstraps the current user's LaunchAgent", asy
   const { home, unixHome } = await createUnixServiceFixture(t, "octo-cross-service-launchd-");
   const runner = new FakeRunner((_command, args) => {
     if (args[0] === "print-disabled") return result(0, "disabled services = {\n}\n");
-    if (args[0] === "print") return result(113, "", "Could not find service");
+    if (args[0] === "print")
+      return result(113, "", `Could not find service "${unixSpec.id}" in domain for user gui: 501`);
     return result();
   });
   const backend = new LaunchdUserBackend({
@@ -422,7 +423,7 @@ test("launchd stop waits for asynchronous bootout before a subsequent start", as
     if (args[0] === "print") {
       if (state === "unloading" && pendingPrints-- <= 0) state = "absent";
       return state === "absent"
-        ? result(113)
+        ? result(113, "", `Could not find service "${unixSpec.id}" in domain for user gui: 501`)
         : result(0, `state = ${state === "unloading" ? "not running" : "running"}\n`);
     }
     if (args[0] === "bootout") {
@@ -461,7 +462,12 @@ for (const value of ["true", "disabled", "false", "enabled"]) {
     const { home, unixHome } = await createUnixServiceFixture(t, "oc75-launchd-format-");
     const runner = new FakeRunner((_command, args) => {
       if (args[0] === "print-disabled") return result(0, `"${unixSpec.id}" => ${value}`);
-      if (args[0] === "print") return result(113);
+      if (args[0] === "print")
+        return result(
+          113,
+          "",
+          `Could not find service "${unixSpec.id}" in domain for user gui: 501`
+        );
       return result();
     });
     const backend = new LaunchdUserBackend({

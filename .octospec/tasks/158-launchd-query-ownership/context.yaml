@@ -1,0 +1,43 @@
+brief: .octospec/tasks/158-launchd-query-ownership/brief.md
+baseline: a5a32835882deab5e2364b559dd06bf1675c1335
+phase: implementation
+injected:
+  - id: runtime-architecture
+    source: repo
+    reason: 用户服务部署由 cross-service 管理，状态必须保留错误事实。
+  - id: runtime-lifecycle
+    source: repo
+    reason: 停止确认、定义保留、组件锁及自启状态合同。
+  - id: runtime-engineering
+    source: repo
+    reason: 本地显式专项、原生验证与清理事实分开记录。
+  - id: commit
+    source: repo
+    reason: 本地文档中文，公开 commit 和 GitHub issue/PR 按用户约定英文；尚未授权提交。
+additional_read:
+  - AGENTS.md
+  - .octospec/index.md
+  - .octospec/rules/_index.yaml
+  - .claude/skills/octospec-workflow/SKILL.md
+  - .claude/commands/octospec-plan.md
+  - .octospec/tasks/_brief.template.md
+  - packages/octo-runtime-cross-service/src/launchd.ts
+  - packages/octo-runtime-cross-service/src/types.ts
+  - packages/octo-runtime-cross-service/src/errors.ts
+  - apps/cli/src/main.ts
+  - apps/cli/src/output.ts
+  - test/cross-service.test.js
+  - test/cli-lifecycle.test.js
+  - test-support/unix-service-fixture.js
+  - packages/octo-runtime-cross-service/src/common.ts
+  - packages/octo-runtime-cross-service/src/runner.ts
+  - /Users/lvsijia/.agents/skills/code-review/SKILL.md
+files_expected:
+  - packages/octo-runtime-cross-service/src/launchd.ts
+  - apps/cli/src/output.ts
+  - test/cross-service.test.js
+  - test/cli-lifecycle.test.js
+  - test/manual/launchd-query-ownership.mjs
+  - test/manual/launchd-query-ownership-native.mjs
+  - .octospec/rules/runtime-lifecycle.md
+updated_at: 2026-11-01T00:00:00Z
