@@ -1,0 +1,51 @@
+status: pr-review-pending
+task: ORT-10
+issue: Mininglamp-OSS/octo-runtime#22
+baseline: a5a32835882deab5e2364b559dd06bf1675c1335
+acceptance_target: c35b261b31573bc2f08a16eeced12f18705b2560
+acceptance_run: https://github.com/Mininglamp-OSS/octo-runtime/actions/runs/41234269691
+workflow_revision: 8feb64b77fcd794571ba9a959f7f745bc7a0650c
+gitleaks_version: 8.30.1
+merged_fix: 83afae46e49023856c08f8645a453e17ef8802f3
+branch: triage/ort-10-secret-scan
+rules: [runtime-architecture, runtime-engineering, commit]
+sources:
+  - AGENTS.md
+  - .octospec/index.md
+  - .octospec/rules/_index.yaml
+  - .octospec/rules/architecture.md
+  - .octospec/rules/engineering.md
+  - .octospec/rules/collaboration.md
+  - .octospec/tasks/gitleaks-history-triage/brief.md
+  - .octospec/tasks/gitleaks-history-triage/context.yaml
+  - .octospec/tasks/gitleaks-history-triage/findings.md
+  - .octospec/journal/shared/2026-10-19-gitleaks-history-triage.md
+  - .gitleaksignore
+  - .github/workflows/secret-scan.yml
+  - .github/CI.md
+  - https://github.com/Mininglamp-OSS/octo-runtime/issues/22
+  - https://github.com/Mininglamp-OSS/octo-runtime/pull/45
+  - https://github.com/Mininglamp-OSS/octo-runtime/actions/runs/41227863546
+  - https://github.com/Mininglamp-OSS/octo-runtime/actions/runs/41233471562
+  - https://github.com/Mininglamp-OSS/octo-runtime/actions/runs/41234269691
+  - https://github.com/Mininglamp-OSS/octo-runtime/actions/runs/39360885787
+  - https://github.com/Mininglamp-OSS/.github/blob/8feb64b77fcd794571ba9a959f7f745bc7a0650c/.github/workflows/reusable-secret-scan.yml
+loop_triage_comment: a5b19c0d-8a5f-453c-9ea7-962a31de9592
+decisions:
+  preserve_historical_spec: true
+  scope: existing-fix-acceptance-and-closeout
+  expand_ci: false
+  public_github_language: English
+  new_commit_push_pr_authorized: true
+  github_publish_close_authorized: false
+evidence:
+  historical_records_referenced: true
+  canaries_rerun_this_stage: false
+  classification_repeated_this_stage: false
+  acceptance_completed: true
+  original_local_reports_independently_retrieved: false
+  hosted_results_read_back: true
+  fingerprint_metadata_assertions_passed: true
+  standards_review: no-substantive-findings
+  spec_review: no-substantive-findings
+  github_closeout: draft-only
