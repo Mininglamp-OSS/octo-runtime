@@ -5,11 +5,12 @@
 import { createHash } from "node:crypto";
 import type { ImAddress, OctoBotConfig } from "../contracts.js";
 import { getCardProfile, sendTemplateCardMessage, editTemplateCardMessage } from "./api/cards.js";
-import { sendMessage, sendTyping } from "./api/messages.js";
+import { sendTyping } from "./api/messages.js";
 import { selectReasoningTemplate } from "./cards.js";
 import type { ReasoningFrame, ReasoningTemplate } from "./reasoning-frame.js";
 import { postJson, type HttpRequestDispatch } from "./api/client.js";
-import { ImSendError } from "../delivery/text-send.js";
+import { ImSendError } from "../delivery/send-error.js";
+import { OctoApiError } from "./api/errors.js";
 
 export class OctoConnector {
   #profile?: { expires: number; template?: ReasoningTemplate };
@@ -17,7 +18,6 @@ export class OctoConnector {
     readonly config: OctoBotConfig,
     readonly token: string,
     readonly signal: AbortSignal,
-    readonly sendWsText: (address: ImAddress, text: string, effectKey: string) => Promise<void>,
     // 跨 WS 的 REST 使用 Bot 持有凭据及任务期限，不把 WS 状态当作 HTTP 准入。
     readonly dispatchRequest?: HttpRequestDispatch
   ) {}
@@ -52,45 +52,43 @@ export class OctoConnector {
       dispatchRequest: this.#dispatch
     });
   }
-  async text(address: ImAddress, text: string, effectKey: string): Promise<void> {
-    await this.sendWsText(address, text, effectKey);
-  }
-  async notification(address: ImAddress, text: string, effectKey: string): Promise<string> {
-    const receipt = await sendMessage({
-      apiUrl: this.config.api_url,
-      botToken: this.token,
-      ...address,
-      content: text,
-      clientMsgNo: effectKey,
-      signal: this.signal,
-      dispatchRequest: this.#dispatch
+  /** 任务文本/文件经 REST 投递；返回真实消息 ID，位置可选，不以 WS ACK 确认。 */
+  async message(
+    address: ImAddress,
+    payload: Record<string, unknown>,
+    effectKey: string,
+    onPosition?: (sequence: number) => void
+  ): Promise<string> {
+    const receipt = await postJson<{ message_id?: string; message_seq?: number }>(
+      this.config.api_url,
+      this.token,
+      "/v1/bot/sendMessage",
+      {
+        channel_id: address.channelId,
+        channel_type: address.channelType,
+        payload,
+        client_msg_no: effectKey
+      },
+      this.signal,
+      { dispatchRequest: this.#dispatch, retryOn429: false }
+    ).catch((error: unknown) => {
+      // 无有效回应不标记送达；仅外层当前收尾可用同一消息身份进行有限 REST 重试。
+      if (error instanceof ImSendError) throw error;
+      if (error instanceof OctoApiError && error.status < 500) throw error;
+      throw new ImSendError("IM_DELIVERY_UNKNOWN", "unknown");
     });
-    if (!receipt?.message_id) throw new Error("IM_DELIVERY_RECEIPT_UNKNOWN");
-    return String(receipt.message_id);
+    const id = receipt?.message_id;
+    if (!((typeof id === "string" && id.trim()) || (Number.isSafeInteger(id) && Number(id) > 0)))
+      throw new ImSendError("IM_DELIVERY_RECEIPT_UNKNOWN", "unknown");
+    const sequence = receipt?.message_seq;
+    if (Number.isSafeInteger(sequence) && sequence! > 0) onPosition?.(sequence!);
+    return String(id);
   }
   async interactionCard(
     address: ImAddress,
     card: Record<string, unknown>,
     effectKey: string,
     messageId?: string
-  ): Promise<string | undefined> {
-    return this.#rawCard(address, card, effectKey, messageId, true);
-  }
-  async displayCard(
-    address: ImAddress,
-    card: Record<string, unknown>,
-    effectKey: string,
-    obsolete?: () => boolean
-  ): Promise<string | undefined> {
-    return this.#rawCard(address, card, effectKey, undefined, false, obsolete);
-  }
-  async #rawCard(
-    address: ImAddress,
-    card: Record<string, unknown>,
-    effectKey: string,
-    messageId: string | undefined,
-    interactive: boolean,
-    obsolete?: () => boolean
   ): Promise<string | undefined> {
     if (this.config.cards === false) return;
     const profile = await getCardProfile({
@@ -101,11 +99,10 @@ export class OctoConnector {
     });
     // 身份代次撤销不是能力不支持；保留取消原因供调用方区分已阻止的旧身份写入。
     this.signal.throwIfAborted();
-    if (obsolete?.()) return;
     if (
       !profile.available ||
       !profile.enabled ||
-      !(interactive ? profile.config?.interaction_enabled : profile.config?.display_enabled) ||
+      !profile.config?.interaction_enabled ||
       !profile.profiles?.includes("octo/v2")
     )
       return;
@@ -135,17 +132,9 @@ export class OctoConnector {
       this.signal,
       {
         retryOn429: false,
-        dispatchRequest: (signal, send) =>
-          this.#dispatch(signal, (authorized, botToken) => {
-            if (obsolete?.()) throw new ImSendError("IM_DELIVERY_CANCELLED", "failed");
-            return send(authorized, botToken);
-          })
+        dispatchRequest: this.#dispatch
       }
-    ).catch((error: unknown) => {
-      if (obsolete?.()) return undefined;
-      throw error;
-    });
-    if (obsolete?.() && !result) return;
+    );
     if (!messageId && !result?.message_id) throw Error("IM_DELIVERY_RECEIPT_UNKNOWN");
     return messageId ?? String(result!.message_id);
   }

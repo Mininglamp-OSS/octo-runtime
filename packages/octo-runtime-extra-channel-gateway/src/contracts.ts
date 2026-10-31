@@ -117,15 +117,6 @@ export interface ImInboundMessage {
     effectKey: string,
     options?: Pick<ImFinalReplyOptions, "signal" | "obsolete">
   ): Promise<void>;
-  /** 原轮未知通知继承最终投递取消及过期判断，在实际 REST 发送前再次检查。 */
-  replyDeliveryUnknown?(
-    event: CanonicalEvent,
-    effectKey: string,
-    replyEffectKey: string,
-    signal: AbortSignal,
-    obsolete?: () => boolean
-  ): Promise<void>;
-  isReplyDelivered?(effectKey: string): boolean;
   buildContext(
     signal: AbortSignal,
     options?: {
@@ -169,6 +160,8 @@ export interface ImTaskAttempt {
 export interface ChannelCallbacks {
   onRulesChanged?(change: { groupNo: string; shortId?: string }): void;
   onPosition?(position: ImPositionObservation): void;
+  /** 已受理任务的 REST 回执位置，归 Bot/任务所有，不要求接收 WS 仍在线。 */
+  onTaskPosition?(position: ImPositionObservation): void;
   authorizeSpace?: (spaceId: string) => void;
   onMessage(message: ImInboundMessage): void;
   onDisconnect(code: string, retryable?: boolean): void;

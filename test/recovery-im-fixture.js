@@ -95,8 +95,10 @@ export async function recoveryImFixture(t) {
       res.end(JSON.stringify({ uid: "owner", name: "Owner", robot: 0 }));
     else if (req.url === "/v1/bot/card/profile") res.end(JSON.stringify(imCardProfile()));
     else if (req.url === "/v1/bot/sendMessage") {
-      cards.push(JSON.parse(Buffer.concat(chunks)));
-      res.end(JSON.stringify({ message_id: String(2000 + cards.length) }));
+      const body = JSON.parse(Buffer.concat(chunks));
+      if (body.payload.type === 17) cards.push(body);
+      else replies.push(body.payload);
+      res.end(JSON.stringify({ message_id: String(2000 + cards.length + replies.length) }));
     } else if (req.url === "/v1/bot/events") {
       const timer = setTimeout(() => res.end('{"results":[]}'), 500);
       res.once("close", () => clearTimeout(timer));

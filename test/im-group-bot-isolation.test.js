@@ -36,6 +36,16 @@ for (const fromUid of ["non-owner-user", "non-owner-bot"]) {
           });
         if (url.endsWith("/md")) return new Response(null, { status: 404 });
         if (url.endsWith("/readReceipt")) return Response.json({});
+        if (url.endsWith("/bot/sendMessage")) {
+          const body = JSON.parse(options.body);
+          replies.push({
+            botId,
+            id: body.channel_id,
+            type: body.channel_type,
+            text: body.payload.content
+          });
+          return Response.json({ message_id: `reply-${replies.length}` });
+        }
         throw new Error(`unexpected fixture request: ${url}`);
       });
       t.mock.method(WukongConnection.prototype, "connect", async function (registration) {
@@ -43,10 +53,6 @@ for (const fromUid of ["non-owner-user", "non-owner-bot"]) {
       });
       t.mock.getter(WukongConnection.prototype, "connected", () => true);
       t.mock.method(WukongConnection.prototype, "close", async () => {});
-      t.mock.method(WukongConnection.prototype, "sendText", async function (id, type, text) {
-        replies.push({ botId: [...wires].find(([, wire]) => wire === this)[0], id, type, text });
-        return `reply-${replies.length}`;
-      });
       t.after(async () => {
         const results = await Promise.allSettled(runtimes.map((runtime) => runtime.close()));
         assert.deepEqual(

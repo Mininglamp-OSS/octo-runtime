@@ -24,25 +24,20 @@ import {
 import { parseCardAction } from "../packages/octo-runtime-extra-channel-gateway/dist/transport/card-action.js";
 import { interactionAnswer } from "../packages/octo-runtime-extra-channel-gateway/dist/transport/interaction-card.js";
 import { RuntimeLogging } from "../packages/octo-runtime-adapter-sdk/dist/index.js";
-import { AgentExecutor } from "../packages/octo-runtime-executor-kernel/dist/index.js";
+import { AgentExecutor } from "../packages/octo-runtime-executor-core/dist/index.js";
 import { createCodexAdapter } from "../packages/octo-runtime-adapter-codex/dist/index.js";
 import { ExtraPlugins } from "../packages/octo-runtime-host-sdk/dist/index.js";
-import { GatewayTransport } from "../packages/octo-runtime-extra-channel-gateway/dist/transport/channel.js";
-import Ws from "ws";
-import {
-  registerBot,
-  WukongConnection
-} from "../packages/octo-runtime-extra-channel-gateway/dist/transport/wukong.js";
-import {
-  deliveryNotice,
-  deliveryNoticeCard
-} from "../packages/octo-runtime-extra-channel-gateway/dist/presentation/delivery-notice.js";
 import {
   getChannelMessages,
   fetchBotGroups
 } from "../packages/octo-runtime-extra-channel-gateway/dist/transport/api/conversations.js";
 
 // Octospec F01: 仅使用显式指定的测试账号；不输出凭据、正文或签名地址。
+// 旧 WS 投递/未知通知场景已删除，拒绝旧参数，避免误跑默认实网验收。
+assert.ok(
+  !process.argv.some((arg) => ["--delivery", "--delivery-disconnect"].includes(arg)),
+  "QA_WS_DELIVERY_MODES_REMOVED: use .octospec/tasks/255-rest-task-delivery/verify-im-live.mjs"
+);
 assert.ok(process.env.OCTO_CHANNEL_QA_ACCOUNTS);
 const accounts = (await readFile(process.env.OCTO_CHANNEL_QA_ACCOUNTS, "utf8"))
   .split(/(?=Bot Name:)/)
@@ -71,102 +66,11 @@ const group = groups[0].find(
 );
 assert.ok(group, "An existing isolated Channel_QA_ group shared by both test bots is required");
 const marker = `F01_QA_${Date.now()}`;
-if (process.argv.includes("--delivery")) {
-  const originalEmit = Ws.prototype.emit,
-    originalSend = Ws.prototype.send;
-  let acks = [],
-    sends = 0,
-    dropping = false;
-  Ws.prototype.emit = function (event, ...args) {
-    if (dropping && event === "message" && Buffer.isBuffer(args[0]) && args[0][0] >> 4 === 4) {
-      acks.push([this, args]);
-      return true;
-    }
-    return originalEmit.call(this, event, ...args);
-  };
-  Ws.prototype.send = function (data, ...args) {
-    if (dropping && Buffer.isBuffer(data) && data[0] >> 4 === 3) sends++;
-    return originalSend.call(this, data, ...args);
-  };
-  const connection = new WukongConnection(() => {});
-  try {
-    await connection.connect(await registerBot(receiver.api, receiver.token));
-    dropping = true;
-    const lateKey = stableEffectKey(
-      receiver.id,
-      { channelId: group.group_no, channelType: 2 },
-      marker,
-      "late"
-    );
-    const late = connection.sendText(group.group_no, 2, `F27 late ACK QA ${marker}`, lateKey);
-    await new Promise((resolve) => setTimeout(resolve, 15500));
-    assert.ok(acks.length);
-    const [socket, args] = acks.shift();
-    originalEmit.call(socket, "message", ...args);
-    await late;
-    assert.equal(sends, 1);
-    assert.equal(connection.isDelivered(lateKey), true);
-    acks = [];
-    sends = 0;
-    const unknownKey = stableEffectKey(
-      receiver.id,
-      { channelId: group.group_no, channelType: 2 },
-      marker,
-      "unknown"
-    );
-    const unknown = await connection
-      .sendText(group.group_no, 2, `F27 unknown ACK QA ${marker}`, unknownKey)
-      .catch((error) => error);
-    assert.equal(unknown.state, "unknown");
-    assert.equal(sends, 4);
-    dropping = false;
-    const connector = new OctoConnector(
-      { bot_id: receiver.id, api_url: receiver.api },
-      receiver.token,
-      AbortSignal.timeout(15000),
-      async () => {}
-    );
-    const id = await connector.displayCard(
-      { channelId: group.group_no, channelType: 2 },
-      deliveryNoticeCard(deliveryNotice()),
-      stableEffectKey(receiver.id, { channelId: group.group_no, channelType: 2 }, marker, "notice")
-    );
-    assert.ok(id);
-    const messages = await getChannelMessages({
-      apiUrl: receiver.api,
-      botToken: receiver.token,
-      channelId: group.group_no,
-      channelType: 2,
-      limit: 100
-    });
-    const notice = messages.find((message) => String(message.message_id) === id);
-    assert.match(JSON.stringify(notice?.payload), /OH-RUN-2005/);
-    const copies = messages.filter(
-      (message) => message.payload?.content === `F27 unknown ACK QA ${marker}`
-    ).length;
-    console.log(
-      JSON.stringify({
-        feature: "F27",
-        lateAckStoppedRetry: true,
-        attempts: sends,
-        unknownNoticeReadBack: true,
-        serverVisibleCopies: copies
-      })
-    );
-  } finally {
-    dropping = false;
-    Ws.prototype.emit = originalEmit;
-    Ws.prototype.send = originalSend;
-    await connection.close();
-  }
-  process.exit(0);
-}
 if (process.argv.includes("--interaction")) {
   const connector = new OctoConnector(
     { bot_id: receiver.id, api_url: receiver.api },
     receiver.token,
-    AbortSignal.timeout(15000),
-    async () => {}
+    AbortSignal.timeout(15000)
   );
   const address = { channelId: group.group_no, channelType: 2 };
   const request = {
@@ -342,93 +246,6 @@ if (process.argv.includes("--complex")) {
     );
   } finally {
     await runtime.close();
-  }
-  process.exit(0);
-}
-if (process.argv.includes("--delivery-disconnect")) {
-  const lifetime = new AbortController();
-  let accept;
-  const inbound = new Promise((resolve) => {
-    accept = resolve;
-  });
-  const transport = new GatewayTransport(
-    {
-      bot_id: receiver.id,
-      bf_token: receiver.token,
-      api_url: receiver.api,
-      group_ids: [group.group_no],
-      allowed_sender_ids: [sender.id],
-      adapter: { adapter_type: "codex" }
-    },
-    async () => receiver.token,
-    {
-      onMessage: (message) => {
-        if (message.text === marker) accept(message);
-      },
-      onDisconnect: () => {}
-    }
-  );
-  try {
-    await transport.start(lifetime.signal);
-    await execute(
-      "octo-cli",
-      [
-        "message",
-        "send",
-        "--data",
-        JSON.stringify({
-          channel_id: group.group_no,
-          channel_type: 2,
-          payload: { type: 1, content: marker, mention: { uids: [receiver.id] } }
-        })
-      ],
-      { env, timeout: 15000, maxBuffer: 1 << 20 }
-    );
-    let timer;
-    const message = await Promise.race([
-      inbound,
-      new Promise((_, reject) => {
-        timer = setTimeout(() => reject(Error("QA_INBOUND_TIMEOUT")), 15000);
-      })
-    ]).finally(() => clearTimeout(timer));
-    await transport.close();
-    const before = new Set(
-      (
-        await getChannelMessages({
-          apiUrl: receiver.api,
-          botToken: receiver.token,
-          channelId: group.group_no,
-          channelType: 2,
-          limit: 50
-        })
-      ).map((message) => String(message.message_id))
-    );
-    await message.replyDeliveryUnknown(
-      deliveryNotice(),
-      `${marker}:notice`,
-      `${marker}:text`,
-      lifetime.signal
-    );
-    const after = await getChannelMessages({
-      apiUrl: receiver.api,
-      botToken: receiver.token,
-      channelId: group.group_no,
-      channelType: 2,
-      limit: 50
-    });
-    assert.ok(
-      after.some(
-        (message) =>
-          !before.has(String(message.message_id)) &&
-          JSON.stringify(message.payload).includes("OH-RUN-2005")
-      )
-    );
-    console.log(
-      JSON.stringify({ feature: "F27", wsClosed: true, restUnknownNoticeReadBack: true })
-    );
-  } finally {
-    lifetime.abort();
-    await transport.close();
   }
   process.exit(0);
 }
