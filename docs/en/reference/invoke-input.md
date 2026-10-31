@@ -43,11 +43,13 @@ Usually select execution settings through Context. These fields support integrat
 | `controlInstructions` | Context session instructions                    | Instructions passed separately to the Provider; the application must authorize their source. |
 | `approvalMode`        | Context approval policy, otherwise `ask`        | Tool approval mode; must agree with Context.                                                 |
 | `agentConfig`         | Resolved execution settings                     | Full Provider configuration; model and effort must agree with Context.                       |
-| `runtimeLimits`       | Execution defaults; whole invocation 120,000 ms | Complete timeout settings, using different field names from Context limits; see below.       |
+| `runtimeLimits`       | Execution defaults; whole invocation 24 hours | Complete timeout settings, using different field names from Context limits; see below.       |
 
 `agentConfig` includes `workdir`, `model`, `effort`, `sandbox`, `providerAgentId`, `timeoutSeconds` (seconds), `openclawConfigPath`, `openclawStateDir`, and JSON object `providerOptions`. Runtime preserves Provider extension fields while validating defined fields and rejecting removed ones.
 
 `runtimeLimits` uses camelCase field names: `firstFrameTimeoutMs`, `modelIdleTimeoutMs`, `modelIdleWarningMs`, `modelIdlePolicy`, `toolTimeoutMs`, `toolWallTimeoutMs`, `runTimeoutMs`, `cancelGraceMs`, and `enforcement`. Numeric values are milliseconds; policies are `observe | enforce`. See [Context timeout fields](contexts.md) for ranges. Use public `assertRuntimeLimits` to validate a complete object. To adjust individual settings, prefer Context `octo.execution/limits`.
+
+The overall timeout defaults to `86400000` ms (24 hours), accepts `100..604800000` ms (seven days), and retains independent stall detection. For 72 hours, pass `runtimeLimits: { runTimeoutMs: 259200000 }` or the corresponding Context limit. A supplied top-level `runtimeLimits` object takes precedence as a whole over Context limits; its omitted fields use watchdog defaults rather than merging with Context. An empty or partial object therefore still defaults to 24 hours when `runTimeoutMs` is absent. Explicit shorter budgets remain effective.
 
 ## Session Continuation and Recovery Input
 

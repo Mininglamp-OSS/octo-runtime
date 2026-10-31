@@ -63,6 +63,8 @@ Configure up to 32 services. Runtime validates fields for the connection type, t
 
 Example `payload`: `{"run_timeout_ms":120000}` sets a 120-second whole-invocation timeout. Time fields are integer milliseconds, with detailed ranges below. This item does not control output-cache size or retention.
 
+The whole-invocation default is 24 hours (`86400000` ms), with a maximum of seven days (`604800000` ms). For 72 hours, explicitly submit `{"run_timeout_ms":259200000}`. First-frame, model-idle and tool-idle enforcement remain independent; progress does not extend the overall deadline.
+
 ### Select a Runtime: `octo.runtime/selection`
 
 Example `payload`: `{"mode":"explicit","runtime_id":"example-runtime"}`, for the application's upstream routing logic to select a Runtime. A candidate Runtime list is also supported.
@@ -131,7 +133,7 @@ The same format is used for primary input, multipart text input, and explicitly 
 | `model_idle_warning_ms`  | Model idle warning | 100–3,600,000      |
 | `tool_timeout_ms`        | Tool idle timeout  | 100–86,400,000     |
 | `tool_wall_timeout_ms`   | Tool total timeout | 100–86,400,000     |
-| `run_timeout_ms`         | Whole invocation   | 100–86,400,000     |
+| `run_timeout_ms`         | Whole invocation   | 100–604,800,000    |
 | `cancel_grace_ms`        | Cancellation grace | 100–60,000         |
 
 `model_idle_policy` and `enforcement` accept `observe` or `enforce`. Legacy `enforcement: "observe"` cannot be combined with `model_idle_policy`, `model_idle_warning_ms`, or `tool_wall_timeout_ms`. Stopping and cleanup after a timeout also depend on the Provider; reaching a threshold does not mean all processes have already exited.

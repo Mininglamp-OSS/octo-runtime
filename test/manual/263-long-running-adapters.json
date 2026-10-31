@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "adapters": [
+    { "type": "long-budget", "module": "./263-long-running-adapter.mjs", "export": "adapter" }
+  ]
+}

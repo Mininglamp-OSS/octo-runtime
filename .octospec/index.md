@@ -57,6 +57,8 @@
 
 ## 当前任务
 
+- [Issue 263：长时执行预算](tasks/263-long-running-invocations/brief.md)：默认 24 小时、上限七天，保留独立无响应检测；本地手动专项、真实 DSH 与交付边界见[验证记录](tasks/263-long-running-invocations/validation.md)。
+
 - [已确认断线后的立即重连](tasks/channel-immediate-reconnect/brief.md)：用户要求从 onDisconnect 回调起尽快恢复；去掉首次固定 5 秒等待，保留失败退避、限流等待及旧连接回收约束。
 
 - [Issue 249：本地附件后的卡片终态](tasks/249-local-artifact-card-terminal/brief.md)：本地链接转纯文字，补充 SEND/EDIT 失败响应诊断和 400 后同一卡片的精简终态投递。同步 main@ed7a4c89，完成双轴审查及凭据脱敏修复；手动专项 35 项通过，全量仅一项主线同样失败的 CLI 环境隔离用例未过。用户已授权提交 PR，未授权合并或部署；[证据与未验边界](tasks/249-local-artifact-card-terminal/validation.md)。

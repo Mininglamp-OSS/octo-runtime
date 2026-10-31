@@ -63,6 +63,8 @@
 
 `payload` 示例：`{"run_timeout_ms":120000}`，表示整轮执行超时设置为 120 秒。所有时间字段使用毫秒整数，详细范围见下表。该项不控制输出缓存的字节数或保留时间。
 
+整轮默认 24 小时（`86400000`ms），最大七天（`604800000`ms）。72 小时任务须显式提交 `{"run_timeout_ms":259200000}`。首帧、模型空闲和工具空闲检测保持独立；进度不会延长总期限。
+
 ### 指定 Runtime：`octo.runtime/selection`
 
 `payload` 示例：`{"mode":"explicit","runtime_id":"example-runtime"}`，供应用的上游路由逻辑选择 Runtime。也可以提供候选 Runtime 列表。
@@ -131,7 +133,7 @@ Octo Gateway 自动读取的群规则、话题规则使用文本格式。群聊�
 | `model_idle_warning_ms`  | 模型空闲告警 | 100–3,600,000  |
 | `tool_timeout_ms`        | 工具空闲超时 | 100–86,400,000 |
 | `tool_wall_timeout_ms`   | 工具总时长   | 100–86,400,000 |
-| `run_timeout_ms`         | 整轮执行     | 100–86,400,000 |
+| `run_timeout_ms`         | 整轮执行     | 100–604,800,000 |
 | `cancel_grace_ms`        | 取消宽限     | 100–60,000     |
 
 `model_idle_policy` 和 `enforcement` 接受 `observe` 或 `enforce`。旧写法 `enforcement: "observe"` 不能与 `model_idle_policy`、`model_idle_warning_ms`、`tool_wall_timeout_ms` 同时提供。超时后的停止和清理还取决于 Provider，不能假设达到阈值时所有进程都已退出。

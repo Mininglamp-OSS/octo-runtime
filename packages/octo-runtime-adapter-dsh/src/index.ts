@@ -12,7 +12,11 @@ import {
   type InvokeRequest,
   type AdapterInvocationContext
 } from "@mininglamp-oss/octo-runtime-adapter-sdk";
-import { contextActmode, DEFAULT_STREAM_LIMIT_POLICY } from "@mininglamp-oss/octo-runtime-protocol";
+import {
+  contextActmode,
+  DEFAULT_STREAM_LIMIT_POLICY,
+  DEFAULT_RUN_TIMEOUT_MS
+} from "@mininglamp-oss/octo-runtime-protocol";
 import {
   HarnessClient,
   type NotificationSubscription,
@@ -174,7 +178,8 @@ export function createDshAdapter(options: DshAdapterOptions = {}) {
           } else {
             const initializeTimeoutMs = timeoutOption(config, "initializeTimeoutMs", 15_000);
             const requestTimeoutMs = timeoutOption(config, "requestTimeoutMs", 30_000);
-            const runTimeoutMs = request.runtimeLimits?.runTimeoutMs ?? 120_000;
+            // SDK 的 session/wait 同样消费整轮预算；初始化和关闭仍用各自的有限期限。
+            const runTimeoutMs = request.runtimeLimits?.runTimeoutMs ?? DEFAULT_RUN_TIMEOUT_MS;
             const shutdownTimeoutMs = timeoutOption(config, "shutdownTimeoutMs", 1000);
             const env = invocationEnvironment(request, {
               DSH_PERMISSION_MODE: "danger-full-access"

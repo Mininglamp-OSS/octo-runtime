@@ -1,0 +1,24 @@
+rules:
+  - .octospec/rules/architecture.md
+  - .octospec/rules/invoke-input.md
+  - .octospec/rules/local-execution.md
+  - .octospec/rules/protocol-schema.md
+  - .octospec/rules/context-extensions.md
+  - .octospec/rules/engineering.md
+  - .octospec/rules/collaboration.md
+  - .octospec/rules/protocol-design.md
+  - .octospec/rules/adapter-metadata.md
+guides:
+  - .octospec/guides/provider-live-acceptance.md
+workflow:
+  - .claude/commands/octospec-plan.md
+  - .octospec/tasks/_brief.template.md
+  - .claude/commands/octospec-go.md
+  - .claude/skills/octospec-workflow/SKILL.md
+  - /Users/lvsijia/.agents/skills/code-review/SKILL.md
+overrides:
+  - User confirms maximum overall invocation budget of 604800000 ms and default of 86400000 ms.
+  - User prohibits expanding GitHub CI scope, including default tests and scripts.
+  - User requires English GitHub issues, PRs and commit messages for Mininglamp-OSS repositories.
+  - No commit, push, publication or merge authorization is granted by the spec request.
+  - User authorizes implementation and the four existing frontmatter repairs.

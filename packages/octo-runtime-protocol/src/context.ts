@@ -17,6 +17,9 @@ export const RUNTIME_RUN_CONTRACT = Object.freeze({
 } as const);
 export const CONTEXT_MAX_BYTES = 65_536;
 export const CONTEXT_MAX_ITEMS = 32;
+// 整轮预算与首帧/空闲检测独立；七天仍在 Node 单次定时器的安全范围内。
+export const DEFAULT_RUN_TIMEOUT_MS = 86_400_000;
+export const MAX_RUN_TIMEOUT_MS = 604_800_000;
 export const APPROVAL_MODES: readonly ApprovalMode[] = ["ask", "assisted", "full_access"];
 
 export function assertAgentSource(value: unknown): asserts value is "preset" | "provisioned" {
@@ -475,7 +478,7 @@ function limits(value: Record<string, unknown>): void {
     model_idle_warning_ms: 3_600_000,
     tool_timeout_ms: 86_400_000,
     tool_wall_timeout_ms: 86_400_000,
-    run_timeout_ms: 86_400_000,
+    run_timeout_ms: MAX_RUN_TIMEOUT_MS,
     cancel_grace_ms: 60_000
   };
   fields(value, [...Object.keys(bounds), "model_idle_policy", "enforcement"]);
