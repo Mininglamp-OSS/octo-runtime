@@ -1,3 +1,11 @@
+---
+type: Journal
+title: Issue 137 Adapter 协议元数据类型验证
+description: 记录 Adapter 协议元数据合同的实现、类型验证与交付证据。
+tags: [adapter, protocol, testing]
+timestamp: 2026-10-29T00:00:00+08:00
+---
+
 # Issue 137：Adapter 协议元数据类型验证
 
 日期：2026-10-29。基线 `origin/main@dcca46fb0eaaa3be675432321f704de92dbdbce0`，分支 `fix/issue-137-adapter-capability`，独立 worktree `octo-runtime-issue-137`。环境：macOS、Node v24.19.0、pnpm 11.19.0、TypeScript 6.0.3。

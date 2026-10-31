@@ -1,3 +1,11 @@
+---
+type: Task
+title: Issue 137 代码审查
+description: 记录 Adapter 协议元数据类型合同的标准与规格审查结果及限制。
+tags: [adapter, protocol, review]
+timestamp: 2026-10-29T00:00:00+08:00
+---
+
 # Issue 137 代码审查
 
 日期：2026-10-29。按 `code-review` 技能并行进行 Standards / Spec 审查，先审查后提交。
