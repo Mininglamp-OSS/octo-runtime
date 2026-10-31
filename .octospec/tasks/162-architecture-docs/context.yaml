@@ -1,0 +1,52 @@
+task: 162-architecture-docs
+issue: https://github.com/Mininglamp-OSS/octo-runtime/issues/162
+loop_task: ORT-60
+loop_task_id: ab6eafa0-b232-47a7-9e45-1bc3c5c0744f
+baseline: 0bcd89c528018ffd508ca8099c8ac9c6b88de35d
+branch: docs/162-architecture-lifecycle
+stage: pull-request
+rules_read:
+  - .octospec/rules/_index.yaml
+  - .octospec/rules/architecture.md
+  - .octospec/rules/runtime-lifecycle.md
+  - .octospec/rules/extras.md
+  - .octospec/rules/engineering.md
+  - .octospec/rules/collaboration.md
+references_read:
+  - AGENTS.md
+  - .octospec/index.md
+  - .octospec/manifest.yaml
+  - .octospec/tasks/_brief.template.md
+  - .octospec/tasks/156-cli-docs/brief.md
+  - .octospec/tasks/156-cli-docs/context.yaml
+  - .octospec/guides/workspace.md
+  - .octospec/guides/channel-dynamic-contexts.md
+  - .octospec/guides/extra-configuration.md
+  - .octospec/scripts/lint.py
+  - scripts/check-developer-docs.mjs
+  - docs/checks/examples.test.mjs
+  - packages/octo-runtime-host-sdk/src/shutdown.ts
+  - packages/octo-runtime-host-sdk/src/context-loader.ts
+  - packages/octo-runtime-host-sdk/src/extra-service.ts
+  - packages/octo-runtime-host-sdk/package.json
+  - packages/octo-runtime-executor-kernel/package.json
+  - CONTRIBUTING.md
+  - apps/README.md
+  - package.json
+  - .github/workflows/ci.yml
+skills:
+  - /Users/lvsijia/.agents/skills/octo-shared/SKILL.md
+  - /Users/lvsijia/.agents/skills/octo-loop/SKILL.md
+  - /Users/lvsijia/.codex/skills/technical-writing-zh/SKILL.md
+  - /Users/lvsijia/.agents/skills/code-review/SKILL.md
+decisions:
+  - Use current native service architecture and retain historical evidence context.
+  - Add explicit --scope current mode without changing default docs checks or CI scope.
+  - Run new script regression tests explicitly outside default test globs.
+  - Preserve runtime behavior and separate cleanup and Context loading budgets.
+authorization:
+  current_command: create-pr
+  source: User requested create-pr after reviewing validation results.
+  commits: authorized_for_pull_request
+  push: authorized_for_pull_request
+  pull_request: authorized

@@ -1,8 +1,9 @@
 ---
 type: Journal
-title: Issue 137 Adapter 协议元数据开发日志
-description: 记录 Adapter 协议元数据类型分层、编译验证及本地测试结果。
-tags: [adapter, protocol, typescript]
+title: Issue 137 Adapter 协议元数据类型验证
+description: 记录 Adapter 协议元数据合同的实现、类型验证与交付证据。
+tags: [adapter, protocol, testing]
+timestamp: 2026-10-29T00:00:00+08:00
 ---
 
 # Issue 137：Adapter 协议元数据类型验证

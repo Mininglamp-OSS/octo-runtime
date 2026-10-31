@@ -32,6 +32,7 @@ import {
   assertContextEnvelope,
   assertContextEnvs,
   assertJsonValue,
+  MAX_RUN_TIMEOUT_MS,
   contextItem
 } from "./context.js";
 export {
@@ -39,6 +40,8 @@ export {
   CONTEXT_SCHEMA,
   CONTEXT_MAX_BYTES,
   CONTEXT_MAX_ITEMS,
+  DEFAULT_RUN_TIMEOUT_MS,
+  MAX_RUN_TIMEOUT_MS,
   RUNTIME_RUN_CONTRACT,
   assertAgentSource,
   assertApprovalMode,
@@ -986,7 +989,7 @@ export function assertRuntimeLimits(value: unknown): asserts value is RuntimeLim
     modelIdleWarningMs: 3_600_000,
     toolTimeoutMs: 86_400_000,
     toolWallTimeoutMs: 86_400_000,
-    runTimeoutMs: 86_400_000,
+    runTimeoutMs: MAX_RUN_TIMEOUT_MS,
     cancelGraceMs: 60_000
   };
   for (const [key, setting] of Object.entries(value)) {

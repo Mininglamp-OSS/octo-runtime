@@ -57,7 +57,9 @@
 
 ## 当前任务
 
-- [Issue 145：公共 SDK 示例与协议说明](tasks/145-sdk-protocol-docs/brief.md)：文档与专项实现完成；手动 8 项及相关回归通过，双轴审查已修复。全库知识检查有 7 处基线格式失败，返回待规格审查；专项仅手动本地运行。
+- [Issue 145：公共 SDK 示例与协议说明](tasks/145-sdk-protocol-docs/brief.md)：文档与专项实现完成；手动 8 项及相关回归通过，双轴审查已修复。已补强 YAML 强制约束并补齐历史文档；同步最新主线后复验并按授权交付 PR，专项仅手动本地运行。
+
+- [Issue 263：长时执行预算](tasks/263-long-running-invocations/brief.md)：默认 24 小时、上限七天，保留独立无响应检测；本地手动专项、真实 DSH 与交付边界见[验证记录](tasks/263-long-running-invocations/validation.md)。
 
 - [已确认断线后的立即重连](tasks/channel-immediate-reconnect/brief.md)：用户要求从 onDisconnect 回调起尽快恢复；去掉首次固定 5 秒等待，保留失败退避、限流等待及旧连接回收约束。
 

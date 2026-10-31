@@ -24,6 +24,8 @@ The socket or pipe belongs to the calling process. Isolation comes from the work
 
 ## Make one call
 
+`KernelClient.invoke` passes the public execution budget through IPC: the default is 24 hours, the maximum is seven days. For 72 hours, set `runtimeLimits: { runTimeoutMs: 259200000 }` or the corresponding Context limit. Stall detection and explicit cancellation remain active; see [input precedence](../../docs/en/reference/invoke-input.md).
+
 `worker.mjs` — a file you own; Kernel only spawns it:
 
 ```js

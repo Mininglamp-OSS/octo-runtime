@@ -73,6 +73,8 @@ It validates and freezes the request, renders this turn's model input, resolves 
 
 ## What ends a run
 
+The overall deadline defaults to 24 hours and accepts up to seven days. For 72 hours, pass `runtimeLimits: { runTimeoutMs: 259200000 }` or Context `octo.execution/limits` with `run_timeout_ms: 259200000`. First-frame, model-idle and tool-idle detection remain independent. See [input precedence and ranges](../../docs/en/reference/invoke-input.md).
+
 In canonical mode only `run.completed` is success. A final message, an accepted cancellation, and an iterator that simply runs out are not.
 
 Closing a direct iterator early _requests cancellation_ — unlike Kernel, where stopping observation leaves the run alive. An iterator nobody closes or cancels does not cancel itself: the run keeps going and holds capacity until it ends or the owner shuts down.

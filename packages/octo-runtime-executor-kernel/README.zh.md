@@ -1,5 +1,7 @@
 # Executor Kernel
 
+`KernelClient.invoke` 经公共 IPC 透传整轮预算：默认 24 小时，最大七天。72 小时调用显式传 `runtimeLimits: { runTimeoutMs: 259200000 }` 或对应 Context 字段；无响应检测和显式取消仍有效，见[输入优先级](../../docs/zh-CN/reference/invoke-input.md)。
+
 [English](README.md) | [包导航](../README.zh.md)
 
 把 [Executor Core](../octo-runtime-executor-core/README.zh.md) 放进独立的 worker 进程，并通过本地 IPC 暴露出来。宿主持有 Kernel 服务，业务代码对着 `KernelClient` 说话，worker 是你自己的一个小文件，里面注册要发布的 Adapter，由 Kernel 拉起。当一个 Provider 崩溃、OOM 或 `process.exit` 不能把外面整个应用带走时，就该用它。

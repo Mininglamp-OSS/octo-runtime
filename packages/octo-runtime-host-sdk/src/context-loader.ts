@@ -139,7 +139,7 @@ export function createContextLoader(
       }
     },
     async close(): Promise<void> {
-      // 这里等待实际 IO 退出；外层 Extra loader 负责 5 秒宽限，超时后保留失败实例阻止重载。
+      // 等待实际 IO 退出；外层 Extra 各阶段共用 4 秒或继承的更早截止，到期保留失败实例阻止重载。
       stop.abort();
       await Promise.allSettled([...pending]);
     },

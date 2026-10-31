@@ -1,8 +1,8 @@
 ---
 type: Task
-title: Issue 267 CLI 根帮助署名规格
-description: 明确 CLI 根帮助中的公司署名、开源仓库入口及保持既有行为的验收要求。
-tags: [cli, help, attribution]
+title: 根帮助展示公司署名与开源仓库
+description: Issue 267 的已确认规格与交付范围。
+tags: [cli, documentation]
 ---
 
 # #267：根帮助展示公司署名与开源仓库

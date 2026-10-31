@@ -43,11 +43,13 @@
 | `controlInstructions` | Context 会话指令                           | 单独传给 Provider 的指令文本，应用须验证来源权限。              |
 | `approvalMode`        | Context 审批策略，否则为 `ask`             | 工具调用的审批模式，必须与 Context 一致。                       |
 | `agentConfig`         | 解析后的执行设置                           | 完整 Provider 配置；模型和 effort 必须与 Context 一致。         |
-| `runtimeLimits`       | 执行默认值；整轮默认 120,000 毫秒          | 完整超时配置；字段形式与 Context limits 不同，见下文。          |
+| `runtimeLimits`       | 执行默认值；整轮默认 24 小时              | 完整超时配置；字段形式与 Context limits 不同，见下文。          |
 
 `agentConfig` 包含 `workdir`、`model`、`effort`、`sandbox`、`providerAgentId`、`timeoutSeconds`（秒）、`openclawConfigPath`、`openclawStateDir` 和 JSON 对象 `providerOptions`。Runtime 保留 Provider 扩展字段，但仍校验已定义字段，并拒绝已删除字段。
 
 `runtimeLimits` 使用 camelCase 字段名：`firstFrameTimeoutMs`、`modelIdleTimeoutMs`、`modelIdleWarningMs`、`modelIdlePolicy`、`toolTimeoutMs`、`toolWallTimeoutMs`、`runTimeoutMs`、`cancelGraceMs`、`enforcement`。数值单位为毫秒，策略为 `observe | enforce`。数值范围见 [Context 超时字段](contexts.md)，完整对象可用公开的 `assertRuntimeLimits` 校验。如果只想调整某一项，优先使用 Context `octo.execution/limits`。
+
+整轮默认 `86400000`ms（24 小时），范围 `100..604800000`ms（七天），独立无响应检测仍有效。72 小时任务显式传 `runtimeLimits: { runTimeoutMs: 259200000 }` 或对应 Context 字段。顶层 `runtimeLimits` 对象整体优先于 Context；缺少的字段采用 watchdog 默认值，不与 Context 逐字段合并。因此空对象或未指定 runTimeoutMs 的部分对象仍默认 24 小时。显式较短预算继续有效。
 
 ## 继续会话与恢复输入
 

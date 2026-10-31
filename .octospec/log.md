@@ -2,7 +2,13 @@
 
 ## 2026-11-01
 
-- [Issue 145](journal/shared/2026-11-01-145-sdk-protocol-docs.md)：修正 SDK 连接、公共模式、native-only、mandatory 覆盖和 Kernel 共享订阅容量说明。手动 8 项及相关回归通过，双轴审查完成；全库知识格式检查保留 7 处基线失败，返回规格审查，未提交或推送，CI 不扩围。
+- [Issue 145](journal/shared/2026-11-01-145-sdk-protocol-docs.md)：修正 SDK 连接、公共模式、native-only、mandatory 覆盖和 Kernel 共享订阅容量说明。手动 8 项及相关回归通过，双轴审查完成；用户授权补强 YAML 约束并补齐历史文档后知识检查通过，现同步主线复验并准备 PR，CI 不扩围。
+
+- [Issue 254](journal/shared/2026-11-01-254-npm-pack-json.md)：兼容 npm pack 数组与包名索引 JSON，显式选包并校验字段；63 项回归、npm 12.2.1 打包及现有发行验收通过，双轴审查各 0 发现。主线既有 3 份文档缺 frontmatter 已获用户认可为交付已知问题，按成功进入验证审查并创建 PR；未扩大 CI。
+
+- [Issue 263](journal/shared/2026-11-01-263-long-running-invocations.md)：默认整轮预算 24 小时、最大七天，保留独立无响应检测；手动长时、原生协议及真实 DSH 验证通过，隔离既有环境问题后全量通过。修复四份 frontmatter，双轴审查问题闭环；未扩大 CI，未提交或推送，外部宿主验收独立记录。
+
+- [Issue 18](journal/shared/2026-11-01-18-mentioned-slash-commands.md)：rebase 最新 main@a5a328 后，直接点名的完整 reset/new/stop 指令在 Gateway 处理，语义文本保留为普通 AgentRun；专项 25 项、相关渠道 590 项及构建、类型、lint、命名通过，两轴审查无问题。补齐 Issue 267 三文件 frontmatter 后全仓知识 lint 通过；无提交、无推送、未扩大 CI，等待验证审查。
 
 ## 2026-10-29
 

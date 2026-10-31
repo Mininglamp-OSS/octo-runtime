@@ -1,8 +1,8 @@
 ---
 type: Journal
-title: Issue 267 CLI 根帮助署名开发日志
-description: 记录 CLI 根帮助署名与开源入口的实现、验证和审查结论。
-tags: [cli, help, attribution]
+title: CLI 根帮助署名与开源入口
+description: Issue 267 的既有实现与验证记录。
+tags: [cli, documentation]
 ---
 
 # #267 CLI 根帮助署名与开源入口

@@ -1,8 +1,9 @@
 ---
 type: Validation
-title: Issue 246 Gateway 投影窗口验证
-description: 记录 Gateway 有限投影窗口、隐私清理与资源回收的本地验证结果及限制。
+title: Issue 246 验证记录
+description: 记录 Gateway 投影窗口修复的验证环境、检查结果与验收限制。
 tags: [gateway, projection, testing]
+timestamp: 2026-10-29T00:00:00+08:00
 ---
 
 # Issue 246 验证记录

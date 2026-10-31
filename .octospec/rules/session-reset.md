@@ -32,6 +32,8 @@ Octo Gateway 使用连字符：`octo-dm-{uid}-{uuid}`、`octo-group-{groupId}-{u
 
 Octo Gateway 的 `/new` 为同一 reset 分支的别名。reset 同时清除 binding 中的 `rulesContext`，下一条普通请求重新携带当前群/话题规则；规则更新本身不 reset，也不修改历史 gap。规则状态仅在成功终态且 session/generation/revision 匹配时确认，见[Channel 合同](channel-integration.md)。此别名不扩大至其他渠道。
 
+Issue #18：群/话题直接点名可携带原生前缀，`/reset`、`/new`、`/stop` 对剥离有效提及前缀后的完整输入精确匹配；语义文本中出现这些字符串不执行控制。广播（包括直接点名混合广播）不能执行三命令，普通任务准入不变，详见[Channel 规则](channel-integration.md)。stop 复用已有取消入口，不重置会话、不新增 Run；取消 ACK 只代表受理请求，不代表源执行已终止。DM 保持原行为。
+
 当前 IM 实现采用延迟分配：reset 清除 session 与 Provider binding、增加 generation，下一条普通输入入队时生成新的 session。已入队请求保留原先冻结的身份；旧执行的迟到更新不能恢复当前 binding。详见 [im-channel.ts](../../packages/octo-runtime-extra-channel-gateway/src/application/im-channel.ts)。
 
 新 session 所需的背景由下一轮业务发起方明确提供，执行层不读取旧 Event 或聊天历史自动补齐。

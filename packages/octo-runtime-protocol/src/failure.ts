@@ -477,8 +477,9 @@ function safeWatchdogEvidence(value: unknown): Record<string, unknown> {
     "retryCount"
   ]) {
     const v = input[key];
-    if (typeof v === "number" && Number.isSafeInteger(v) && v >= 0 && v <= 86_400_000)
-      result[key] = v;
+    // 时间证据可能超过预算（事件循环延迟）；计数仍沿用既有过滤上限。
+    const maximum = key.endsWith("Ms") ? Number.MAX_SAFE_INTEGER : 86_400_000;
+    if (typeof v === "number" && Number.isSafeInteger(v) && v >= 0 && v <= maximum) result[key] = v;
   }
   if (input.activitySupport === "native_progress" || input.activitySupport === "canonical_only")
     result.activitySupport = input.activitySupport;
@@ -501,7 +502,7 @@ function safeTimeoutMs(value: unknown): number | undefined {
   return typeof value === "number" &&
     Number.isSafeInteger(value) &&
     value >= 1 &&
-    value <= 86_400_000
+    value <= Number.MAX_SAFE_INTEGER
     ? value
     : undefined;
 }
