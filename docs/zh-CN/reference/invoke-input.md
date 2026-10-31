@@ -47,6 +47,10 @@
 
 `agentConfig` 包含 `workdir`、`model`、`effort`、`sandbox`、`providerAgentId`、`timeoutSeconds`（秒）、`openclawConfigPath`、`openclawStateDir` 和 JSON 对象 `providerOptions`。Runtime 保留 Provider 扩展字段，但仍校验已定义字段，并拒绝已删除字段。
 
+公共调用优先通过 Context `octo.security/approval_policy.payload.mode` 设置审批，通过 `octo.execution/model.payload.reasoning.effort` 设置推理强度。公共 `approvalMode` 必须与显式 Context 策略一致；准备后的内部 `InvokeRequest` 始终携带实际审批模式。两处均未配置审批时默认为 `ask`；未配置强度时不发送覆盖值，沿用 Provider 默认。显式强度支持 `low`、`medium`、`high`、`xhigh`。Adapter 可能映射档位或提示未应用；Provider 差异见 [Provider 参考](providers.md)。
+
+不要使用 `agentConfig.autoApprove`、`dangerouslyBypassPermissions` 或 `permissionMode`：内部请求校验以 `LEGACY_PERMISSION_CONFIG_REJECTED` 拒绝。旧 `agentConfig.thinking` 以 `LEGACY_REASONING_CONFIG_REJECTED` 拒绝；使用 Context reasoning 或与之匹配的 `agentConfig.effort`。Provider sandbox 配置和工作目录不构成 OS 隔离。
+
 `runtimeLimits` 使用 camelCase 字段名：`firstFrameTimeoutMs`、`modelIdleTimeoutMs`、`modelIdleWarningMs`、`modelIdlePolicy`、`toolTimeoutMs`、`toolWallTimeoutMs`、`runTimeoutMs`、`cancelGraceMs`、`enforcement`。数值单位为毫秒，策略为 `observe | enforce`。数值范围见 [Context 超时字段](contexts.md)，完整对象可用公开的 `assertRuntimeLimits` 校验。如果只想调整某一项，优先使用 Context `octo.execution/limits`。
 
 整轮默认 `86400000`ms（24 小时），范围 `100..604800000`ms（七天），独立无响应检测仍有效。72 小时任务显式传 `runtimeLimits: { runTimeoutMs: 259200000 }` 或对应 Context 字段。顶层 `runtimeLimits` 对象整体优先于 Context；缺少的字段采用 watchdog 默认值，不与 Context 逐字段合并。因此空对象或未指定 runTimeoutMs 的部分对象仍默认 24 小时。显式较短预算继续有效。

@@ -43,13 +43,27 @@ const input = InvokeInput.check({
 | Session      | explicit Provider session; a new session is generated only when none is supplied |
 | Interactions | bidirectional `can_use_tool` requests through the active invocation's bridge     |
 
+## Configuration and session ownership
+
+The example uses approval mode `ask` and leaves reasoning effort to the Provider. Set approvals through Context `octo.security/approval_policy` and effort through `octo.execution/model.payload.reasoning.effort`. Public `InvokeInput.approvalMode` is also supported, but must agree with an explicit Context policy. The Adapter receives the prepared internal `InvokeRequest`; see the [input reference](../../docs/en/reference/invoke-input.md) for current fields and rejected legacy configuration.
+
+The caller saves and explicitly returns the complete `providerSession` from session updates, including Provider extension fields. Reusing the business `sessionId` alone starts fresh; Core keeps no persistent business-session-to-Provider binding table. See [Context and Sessions](../../docs/en/guides/context-and-sessions.md) for continuation and recovery input.
+
 ## Limits
 
 - Approval responses go through two different paths: native consumers answer native requests, canonical consumers answer Runtime interactions. Do not mix them.
 - Unsupported approval modes fail rather than degrading to full access.
 - Working directory and permission settings are Provider configuration, not OS isolation.
 - Streaming text, public reasoning, and tool events are separate; message completion is not Run completion.
-- Cancellation and every exit path must finish owned-process cleanup.
+- Cancellation and every exit path await owned-process cleanup; its platform limits are described below.
+
+## Owned process cleanup
+
+Claude Code uses SDK `spawnJsonLines`. On POSIX it creates an independent process group and awaits bounded `SIGTERM` → `SIGKILL` escalation and group-exit confirmation. A leader exiting does not by itself release ownership of tools still in that group.
+
+On Windows this path does not enable the shared cleanup helper's `processTree` option: it targets and confirms the direct child, without guaranteeing that all descendants exit. Any additional Kernel cleanup belongs to the Kernel's own ownership path. Host crashes and processes that escape the owned group remain outside normal cleanup guarantees.
+
+See [Output and Control](../../docs/en/reference/output-and-control.md) for execution terminals and cancellation, and [Executor Core](../octo-runtime-executor-core/README.md) for `shutdown()` cleanup results. A Provider result or cancellation acknowledgement alone does not prove cleanup succeeded.
 
 ## Import and distribution
 

@@ -353,7 +353,7 @@ export async function* runCodexAppServerTurn({
         context?.protocolMode
       );
 
-    // Must come after turn/start: otherwise the Core would persist a provider session that cannot be executed.
+    // turn/start 成功后才发布权威会话更新，供调用方保存完整 binding；Core 不持久化业务会话绑定。
     const session: CanonicalEvent = {
       protocolVersion: 2,
       type: "session.update",

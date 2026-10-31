@@ -47,12 +47,12 @@ CLI 默认项在 [`apps/cli/src/manifest.json`](../../apps/cli/src/manifest.json
 3. 不得把 provider 的原始事件名直接当作 Octo Runtime 规范事件类型发出。
 4. 在可能的情况下，先发出 create 事件，再发出对应的 delta；Host 的补齐逻辑只用于安全兜底。
 5. 每次调用只产生一个终态事件；Host 会等异步生成器清理完成后再向上游转发该事件。
-6. 必须响应 `request.signal`，把取消请求传递给直接启动的 provider 子进程并完成资源清理。当前 SDK 只负责向直接子进程请求终止，不保证进程一定退出；生产 adapter 必须补齐超时后的 `SIGKILL` 升级，以及整个进程组或后代进程树的回收。
+6. 必须响应 `request.signal`，把取消请求传给 Provider，并 await 自有资源清理。[SDK 清理工具](../../packages/octo-runtime-adapter-sdk/src/process-cleanup.ts) 已提供有界 TERM/KILL 升级及确认；实际范围由 spawn 所有权和调用参数决定。`spawnJsonLines` 与 Codex 默认 spawn 在 POSIX 创建并清理独立组，leader 退出不代表组内后代退出；Codex 注入的 child 不推定拥有组。当前 Codex/Claude Windows 路径未启用工具的 `processTree`，只确认直接子进程，不承诺全部后代退出。宿主崩溃或进程脱离受管组的限制仍在，不按进程名全机扫描。具体边界见 [Codex](../../packages/octo-runtime-adapter-codex/README.zh.md) 与 [Claude Code](../../packages/octo-runtime-adapter-claude-code/README.zh.md)。
 7. 控制指令应优先通过 Provider 原生的 system、developer 或配置通道传递。Provider 没有独立载体时，必须明确记录所用载体；例如 Antigravity 将控制指令和用户输入放入同一 user 消息的不同 text block，不得宣称为原生 system role。OpenClaw 使用原生额外系统提示载体。
 8. Token 和其他敏感值不得出现在命令行参数、prompt、事件 payload 或工作目录中。
 9. 会话、审批、图片等行为在 Adapter 中按具体合同实现，由宿主管理功能支持范围；不得新增 `executionFeatures` 标签、自有 capabilities、能力字段表或 AbilityProvider 注册体系。当前输出模式仍使用 `protocolSupport`，其简化不在本次文档决定中实施。单独记录真实 Provider 验证范围，不将静态声明当作执行证据。
 
-上例演示 canonical 事件生成；调用 Host 时显式指定 `{ protocolMode: "canonical" }`。需要 native 时实现 Driver 与独立控制帧，不能直接声明支持后继续只返回 canonical 事件。详情见 [模式合同](../rules/output-protocol.md)。
+上例演示 canonical 事件生成；公共调用输入显式指定 `{ protocol_mode: "canonical" }`。需要 native 时实现 Driver 与独立控制帧，不能直接声明支持后继续只返回 canonical 事件。详情见 [模式合同](../rules/output-protocol.md)。
 
 ## Adapter 接入验收清单
 

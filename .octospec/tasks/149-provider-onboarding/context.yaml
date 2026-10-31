@@ -1,0 +1,54 @@
+task: 149-provider-onboarding
+issue: https://github.com/Mininglamp-OSS/octo-runtime/issues/149
+loop_task: ORT-50
+baseline: a5a32835882deab5e2364b559dd06bf1675c1335
+branch: docs/149-provider-onboarding
+scope: documentation-and-comments-only
+rules_read:
+  - .octospec/rules/_index.yaml
+  - .octospec/rules/architecture.md
+  - .octospec/rules/protocol-design.md
+  - .octospec/rules/adapter-metadata.md
+  - .octospec/rules/context-input.md
+  - .octospec/rules/invoke-input.md
+  - .octospec/rules/reasoning.md
+  - .octospec/rules/output-protocol.md
+  - .octospec/rules/stateless-execution.md
+  - .octospec/rules/engineering.md
+  - .octospec/rules/collaboration.md
+sources:
+  - .octospec/tasks/_brief.template.md
+  - .octospec/guides/adapter-authoring.md
+  - .octospec/guides/providers.md
+  - packages/octo-runtime-protocol/src/index.ts
+  - packages/octo-runtime-executor-core/src/invoke-input.ts
+  - packages/octo-runtime-adapter-codex/src/app-server.ts
+  - packages/octo-runtime-adapter-codex/README.md
+  - packages/octo-runtime-adapter-codex/README.zh.md
+  - packages/octo-runtime-adapter-claude-code/src/index.ts
+  - packages/octo-runtime-adapter-claude-code/README.md
+  - packages/octo-runtime-adapter-claude-code/README.zh.md
+  - packages/octo-runtime-adapter-sdk/src/index.ts
+  - packages/octo-runtime-adapter-sdk/src/process-cleanup.ts
+  - docs/zh-CN/guides/context-and-sessions.md
+  - docs/zh-CN/reference/invoke-input.md
+  - scripts/check-developer-docs.mjs
+  - test/adapter-multimodal.test.js
+skills:
+  - /Users/lvsijia/.agents/skills/octo-shared/SKILL.md
+  - /Users/lvsijia/.agents/skills/octo-loop/SKILL.md
+  - /Users/lvsijia/.agents/skills/code-review/SKILL.md
+decisions:
+  - User confirmed documentation and comment changes only.
+  - No runtime behavior changes or CI expansion.
+  - User approved the spec and implementation with 开始实现.
+  - User authorized OKF fixes, commit, push, and PR creation in the delivery follow-up.
+verification:
+  stage: verified-for-authorized-pr
+  implementation_tests: 88 passed, 1 real-Provider test skipped
+  documentation_tests: 4 passed
+  provider_readme_snippets: 30 passed through public and prepared-request validation
+  full_okf_lint: passed after syncing upstream fixes and adding 3 missing frontmatters
+  scoped_okf: passed; historical failures superseded by latest full OKF pass
+  review: Standards 0 remaining; Spec 0 remaining
+  evidence: validation.md

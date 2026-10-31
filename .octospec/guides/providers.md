@@ -25,15 +25,15 @@ CLI 默认加载集合以 [manifest.json](../../apps/cli/src/manifest.json) 为�
 | Hermes、Kimi Code、MCode、Qoder CLI、Qoder CN | ACP stdio | canonical |
 | [Grok Build](../../packages/octo-runtime-adapter-grok-build/README.md) | Grok CLI ACP stdio，共享通用 client | canonical |
 
-Host 公共 `invoke` 默认 native。使用 canonical-only Adapter，或需要统一事件的业务方，必须显式指定 `{ protocolMode: "canonical" }`。模式不支持时在接纳前拒绝，不从 canonical 重建原生输出，见 [输出模式合同](../rules/output-protocol.md)。当前仓库不再提供 Worker 远程接入包。
+公共 `invoke` 默认 native。使用 canonical-only Adapter，或需要统一事件的业务方，必须在输入中显式指定 `{ protocol_mode: "canonical" }`。模式不支持时在接纳前拒绝，不从 canonical 重建原生输出，见 [输出模式合同](../rules/output-protocol.md)。当前仓库不再提供 Worker 远程接入包。
 
 `agentSources` 声明来源支持，`protocolSupport` 描述输出协议；可用状态由真实 probe 单独判断。Runtime 已删除 `executionFeatures` 标签机制；功能入口归宿主管理，Adapter 按具体执行合同适配或明确拒绝。详见 [执行元数据](../rules/adapter-metadata.md)。Host 当前没有公开 fork 流程，不因 Provider 原生具有 fork 就声明端到端支持。
 
 ## 会话与权限
 
-Codex 使用 `thread/resume`，Claude Code 使用 `--resume`，ACP 使用 Provider 支持的 `session/load`；恢复和 fresh fallback 取决于对应实现。调用方保存 opaque Provider session；存在 session ID 不保证恢复成功。新会话所需背景由调用方提供。
+Codex 使用 `thread/resume`，Claude Code 使用 `--resume`，ACP 使用 Provider 支持的 `session/load`；恢复和 fresh fallback 取决于对应实现。调用方保存并显式回传完整 opaque `providerSession`，包括扩展字段；只复用业务 `sessionId` 不会自动续接，Core 不持久维护业务绑定。存在 Provider session ID 也不保证恢复成功。新会话所需背景由调用方提供，见[会话续接步骤](../../docs/zh-CN/guides/context-and-sessions.md)。
 
-OpenClaw 为每次调用建立隔离 session，验证本轮 `provider_agent_id` 指向已有 Agent，通过 `sessions.messages.subscribe` 取流、`agent` 执行、`agent.wait` 确认终态、`sessions.abort` 取消。它不创建 Agent、不验证旧 runner 隔离配置、不改写原生工作区，也不传 Harness cwd。见 [连接合同](../rules/openclaw.md)。
+OpenClaw 新会话使用独立 key，续聊显式复用返回的原生句柄；每轮验证 `provider_agent_id` 指向已有 Agent，通过 `sessions.messages.subscribe` 取流、`agent` 执行、`agent.wait` 确认终态、`sessions.abort` 取消。它不创建 Agent、不验证旧 runner 隔离配置、不改写原生工作区，也不传 Harness cwd。见 [连接合同](../rules/openclaw.md)。
 
 权限使用本轮 `approvalMode`。Adapter 按支持范围映射 ask／assisted／full_access，无法表达时明确拒绝。Claude Code 和 CodeBuddy 只在 full_access 下使用 bypass；OpenCode 只在 full_access 下使用自动执行 CLI，ask 使用交互 ACP。不能把某个引擎的默认权限写成整个 Runtime 的默认权限。
 
