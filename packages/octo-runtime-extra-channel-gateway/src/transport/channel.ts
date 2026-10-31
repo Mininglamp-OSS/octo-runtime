@@ -339,7 +339,7 @@ export class GatewayTransport {
                       )
                     : { text, files: [] };
                   const failures: string[] = [];
-                  // 每张文件卡有独立回执；整段准备只执行一次，文本重试不重复卡片或上传。
+                  // 每张最终文件卡首发后最多重试三次；整段准备仅一次，文本重试不重开预算或上传。
                   for (const [index, file] of delivered.files.entries()) {
                     finalSignal.throwIfAborted();
                     if (options?.obsolete())
@@ -356,7 +356,10 @@ export class GatewayTransport {
                           outputObserver(delivered.incomplete ? undefined : { type: 8, ...file })
                         );
                       },
-                      { obsolete: () => finalSignal.aborted || Boolean(options?.obsolete()) }
+                      {
+                        attempts: 4,
+                        obsolete: () => finalSignal.aborted || Boolean(options?.obsolete())
+                      }
                     );
                     if (receipt.state !== "delivered")
                       failures.push(

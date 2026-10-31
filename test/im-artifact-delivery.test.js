@@ -1752,7 +1752,7 @@ test("invocation freezes delivery mode and allowed roots before SDK configuratio
 });
 
 for (const cardState of ["failed", "unknown"]) {
-  test(`transport preserves links and sends native cards once across text retries, with explicit ${cardState} card receipts`, async (t) => {
+  test(`transport preserves links and finalized file budgets across text retries, with explicit ${cardState} card receipts`, async (t) => {
     const { workspace, policy } = await fixture(t);
     await writeFile(join(workspace, "game.html"), "html");
     await writeFile(join(workspace, "notes.md"), "markdown");
@@ -1844,9 +1844,16 @@ for (const cardState of ["failed", "unknown"]) {
       inbound.replyFinal(text, "final:run", options),
       (error) => error.status === 429
     );
+    const fileAttempts = cards.length;
     await inbound.replyFinal(text, "final:run", options);
     assert.equal(uploads, 3);
-    assert.equal(cards.length, 2);
+    assert.equal(cards.length, fileAttempts, "text retries cannot reopen file delivery budgets");
+    assert.equal(cards.filter((args) => args[2].name === "game.html").length, 1);
+    assert.equal(
+      cards.filter((args) => args[2].name === "notes.md").length,
+      cardState === "unknown" ? 4 : 1
+    );
+    assert.equal(new Set(cards.map((args) => args[3])).size, 2);
     assert.deepEqual(cards[0][2], {
       url: "https://cdn.example.com/chat/generated-game.html",
       name: "game.html",
@@ -1875,7 +1882,7 @@ for (const cardState of ["failed", "unknown"]) {
       options
     );
     assert.equal(uploads, 3);
-    assert.equal(cards.length, 2);
+    assert.equal(cards.length, fileAttempts, "remote links must not create extra file cards");
   });
 }
 

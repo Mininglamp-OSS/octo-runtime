@@ -235,6 +235,8 @@ Run 完成不等于 IM 发送成功。需要可靠投递的应用自行定义发
 
 同一任务/effect 的同次在途 REST 发送共用 Promise；有效 message_id 确认后记入身份账本。按用户最终决定，仅当前 finalMsg 和卡片 finish 对暂态错误首发后最多重试 3 次，成功即止；普通过程卡片单次失败直接结束。无有效回执不记为送达，重试耗尽后记录错误码及 run_id，必须能由 `octo-runtime channel-gateway logs` 查询；不再自动发未知通知、不等待 WS 后补投、不强制保存待发消息或结果。完整强制策略见[架构边界](architecture.md#channelgateway-任务接收与投递边界)。REST 有有效 message_seq 时通过任务回调观察原会话位置，继续核对 session/generation/processEpoch；无有效序号时保持保守历史。Bot 停止、任务取消、过期及目标身份撤销仍阻止请求；已撤销身份切回不能复活旧任务。普通断线与同身份 token 更新不等于撤销。
 
+最终文本和其中每张原生附件消息各有最多四次尝试；附件不是普通过程卡片，不沿用 dispatcher 的默认三次预算。每张附件发送包含在 effect 缓存的准备内，文本外层重试不能重开附件预算或重复上传；附件耗尽不阻断其他附件与正文投递，下载链接和未确认提示按既有合同保留。
+
 同日进度卡修复：任务的 CardSession 保留原消息 ID、递增序号和终态屏障；REST 客户端与投递器使用 Bot 生命周期期限，WS 清理不能取消已开始或未来的进度编辑。2026-10-30 用户进一步确认：REST 与 WS 建联独立，清理、退避、新 WS 鉴权或握手未完成均不能暂停 REST。使用 Manager 已生效的 Bot 配置及其现有凭据入口，不要求外部最新 token，不新增刷新或局部热更。目标 Bot/API/空间及收件地址仍绑定原任务；同一身份更新 token 不撤销 REST 投递，目标身份改变或 Bot 停止则取消。中间快照失败可丢弃，由后续累计快照覆盖；终态沿用现有有限 REST 重试，失败如实记录，不保证长期离线补投。卡片动作轮询和交互按钮绑定暂不迁移。当前合同见[Manager 凭据任务](../tasks/channel-rest-manager-credentials/brief.md)，此前依赖 WS 核验等待的任务记录仅作为历史证据。
 
 WS 只保留握手、入站解析/接收 ACK、PING/PONG、断开与串行重连。卡片、普通回复、finalMsg 和文件均由 REST 发送；不保留 WuKong sendText/sendFile/isDelivered/onDelivered、发送重试、迟到 SENDACK 关联或跨连接结果接管。最终投递失败按预算记日志后结束；删除未知通知接口、通知卡工厂及自动通知分支，不保留兼容路径。接收 ACK 仍属入站协议，不能与已删除的出站投递确认混淆。

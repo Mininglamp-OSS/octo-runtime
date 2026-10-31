@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { setImmediate as settle } from "node:timers/promises";
 import { createServer } from "node:http";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
@@ -17,6 +17,7 @@ const { GatewayTransport } = await gateway("transport/channel");
 const { WukongConnection } = await gateway("transport/wukong");
 const { ImDeliveryIdentity } = await gateway("delivery/identity");
 const { ImDeliveryDispatcher } = await gateway("delivery/dispatcher");
+const { artifactPolicy } = await gateway("delivery/artifact-policy");
 const { ImRuntime } = await gateway("index");
 const { CardSession } = await gateway("transport/card-session");
 const { ImRunProjector } = await gateway("presentation/run-projector");
@@ -74,7 +75,7 @@ async function fixture(t, receive, overrides = {}) {
   let current, hook;
   t.mock.method(globalThis, "fetch", async (url, options) => {
     options.signal.throwIfAborted();
-    const body = options.body ? JSON.parse(options.body) : undefined;
+    const body = typeof options.body === "string" ? JSON.parse(options.body) : undefined;
     requests.push({ url, options, body });
     const intercepted = await hook?.(url, options, body);
     if (intercepted) return intercepted;
@@ -590,6 +591,134 @@ for (const outcome of ["network", "503", "missing-receipt", "recovered", "403"])
     }
     assert.equal(writes, f.messages().length, "shutdown must not resume delivery");
   });
+}
+
+for (const outcome of [
+  "429",
+  "503",
+  "network",
+  "missing-receipt",
+  "recovered",
+  "403",
+  "cancelled",
+  "obsolete"
+]) {
+  test(
+    `final attachments have independent bounded delivery budgets: ${outcome}`,
+    { timeout: 15_000 },
+    async (t) => {
+      const workspace = await mkdtemp(join(tmpdir(), "octo-255-final-files-"));
+      t.after(() => rm(workspace, { recursive: true, force: true }));
+      for (const name of ["one.json", "two.json"]) await writeFile(join(workspace, name), "{}");
+      const f = await fixture(t, undefined, {
+        adapter: { adapter_type: "codex", workdir: workspace },
+        artifact_delivery: { allowed_roots: [workspace] }
+      });
+      const original = f.inbound[0];
+      const task = new AbortController();
+      let obsolete = false,
+        firstWrites = 0,
+        secondWrites = 0,
+        textWrites = 0;
+      const presigns = [],
+        uploads = [],
+        firstKeys = new Set(),
+        textKeys = new Set();
+      const bodies = [];
+      const interrupted = ["cancelled", "obsolete"].includes(outcome);
+      f.hook((url, _options, body) => {
+        if (url.includes("/upload/presigned")) {
+          const name = new URL(url).searchParams.get("filename");
+          presigns.push(name);
+          return Response.json({
+            method: "PUT",
+            uploadUrl: `https://storage.fixture.invalid/${name}`,
+            downloadUrl: `https://cdn.fixture.invalid/${name}`
+          });
+        }
+        if (url.startsWith("https://storage.fixture.invalid/")) {
+          uploads.push(url);
+          return new Response(null, { status: 200 });
+        }
+        if (!url.endsWith("/bot/sendMessage")) return;
+        if (body.payload.type === 8) {
+          if (body.payload.name === "two.json") {
+            secondWrites++;
+            return Response.json({ message_id: "second-file" });
+          }
+          firstWrites++;
+          firstKeys.add(body.client_msg_no);
+          if (outcome === "recovered" && firstWrites === 4)
+            return Response.json({ message_id: "first-file" });
+          if (outcome === "cancelled") task.abort();
+          if (outcome === "obsolete") obsolete = true;
+          if (outcome === "network") throw new TypeError("fixture response lost");
+          if (outcome === "missing-receipt") return Response.json({});
+          return Response.json(
+            {},
+            {
+              status: outcome === "429" ? 429 : outcome === "403" ? 403 : 503,
+              headers: { "Retry-After": "0" }
+            }
+          );
+        }
+        textWrites++;
+        bodies.push(body.payload.content);
+        textKeys.add(body.client_msg_no);
+        return textWrites === 4
+          ? Response.json({ message_id: "final-text" })
+          : Response.json({}, { status: 503 });
+      });
+      await f.retire();
+      const options = {
+        artifacts: artifactPolicy(f.config, {
+          schema: "octo.context-envelope/v3",
+          items: [
+            {
+              namespace: "octo.execution",
+              name: "workspace",
+              payload: { mode: "fixed", path: workspace }
+            }
+          ]
+        }),
+        signal: task.signal,
+        obsolete: () => task.signal.aborted || obsolete
+      };
+      const deliver = () =>
+        original.replyFinal("[one](one.json) [two](two.json)", "final-files", options);
+      const dispatcher = new ImDeliveryDispatcher(f.owner.signal);
+      const receipt = await dispatcher.deliver("final-files", deliver, {
+        attempts: 4,
+        obsolete: options.obsolete
+      });
+      assert.equal(firstWrites, interrupted || outcome === "403" ? 1 : 4);
+      assert.equal(secondWrites, interrupted ? 0 : 1, "each file owns its own budget");
+      assert.equal(
+        textWrites,
+        interrupted ? 0 : 4,
+        "file failure does not consume the text budget"
+      );
+      assert.equal(firstKeys.size, 1, "file retries keep the same message identity");
+      assert.deepEqual(presigns, ["one.json", "two.json"]);
+      assert.equal(uploads.length, 2, "text and file retries cannot repeat uploads");
+      if (interrupted) {
+        assert.notEqual(receipt.state, "delivered");
+        return;
+      }
+      assert.equal(receipt.state, "delivered");
+      assert.equal(textKeys.size, 1);
+      assert.ok(bodies.every((text) => text.includes("https://cdn.fixture.invalid/one.json")));
+      assert.equal(bodies[0].includes("File card delivery unconfirmed"), outcome !== "recovered");
+      const before = f.requests.length;
+      await dispatcher.deliver("final-files", deliver, { attempts: 4 });
+      await deliver();
+      assert.equal(
+        f.requests.length,
+        before,
+        "confirmed output and exhausted file budgets never reopen"
+      );
+    }
+  );
 }
 
 for (const outcome of ["exhausted", "recovered"]) {

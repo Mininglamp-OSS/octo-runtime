@@ -6,6 +6,24 @@ tags: [channel, delivery, lifecycle, testing]
 timestamp: 2026-10-30T00:00:00Z
 ---
 
+# 最终附件预算修正（2026-10-31）
+
+用户授权修复并提交 yujiawei 指出的 final 附件预算遗漏。本轮基于 f317c995，生产仅在附件 dispatcher 选项显式配置 `attempts: 4`，同步维护就近注释；不改 WS、上传、缓存、默认 dispatcher 或持久化。
+
+真实 GatewayTransport/ImDeliveryDispatcher 加受控 HTTP 的修复前复现：附件持续 429 只发送 3 次，503/网络异常/缺回执只发送 1 次，而外层最终文本能发送 4 次。原因是附件未显式传入预算，默认三次且 unknown 提前停止；外层 effect 缓存保证文本重试不会再次进入附件发送，因而也不会补足次数。
+
+新增 8 项仅手动运行的附件专项：429、503、网络异常、缺回执、第四次成功、403、取消和过期。每项包含两个本机临时附件，并在 WS 已关闭时执行；验证第一张最多四次、第二张成功一次、文本最多四次，各消息身份稳定；每文件仅 presign/PUT 一次，文本重试和重复调用不能重开已耗尽预算或重发已确认输出。失败保留下载链接与既有未确认提示。取消/过期阻止第二张和正文，403 提前停止该附件。
+
+修复前有效夹具上 5 项失败，403/取消/过期原本通过。最初夹具将二进制 PUT 当成 JSON，导致上传失败；已按请求 body 类型只解析 JSON 字符串，再执行上述对照，不把夹具故障记作生产缺陷。
+
+相关回归首次运行另暴露既有 `im-artifact-delivery` 的 unknown 附件单次断言，已按新收尾合同改为四次；明确失败仍一次，且加强逐文件次数、消息 key 防重和文本重试不重开预算的断言。没有新增默认测试用例或扩大 CI。
+
+最终本地验证：Darwin arm64 / Node 24.22.2，`pnpm typecheck`（含构建）、`pnpm lint`、`pnpm lint:names`、`pnpm docs:check`（4 项示例）、修改源码/测试的 Prettier 和 `git diff --check` 通过。沿用下节完整相关组合命令，共 717 项，713 通过、4 项缺可选 Go 渲染探针跳过、0 失败；新增 8 项全部通过。生产仅改一个文件的预算选项及注释，现有默认测试仅同步原场景断言；`.github/`、package.json、pnpm-lock.yaml 和默认测试选择无变更。日志 `/tmp/octo-262-attachments-{before,typecheck,lint,names,docs,tests}.log` 为本机临时证据。
+
+OKF 全仓检查仍仅报下节记录的 4 份既有文档缺失 frontmatter，本次文件未新增错误；不将此检查描述为全仓通过。
+
+V7 实际 Wi-Fi/热点 A→B→A 继续 **not run**；本轮 fixture、受控 WS 关闭以及历史 im-test 结果均不能替代该项。没有修改系统网络、运行真实 Provider 或重复全量套件。
+
 # 凭据发布与注册拒绝修正（2026-10-31）
 
 用户确认实施最新 review 的局部修正。以下结果基于 PR #262@4fd5a150 加本次变更，取代下节对自定义凭据源场景的过宽结论；默认固定 token 换网不触发该问题，终态预算的 off-by-one 意见仍不成立。
