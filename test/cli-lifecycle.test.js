@@ -45,7 +45,9 @@ test("CLI start installs a missing service with progress on stderr and queries t
           stdout = `"${componentServiceId(home, "channel-wecom")}" => ${disabled}`;
         if (args[0] === "print") {
           exitCode = loaded ? 0 : 113;
-          stdout = "state = running\npid = 123\n";
+          stdout = loaded
+            ? "state = running\npid = 123\n"
+            : `Could not find service "${args[1].split("/").at(-1)}" in domain for user gui: 501`;
         }
         if (args[0] === "bootstrap") {
           assert.equal(disabled, false);

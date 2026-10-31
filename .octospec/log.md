@@ -8,6 +8,8 @@
 
 - [Issue 254](journal/shared/2026-11-01-254-npm-pack-json.md)：兼容 npm pack 数组与包名索引 JSON，显式选包并校验字段；63 项回归、npm 12.2.1 打包及现有发行验收通过，双轴审查各 0 发现。主线既有 3 份文档缺 frontmatter 已获用户认可为交付已知问题，按成功进入验证审查并创建 PR；未扩大 CI。
 
+- [Issue 158](journal/shared/2026-11-01-158-launchd-query-ownership.md)：launchd 查询失败传播并保留定义，仅明确缺失可幂等卸载；CLI 错误状态自启 unknown。相关回归 84 通过/13 Windows 跳过，手动专项 22 通过，原生 macOS 1 通过；双轴审查修正后无未解决项，未扩大 CI，未提交或推送。
+
 - [Issue 263](journal/shared/2026-11-01-263-long-running-invocations.md)：默认整轮预算 24 小时、最大七天，保留独立无响应检测；手动长时、原生协议及真实 DSH 验证通过，隔离既有环境问题后全量通过。修复四份 frontmatter，双轴审查问题闭环；未扩大 CI，未提交或推送，外部宿主验收独立记录。
 
 - [Issue 18](journal/shared/2026-11-01-18-mentioned-slash-commands.md)：rebase 最新 main@a5a328 后，直接点名的完整 reset/new/stop 指令在 Gateway 处理，语义文本保留为普通 AgentRun；专项 25 项、相关渠道 590 项及构建、类型、lint、命名通过，两轴审查无问题。补齐 Issue 267 三文件 frontmatter 后全仓知识 lint 通过；无提交、无推送、未扩大 CI，等待验证审查。

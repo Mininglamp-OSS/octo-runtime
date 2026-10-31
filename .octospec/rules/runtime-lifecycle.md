@@ -77,6 +77,8 @@ cross-service 沿用既有各平台启用/禁用实现：macOS 的 LaunchAgents 
 
 macOS stop/uninstall 及定义替换不能把 bootout 请求已受理视为卸载完成；有界确认旧 job 从原生 manager 消失后才允许返回或 bootstrap。print-disabled 的 true/false 和 enabled/disabled 两种输出均须正确解析。
 
+launchd 的 print 非零不能直接判为停止：仅 exit 113 且明确指出当前 gui 用户域内目标 label 缺失时可作为幂等缺失；其他权限、域不可用、超时和未知诊断须传播错误。初始查询与 bootout 后轮询遵守同一判定，未确认 job 消失不能删除 plist 或继续 bootstrap。print-disabled 失败不能伪造已启用；inspect 查询失败抛结构化错误，CLI 保留 unknown 和稳定诊断，错误快照的自启显示 unknown。JSON 兼容字段 enabled=false 在该错误快照中不代表已确认关闭。安装初始查询失败不能覆盖 plist；定义替换后的失败保留当时磁盘定义，不承诺事务回滚。专项仅手动执行，证据见 [Issue 158](../tasks/158-launchd-query-ownership/validation.md)。
+
 组件 install/start/restart/stop/uninstall 共用按 Home/组件派生的 setup lock，原生修改、就绪等待及最终状态确认均在锁内；同组件并发修改返回 SETUP_IN_PROGRESS，不调用管理器；不同组件不共用锁。start/restart 不把管理器保留的 LastTaskResult/ExecMainStatus 当作本次失败，缺少当前失败证据时保留就绪预算。
 
 systemd/Windows 的停止或删除失败不得静默视为成功；只有原生明确 not-found 可忽略，管理器不可用和权限失败须传播。systemd 删除 unit 前确认 inactive/failed 且 MainPID=0；Windows /End 后有界确认任务不再 running/queued，再删除或 /Run 替换，未确认前保留定义。Windows 非零 /Query 不能直接推定不存在，通过 Task Scheduler 原生 HRESULT 确认，不能依赖本地化错误文字。
