@@ -77,9 +77,10 @@ export interface HostedAdapterMetadata {
 }
 
 /**
- * The minimal contract any Octo Runtime adapter must implement.
- * invoke may wrap a CLI subprocess, ACP, WebSocket or an in-process
- * implementation, as long as it emits a canonical event stream.
+ * Adapter 的最小注册合同；必须声明实际支持的输出模式。
+ * invoke 可封装子进程、ACP、WebSocket 或进程内实现，按 context.protocolMode
+ * 返回 canonical 事件或 native/控制输出；native-only 不要求生成 canonical 事件。
+ * Adapter 负责本轮取消和资源清理，Core 在清理结束后发布执行终态。
  */
 export interface HostedAdapter {
   metadata: HostedAdapterMetadata;

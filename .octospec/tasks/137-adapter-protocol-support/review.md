@@ -1,5 +1,5 @@
 ---
-type: Task
+type: Review
 title: Issue 137 代码审查
 description: 记录 Adapter 协议元数据类型合同的标准与规格审查结果及限制。
 tags: [adapter, protocol, review]

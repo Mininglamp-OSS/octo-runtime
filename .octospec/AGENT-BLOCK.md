@@ -8,6 +8,7 @@
 3. 非简单代码改动在 `.octospec/tasks/<slug>/brief.md` 记录目标、关键合同、范围和验收依据，在 `context.yaml` 记录实际读取的规则。已有明确需求按用户授权执行；仅在缺少关键决策时询问。
 4. 实现后对照规则与验收项检查 diff，按改动范围运行检查。真实接口调试必须连接线上测试环境，验证记录不得包含凭据。
 5. 收尾时将可复用结论回写规则，将验证结果写入 journal；`learnings/pending/` 只放待决问题。提交、推送、创建 MR 按用户授权执行。
+6. YAML 元数据为强制要求：新建或修改 `.octospec/{rules,guides,tasks,journal,learnings}/` 中的知识 Markdown，必须在文件开头写完整 `---` YAML frontmatter，包含非空字符串 `type`、`title`、`description` 及列表 `tags`。`brief.md`、`review.md`、`validation.md`、journal 分别声明 `Task`、`Review`、`Validation`、`Journal`；规则与指南使用 `Rule`、`Guide`。已有文件缺失时必须随本次编辑补齐。`index.md`、`log.md`、`*.template.md` 沿用检查器豁免，`context.yaml` 不加 Markdown frontmatter。交付前必须检查本次涉及文件的元数据，并运行 `.octospec/scripts/lint.py`；本次错误修复重验，未修改的历史错误独立报告。
 
 说明、任务、评审和提交描述直接使用中文；字段、命令及专有名称保留原文。Claude Code 可使用 `/octospec-plan`、`/octospec-go`、`/octospec-check`、`/octospec-finish`，其他 Agent 执行同一流程。
 

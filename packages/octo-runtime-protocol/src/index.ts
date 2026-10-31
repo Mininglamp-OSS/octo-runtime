@@ -252,7 +252,7 @@ export const CANONICAL_EVENT_TYPES = [
   ...TERMINAL_EVENT_TYPES
 ] as const;
 
-/** Every provider's native events must collapse into this set, so the Core stays agnostic of the underlying CLI. */
+/** canonical 模式下的统一事件类型；native-only Adapter 无须转换原生事件。 */
 export type CanonicalEventType = (typeof CANONICAL_EVENT_TYPES)[number];
 
 export type CanonicalPayloadFor<TType extends CanonicalEventType> = TType extends "activity.started"
@@ -283,7 +283,7 @@ export type CanonicalPayloadFor<TType extends CanonicalEventType> = TType extend
                           ? CanonicalEventPayload & ToolCallUpdatePayload
                           : CanonicalEventPayload;
 
-/** The smallest event unit an adapter emits to the Host; the payload narrows by type for the tool lifecycle. */
+/** Adapter 在 canonical 模式下输出的最小事件单元；工具生命周期的 payload 随类型收窄。 */
 export type CanonicalEvent<TType extends CanonicalEventType = CanonicalEventType> =
   TType extends CanonicalEventType
     ? { protocolVersion: 2; type: TType; payload: CanonicalPayloadFor<TType> }

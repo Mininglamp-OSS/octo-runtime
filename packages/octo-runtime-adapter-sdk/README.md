@@ -53,7 +53,7 @@ Register it like any other Adapter: `serveWorker([echoAdapter])` inside a Kernel
 ## Rules the interface assumes
 
 - You receive a prepared `InvokeRequest`, not the public `InvokeInput`.
-- Return `CanonicalEvent`s. If you also declare native support, handle `context.protocolMode` yourself.
+- Emit output for the declared and selected mode: `CanonicalEvent`s in canonical mode, native payloads and control output in native mode. A native-only Adapter does not need a canonical converter. Read the selected mode from internal `context.protocolMode`; public callers select it with `InvokeInput.protocol_mode`.
 - Keep unsupported settings visible. Never report a setting as applied when the Provider rejected or ignored it.
 - Cancellation has to reach the real Provider operation, and cleanup has to be awaited. A terminal event or a stopped iterator does not prove child processes exited.
 

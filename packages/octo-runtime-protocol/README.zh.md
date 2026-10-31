@@ -54,7 +54,7 @@ native 模式下的终态是 `type: "state"` 的 `control` 帧。
 
 ## CanonicalEvent 类型
 
-Adapter 负责把各家 Provider 的事件翻译成这一套，Provider 私有的名称不会漏到这一层。每条 canonical event 都是 `{ protocolVersion: 2, type, payload }`；下表按生命周期排列 24 种类型，payload 列只列你会真正读的字段，不是完整 schema。
+在 canonical 模式下，Adapter 负责把各家 Provider 的事件翻译成这一套，Provider 私有的名称不会漏到这一层。native-only Adapter 无须这一步转换。每条 canonical event 都是 `{ protocolVersion: 2, type, payload }`；下表按生命周期排列 24 种类型，payload 列只列你会真正读的字段，不是完整 schema。
 
 | 类型                    | 分组        | 何时出现                                   | payload 关键字段                                                                              |
 | ----------------------- | ----------- | ------------------------------------------ | --------------------------------------------------------------------------------------------- |

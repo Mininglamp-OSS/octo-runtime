@@ -1,0 +1,74 @@
+task: ORT-47
+issue: https://github.com/Mininglamp-OSS/octo-runtime/issues/145
+baseline: f7384fcbc63b3392af6972c0da6e756bee80ac60
+observed_target: db427e85dbaf1c19e79452ed4a45f6080c440a0f
+branch: fix/145-sdk-protocol-docs
+phase: ready_for_pr
+rules:
+  - path: .octospec/rules/_index.yaml
+    scope: rule discovery
+  - path: .octospec/rules/architecture.md
+    scope: product ownership, native service ownership, shared SDK boundaries; reviewed in triage and relevant sections rechecked in spec
+  - path: .octospec/rules/protocol-design.md
+    scope: protocol versions, common invoke and observation ownership
+  - path: .octospec/rules/output-protocol.md
+    scope: public and internal mode selectors, native controls, source budgets
+  - path: .octospec/rules/adapter-metadata.md
+    scope: authoring defaults, registration requirements, mode declarations
+  - path: .octospec/rules/environment.md
+    scope: stale mandatory conflict text compared with authoritative resolver
+  - path: .octospec/rules/invoke-input.md
+    scope: input fields, defaults, cancellation and observation
+  - path: .octospec/rules/local-execution.md
+    scope: service ownership, IPC, shared subscription and connection budgets
+  - path: .octospec/rules/protocol-schema.md
+    scope: schema authority, generated types, independent versions
+  - path: .octospec/rules/engineering.md
+    scope: specification ownership check, local validation, Chinese interface comments
+  - path: .octospec/rules/collaboration.md
+    scope: Chinese internal artifacts; user OSS English commit and GitHub instructions take precedence
+sources:
+  - AGENTS.md
+  - .octospec/index.md
+  - .claude/commands/octospec-plan.md
+  - .claude/commands/octospec-check.md
+  - .octospec/tasks/_brief.template.md
+  - .octospec/tasks/137-adapter-protocol-support/brief.md
+  - .octospec/guides/providers.md
+  - .octospec/guides/adapter-authoring.md
+  - packages/octo-runtime-protocol/README.md
+  - packages/octo-runtime-protocol/README.zh.md
+  - packages/octo-runtime-adapter-sdk/README.md
+  - packages/octo-runtime-adapter-sdk/README.zh.md
+  - packages/octo-runtime-protocol/src/index.ts
+  - packages/octo-runtime-protocol/src/invoke-input.ts
+  - packages/octo-runtime-protocol/src/context-configuration.ts
+  - packages/octo-runtime-executor-core/src/index.ts
+  - packages/octo-runtime-executor-kernel/src/client.ts
+  - packages/octo-runtime-executor-kernel/src/server.ts
+  - packages/octo-runtime-executor-kernel/src/host-run-service.ts
+  - docs/examples/attach.mts
+  - docs/examples/tsconfig.json
+  - docs/checks/examples.test.mjs
+  - scripts/check-developer-docs.mjs
+  - test/context-envs.test.js
+  - test/context-configuration-protocol.test.js
+  - package.json
+  - .github/workflows/ci.yml
+  - Loop ORT-47 current state and two triage comments
+  - User request to start spec
+  - User approval to start implementation
+  - .claude/skills/octospec-workflow/SKILL.md
+  - /Users/lvsijia/.agents/skills/code-review/SKILL.md
+authorization:
+  current: implementation, local validation, review, commits, main synchronization, push and PR creation
+  implementation: approved by user request to start implementation
+  yaml_workflow_and_historical_headers: explicitly approved by user
+  commit_push_pr: explicitly approved by user request to commit, update main and create PR
+  merge_pr: not authorized
+verification:
+  local_contracts: passed
+  validated_code_commit: 8c95ea7065c713b52396794f0df09269a6fef6cd
+  global_okf_lint: passed after authorized metadata repair and main synchronization
+  review: Standards and Spec both zero remaining findings after main synchronization
+  workflow_result: implementation retry passed; proceed to verification review and authorized PR creation

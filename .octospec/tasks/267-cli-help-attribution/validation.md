@@ -1,5 +1,5 @@
 ---
-type: Task
+type: Validation
 title: Issue 267 实现与本地验证
 description: 根帮助署名改动的既有验证证据与限制。
 tags: [cli, testing]
