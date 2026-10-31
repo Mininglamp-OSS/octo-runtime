@@ -13,8 +13,10 @@ CLI Extra同时将状态写stdout。原生SDK默认静默，可在绝对路径 `
 | 现象或错误码                    | 处理步骤                                                                                                                                   |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `KERNEL_UNAVAILABLE` 或连接失败 | 确认 endpoint 正确、Kernel 已初始化、客户端使用相同 OS 账号。检查 `status().execution_ready` 和 worker 状态。`attachKernel` 不会启动服务。 |
-| worker 状态 `recovering`       | Kernel 保持本地监听并串行重试。三次快速尝试后，每次继续等待15秒；修复worker环境后可自动恢复执行，无须重启Kernel。 |
-| `WORKER_RESTART_EXHAUSTED`      | 清理或所有权未确认，自动替换已阻断。先排查旧worker与所有权记录，再恢复服务；替代worker不会恢复旧执行。 |
+| worker 状态 `recovering`       | Kernel 保持本地监听并串行重试。worker 启动在快速重试预算内依次等待 250ms、1 秒、4 秒，之后进入 15 秒慢重试；修复环境后可恢复新请求执行，无需重启 Kernel。 |
+| `WORKER_RESTART_EXHAUSTED` / worker 状态 `exhausted` | 当前恢复被阻塞，查看 `worker.recovery.stage`、`code` 和 `retry_at`。服务未关闭时，清理/manifest 失败按 1、2、5 秒等待并继续重试；非预期恢复错误可能需要人工处理。替代 worker 不重新执行旧请求。 |
+
+重试等待不包含清理、启动和握手耗时。服务进程 `running` 不代表执行就绪，需要检查 `execution_ready`。应修复报告的原因，不删除 Home 或盲目重启服务；状态和日志见 [CLI 运维](../getting-started/cli.md)。
 
 ## 输入被拒绝
 

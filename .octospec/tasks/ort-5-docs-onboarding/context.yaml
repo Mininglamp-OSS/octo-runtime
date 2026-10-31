@@ -1,0 +1,53 @@
+rules:
+  - .octospec/rules/_index.yaml
+  - .octospec/rules/architecture.md
+  - .octospec/rules/engineering.md
+  - .octospec/rules/collaboration.md
+workflow:
+  - .octospec/tasks/_brief.template.md
+  - .claude/commands/octospec-plan.md
+  - .claude/skills/octospec-workflow/SKILL.md
+  - /Users/lvsijia/.agents/skills/octo-shared/SKILL.md
+  - /Users/lvsijia/.agents/skills/octo-loop/SKILL.md
+  - /Users/lvsijia/.codex/skills/technical-writing-zh/SKILL.md
+baseline: c35b261b31573bc2f08a16eeced12f18705b2560
+implementation_baseline: 49f9b11f58c13a65cc62e74d2c4751cac99a3707
+implementation_request: "开始改文档 docs"
+pr_baseline: 4a0f53b50723422d90f051944ae19eb28f60712a
+pr_request: "更新最新代码 然后 提交PR"
+sources:
+  - docs/en/README.md
+  - docs/zh-CN/README.md
+  - docs/en/getting-started/cli.md
+  - docs/en/getting-started/sdk.md
+  - docs/zh-CN/getting-started/sdk.md
+  - docs/en/guides/extras.md
+  - docs/en/guides/harnesses.md
+  - docs/en/guides/troubleshooting.md
+  - docs/en/maintenance.md
+  - docs/examples/attach.mts
+  - docs/examples/invoke.mts
+  - docs/examples/service.mts
+  - docs/examples/dsh-service.mts
+  - docs/examples/dsh-worker.mts
+  - docs/examples/tsconfig.json
+  - docs/checks/examples.test.mjs
+  - packages/octo-runtime-executor-kernel/src/client.ts
+  - packages/octo-runtime-executor-kernel/src/service.ts
+  - packages/octo-runtime-executor-kernel/src/supervisor.ts
+  - packages/octo-runtime-host-sdk/src/extra-service.ts
+  - packages/octo-runtime-extra-channel-gateway/src/ports.ts
+  - packages/octo-runtime-extra-channel-gateway/src/index.ts
+  - packages/octo-runtime-adapter-dsh/README.md
+  - public/dsh.ts
+  - public/channel-gateway.ts
+  - scripts/check-developer-docs.mjs
+  - scripts/pack-release.mjs
+  - scripts/verify-release.mjs
+overrides:
+  - User limits product documentation changes to docs/ and requires the existing style and tone.
+  - Task brief and context are process artifacts only; no Octospec governance changes are authorized.
+  - Historical validation dates and outcomes must not be replaced with unperformed current checks.
+  - GitHub CI scope and default runtime test coverage must not expand.
+  - OSS GitHub issues, PRs and authorized commit messages use English.
+  - Spec writing does not authorize implementation, commit, push, publication or merge.

@@ -15,6 +15,43 @@ Extra 用于把业务系统接到 Kernel。例如，IM Extra 接收聊天消息�
 
 然后调用服务的 `initialize()` 启动，使用 `status()` 查看状态，退出时调用 `close()`。内置模块的导入路径为 `/extras/channel-gateway`、`/extras/channel-wecom` 和 `/extras/webui`，均位于主包下；各模块的 `/config-schema.json` 子路径提供配置 Schema。
 
+## 连接 Channel Gateway
+
+使用已有 Kernel，并在其机器上安装、登录 Codex Provider。在 [SDK 入门](../getting-started/sdk.md)的独立 npm 目录下载 [gateway.mts](../../examples/gateway.mts)。它从公开的 `/host` 和 `/extras/channel-gateway` 入口导入，通过 `createExtraService` 构造完整 Bot 声明。
+
+在示例宿主的运行环境中准备以下变量；这些不是新增的 Runtime 配置字段：
+
+| 变量 | 宿主提供的值 |
+| --- | --- |
+| `KERNEL_ENDPOINT` | 已有 Kernel 的 socket 或 Named Pipe 地址，取得方式见 SDK 入门 |
+| `GATEWAY_API_URL` | 使用的 Octo IM API 基础地址 |
+| `GATEWAY_BOT_ID` | 在该服务获授权的 Bot 身份 |
+| `GATEWAY_BOT_TOKEN` | 从宿主受保护运行环境取得的 Bot 凭据 |
+| `GATEWAY_WORKDIR` | 已存在的 Codex 执行目录绝对路径 |
+
+共享文件包含完整的 `config: { bots: [...] }`，包括 `api_url`、`bot_id`、`bf_token` 和 `adapter: { adapter_type: "codex", workdir }`。缺少环境变量时在初始化前报错，不打印凭据。应用可以从自己的配置源准备相同值。
+
+在同一目录创建 `instructions.txt`，写入简短指令，例如 `Answer concisely.`，然后执行：
+
+```sh
+node gateway.mts instructions.txt
+```
+
+示例初始化 Extra，打印生命周期阶段和 Kernel 可用性，等待 Ctrl+C 后关闭并检查 `complete`。初始化成功不代表 Bot 已连接或消息已送达；在 Octo IM 中向 Bot 发消息并观察回复，才能验证这条路径。关闭示例不关闭借用的 Kernel。会话默认保存在内存中，仅在业务需要时增加应用存储。
+
+可运行入口使用异步文件 loader。同一文件也导出两种 loader，供应用装配：
+
+```ts
+import { createGatewayExample, synchronousContexts, asynchronousContexts } from "./gateway.mts";
+
+let instructions = "Answer concisely.";
+const syncLoader = synchronousContexts(() => instructions);
+const asyncLoader = asynchronousContexts("instructions.txt");
+const extra = createGatewayExample(process.env, asyncLoader);
+```
+
+最后一个参数选择 `asyncLoader` 或 `syncLoader`。同步实现返回 `ContextItem[]`，异步实现返回 Promise，并将取消信号传给文件 IO。两者构造带 `payload.entries` 的 `octo.control/instructions`，不使用保留的 `extra.im` 命名空间。应用仍需按可运行文件中的方式初始化、关闭 `extra`。修改文件或同步闭包读取的变量，下一轮即可取得新内容，无需重连；更换配置或函数引用仍需关闭并重新创建整个 Extra。
+
 ## 每轮加载业务数据
 
 ```mermaid
@@ -30,6 +67,8 @@ flowchart TB
 Channel Gateway 支持通过 `GatewayDependencies.loadContexts(config, {signal})` 加载背景资料。该函数可同步或异步返回 `readonly ContextItem[]`。Gateway 每接收一个可执行任务就调用一次，因此应用数据变化后，下一轮可以读取最新内容，无需重启 Extra。
 
 加载结果会与静态 Context 合并。同一 `namespace` 和 `name` 的动态项替换整个静态项，包括其 `payload`；不会逐字段合并。这是 Channel Gateway 的行为，直接调用 Kernel 时不会自动执行这一步。
+
+返回 `[]` 会保留静态项。抛错、Promise 拒绝、超时或无效 Context 会使本轮准备失败；Gateway 不会沿用上一轮的动态数据。
 
 `extra.im` 整个命名空间由 Octo Gateway 和 WeCom 对应的 Channel Extra 专属管理。渠道构造 Context 时忽略宿主静态配置和 `loadContexts` 返回的全部 `extra.im` 项，即使本轮没有生成同名项也不透传。误配仅记录忽略数量的 warning，不影响后续 AgentRun。宿主业务材料应使用其他命名空间；渠道规则如需外部更新，由渠道内部按业务合同读取并构造，本次未新增外部规则源接口。全局 `octo.control/instructions` 保留下述指令组合规则；冻结重试保留渠道已生成的完整快照。权威约束见 [Channel 规则](../../../.octospec/rules/channel-integration.md)。
 

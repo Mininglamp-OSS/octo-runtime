@@ -12,14 +12,12 @@
 | `octo-cli`                   | 调用 Octo 的消息、文档、Drive、Loop 等业务 API       | Agent 需要使用这些 Octo 工具时  |
 | `codex`、`claude` 等 Harness | 运行 Agent、调用模型并执行工具                       | 安装所选 Adapter 对应的 Harness |
 
-分别安装 Runtime 和 Octo 业务 CLI：
+安装 Runtime：
 
 ```sh
 npm install -g @mininglamp-oss/octo-runtime
-npm install -g @mininglamp-oss/octo-cli
 octo-runtime --version
 octo-runtime --help
-octo-cli --help
 ```
 
 以上命令安装 npm 上已发布的版本。下文命令要求版本的帮助信息中包含 `executor-kernel`；如果已装版本没有，请使用下面的源码构建方式。
@@ -34,9 +32,39 @@ node apps/cli/dist/index.js --help
 
 使用源码构建时，在仓库根目录执行后续命令，并将 `octo-runtime` 替换为 `node apps/cli/dist/index.js`。安装 Runtime 后，还需安装并登录所选 Harness，见 [Harness 安装配置](../guides/harnesses.md)。
 
+## 试运行一次调用
+
+按 [Harness 安装配置](../guides/harnesses.md)安装并登录 Codex。在自己的工作目录中创建 `request.json`，内容如下：
+
+```json
+{
+  "protocol_mode": "canonical",
+  "inputs": [{ "type": "text", "text": "Reply with OK without using tools." }],
+  "contexts": {
+    "schema": "octo.context-envelope/v3",
+    "items": [
+      { "namespace": "octo.execution", "name": "adapter", "payload": { "type": "codex" } },
+      { "namespace": "octo.security", "name": "approval_policy", "payload": { "mode": "ask" } }
+    ]
+  }
+}
+```
+
+在同一目录执行：
+
+```sh
+octo-runtime playboard < request.json
+```
+
+`playboard` 为这次请求启动临时 Kernel，不要求 Kernel 服务已运行，不会将请求提交给常驻服务，也不加载 Extra。stdout 输出 NDJSON 事件，stderr 输出诊断信息。成功时可看到 `message.delta` 中的最终回复文本及 `run.completed` 终态，具体措辞由模型决定；`run.failed`、`run.cancelled` 不表示执行成功。调用结束后，命令关闭自己创建的临时服务，清理不完整时报错。
+
+遇到需要回复的交互时，会以 `PLAYBOARD_INTERACTION_REQUIRED` 结束；应用需要回答审批或追问时，应使用 SDK。Provider 无法启动或认证被拒绝时，先检查同一操作系统账号下的安装和登录状态；错误码见[故障排查](../guides/troubleshooting.md)。这个本地请求不需要 `octo-cli` 或 IM Bot。
+
+修改 `payload.type` 可以选择其他已安装的 Harness。OpenClaw 还需要指定 `provider_agent_id`，例如 `main`；OpenCode 当前要求审批模式为 `full_access`，工具执行无需逐项审批，选择前请查看 [Provider 支持范围](../reference/providers.md)。
+
 ## 启动 Executor Kernel
 
-首次本地运行可以使用前台模式：
+需要重复 SDK 调用或 Extra 时，运行常驻 Kernel。前台模式使用：
 
 ```sh
 octo-runtime executor-kernel run
@@ -259,10 +287,12 @@ Kernel 父进程独立记录 worker 的退出信号/退出码、恢复阶段、�
 SDK 宿主通过 `createKernelService({ logging: { directory } })` 显式选择日志目录。
 
 `service.state=running` 只表示服务进程存在，执行能力以 `runtime.execution_ready` 为准。
-worker 退出后自动恢复新请求；清理或 manifest 写入失败按 1/2/5 秒间隔重试，之后最多每
-5 秒重试一次。`worker.state=exhausted` 表示当前恢复被阻塞，仍会重试；查看
-`worker.recovery` 中的阶段、原因和 `retry_at`。间隔不包含清理及 worker 启动耗时，
-持续权限或身份问题可能仍需处理。恢复不重新执行旧请求；确定尚未执行的拒绝与在途执行
+worker 退出后开始为新请求恢复。清理或 manifest 写入失败的重试等待依次为 1、2、5 秒，
+后续保持 5 秒。worker 启动使用独立的快速重试预算，等待依次为 250ms、1 秒、4 秒，
+之后进入 15 秒慢重试。`worker.state=exhausted` 表示当前恢复被阻塞；服务未关闭时，
+清理/manifest 的重试继续进行。查看 `worker.recovery` 中的阶段、原因和 `retry_at`；
+非预期恢复错误仍可能需要人工处理。间隔不包含清理、启动和握手耗时。
+恢复不重新执行旧请求；确定尚未执行的拒绝与在途执行
 失联后的未知结果分别反馈，不要求重启 Channel Gateway。
 
 `status` 分别返回原生 `service` 状态和 IPC `runtime` 状态，退出码 0 不代表业务可用。`doctor` 报告服务管理器探测和服务定义；`adapter list`、`adapter probe` 查询已运行的 Kernel，不会启动它。
@@ -279,43 +309,18 @@ octo-runtime executor-kernel start --home <home>
 
 恢复只确认这一份清单归档，不会终止未知进程，也不会把人工确认报告成已验证清理。
 
-## 试运行一次调用
+## 调用常驻 Kernel
 
-创建 `request.json`，内容如下：
-
-```json
-{
-  "protocol_mode": "canonical",
-  "inputs": [{ "type": "text", "text": "Reply with OK without using tools." }],
-  "contexts": {
-    "schema": "octo.context-envelope/v3",
-    "items": [
-      { "namespace": "octo.execution", "name": "adapter", "payload": { "type": "codex" } },
-      { "namespace": "octo.security", "name": "approval_policy", "payload": { "mode": "ask" } }
-    ]
-  }
-}
-```
-
-通过 CLI 执行：
-
-```sh
-octo-runtime playboard < request.json
-```
-
-`playboard` 为这次请求启动临时 Kernel，不会将请求提交给常驻服务。stdout 输出 NDJSON 事件，stderr 输出诊断信息，且不加载 Extra。遇到需要回复的交互时，会以 `PLAYBOARD_INTERACTION_REQUIRED` 结束；应用需要回答审批或追问时，应使用 SDK。
-
-修改 `payload.type` 可以选择其他已安装的 Harness。OpenClaw 还需要指定 `provider_agent_id`，例如 `main`；OpenCode 当前要求审批模式为 `full_access`，工具执行无需逐项审批，选择前请查看 [Provider 支持范围](../reference/providers.md)。
-
-从源码仓库调用常驻 Kernel 时，可以使用共享的 SDK 示例，传入实际的 socket 或 Named Pipe 地址：
-
-```sh
-node docs/examples/attach.mts /absolute/path/to/kernel.sock codex
-```
-
-地址处理和事件消费见 [SDK 入门](sdk.md)。注册 Kernel 后还需单独配置、启动 `channel-gateway`，才能接入 Octo IM；接入方式见 [Extra 指南](../guides/extras.md)。
+按 [SDK 入门](sdk.md)取得实际 endpoint，再运行共享的 attach 示例调用常驻 Kernel。注册 Kernel 后还需单独配置、启动 `channel-gateway`，才能接入 Octo IM；接入方式见 [Extra 指南](../guides/extras.md)。
 
 ## 让 Agent 使用 octo-cli
+
+仅在 Agent 需要 Octo API 工具时，安装独立的 Octo 业务 CLI：
+
+```sh
+npm install -g @mininglamp-oss/octo-cli
+octo-cli --help
+```
 
 在 Harness 实际执行工具的机器上安装 `octo-cli`，并确保该进程的 `PATH` 能找到它。通过执行环境提供 Octo 凭据，例如 `OCTO_BOT_TOKEN`，以及需要时的 `OCTO_API_BASE_URL`；逐轮配置方式见[环境变量 Context](../reference/contexts.md)，不要将凭据写入模型文本。
 
