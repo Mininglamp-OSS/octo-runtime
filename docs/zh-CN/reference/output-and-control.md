@@ -55,6 +55,18 @@ HostFrame 的 control 消息报告交互状态：`pending`、`resolved`、`expir
 
 `full_access` 策略可以处理受支持的审批，但不会替用户回答追问或信息补充请求。
 
+### 异步问题合同
+
+Codex 可在继续工作时发布 `kind: "question"`、`delivery: "async"` 的 `interaction.requested`。表单打开期间仍需持续读流。请求结构为 `{schema: "octo.question-request/v1", messageId, questions: [{id, title, options, allowCustom: true}]}`；选项可为 null 或空数组，始终支持自定义文本。消息快照也保留原生问题，但只有活动交互授权提交。用 messageId 关联成一个表单，不解析 Markdown。
+
+整批提交一次，使用 `outcome: "answered"`，以及 `value: {schema: "octo.question-response/v1", answers: [{questionId: "q:0", text: "选项原文或自定义答案"}]}`。每个题目 ID 必须恰好回答一次；每题非空白且不超过 4096 Unicode 码点。公开入口示例见 [asyncQuestionForm](../../examples/interactions.mts)。
+
+Runtime 向原活动轮次发送一次 `turn/steer`，匹配的 RPC 成功响应到达后，Promise 才成功，并发布 `resolved/answered/provider_accepted`。它只证明 Provider 接纳，不证明落盘、模型已阅读或任务成功。`ASYNC_ANSWER_REJECTED` 表示明确拒绝；`OPERATION_OUTCOME_UNKNOWN` 表示已发送但未确认，两者均不得自动重试。`INVALID_QUESTION_RESPONSE` 可在发送前修正；重复或失效提交报 `INTERACTION_NOT_ACTIVE`。
+
+pending 时以 `outcome: "cancelled"` 且不带 value 可本地关闭表单，结果为 `user_cancelled`；它不取消 Run，也不能撤回已提交输入。未答表单十分钟过期。原轮次结束后失效，不自动新开轮次补交。原 RunRef 仍存活时重连可重放同一交互，不续期；新 invocation、会话 resume、worker/Kernel 重启均不恢复旧问题。应答 ACK 丢失时查询原流的 resolved 事件，不自动重交。
+
+同步与异步共享 16 个活动交互上限；每批最多 50 题，每题最多 50 个选项，题目及选项各最多 4096 码点。损坏或超限问题明确失败。同步问题、elicitation、审批和 full_access 语义保持原样。宿主仍需接入表单界面。现有 channel-gateway 成对忽略异步交互及其结束通知，不显示表单、不进入等待，普通消息正文照常展示。
+
 ## 错误与恢复
 
 记录错误对象中的稳定错误码，再决定如何恢复。例如，输入错误应修正参数，输出连接断开应查询原执行。如果提交回执丢失，Provider 可能已经开始工作，此时直接重试 `invoke` 可能重复执行。重连步骤见 [Kernel IPC](kernel-ipc.md)，常见错误见[故障排查](../guides/troubleshooting.md)。

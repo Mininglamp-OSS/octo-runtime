@@ -79,6 +79,9 @@ export type RunProtocolErrorCode =
   | "NATIVE_METHOD_UNSUPPORTED"
   | "NATIVE_RESPONSE_INVALID"
   | "INTERACTION_NOT_ACTIVE"
+  | "INVALID_QUESTION_RESPONSE"
+  | "ASYNC_ANSWER_REJECTED"
+  | "OPERATION_OUTCOME_UNKNOWN"
   | "HOST_EXECUTION_FAILED"
   | "HOST_ENDED_WITHOUT_TERMINAL"
   | "PROVIDER_MESSAGE_TOO_LARGE"
@@ -254,6 +257,13 @@ export type AgentSource = "preset" | "provisioned";
  * via the `definition` "McpServers".
  */
 export type McpServers = Record<string, McpServer>;
+/**
+ * Provider-neutral interaction. Omitted delivery retains synchronous blocking semantics; async questions allow provider work to continue.
+ *
+ * This interface was referenced by `OctoRuntimeProtocolSchema`'s JSON-Schema
+ * via the `definition` "InteractionRequestedPayload".
+ */
+export type InteractionRequestedPayload = InteractionRequestedPayload1;
 /**
  * Display-only fields permitted by assertApprovalRequest. Values remain inert provider metadata and do not redefine commands, permissions or grant scope.
  *
@@ -457,6 +467,16 @@ export interface CanonicalEventWire {
  * via the `definition` "CanonicalEventPayload".
  */
 export interface CanonicalEventPayload {
+  /**
+   * Async questions do not block provider work. Omitted for existing synchronous interactions.
+   */
+  delivery?: "async";
+  /**
+   * Message snapshot only; an active interaction.requested authorizes submission.
+   *
+   * @maxItems 50
+   */
+  questions?: AsyncUserInputQuestion[];
   providerSession?: ProviderSession;
   channel?: MessageChannel;
   exposure?: MessageExposure;
@@ -491,6 +511,17 @@ export interface CanonicalEventPayload {
   message?: string;
   failure?: FailureEnvelope;
   [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `OctoRuntimeProtocolSchema`'s JSON-Schema
+ * via the `definition` "AsyncUserInputQuestion".
+ */
+export interface AsyncUserInputQuestion {
+  title: string;
+  /**
+   * @maxItems 50
+   */
+  options: string[] | null;
 }
 /**
  * Provider-owned session resume data. Core treats sessionId and adapter extension fields as opaque.
@@ -2409,12 +2440,62 @@ export interface AgentConfig {
   [k: string]: unknown;
 }
 /**
- * Provider-neutral request that pauses one active invocation until an interaction response is returned through the Adapter Host.
+ * Non-blocking question batch. IDs are positions scoped to this interaction, not provider-native question IDs.
  *
  * This interface was referenced by `OctoRuntimeProtocolSchema`'s JSON-Schema
- * via the `definition` "InteractionRequestedPayload".
+ * via the `definition` "QuestionRequest".
  */
-export interface InteractionRequestedPayload {
+export interface QuestionRequest {
+  schema: "octo.question-request/v1";
+  messageId: string;
+  /**
+   * @minItems 1
+   * @maxItems 50
+   */
+  questions: [
+    {
+      id: string;
+      title: string;
+      /**
+       * @maxItems 50
+       */
+      options: string[] | null;
+      allowCustom: true;
+    },
+    ...{
+      id: string;
+      title: string;
+      /**
+       * @maxItems 50
+       */
+      options: string[] | null;
+      allowCustom: true;
+    }[]
+  ];
+}
+/**
+ * This interface was referenced by `OctoRuntimeProtocolSchema`'s JSON-Schema
+ * via the `definition` "QuestionResponse".
+ */
+export interface QuestionResponse {
+  schema: "octo.question-response/v1";
+  /**
+   * @minItems 1
+   * @maxItems 50
+   */
+  answers: [
+    {
+      questionId: string;
+      text: string;
+    },
+    ...{
+      questionId: string;
+      text: string;
+    }[]
+  ];
+}
+export interface InteractionRequestedPayload1 {
+  delivery?: "async";
   executionInstanceId: string;
   expiresAt: string;
   /**

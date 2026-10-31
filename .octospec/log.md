@@ -18,6 +18,8 @@
 
 - [Issue 18](journal/shared/2026-11-01-18-mentioned-slash-commands.md)：rebase 最新 main@a5a328 后，直接点名的完整 reset/new/stop 指令在 Gateway 处理，语义文本保留为普通 AgentRun；专项 25 项、相关渠道 590 项及构建、类型、lint、命名通过，两轴审查无问题。补齐 Issue 267 三文件 frontmatter 后全仓知识 lint 通过；无提交、无推送、未扩大 CI，等待验证审查。
 
+- [Issue 265](journal/shared/2026-11-01-265-codex-async-questions.md)：保留 Codex 异步问题，以原活动轮次 steer 回答；真实 Default 两种答案通过。用户授权 PR 后同步最新 main，Gateway 忽略 async 表单且不暂停；双轴复审修复 Core 错误码和对象隔离，最终验证见任务记录，未扩大 CI。
+
 ## 2026-10-29
 
 - [Issue 245](journal/shared/2026-10-29-245-openclaw-model-steps.md)：按模型完成消息拆分 OpenClaw run 内步骤，保留工具增量/结果归属和正文去重；真实 Playboard 中间卡片从 1 轮恢复到 3 轮。专项仅手动运行，未扩大 CI，实际 IM 卡片留待用户本地验收。
