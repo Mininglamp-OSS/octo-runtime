@@ -387,6 +387,130 @@ test(
   }
 );
 
+for (const outcome of [
+  "same-identity",
+  "unchanged-token",
+  "wrong-bot",
+  "denied-space",
+  "verification-unavailable",
+  "wrong-registration"
+]) {
+  test(`Runtime reconnect publishes only verified REST credentials: ${outcome}`, async (t) => {
+    const f = await fixture(t);
+    const candidate = outcome === "unchanged-token" ? f.token : `bf_${randomUUID()}`;
+    const releases = [];
+    let releaseVerify,
+      reconnecting = false,
+      verifying = false,
+      reconnectFinished = false,
+      credentialReads = 0;
+    const verification = new Promise((resolve) => {
+      releaseVerify = resolve;
+    });
+    t.after(() => {
+      releaseVerify();
+      for (const release of releases) release();
+    });
+    f.hook(async (url) => {
+      if (!reconnecting) return;
+      if (url.endsWith("/auth/verify-bot")) {
+        verifying = true;
+        await verification;
+        if (outcome === "verification-unavailable") return Response.json({}, { status: 503 });
+        return Response.json({
+          bot_uid: outcome === "wrong-bot" ? "other-bot" : "bot",
+          space_id: outcome === "denied-space" ? "denied" : "space"
+        });
+      }
+      if (url.endsWith("/bot/register"))
+        return outcome === "wrong-registration"
+          ? Response.json({
+              robot_id: "other-bot",
+              im_token: randomUUID(),
+              ws_url: "wss://fixture.invalid/ws"
+            })
+          : Response.json({}, { status: 503 });
+    });
+    const runtime = new ImRuntime(f.config, {
+      credentials: async () => {
+        credentialReads++;
+        return reconnecting ? candidate : f.token;
+      },
+      authorizeSpace(space) {
+        if (space !== "space") throw new Error("IM_TENANT_NOT_ACTIVE");
+      },
+      log(_level, event) {
+        if (event === "channel.connection_failed") reconnectFinished = true;
+      },
+      kernel: {
+        async *invoke() {
+          await new Promise((resolve) => releases.push(resolve));
+          yield {
+            protocolVersion: 2,
+            type: "message.delta",
+            payload: { channel: "final", text: "done" }
+          };
+          yield { protocolVersion: 2, type: "run.completed", payload: {} };
+        }
+      }
+    });
+    t.after(() => runtime.close());
+    await runtime.start();
+    f.send("credential-window-0");
+    f.send("credential-window-1");
+    await until(() => releases.length === 1);
+    reconnecting = true;
+    f.sockets.at(-1).onDisconnect(new Error("IM_DISCONNECTED"));
+    await until(() => verifying);
+    releases[0]();
+    await until(() => releases.length === 2);
+    assert.equal(f.messages().length, 1, "old task completes while verification remains pending");
+    assert.ok(
+      new Headers(f.messages()[0].options.headers).get("authorization") === `Bearer ${f.token}`,
+      "pending verification must preserve the previous verified credential"
+    );
+    releaseVerify();
+    await until(() => reconnectFinished);
+    releases[1]();
+    await until(() => runtime.status.workingTasks === 0);
+    const revoked = ["wrong-bot", "denied-space", "wrong-registration"].includes(outcome);
+    assert.equal(f.messages().length, revoked ? 1 : 2);
+    if (!revoked) {
+      const expected = outcome === "verification-unavailable" ? f.token : candidate;
+      assert.ok(
+        new Headers(f.messages()[1].options.headers).get("authorization") === `Bearer ${expected}`,
+        "only verified same-identity credentials become effective"
+      );
+    }
+    assert.equal(runtime.status.connected, false, "REST never waits for the replacement WS");
+    assert.equal(credentialReads, 2, "REST must not refresh host credentials");
+  });
+}
+
+test("registration identity rejection revokes old delivery scope permanently", async (t) => {
+  const f = await fixture(t);
+  const original = f.inbound[0];
+  await f.retire();
+  f.hook((url) =>
+    url.endsWith("/bot/register")
+      ? Response.json({
+          robot_id: "other-bot",
+          im_token: randomUUID(),
+          ws_url: "wss://fixture.invalid/ws"
+        })
+      : undefined
+  );
+  await assert.rejects(f.replace(), /IM_BOT_IDENTITY_MISMATCH/);
+  assert.throws(() => original.executionEnvironment(), /IM_CONNECTION_IDENTITY_CHANGED/);
+  const before = f.requests.length;
+  await assert.rejects(original.replyFinal("done", "rejected-registration"));
+  assert.equal(f.requests.length, before, "revoked tasks must not start REST requests");
+  f.hook(undefined);
+  await f.replace();
+  await assert.rejects(original.replyFinal("done", "restored-registration"));
+  assert.equal(f.messages().length, 0, "restoring identity cannot revive the old scope");
+});
+
 for (const outcome of ["network", "503", "missing-receipt", "recovered", "403"]) {
   test(`final ${outcome}: bounded REST retries while WS stays offline, failure visible in CLI logs`, async (t) => {
     const f = await fixture(t);

@@ -82,6 +82,8 @@ export class GatewayTransport {
       dispatcher: ImDeliveryDispatcher;
       identity: ImDeliveryIdentity;
       token?: () => string | undefined;
+      /** 身份及空间准入后同步发布凭据；候选值不得提前供旧任务读取。 */
+      acceptToken?: (token: string) => void;
     }
   ) {
     this.identity = imBotIdentity(config);
@@ -100,11 +102,12 @@ export class GatewayTransport {
     if (!token) throw new Error("IM_CREDENTIALS_REQUIRED");
     if (!/^bf_[A-Za-z0-9_-]+$/.test(token)) throw new Error("IM_BOT_TOKEN_INVALID");
     const principal = await verifyBotIdentity(this.config.api_url, token, signal);
+    signal.throwIfAborted();
     try {
       if (principal.bot_uid !== this.config.bot_id) throw new Error("IM_BOT_IDENTITY_MISMATCH");
       this.callbacks.authorizeSpace?.(principal.space_id);
     } catch (error) {
-      // REST 不等待 WS 验证；但目标已明确被拒绝时，不能继续把旧任务交给该凭据。
+      // REST 在核验期间继续使用旧凭据；明确拒绝目标后必须撤销旧任务权限。
       // 只在明确身份/空间拒绝后撤销，网络失败、单纯换 token 和握手失败不走此分支。
       this.deliveryOwner?.identity.revoke();
       this.#deliveryScope.revoke();
@@ -116,10 +119,17 @@ export class GatewayTransport {
     this.identity = `${imBotIdentity(this.config)}:${encodeURIComponent(this.#spaceId)}`;
     // 必须在身份核验及空间准入成功后推进代次；连接失败/再次重连不能复活旧代次。
     this.#deliveryScope = this.deliveryOwner?.identity.accept(this.identity) ?? this.#deliveryScope;
+    // 代次与凭据在同一同步段生效，不等待后续注册或 WS 握手。
+    this.deliveryOwner?.acceptToken?.(token);
     const registration = await registerBot(this.config.api_url, token, signal);
     const toolEnvironment = octoCliEnvironment(this.config.api_url, token);
     if (signal.aborted) return;
-    if (registration.robot_id !== this.config.bot_id) throw new Error("IM_BOT_IDENTITY_MISMATCH");
+    if (registration.robot_id !== this.config.bot_id) {
+      // 注册明确拒绝身份也属于授权撤销；网络/握手失败则保留已核验凭据和任务。
+      this.deliveryOwner?.identity.revoke();
+      this.#deliveryScope.revoke();
+      throw new Error("IM_BOT_IDENTITY_MISMATCH");
+    }
     const connection = new WukongConnection(
       (message) => {
         if (this.#closed) return;

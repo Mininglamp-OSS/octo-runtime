@@ -96,7 +96,7 @@ export class ImRuntime {
   #delivery?: ImDeliveryDispatcher;
   #cardDelivery?: ImDeliveryDispatcher;
   #deliveryIdentity?: ImDeliveryIdentity;
-  // 宿主凭据来源是黑盒；沿原初始化/建联入口保存值，REST 不重新获取或等待 WS 核验。
+  // 仅保存已核验 Bot/空间的凭据；候选值核验期间 REST 继续使用旧值，不等待 WS。
   #restToken?: string;
   readonly #sessions = new Map<string, ImSession>();
   readonly #sessionStore: ImSessionStore;
@@ -239,7 +239,6 @@ export class ImRuntime {
         ? this.dependencies.credentials(config, signal)
         : Promise.resolve(config.bf_token));
       signal.throwIfAborted();
-      this.#restToken = token?.trim();
       return token;
     };
     const connector = new GatewayTransport(
@@ -276,7 +275,10 @@ export class ImRuntime {
         signal: this.#signal,
         dispatcher: this.#cardDelivery!,
         identity: this.#deliveryIdentity!,
-        token: () => this.#restToken
+        token: () => this.#restToken,
+        acceptToken: (token) => {
+          this.#restToken = token;
+        }
       }
     );
     this.#connector = connector;

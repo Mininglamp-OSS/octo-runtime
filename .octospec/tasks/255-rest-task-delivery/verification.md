@@ -6,7 +6,26 @@ tags: [channel, delivery, lifecycle, testing]
 timestamp: 2026-10-30T00:00:00Z
 ---
 
-# 验收脚本修正（2026-10-31）
+# 凭据发布与注册拒绝修正（2026-10-31）
+
+用户确认实施最新 review 的局部修正。以下结果基于 PR #262@4fd5a150 加本次变更，取代下节对自定义凭据源场景的过宽结论；默认固定 token 换网不触发该问题，终态预算的 off-by-one 意见仍不成立。
+
+- mochashanyao 指出的并发窗口已通过公开 ImRuntime + 自定义 credentials 来源复现：重连返回另一个有效格式 token，暂停 verify-bot，旧任务最终 REST 已附上候选 token。fixture 证明错误凭据流入请求，不代表线上服务端接受跨身份写入。赋值在基线已有，原 REST 卡片也消费共享值；本 PR 将此消费扩展到文本/文件，不能据“基线已有”排除修正。
+- 候选值不再直接写入 Bot 的 restToken；Bot 身份与空间准入完成后，在推进投递身份的同一同步段发布。核验未返回或网络失败时，旧任务立即使用原已核验 token；同身份新值发布后即使注册失败、WS 始终离线也可用于 REST。无刷新、REST 等待状态、宿主接入或持久化。
+- 接受 yujiawei 的注册身份拒绝遗漏：registerBot 明确返回错误 robot_id 时同时撤销 Bot 和当前 transport 的投递 scope，原任务不能再请求，恢复原身份也不能复活旧 scope。单纯注册网络失败不撤销。
+- yujiawei 的卡片动作游标意见描述了既有重连后重复扫描，但整个 pollActions 在 332413ae 基线与当前 PR 一致。当前连接会推进 cursor，未知/未授权事件不 ACK、不启动 Run，也不产生逐事件诊断；不阻断后续事件消费。跨连接游标、未知领域事件的 ACK/discard 责任不在本次修复范围，保留既有策略。
+
+新增 7 项仅手动运行的回归：6 种真实 Runtime 重连交错（同身份新值、固定值、错误 Bot、拒绝空间、核验 503、注册身份不匹配），以及旧 scope 撤销/恢复不可复活。修复前 6 失败、固定值场景通过；修复后 7/7 通过。
+
+本地 Darwin arm64 / Node 24.22.2：
+
+- `pnpm typecheck`（含 workspace build）、`pnpm lint`、`pnpm lint:names`、`pnpm docs:check`（4 项示例）通过。
+- `node --test test/im-*.test.js test/gateway-*.test.js test/channel-*.test.js test/extra-status-logs.test.js test/runtime-logging.test.js .octospec/tasks/255-rest-task-delivery/regression.mjs .octospec/tasks/channel-rest-manager-credentials/regression.mjs .octospec/tasks/249-local-artifact-card-terminal/regression.mjs .octospec/tasks/249-local-artifact-card-terminal/diagnostics.mjs test/manual/channel-conservative-history.mjs`：709 项，705 通过，4 项缺可选 Go 渲染探针跳过，0 失败。
+- 本次仅修改两个生产源码文件，增加 17 行、删除 5 行，净增 12 行。相对目标基线的 `.github/`、package.json、pnpm-lock.yaml 和默认测试选择均无变更；检查列表没有新增 workflow/job/status。新专项留在任务目录，未接入默认 CI。
+- 修改源码和专项的 Prettier、`git diff --check` 通过。系统 python3 缺少 PyYAML，使用指南提供的 `uv run --with pyyaml python .octospec/scripts/lint.py` 后，仅报告 4 份既有文档缺少 frontmatter（Issue 137 的 brief/review/journal 和 Issue 246 的 validation）；逐文件比对 4fd5a150 均字节一致。本次修改文件未产生 OKF 错误，不改无关历史文档。
+- 真实 IM、Provider、系统 Wi-Fi 切换及全量套件本轮 not run；此前实网/全量证据仍按原 SHA 和阶段保留。日志 `/tmp/octo-262-credential-{typecheck,lint,tests,docs}.log` 仅为本机临时证据，不含真实凭据。
+
+# 验收脚本修正（2026-10-31，历史阶段）
 
 PR #262@6ab97c16 的后续评审确认两个手动验收入口仍引用已删除的 WS 发送 API。本次只改脚本与任务记录，不修改 packages 下的运行时实现、CI 或默认测试选择。
 

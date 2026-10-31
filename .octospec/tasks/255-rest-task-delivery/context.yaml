@@ -20,3 +20,4 @@ github_comment: User authorized an English clarification comment on issue 255 ex
 excluded: Offline new-message recovery, task event polling, second task ingress, new host or SDK integration requirements
 authorization: New isolated worktree, OctoSpec planning, implementation, review and commits; user subsequently authorized PR creation/push and the 2026-10-31 script cleanup plus explanatory PR comment; no merge or deployment
 review_followup: Retire obsolete WS delivery verification modes, move drain failure injection to REST and explain why the two P1 findings do not apply; production core and CI scope stay unchanged
+credential_followup: User subsequently authorized publishing replacement credentials only after Bot/space verification, preserving old-token REST during verification and revoking delivery on explicit registration identity mismatch; supersedes the prior script-only restriction, without CI expansion
