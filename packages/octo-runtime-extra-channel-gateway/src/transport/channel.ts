@@ -11,6 +11,7 @@ import { imBotIdentity } from "../lifecycle/configuration.js";
 import { verifyBotIdentity } from "./auth.js";
 import { registerBot, WukongConnection } from "./wukong.js";
 import { acceptsImMessage, groupScope, isRulesNotification, rulesChange } from "./normalize.js";
+import { sessionCommand } from "./session-command.js";
 import { build_im_contexts } from "./contexts.js";
 import { OctoConnector, stableEffectKey } from "./connector.js";
 import { CardSession } from "./card-session.js";
@@ -219,6 +220,9 @@ export class GatewayTransport {
         };
         this.callbacks.onMessage({
           messageId: message.messageId,
+          ...(message.channelType === 2 || message.channelType === 5
+            ? { sessionControl: sessionCommand(message, this.botId) }
+            : {}),
           ...(message.channelType === 2 || message.channelType === 5
             ? {
                 position: { messageSeq: message.messageSeq },

@@ -1,3 +1,10 @@
+---
+type: Task
+title: 根帮助展示公司署名与开源仓库
+description: Issue 267 的已确认规格与交付范围。
+tags: [cli, documentation]
+---
+
 # #267：根帮助展示公司署名与开源仓库
 
 ## 状态与来源

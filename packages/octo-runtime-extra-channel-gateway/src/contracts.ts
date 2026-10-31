@@ -104,6 +104,8 @@ export interface ImInboundMessage {
   conversationId: string;
   conversationKind: "direct" | "group" | "thread";
   text: string;
+  /** Gateway 群/话题已核验的完整控制命令；null 禁止正文回退，省略沿用 DM/内部调用行为。 */
+  sessionControl?: "/reset" | "/new" | "/stop" | null;
   buildInputs?(signal: AbortSignal): Promise<ModelInputPart[]>;
   /** 终态提示也携带该轮投递期限；普通控制回复可省略，不进行产物准备。 */
   reply(

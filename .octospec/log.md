@@ -4,6 +4,8 @@
 
 - [Issue 263](journal/shared/2026-11-01-263-long-running-invocations.md)：默认整轮预算 24 小时、最大七天，保留独立无响应检测；手动长时、原生协议及真实 DSH 验证通过，隔离既有环境问题后全量通过。修复四份 frontmatter，双轴审查问题闭环；未扩大 CI，未提交或推送，外部宿主验收独立记录。
 
+- [Issue 18](journal/shared/2026-11-01-18-mentioned-slash-commands.md)：rebase 最新 main@a5a328 后，直接点名的完整 reset/new/stop 指令在 Gateway 处理，语义文本保留为普通 AgentRun；专项 25 项、相关渠道 590 项及构建、类型、lint、命名通过，两轴审查无问题。补齐 Issue 267 三文件 frontmatter 后全仓知识 lint 通过；无提交、无推送、未扩大 CI，等待验证审查。
+
 ## 2026-10-29
 
 - [Issue 245](journal/shared/2026-10-29-245-openclaw-model-steps.md)：按模型完成消息拆分 OpenClaw run 内步骤，保留工具增量/结果归属和正文去重；真实 Playboard 中间卡片从 1 轮恢复到 3 轮。专项仅手动运行，未扩大 CI，实际 IM 卡片留待用户本地验收。

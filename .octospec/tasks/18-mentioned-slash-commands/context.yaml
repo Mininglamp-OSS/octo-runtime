@@ -1,0 +1,44 @@
+task: 18-mentioned-slash-commands
+status: implementation-complete-local-validation-passed
+baseline: a5a32835882deab5e2364b559dd06bf1675c1335
+branch: fix/18-mentioned-slash-commands
+rebase: origin/main-up-to-date-2026-11-01
+rules_read:
+  - .octospec/rules/_index.yaml
+  - .octospec/rules/session-reset.md
+  - .octospec/rules/engineering.md
+  - .octospec/rules/collaboration.md
+  - .octospec/rules/extras.md
+  - .octospec/rules/invoke-input.md
+  - .octospec/rules/stateless-execution.md
+rules_consulted_during_triage:
+  - .octospec/index.md
+  - .octospec/rules/architecture.md
+  - .octospec/rules/channel-integration.md
+workflow_read:
+  - .claude/skills/octospec-workflow/SKILL.md
+  - .claude/commands/octospec-plan.md
+  - .octospec/tasks/_brief.template.md
+references:
+  - https://github.com/Mininglamp-OSS/octo-runtime/issues/18
+  - loop:ORT-8
+  - ../octo-web/packages/dmworkbase/src/features/chat-composer/adapters/tiptap/mentionSendParse.ts
+decisions_pending: []
+accepted_amendments:
+  - include-stop
+  - exact-complete-stripped-command-only
+  - semantic-slash-text-is-ordinary-agentrun
+validation:
+  spec_readiness: 96/100-self-assessment
+  implementation: completed-uncommitted
+  automated_tests: passed-25-focused-and-590-related
+  live_im: not-run
+  ci_scope: unchanged
+  octospec_lint: passed-533-units
+  build: passed
+  typescript: passed
+  eslint: passed
+  names: passed-zero-findings
+  review_standards: zero-findings
+  review_spec: zero-findings
+evidence: .octospec/journal/shared/2026-11-01-18-mentioned-slash-commands.md
