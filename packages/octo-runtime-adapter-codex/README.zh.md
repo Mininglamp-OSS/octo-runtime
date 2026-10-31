@@ -43,13 +43,27 @@ const input = InvokeInput.check({
 | 会话         | 显式 Provider 会话对应原生 thread；resume 被拒或 rollout 缺失时，可以用调用方给的恢复输入做一次新 thread 兜底 |
 | 交互         | 命令/文件审批、用户输入、MCP elicitation，都回到同一个活动请求上应答                                          |
 
+## 配置与会话归属
+
+上例采用 `ask` 审批模式，推理强度沿用 Provider 默认。审批通过 Context `octo.security/approval_policy` 设置，强度通过 `octo.execution/model.payload.reasoning.effort` 设置。公共 `InvokeInput.approvalMode` 也可显式指定，但必须与显式 Context 策略一致。Adapter 接收准备后的内部 `InvokeRequest`；当前字段与被拒绝的旧配置见[输入参考](../../docs/zh-CN/reference/invoke-input.md)。
+
+调用方保存会话更新中的完整 `providerSession`（含 Provider 扩展字段），并在下一轮显式回传。只复用业务 `sessionId` 会新开 Provider 会话；Core 不持久维护业务会话到 Provider 的绑定表。续接与恢复输入步骤见[背景资料与会话](../../docs/zh-CN/guides/context-and-sessions.md)。
+
 ## 限制
 
-- 反向请求不会自动批准。审批策略取决于准备好的请求和你安装的桥。
-- 有序的文本与图片输入会变成原生 text 和 image data URL，不是宿主本地路径。Adapter 支持图片不代表所选模型接受图片。
+- `ask` 和 `assisted` 模式通过当前交互桥处理审批；`full_access` 自动处理支持的审批，但不回答用户问题或 MCP elicitation。
+- 有序的文本与图片输入（包括纯图片输入）会变成原生 text 和 image data URL，不是宿主本地路径。Adapter 支持图片不代表所选模型接受图片。格式、完整性字段和容量限制见[输入参考](../../docs/zh-CN/reference/invoke-input.md)。
 - 权威的 session update 只在 turn start 成功后上报；Adapter 从不重建应用历史。
 - turn 回执、一段文本、子进程退出，都不证明执行成功或清理完成。
 - native 模式下必须同时读 Runtime 控制帧和 Provider 负载。
+
+## 自有进程清理
+
+默认 POSIX spawn 创建自有独立进程组。清理会 await 有界的 `SIGTERM` → `SIGKILL` 升级及进程组退出确认；app-server leader 已退出但工具仍在时也会清理该组。注入的 `spawnFn` child 不推定拥有进程组，清理目标是直接子进程。
+
+Windows 上本 Adapter 未启用共享工具的 `processTree` 选项；直接子进程终止与退出确认不能证明全部后代已退出。Kernel 的额外清理由其自身所有权路径负责。宿主崩溃和逃离自有组的进程不在正常清理保证内；消费方须检查清理失败，不能把取消回执当作退出证明。
+
+执行终态与取消见[输出与交互控制](../../docs/zh-CN/reference/output-and-control.md)，`shutdown()` 清理结果见 [Executor Core](../octo-runtime-executor-core/README.zh.md)。
 
 ## 导入与分发
 
