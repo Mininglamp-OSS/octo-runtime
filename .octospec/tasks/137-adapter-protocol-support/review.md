@@ -1,3 +1,10 @@
+---
+type: Review
+title: Issue 137 Adapter 协议元数据审查
+description: 记录协议元数据类型变更的 Standards 与 Spec 审查结论及验证限制。
+tags: [adapter, protocol, review]
+---
+
 # Issue 137 代码审查
 
 日期：2026-10-29。按 `code-review` 技能并行进行 Standards / Spec 审查，先审查后提交。

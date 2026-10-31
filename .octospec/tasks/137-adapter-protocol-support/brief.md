@@ -1,3 +1,10 @@
+---
+type: Task
+title: Issue 137 Adapter 协议元数据规格
+description: 明确 Adapter 编写输入、工厂返回值与 Core 注册所需的协议元数据合同。
+tags: [adapter, protocol, typescript]
+---
+
 # Issue 137：Adapter 协议元数据的编写与注册合同
 
 ## 目标与归属

@@ -1,5 +1,9 @@
 # 工程知识变更记录
 
+## 2026-11-01
+
+- [Issue 145](journal/shared/2026-11-01-145-sdk-protocol-docs.md)：修正 SDK 连接、公共模式、native-only、mandatory 覆盖和 Kernel 共享订阅容量说明。手动 8 项及相关回归通过，双轴审查完成；全库知识格式检查保留 7 处基线失败，返回规格审查，未提交或推送，CI 不扩围。
+
 ## 2026-10-29
 
 - [Issue 245](journal/shared/2026-10-29-245-openclaw-model-steps.md)：按模型完成消息拆分 OpenClaw run 内步骤，保留工具增量/结果归属和正文去重；真实 Playboard 中间卡片从 1 轮恢复到 3 轮。专项仅手动运行，未扩大 CI，实际 IM 卡片留待用户本地验收。

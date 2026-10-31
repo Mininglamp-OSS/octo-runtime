@@ -1,3 +1,10 @@
+---
+type: Validation
+title: Issue 246 Gateway 投影窗口验证
+description: 记录 Gateway 有限投影窗口、隐私清理与资源回收的本地验证结果及限制。
+tags: [gateway, projection, testing]
+---
+
 # Issue 246 验证记录
 
 2026-10-29，基线 `ba2a706380bf244bc428b3465c0487c5b58e6975`，验证对象为分支 `fix/246-gateway-projection-window` 的修复代码。

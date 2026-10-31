@@ -52,7 +52,7 @@ CLI 默认项在 [`apps/cli/src/manifest.json`](../../apps/cli/src/manifest.json
 8. Token 和其他敏感值不得出现在命令行参数、prompt、事件 payload 或工作目录中。
 9. 会话、审批、图片等行为在 Adapter 中按具体合同实现，由宿主管理功能支持范围；不得新增 `executionFeatures` 标签、自有 capabilities、能力字段表或 AbilityProvider 注册体系。当前输出模式仍使用 `protocolSupport`，其简化不在本次文档决定中实施。单独记录真实 Provider 验证范围，不将静态声明当作执行证据。
 
-上例演示 canonical 事件生成；调用 Host 时显式指定 `{ protocolMode: "canonical" }`。需要 native 时实现 Driver 与独立控制帧，不能直接声明支持后继续只返回 canonical 事件。详情见 [模式合同](../rules/output-protocol.md)。
+上例演示 canonical 事件生成；公共 `invoke` 的 `InvokeInput` 须显式指定 `{ protocol_mode: "canonical" }`。Adapter 内部通过 `context.protocolMode` 读取已选模式，不能把该内部字段当作公共输入。需要 native 时实现 Driver 与独立控制帧，不能直接声明支持后继续只返回 canonical 事件。native-only Adapter 无须生成 canonical 事件；上述 canonical 事件规则只作用于 canonical 模式。详情见 [模式合同](../rules/output-protocol.md)。
 
 ## Adapter 接入验收清单
 

@@ -1,3 +1,10 @@
+---
+type: Validation
+title: Issue 267 CLI 根帮助署名验证
+description: 记录根帮助署名与仓库链接的实现范围、本地检查和真实 CLI 进程验证结果。
+tags: [cli, help, testing]
+---
+
 # #267 实现与本地验证
 
 ## 代码与范围

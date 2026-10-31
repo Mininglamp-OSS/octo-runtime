@@ -23,7 +23,7 @@ flowchart TB
   Adapter --> Provider[Provider CLI / server]
 ```
 
-`createKernelService` 在调用它的进程中创建 Kernel 服务和 IPC endpoint；AgentExecutor 在 Kernel 启动的 worker 进程中运行。原生应用可以直接在主进程中创建 Kernel，无需另外运行 Runtime CLI。也可以通过 `attachKernel(endpoint)` 连接已经存在的服务。
+`createKernelService` 在调用它的进程中创建 Kernel 服务和 IPC endpoint；AgentExecutor 在 Kernel 启动的 worker 进程中运行。原生应用可以直接在主进程中创建 Kernel，无需另外运行 Runtime CLI。也可以通过 `attachKernel({ endpoint })` 连接已经存在的服务。
 
 CLI 用 Home 目录保存设备实例的身份和配置，用 workdir 指定 Agent 工作目录，两者用途不同。使用 SDK 的应用自行决定配置和状态存放位置。
 

@@ -57,6 +57,8 @@
 
 ## 当前任务
 
+- [Issue 145：公共 SDK 示例与协议说明](tasks/145-sdk-protocol-docs/brief.md)：文档与专项实现完成；手动 8 项及相关回归通过，双轴审查已修复。全库知识检查有 7 处基线格式失败，返回待规格审查；专项仅手动本地运行。
+
 - [已确认断线后的立即重连](tasks/channel-immediate-reconnect/brief.md)：用户要求从 onDisconnect 回调起尽快恢复；去掉首次固定 5 秒等待，保留失败退避、限流等待及旧连接回收约束。
 
 - [Issue 249：本地附件后的卡片终态](tasks/249-local-artifact-card-terminal/brief.md)：本地链接转纯文字，补充 SEND/EDIT 失败响应诊断和 400 后同一卡片的精简终态投递。同步 main@ed7a4c89，完成双轴审查及凭据脱敏修复；手动专项 35 项通过，全量仅一项主线同样失败的 CLI 环境隔离用例未过。用户已授权提交 PR，未授权合并或部署；[证据与未验边界](tasks/249-local-artifact-card-terminal/validation.md)。

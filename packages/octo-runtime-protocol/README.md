@@ -54,7 +54,7 @@ In native mode the terminal is the `control` frame with `type: "state"`.
 
 ## Canonical event types
 
-Adapters translate each Provider's events into this one set, so a Provider-specific event name never reaches you. Every canonical event is `{ protocolVersion: 2, type, payload }`. The 24 types below are ordered by lifecycle; the payload column lists the fields you will actually read, not an exhaustive schema.
+In canonical mode, Adapters translate each Provider's events into this one set, so a Provider-specific event name never reaches you. Native-only Adapters do not need this conversion. Every canonical event is `{ protocolVersion: 2, type, payload }`. The 24 types below are ordered by lifecycle; the payload column lists the fields you will actually read, not an exhaustive schema.
 
 | Type                    | Group       | When it appears                                            | Key payload fields                                                                                                   |
 | ----------------------- | ----------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |

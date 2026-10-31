@@ -1,3 +1,10 @@
+---
+type: Journal
+title: Issue 267 CLI 根帮助署名开发日志
+description: 记录 CLI 根帮助署名与开源入口的实现、验证和审查结论。
+tags: [cli, help, attribution]
+---
+
 # #267 CLI 根帮助署名与开源入口
 
 用户认可规格后，在 `0bcd89c528018ffd508ca8099c8ac9c6b88de35d` 的独立 worktree 实现根帮助两行纯文本文案，保留既有版本头、原描述、命令解析与退出合同。
