@@ -70,3 +70,18 @@ tags: [runtime, lifecycle, testing]
 全仓全量 `pnpm test`、Windows/Linux 原生专项、真实权限拒绝、跨 macOS 版本矩阵均未执行；本轮验证范围为 brief 中的本地检查与相关回归。没有远端 CI 运行或通过结论。
 
 下一步等待用户审查验证结果。未获提交/推送授权，本地改动保留，不创建 PR。
+
+## 更新主线与 PR 交付复验
+
+用户随后明确要求“更新最新代码，提交 PR”，已认可前述验证并授权提交、推送和创建 PR，不授权合并。
+
+- 本轮 fetch 的最新目标：`origin/main@c35b261b31573bc2f08a16eeced12f18705b2560`，包含原基线后的 4 条渠道、打包和文档提交。
+- 本任务实现提交已 rebase 至该目标，复验版本 `78a627770bf589091b9d2971cd8730ca22063c77`，复验时工作区干净。只有 `.octospec/log.md` 内容冲突，已保留主线及本任务全部记录。实现和测试文件相对同步前逐字节无变化。
+- `pnpm typecheck`（包含完整 build）、`pnpm lint`、`pnpm lint:names` 通过。首次 lint 与清理重建并行时出现产物缺失导致的类型解析错误，构建结束后单独重跑退出 0；该失败没有通过修改规则或关闭检查规避。
+- 同一相关回归命令重新运行：84 通过、13 Windows 平台跳过、0 失败。
+- `node --test test/manual/launchd-query-ownership.mjs` 重新运行：22 通过、0 失败。
+- 显式原生命令重新运行：1 通过；label `com.octo.ownership-9492f0a0-dd42-4ec5-83ae-19674c8e7163`，PID `33783`、`33803` 均退出，job/plist/目录清理确认。该 label 同样保留既有 enabled override 历史项，未修改其他服务。
+- `git diff --check origin/main...HEAD` 通过；相对新目标 workflows/package.json/scripts diff 为空，默认测试条目未增加。
+- 上述源文件 SHA-256 保持，后续仅更新本节等交付文档。最终提交及 PR 地址以 Loop 结果评论和远端 PR 为准。
+
+本次未重跑全量 pnpm test、真实权限拒绝或跨平台原生矩阵；原有未验边界继续适用。既有代码审查仍适用于未变化的实现，冲突仅为日志合并。

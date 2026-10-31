@@ -1,6 +1,8 @@
 brief: .octospec/tasks/158-launchd-query-ownership/brief.md
 baseline: a5a32835882deab5e2364b559dd06bf1675c1335
 phase: implementation
+delivery_baseline: c35b261b31573bc2f08a16eeced12f18705b2560
+revalidated_commit: 78a627770bf589091b9d2971cd8730ca22063c77
 injected:
   - id: runtime-architecture
     source: repo
