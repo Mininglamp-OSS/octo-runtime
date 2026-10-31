@@ -1,9 +1,8 @@
 ---
-type: Validation
-title: Issue 267 根帮助署名验证
-description: 保留根帮助署名与仓库入口的历史验证证据。
-tags: [documentation, cli, testing]
-timestamp: 2026-11-01T00:00:00Z
+type: Task
+title: Issue 267 实现与本地验证
+description: 根帮助署名改动的既有验证证据与限制。
+tags: [cli, testing]
 ---
 
 # #267 实现与本地验证

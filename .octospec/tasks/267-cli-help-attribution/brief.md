@@ -1,9 +1,8 @@
 ---
 type: Task
-title: Issue 267 根帮助展示公司署名与开源仓库
-description: CLI 根帮助的署名与官方仓库入口规格。
-tags: [documentation, cli]
-timestamp: 2026-11-01T00:00:00Z
+title: 根帮助展示公司署名与开源仓库
+description: Issue 267 的已确认规格与交付范围。
+tags: [cli, documentation]
 ---
 
 # #267：根帮助展示公司署名与开源仓库

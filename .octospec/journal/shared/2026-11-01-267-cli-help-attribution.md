@@ -1,9 +1,8 @@
 ---
 type: Journal
-title: Issue 267 CLI 根帮助署名与开源入口
-description: 保留 CLI 根帮助展示改进的交付记录。
-tags: [documentation, cli]
-timestamp: 2026-11-01T00:00:00Z
+title: CLI 根帮助署名与开源入口
+description: Issue 267 的既有实现与验证记录。
+tags: [cli, documentation]
 ---
 
 # #267 CLI 根帮助署名与开源入口
