@@ -12,14 +12,12 @@ Use the Runtime CLI to install, start, and operate Executor Kernel and the optio
 | `octo-cli`                            | Calls Octo business APIs, including messaging, documents, Drive, and Loop  | Your Agent uses these Octo tools            |
 | A Harness such as `codex` or `claude` | Runs the Agent, calls its model, and executes tools                        | Install the Harness selected by the Adapter |
 
-Install Runtime and the Octo business CLI separately:
+Install Runtime:
 
 ```sh
 npm install -g @mininglamp-oss/octo-runtime
-npm install -g @mininglamp-oss/octo-cli
 octo-runtime --version
 octo-runtime --help
-octo-cli --help
 ```
 
 These commands install the published npm packages. The commands below require a release whose help lists `executor-kernel`; if the installed release does not, use the source build below.
@@ -34,9 +32,39 @@ node apps/cli/dist/index.js --help
 
 For source builds, replace `octo-runtime` in subsequent commands with `node apps/cli/dist/index.js`, running from the repository root. Installing Runtime does not install or sign in to a Harness; follow [Harness Installation and Configuration](../guides/harnesses.md).
 
+## Try One Invocation
+
+Install and sign in to Codex using [Harness Setup](../guides/harnesses.md). In your working directory, create `request.json` with this content:
+
+```json
+{
+  "protocol_mode": "canonical",
+  "inputs": [{ "type": "text", "text": "Reply with OK without using tools." }],
+  "contexts": {
+    "schema": "octo.context-envelope/v3",
+    "items": [
+      { "namespace": "octo.execution", "name": "adapter", "payload": { "type": "codex" } },
+      { "namespace": "octo.security", "name": "approval_policy", "payload": { "mode": "ask" } }
+    ]
+  }
+}
+```
+
+From the same directory, run:
+
+```sh
+octo-runtime playboard < request.json
+```
+
+`playboard` starts a temporary Kernel for this request; it does not require a running Kernel service, submit to a persistent service, or load Extras. It writes events as NDJSON to stdout and diagnostics to stderr. Success includes final reply text in `message.delta` events and a `run.completed` terminal event; the model chooses the actual wording. `run.failed` and `run.cancelled` are not successful execution. The command closes its temporary service when the call ends and reports incomplete cleanup as a failure.
+
+An interaction requiring a reply ends with `PLAYBOARD_INTERACTION_REQUIRED`; use the SDK when your application needs to answer approvals or questions. If the Provider cannot start or rejects authentication, check its installation and sign-in under the same OS account. See [Troubleshooting](../guides/troubleshooting.md) for error codes. This local request does not need `octo-cli` or an IM Bot.
+
+Change `payload.type` to select another installed Harness. OpenClaw also needs `provider_agent_id`, for example `main`. OpenCode currently requires approval mode `full_access`, which allows tools without individual approval; review [Provider support](../reference/providers.md) before selecting it.
+
 ## Start Executor Kernel
 
-For a first local run, keep Kernel in the foreground:
+For repeated SDK calls or Extras, run a persistent Kernel. To keep it in the foreground:
 
 ```sh
 octo-runtime executor-kernel run
@@ -258,11 +286,13 @@ read limits above and no execution content. SDK hosts opt in using
 `createKernelService({ logging: { directory } })`.
 
 `service.state=running` only describes the service process; use `runtime.execution_ready` for
-execution availability. Worker loss automatically recovers service for new requests. Cleanup or
-manifest failures retry after 1, 2, then 5 seconds, capped at 5 seconds between attempts.
-`worker.state=exhausted` means recovery is currently blocked but continues retrying; inspect
-`worker.recovery` for the stage, reason, and `retry_at`. These intervals exclude cleanup and
-startup time; persistent permission or identity failures may still require intervention.
+execution availability. Worker loss starts recovery for new requests. Cleanup or manifest failures
+wait 1, 2, then 5 seconds between retries, staying at 5 seconds. Worker startup has a separate
+fast retry budget with waits of 250 ms, 1 second and 4 seconds, then 15-second slow retries.
+`worker.state=exhausted` means recovery is currently blocked; cleanup/manifest retries continue
+while the service remains open. Inspect `worker.recovery` for the stage, reason and `retry_at`;
+unexpected recovery errors may still require intervention. These intervals exclude cleanup,
+startup and handshake time.
 Recovery never replays old requests. Confirmed rejections before execution are reported separately
 from unknown outcomes of interrupted executions, and Channel Gateway does not need a restart.
 
@@ -280,45 +310,20 @@ octo-runtime executor-kernel start --home <home>
 
 Recovery acknowledges one manifest archive; it never kills unknown processes and never reports manual confirmation as verified cleanup.
 
-## Try One Invocation
+## Invoke the Persistent Kernel
 
 The CLI selects Adapters and Extras from its built-in manifest and `<Home>/manifest.json`, and discovers Extras in the current CLI’s global installation environment. Priority is built-in > Home > global. Declaring or discovering an Extra does not enable or start it. `--manifest` replaces these sources completely. See [Adapter and Extra Loading](../concepts/module-loading.md) for examples, resolution anchors and migration of legacy Extra `module` settings.
 
-Create `request.json` with this content:
-
-```json
-{
-  "protocol_mode": "canonical",
-  "inputs": [{ "type": "text", "text": "Reply with OK without using tools." }],
-  "contexts": {
-    "schema": "octo.context-envelope/v3",
-    "items": [
-      { "namespace": "octo.execution", "name": "adapter", "payload": { "type": "codex" } },
-      { "namespace": "octo.security", "name": "approval_policy", "payload": { "mode": "ask" } }
-    ]
-  }
-}
-```
-
-Run it through the CLI:
-
-```sh
-octo-runtime playboard < request.json
-```
-
-`playboard` starts a temporary Kernel for this request; it does not submit to the persistent service. It writes events as NDJSON to stdout and diagnostics to stderr, and loads no Extras. An interaction requiring a reply ends with `PLAYBOARD_INTERACTION_REQUIRED`; use the SDK when your application needs to answer approvals or questions.
-
-Change `payload.type` to select another installed Harness. OpenClaw also needs `provider_agent_id`, for example `main`. OpenCode currently requires approval mode `full_access`, which allows tools without individual approval; review [Provider support](../reference/providers.md) before selecting it.
-
-To invoke the persistent Kernel from a source checkout, use the shared SDK example with its actual socket or Named Pipe endpoint:
-
-```sh
-node docs/examples/attach.mts /absolute/path/to/kernel.sock codex
-```
-
-See [SDK setup](sdk.md) for endpoint handling and event consumption. Registering Kernel does not start `channel-gateway`; configure and start that Extra separately when integrating Octo IM. See [Extras](../guides/extras.md) for wiring an Extra into your host.
+Follow [SDK setup](sdk.md) to obtain the actual endpoint and run the shared attach example against the persistent Kernel. Registering Kernel does not start `channel-gateway`; configure and start that Extra separately when integrating Octo IM. See [Extras](../guides/extras.md) for wiring an Extra into your host.
 
 ## Let the Agent Use octo-cli
+
+Install the separate Octo business CLI only when the Agent needs Octo API tools:
+
+```sh
+npm install -g @mininglamp-oss/octo-cli
+octo-cli --help
+```
 
 Install `octo-cli` on the machine where the Harness executes tools, and make it available on that process's `PATH`. Provide the Octo credentials through the execution environment, such as `OCTO_BOT_TOKEN` and, when needed, `OCTO_API_BASE_URL`; use the [environment Context](../reference/contexts.md) for per-invocation settings rather than placing credentials in model text.
 
