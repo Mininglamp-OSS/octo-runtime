@@ -2,6 +2,8 @@
 
 ## 2026-11-01
 
+- [Issue 22 / PR 275](journal/shared/2026-11-01-22-secret-scan-closeout.md)：核对既有 45 条历史处置和 main 扫描证据，准备英文收尾草稿。按用户及远端审查补齐 frontmatter、Validation 类型、独立 review/journal 与索引入口，实际执行知识检查；检测行为和 CI 范围不变，原 Issue 未关闭。
+
 - [Issue 145](journal/shared/2026-11-01-145-sdk-protocol-docs.md)：修正 SDK 连接、公共模式、native-only、mandatory 覆盖和 Kernel 共享订阅容量说明。手动 8 项及相关回归通过，双轴审查完成；用户授权补强 YAML 约束并补齐历史文档后知识检查通过，现同步主线复验并准备 PR，CI 不扩围。
 
 - [Issue 254](journal/shared/2026-11-01-254-npm-pack-json.md)：兼容 npm pack 数组与包名索引 JSON，显式选包并校验字段；63 项回归、npm 12.2.1 打包及现有发行验收通过，双轴审查各 0 发现。主线既有 3 份文档缺 frontmatter 已获用户认可为交付已知问题，按成功进入验证审查并创建 PR；未扩大 CI。

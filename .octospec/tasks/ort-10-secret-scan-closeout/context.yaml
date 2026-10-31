@@ -1,4 +1,4 @@
-status: pr-review-pending
+status: verification-review-pending
 task: ORT-10
 issue: Mininglamp-OSS/octo-runtime#22
 baseline: a5a32835882deab5e2364b559dd06bf1675c1335
@@ -11,6 +11,8 @@ branch: triage/ort-10-secret-scan
 rules: [runtime-architecture, runtime-engineering, commit]
 sources:
   - AGENTS.md
+  - .claude/skills/octospec-workflow/SKILL.md
+  - .octospec/scripts/lint.py
   - .octospec/index.md
   - .octospec/rules/_index.yaml
   - .octospec/rules/architecture.md
@@ -49,3 +51,13 @@ evidence:
   standards_review: no-substantive-findings
   spec_review: no-substantive-findings
   github_closeout: draft-only
+  initial_metadata_review_missed: true
+  github_draft_frontmatter_required: true
+  publish_draft_body_only: true
+  knowledge_lint: passed
+  knowledge_units: 550
+  knowledge_rules: 20
+  knowledge_local_links: 3481
+  changed_knowledge_metadata_files: 5
+  rework_standards_review: no-substantive-findings
+  rework_spec_review: no-substantive-findings

@@ -1,5 +1,5 @@
 ---
-type: Journal
+type: Validation
 title: ORT-10 既有 Secret Scan 修复验收
 description: 逐项核对历史处置与当前托管证据，区分本次核验与历史实测。
 tags: [security, git, documentation]
@@ -9,8 +9,9 @@ source: self
 
 # 既有修复验收
 
-本次按 [规格](brief.md) 完成既有交付核验。A1 至 A9 通过，其中 A3、A5 和 A6 的部分证据来自已合并的历史记录，
+本次按 [规格](brief.md) 完成既有交付核验。A1 至 A9 的证据核对通过，其中 A3、A5 和 A6 的部分证据来自已合并的历史记录，
 不表示本轮重新逐值鉴定或重新执行 canary。GitHub #22 仍开放，英文收尾内容仅为草稿。
+首轮遗漏知识元数据与收尾入口，不能将首轮验收结论视为 OctoSpec 交付检查通过；本次返工记录见文末。
 
 ## 验收版本
 
@@ -142,3 +143,24 @@ Spec 轴：0 项实质发现。A1 至 A9 有对应依据，历史引用与本次
 
 公开发布前须再次回读 Issue 与目标版本，防止状态或扫描结论已变化。
 原 Issue 正文保留，追加英文评论可说明已交付状态。本轮不发布、不关闭 Issue，不将 Loop 直接标为完成。
+
+### PR #275 审查后的 OctoSpec 补齐
+
+用户指出知识交付缺项，远端审查指出 `github-closeout.md` 缺少 frontmatter。
+本次 fetch 确认最新 main 仍为 `c35b261b31573bc2f08a16eeced12f18705b2560`，扫描证据适用性没有变化。
+首轮遗漏了最新 AGENTS/workflow 的 YAML 与全库 lint 要求；先前“无实质问题”的本地审查也漏掉此项。
+
+- 为英文草稿补齐必填 YAML 元数据；未来发布评论时只使用 frontmatter 后的 Markdown 正文。
+- 将本文件类型由 `Journal` 修正为 `Validation`，历史工作区和首次检查记录保留为当时事实。
+- 新增 [独立 journal](../../journal/shared/2026-11-01-22-secret-scan-closeout.md)、[审查记录](review.md)，补齐 `index.md` 与 `log.md` 导航。
+- 恢复元数据补入实际读取的 workflow 与知识检查器，明确交付材料已补齐但原 PR 仍需复审。
+
+首次 `python3 .octospec/scripts/lint.py` 因系统 Python 缺 `yaml` 模块退出，未完成检查。
+为避免改动仓库依赖，在本机临时 venv 安装 PyYAML 6.0.3，再执行相同脚本：
+`/tmp/ort-10-pr.bpBYkH/lint-venv/bin/python .octospec/scripts/lint.py` 退出 0，
+结果为 `OK: 550 个 OKF 单元，20 条规则，3481 个本地文件链接`。
+同时对本次知识 Markdown 单独解析并断言 `type`、`title`、`description` 为非空字符串，`tags` 为列表；
+检查 brief/review/validation/journal 的角色类型，而非只依赖目前仅强制 Rule 类型的全库检查器。
+`/tmp/ort-10-pr.bpBYkH/lint-venv/bin/python /tmp/ort-10-pr.bpBYkH/check-metadata.py` 退出 0，
+5 份知识 Markdown 的必填字段、角色类型与空白检查全部通过；`git diff --check` 通过。
+本次不修改 lint 脚本、CI、规则或检测行为。
