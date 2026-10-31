@@ -461,9 +461,9 @@ test("terminal freezes timers but completion metrics wait for cleanup outcome", 
   assert.equal(records[0].data.elapsedMs, 10);
 });
 
-test("run defaults to three hours and explicit limits may shorten or extend it", () => {
+test("run defaults to 24 hours and explicit limits may shorten or extend it", () => {
   for (const [limits, deadline] of [
-    [{}, 10_800_000],
+    [{}, 86_400_000],
     [{ runTimeoutMs: 7_200_000 }, 7_200_000],
     [{ runTimeoutMs: 21_600_000 }, 21_600_000]
   ]) {

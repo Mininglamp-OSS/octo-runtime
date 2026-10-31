@@ -6,6 +6,8 @@
 
 ## 什么时候用它
 
+整轮期限默认 24 小时，最大七天。72 小时调用显式传 `runtimeLimits: { runTimeoutMs: 259200000 }` 或 Context `octo.execution/limits` 的 `run_timeout_ms: 259200000`。首帧、模型空闲和工具空闲检测保持独立，见[输入优先级与范围](../../docs/zh-CN/reference/invoke-input.md)。
+
 - 你要在自己的进程里执行，并且接受共用事件循环、内存和故障域。
 - 你在写 Kernel 的 worker 入口——`serveWorker` 会替你构造 `AgentExecutor`。
 - 你需要进程隔离、监督或流回放：改用 [Kernel](../octo-runtime-executor-kernel/README.zh.md)。

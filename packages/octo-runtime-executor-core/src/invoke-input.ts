@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { localRuntimeLimits, resolveLocalContext } from "./context.js";
 import {
   CONTEXT_SCHEMA,
+  DEFAULT_RUN_TIMEOUT_MS,
   assertAgentSource,
   assertContextEnvelope,
   assertInvokeRequest,
@@ -109,7 +110,11 @@ export function prepareInvokeInput(value: unknown): {
         name: "approval_policy",
         payload: { mode: input.approvalMode ?? "ask" }
       },
-      { namespace: "octo.execution", name: "limits", payload: { run_timeout_ms: 120_000 } }
+      {
+        namespace: "octo.execution",
+        name: "limits",
+        payload: { run_timeout_ms: DEFAULT_RUN_TIMEOUT_MS }
+      }
     ]
   };
   // Resolve only execution settings here. Business items and control instructions

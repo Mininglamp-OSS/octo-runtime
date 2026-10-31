@@ -798,15 +798,15 @@
             "model_idle_policy": "observe",
             "tool_timeout_ms": 86400000,
             "tool_wall_timeout_ms": 100,
-            "run_timeout_ms": 86400000,
+            "run_timeout_ms": 604800000,
             "cancel_grace_ms": 60000,
             "enforcement": "enforce"
           }
         }
       ]
     },
-    "expected_canonical": "{\"items\":[{\"name\":\"limits\",\"namespace\":\"octo.execution\",\"payload\":{\"cancel_grace_ms\":60000,\"enforcement\":\"enforce\",\"first_frame_timeout_ms\":100,\"model_idle_policy\":\"observe\",\"model_idle_timeout_ms\":3600000,\"model_idle_warning_ms\":100,\"run_timeout_ms\":86400000,\"tool_timeout_ms\":86400000,\"tool_wall_timeout_ms\":100}}],\"schema\":\"octo.context-envelope/v3\"}",
-    "expected_hash": "sha256:ffc3e2531d33661fbb344239aeaa4ef688e52a234c56a2d0c6055c2de83261e9"
+    "expected_canonical": "{\"items\":[{\"name\":\"limits\",\"namespace\":\"octo.execution\",\"payload\":{\"cancel_grace_ms\":60000,\"enforcement\":\"enforce\",\"first_frame_timeout_ms\":100,\"model_idle_policy\":\"observe\",\"model_idle_timeout_ms\":3600000,\"model_idle_warning_ms\":100,\"run_timeout_ms\":604800000,\"tool_timeout_ms\":86400000,\"tool_wall_timeout_ms\":100}}],\"schema\":\"octo.context-envelope/v3\"}",
+    "expected_hash": "sha256:4a43384b02701011e1d58f745ab49690ac4667b091dbebd2dd3d28ccda3651ba"
   },
   {
     "name": "limits-legacy-observe",

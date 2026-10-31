@@ -48,7 +48,7 @@ AgentExecutor.invoke、worker RPC 和公开 KernelClient.invoke 使用相同 inp
 | controlInstructions | 当前 Context 控制项 | 可信会话指令，独立于业务上下文；入口必须认证和授权。 |
 | approvalMode | Context approval_policy / ask | 审批模式；与 Context 已提交策略冲突时拒绝。 |
 | agentConfig | 解析后的执行配置 | 完整 Provider 配置，见下文；显式 model/effort 必须与 Context 一致。 |
-| runtimeLimits | 执行配置；run timeout 默认 120000ms | 完整时间预算和 enforcement，见下文。 |
+| runtimeLimits | 执行配置；run timeout 默认 86400000ms（24 小时） | 完整时间预算和 enforcement，见下文。 |
 | runMetadata | 无 | JSON 业务/诊断信息，如 event、actor、channel；不注入模型，不作为授权凭据。 |
 | providerSession | 无 | Provider opaque 会话及其扩展字段，不从业务 sessionId 重建。 |
 | continuityMode | 有 providerSession 为 continue，否则 fresh | fresh 禁止携带 providerSession；continue 必须携带。以真实恢复结果为准。 |
@@ -81,6 +81,10 @@ AgentExecutor.invoke、worker RPC 和公开 KernelClient.invoke 使用相同 inp
 agentConfig 的全部已定义字段：`workdir` 为 cwd；`model` 为模型 ID；`effort` 为推理强度；`sandbox` 为 Provider sandbox 标识；`providerAgentId` 为 Provider Agent ID（OpenClaw 缺省 main）；`timeoutSeconds` 为调用超时秒数；`openclawConfigPath` 为配置路径；`openclawStateDir` 为状态目录；`providerOptions` 为完整透传的 Provider 专属 JSON 参数。其他既有 Provider 扩展字段保留；已删除的 permission/thinking 旧字段继续拒绝。安装仍由 HostApp 决定。
 
 runtimeLimits 的数值字段均为毫秒：`firstFrameTimeoutMs` 首帧等待、`modelIdleTimeoutMs` 模型空闲、`modelIdleWarningMs` 空闲告警、`toolTimeoutMs` 工具空闲、`toolWallTimeoutMs` 工具总时长、`runTimeoutMs` 整轮时长、`cancelGraceMs` 取消宽限。`modelIdlePolicy` 为模型空闲 observe/enforce；`enforcement` 为总体 observe/enforce。省略按执行配置及既有 Adapter 默认处理，类型和范围继续校验。
+
+整轮预算 `runTimeoutMs` / Context `run_timeout_ms` 的范围为 `100..604800000`（七天，含边界），未指定时默认 `86400000`（24 小时）。72 小时任务须显式传 `259200000`。入口、watchdog 与 DSH 等待使用同一默认值；其他检测的默认值、上限和 enforcement 语义不随总预算放大。总期限不因进度或人工等待续期。
+
+顶层 `runtimeLimits` 存在时整体优先于 Context，不逐字段合并；空对象或缺少 runTimeoutMs 时，由 watchdog 补 24 小时。顶层对象不存在才采用 Context 的解析结果。Context 本身仍须合法；不改变调用方快照。渠道显式预算继续由各 Extra 策略决定。实现及手动验收见 [Issue 263](../tasks/263-long-running-invocations/brief.md)。
 
 providerSession 的 `sessionId` 是 Provider 句柄；`resumable` 是可选布尔值；`resumeOutcome` 为 new/resumed/fresh_fallback/compacted，表示真实连续性结果；`resumeFallback` 为回退原因；`contextInputVariant` 为 primary/recovery，标识实际采用输入；其他 Provider 扩展字段原样保留。业务 sessionId 和 Provider sessionId 不可互换。
 

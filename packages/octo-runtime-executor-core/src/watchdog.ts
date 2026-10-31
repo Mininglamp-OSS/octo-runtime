@@ -1,6 +1,7 @@
 import type { ProviderActivity } from "@mininglamp-oss/octo-runtime-adapter-sdk";
 import {
   isTerminal,
+  DEFAULT_RUN_TIMEOUT_MS,
   type CanonicalEvent,
   type RuntimeLimits
 } from "@mininglamp-oss/octo-runtime-protocol";
@@ -12,7 +13,7 @@ export const DEFAULT_RUNTIME_LIMITS = {
   modelIdleWarningMs: 120_000,
   modelIdlePolicy: "enforce" as const,
   toolTimeoutMs: 600_000,
-  runTimeoutMs: 10_800_000,
+  runTimeoutMs: DEFAULT_RUN_TIMEOUT_MS,
   cancelGraceMs: 1_000,
   enforcement: "enforce" as const
 };
