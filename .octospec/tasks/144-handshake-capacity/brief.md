@@ -9,7 +9,7 @@ tags: [testing, stream, protocol]
 
 ## 状态与依据
 
-- 状态：用户已认可规格并授权实现、提交推送及创建 PR；实现与本地验证完成，准备代码审查。
+- 状态：用户已认可规格并授权实现、提交推送及创建 PR；实现、本地验证及双轴代码审查完成，准备 PR。
 - 来源：[GitHub #144](https://github.com/Mininglamp-OSS/octo-runtime/issues/144)、Loop ORT-46、分诊评论 `f9ccf515-3d2c-42b3-b35e-441e2ccb85dc` 及用户“开始写spec”。
 - 规格基线：`db427e85dbaf1c19e79452ed4a45f6080c440a0f`；实施前已 fetch 并快进至 `origin/main@c35b261b31573bc2f08a16eeced12f18705b2560`。
 - Worktree：`/Users/lvsijia/github.com/Mininglamp-OSS/octo-runtime-issue-144`；分支：`fix/144-handshake-capacity`。
@@ -62,6 +62,8 @@ tags: [testing, stream, protocol]
 5. 按 code-review 技能执行实现后的规格与仓库标准审查，修复有效问题。证据记录 SHA/dirty、平台、命令、逐项通过/失败/未执行和原因；自动化结果与真实环境结果分别说明。
 
 本任务仅验证确定性本地 transport fixture。不要求真实 Provider、模型、网络、IM 或 Windows 原生专项，也不以本地通过推断这些场景可用。无需因测试修改扩大到全量跨包合同验证；若发现生产缺陷，记录后重新明确范围。
+
+实际验证结果见 [实施日志](../../journal/shared/2026-11-01-144-handshake-capacity.md)，两轴审查见 [review.md](review.md)。上文命令保留为计划依据，实际通过和未执行项以记录为准。
 
 ## 决策与审查事项
 
