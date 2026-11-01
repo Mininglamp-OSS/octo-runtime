@@ -27,3 +27,11 @@ tags: [adapter, interaction, review, testing]
 审查者独立复跑相关 6 项用例，6/6 PASS；两项均关闭，无新增问题。完整专项和相关回归见 [validation](validation.md)。
 
 两轴结论分别记录：Standards 初审 1 项、最高 P3，剩余 0；Spec 初审 2 项、最高 P1，剩余 0。本报告不等同于 GitHub 人工批准或合并授权。
+
+## 最新主线集成复核
+
+主线 `dc14c094` 合入 #280 后，合并提交 `10336bed` 保留旁路问题的 ACK/终态语义，并将其额度独立于审批。Standards 复核新增问题 0。Spec 复核发现 1 项 P2：读取 async 消息的结构化校验失败被通用进程错误处理包装成传输失败。
+
+修复为帧处理显式标记 protocol 来源，保留原结构化错误码；真实流异常仍按传输失败处理。新增 Adapter 集成用例覆盖 INVALID_ASYNC_QUESTIONS、INVALID_ASYNC_QUESTION_ID、ASYNC_QUESTION_CONFLICT。作者 174/174 定向回归通过；Spec 审查者独立复跑相关 13/13 通过，确认关闭且无新增问题。
+
+最终：Standards 共发现 1 项 P3，未关闭 0；Spec 共发现 3 项（最高 P1），未关闭 0。远端 CI 在最终修正提交上重新执行，状态见 PR。

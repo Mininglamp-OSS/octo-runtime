@@ -1439,7 +1439,10 @@ class CodexAppServerClient {
       try {
         this.#handleLine(line);
       } catch (error) {
-        this.#handleProcessError(error instanceof Error ? error : new Error(String(error)));
+        this.#handleProcessError(
+          error instanceof Error ? error : new Error(String(error)),
+          "protocol"
+        );
       }
     });
     this.#child.stderr.setEncoding("utf8");
@@ -2230,11 +2233,12 @@ class CodexAppServerClient {
     }
   }
 
-  #handleProcessError(error: Error): void {
+  #handleProcessError(error: Error, source: "transport" | "protocol" = "transport"): void {
     if (this.#transportFailure) return;
     // 本地传输异常保留稳定原因；spawn errno 与容量错误继续使用既有专用分类。
     const code = stringErrorCode(error);
     if (
+      !(source === "protocol" && code !== undefined) &&
       !isCodexLocalFailureReason(code) &&
       !isStreamCapacityReason(code) &&
       !["ENOENT", "ENOTDIR", "EACCES", "EPERM"].includes(code ?? "")

@@ -109,3 +109,5 @@ A01–A06、A10、A12 与 A14 的 Codex 两模式路径由 Adapter/Kernel 用例
 合并后的 typecheck、lint、format、docs:check 通过；全量 Node 2389 PASS / 91 SKIP / 0 FAIL，WebUI 35/35 PASS。首次额外 codec 验证有 2 项因 worktree 缺少 Python venv 失败；仅在忽略的 native/python/.venv 安装本地包后复验，不修改用户 Python 环境。
 
 PR 标题初次未遵循 Conventional Commit，已改为 `fix(codex): handle approval bursts with bounded response delivery`；标题校验已重新运行并通过。合并提交推送后重新运行现有 CI，检查远端状态，不扩大工作流。
+
+集成复验最终为 **174/174 PASS**，包括本次审批、上游 async 以及相关既有用例；Python venv 缺失已解决，TS/schema/Go/Python async codec 测试通过。合并复核发现的协议错误归因 P2 已修复，新增 3 条 Adapter 验证；Spec 独立复跑 13/13 PASS。该修正后 Codex 包构建、lint、format 检查通过；最终远端 CI 按最新提交重新执行。

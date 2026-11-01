@@ -403,3 +403,38 @@ for (const first of ["async", "sync"]) {
     }
   );
 }
+
+for (const reason of [
+  "INVALID_ASYNC_QUESTIONS",
+  "INVALID_ASYNC_QUESTION_ID",
+  "ASYNC_QUESTION_CONFLICT"
+]) {
+  test(
+    `canonical: structured async ${reason} is not a transport failure`,
+    { timeout: 5000 },
+    async (t) => {
+      const r = await running(t, "canonical", "full_access");
+      if (reason === "ASYNC_QUESTION_CONFLICT") {
+        asyncQuestion(r.fixture, "same");
+        await until(() => r.pending().length === 1);
+      }
+      r.fixture.send({
+        method: "item/completed",
+        params: {
+          threadId: "thread-fixture",
+          turnId: "turn-fixture",
+          item: {
+            id: reason === "INVALID_ASYNC_QUESTION_ID" ? "" : "same",
+            type: "agentMessage",
+            delivery: "async",
+            text: "Question",
+            questions:
+              reason === "INVALID_ASYNC_QUESTIONS" ? "bad" : [{ title: "Changed?", options: null }]
+          }
+        }
+      });
+      await r.done;
+      assert.equal(r.events.find((event) => event.type === "run.failed")?.payload.code, reason);
+    }
+  );
+}
