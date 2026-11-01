@@ -23,7 +23,7 @@ tags: [protocol, interaction, adapter, invocation, testing]
 - 公共 `/executor-kernel` 提供 `AsyncQuestionReply`：持有原请求、原 RunRef 和宿主提供的 continuation input，统一决定 steer / new_run。新 Run 复用唯一 `KernelClient.invoke`，沿用登记、signal、尾流、排空；不复制 submit/subscribe 实现。
 - 宿主拥有问题、会话和保存策略，负责保存回复状态、generation/provider binding、同一会话提交串行、新 Run 消费/取消/业务收尾。一个问题只有一个控制者；不承诺多客户端和宿主数据库之间恰好一次。
 - continuation input 显式携带当前业务 sessionId/generation、可恢复 providerSession、Context、配置与环境。SDK 校验同会话，生成新 runId/invocationId，替换输入为原题答案；不复制旧用户输入/图片或猜 Provider 私有参数。恢复失败如实报告，不能宣称已恢复同一 Provider 会话。
-- 直接 Core 用户可按同一合同调用现有 respondInteraction/invoke，不绕过 Core 终态限制。Work App UI 和子模块升级在宿主仓库。现有 channel-gateway 与 channel-wecom 继续忽略 async 控制，不暂停、不新增表单或续跑。两者在交互登记、提示与状态投影前成对过滤 async requested/resolved，保留消息正文及旧同步问答/审批。
+- 直接 Core 用户可按同一合同调用现有 respondInteraction/invoke，不绕过 Core 终态限制。Work App UI 和子模块升级在宿主仓库。内置 channel-gateway、channel-wecom 与 webui 忽略 async 控制，不暂停、不新增表单或续跑。在交互登记、提示与状态投影前成对过滤 async requested/resolved，保留消息正文及旧同步问答/审批。WebUI 忽略控制时仍推进源事件游标，保证后续正文、终态和重连序号连续。
 
 ## 结构与非阻塞
 

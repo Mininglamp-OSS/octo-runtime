@@ -7,6 +7,15 @@ tags: [protocol, interaction, adapter, testing]
 
 # 旁路补充信息修订验证
 
+## WebUI 与企微行为对齐
+
+用户明确三个内置 Extra 均忽略 async 控制、保留正文及旧同步交互。企微与 Gateway 已实现过滤；本次补 WebUI 的 RawRunPresentation，在推进原游标后过滤配对的 async requested/resolved，不生成 interaction.upsert 或交互快照项。集合按单 Run 有界保存，不进入通用 SDK 或改变原始 SSE 协议。
+
+- `node --experimental-transform-types --test test/manual/codex-async-webui.test.mjs`：5 项通过；覆盖正文、游标、无/有期限、重复请求、与同步 question/approval/elicitation 交错，以及容量边界。专项保留 manual，不接入默认 CI。
+- WebUI build（包括前后端 TypeScript）与原有 test:ui 的 35 项通过；Standards/Spec 双轴各 0 开放发现。定向 ESLint、Prettier 和知识检查通过。打包仅有现有依赖 use-client/chunk-size 提示，无构建失败。
+- 三渠道联合显式验证：`node --experimental-transform-types --test test/manual/codex-async-webui.test.mjs test/manual/codex-async-wecom.test.mjs test/manual/codex-async-gateway.test.mjs test/im-wecom.test.js`，21 项通过，0 失败/跳过。
+- 企微及 Gateway 沿用上一节独立验证，不新增异步表单或响应入口；公共 AsyncQuestionReply 能力仍供选择接入的宿主使用。
+
 ## 企业微信 P1 修复
 
 远端评审针对 `86e5be40` 确认企微误登记 async 事件、发布必然失败的 `/respond` 命令。修复在登记、秘密输入取消、提示和 projector 之前成对过滤，仅保留普通正文；同步问答、审批和 full_access 逻辑保持。
