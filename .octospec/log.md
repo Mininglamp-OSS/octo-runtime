@@ -2,6 +2,8 @@
 
 ## 2026-11-01
 
+- [Issue 289 计划](journal/shared/2026-11-01-289-approval-delivery-plan.md)：独立上游 worktree 快进最新 main@148d737d，完成审批额度/投递队列/背压/错误归因的 OctoSpec 计划，准备度 96/100。行为测试待实施；未修改产品代码、提交、推送或扩大 CI。
+
 - [Issue 161](journal/shared/2026-11-01-161-extra-platform-temp.md)：Extra 测试夹具改用平台临时目录，保留业务断言及 after 清理；按用户授权同步 main@28c3ffa2 后构建、类型、lint、命名、格式、定向测试及正常/失败清理通过，两轴复审各 0 项，准备提交 PR。Windows 原生未验，15 个历史 metadata 字段缺项独立报告，未扩大 CI；交付引用见 Loop 结果评论。
 
 - [Issue 136](journal/shared/2026-11-01-136-configuration-snapshot.md)：先快进最新 main，再将每轮配置解析收敛到提交前；5 项手动专项、50 项相关回归及类型/lint/命名通过，双轴审查各 0 项实现问题。未扩大 CI，未提交或推送，等待验证审查。

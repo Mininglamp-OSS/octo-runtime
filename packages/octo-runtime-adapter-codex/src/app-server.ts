@@ -6,6 +6,8 @@ import {
 import {
   canonicalTerminalStatus,
   classifyFailure,
+  isCodexLocalFailureReason,
+  isStreamCapacityReason,
   contextHash,
   contextActmode,
   assertJsonByteLimit,
@@ -17,6 +19,7 @@ import {
   streamCapacityError,
   type StreamLimitPolicy
 } from "@mininglamp-oss/octo-runtime-protocol";
+import { CodexStdinWriter, codexTransportError } from "./stdin-writer.js";
 import { codexEnvironmentConfig } from "./environment.js";
 import { createProcessCleanup } from "@mininglamp-oss/octo-runtime-adapter-sdk/process-cleanup";
 import { resolveProcessLaunch } from "@mininglamp-oss/octo-runtime-adapter-sdk/process-launch";
@@ -76,6 +79,7 @@ interface PendingRequest {
   resolve: (value: unknown) => void;
   reject: (reason: Error) => void;
   timer: NodeJS.Timeout;
+  cancelWrite?: () => void;
 }
 
 interface PendingInteraction {
@@ -83,6 +87,8 @@ interface PendingInteraction {
   method: string;
   params: JsonRecord;
   responding: boolean;
+  kind: "approval" | "question" | "elicitation";
+  retainedBytes: number;
   expiresAt: number;
   timer: NodeJS.Timeout;
 }
@@ -130,6 +136,7 @@ export class CodexAppServerRpcError extends Error {
 
 /** Error for when the subprocess exits without producing a run terminal, preserving exit code/signal. */
 export class CodexAppServerProcessError extends Error {
+  readonly code = "CODEX_TRANSPORT_FAILED";
   constructor(
     message: string,
     readonly exit: ProcessExit
@@ -1195,6 +1202,7 @@ class CodexAppServerClient {
   readonly #normalizer?: CodexEventNormalizer;
   readonly #native: boolean;
   readonly #pending = new Map<RpcId, PendingRequest>();
+  readonly #writer: CodexStdinWriter;
   readonly #interactions = new Map<string, PendingInteraction>();
   readonly #nativeRequestIds = new Set<RpcId>();
   readonly #requestTimeoutMs: number;
@@ -1361,7 +1369,8 @@ class CodexAppServerClient {
     this.#streamLimits = resolveStreamLimitPolicy(context?.streamLimits);
     this.#queue = new DriverQueue<AdapterOutput>({
       limits: this.#streamLimits,
-      boundary: "codex.event_queue"
+      boundary: "codex.event_queue",
+      onFailure: (error) => this.#handleProcessError(error)
     });
     this.#native = context?.protocolMode === "native";
     if (!this.#native) this.#normalizer = new CodexEventNormalizer();
@@ -1373,6 +1382,9 @@ class CodexAppServerClient {
       this.#resolveExit = resolve;
     });
     this.#child = spawnFn(spec.command, spec.args, { cwd: spec.cwd, env: spec.env });
+    this.#writer = new CodexStdinWriter(this.#child.stdin, (error) =>
+      this.#handleProcessError(error)
+    );
     this.#cleanupProcess = createProcessCleanup(this.#child, {
       // 只有 production defaultSpawn 明确拥有独立组；注入的 child 不推定拥有组。
       processGroup: isolatedProcessGroups.has(this.#child)
@@ -1471,28 +1483,55 @@ class CodexAppServerClient {
       if (!["accept", "decline", "cancel"].includes(String(result.action)))
         throw protocolError("NATIVE_RESPONSE_INVALID");
     } else throw protocolError("NATIVE_METHOD_UNSUPPORTED");
+    await this.#deliverInteraction(interactionId, pending, payload);
+  }
+
+  /** 冻结一次决定后立即释放人工额度；只有写回调成功才能确认 resolved。 */
+  #deliverInteraction(
+    interactionId: string,
+    pending: PendingInteraction,
+    reply: JsonRecord,
+    outcome?: InteractionResponse["outcome"],
+    automatic = false
+  ): Promise<void> {
     pending.responding = true;
-    await new Promise<void>((resolve, reject) =>
+    pending.params = {};
+    pending.retainedBytes = 0;
+    clearTimeout(pending.timer);
+    return new Promise<void>((resolve, reject) => {
       this.#write(
-        payload,
-        (error) => {
-          this.#invalidateInteractions("response_delivery_failed");
-          this.#queue.fail(error);
-          signalProcessTree(this.#child, "SIGTERM");
-          reject(error);
-        },
+        reply,
+        reject,
         () => {
-          if (!this.#interactions.has(interactionId)) {
+          if (this.#interactions.get(interactionId) !== pending || this.#terminal) {
             reject(protocolError("INTERACTION_NOT_ACTIVE"));
             return;
           }
-          clearTimeout(pending.timer);
           this.#interactions.delete(interactionId);
-          this.#interactionState(interactionId, pending.rpcId, "resolved");
+          if (this.#native || automatic) {
+            this.#interactionState(
+              interactionId,
+              pending.rpcId,
+              "resolved",
+              automatic ? "full_access_policy" : undefined
+            );
+          } else {
+            this.#queue.push({
+              protocolVersion: 2,
+              type: "interaction.resolved",
+              payload: {
+                interactionId,
+                executionInstanceId: this.invocation.invocationId,
+                status: "resolved",
+                outcome
+              }
+            });
+          }
           resolve();
-        }
-      )
-    );
+        },
+        { timeoutMs: Math.max(1, pending.expiresAt - Date.now()) }
+      );
+    });
   }
 
   #interactionState(
@@ -1540,35 +1579,12 @@ class CodexAppServerClient {
     } catch (error) {
       return Promise.reject(error instanceof Error ? error : new Error(String(error)));
     }
-    pending.responding = true;
-    return new Promise((resolve, reject) => {
-      this.#write(
-        { jsonrpc: "2.0", id: pending.rpcId, ...reply },
-        (error) => {
-          pending.responding = false;
-          reject(error);
-        },
-        () => {
-          if (!this.#interactions.has(response.interactionId)) {
-            reject(new Error("INTERACTION_NOT_ACTIVE"));
-            return;
-          }
-          clearTimeout(pending.timer);
-          this.#interactions.delete(response.interactionId);
-          this.#queue.push({
-            protocolVersion: 2,
-            type: "interaction.resolved",
-            payload: {
-              interactionId: response.interactionId,
-              executionInstanceId: this.invocation.invocationId,
-              status: "resolved",
-              outcome: response.outcome
-            }
-          });
-          resolve();
-        }
-      );
-    });
+    return this.#deliverInteraction(
+      response.interactionId,
+      pending,
+      { jsonrpc: "2.0", id: pending.rpcId, ...reply },
+      response.outcome
+    );
   }
 
   exit(): Promise<ProcessExit> {
@@ -1595,7 +1611,9 @@ class CodexAppServerClient {
     return new Promise((resolve, reject) => {
       // Register pending before writing stdin, so a synchronous reply from a test server/local process cannot arrive first.
       const timer = setTimeout(() => {
+        const expired = this.#pending.get(id);
         if (!this.#pending.delete(id)) return;
+        expired?.cancelWrite?.();
         reject(
           Object.assign(new Error(`codex app-server ${method} timed out after ${timeoutMs}ms`), {
             code: "RPC_TIMEOUT",
@@ -1608,7 +1626,7 @@ class CodexAppServerClient {
       this.#pending.set(id, { method, resolve, reject, timer });
       // onWritten is deliberately passed through to #write instead of running
       // before it; callers use it as the transport-written observation boundary.
-      this.#write(
+      const cancelWrite = this.#write(
         { jsonrpc: "2.0", id, method, params },
         (error) => {
           const pending = this.#pending.get(id);
@@ -1617,8 +1635,11 @@ class CodexAppServerClient {
           clearTimeout(pending.timer);
           pending.reject(error);
         },
-        onWritten
+        onWritten,
+        { control: method === "turn/interrupt", timeoutMs }
       );
+      const pending = this.#pending.get(id);
+      if (pending) pending.cancelWrite = cancelWrite;
     });
   }
 
@@ -1643,6 +1664,7 @@ class CodexAppServerClient {
   close(): Promise<void> {
     return (this.#closePromise ??= (async () => {
       this.#closed = true;
+      this.#writer.stop(protocolError("INTERACTION_NOT_ACTIVE"));
       this.#clearFinalizationTimer();
       if (this.#finalizationGraceTimer) clearTimeout(this.#finalizationGraceTimer);
       this.#closing = true;
@@ -1864,12 +1886,56 @@ class CodexAppServerClient {
 
     if (method === "item/permissions/requestApproval") {
       this.#rejectServerRequest(id, method);
-      this.#queue.fail(new Error("APPROVAL_GRANT_SCOPE_UNSUPPORTED"));
+      this.#handleProcessError(codexTransportError("APPROVAL_GRANT_SCOPE_UNSUPPORTED"));
       return;
     }
-    if (this.#interactions.size >= 16) {
-      this.#rejectServerRequest(id, method);
-      this.#queue.fail(new Error("APPROVAL_PENDING_LIMIT_EXCEEDED"));
+    if ([...this.#interactions.values()].some((pending) => pending.rpcId === id)) {
+      this.#write(
+        {
+          jsonrpc: "2.0",
+          id,
+          error: { code: -32600, message: "duplicate provider interaction id" }
+        },
+        undefined,
+        undefined,
+        { control: true }
+      );
+      return;
+    }
+    const automatic = !this.#interactive && kind === "approval";
+    const waiting = [...this.#interactions.values()];
+    if (
+      !automatic &&
+      kind === "approval" &&
+      waiting.filter((pending) => pending.kind === "approval" && !pending.responding).length >= 256
+    ) {
+      if (this.#native)
+        this.#queue.push({ kind: "native", messageKind: "request", payload: message });
+      this.context?.log?.("warn", "codex.approval_capacity", {
+        invocation_id: this.invocation.invocationId,
+        code: "APPROVAL_PENDING_LIMIT_EXCEEDED"
+      });
+      this.#write(
+        { jsonrpc: "2.0", id, error: { code: -32000, message: "APPROVAL_PENDING_LIMIT_EXCEEDED" } },
+        undefined,
+        undefined,
+        { control: true }
+      );
+      return;
+    }
+    if (
+      kind !== "approval" &&
+      waiting.filter((pending) => pending.kind !== "approval").length >= 16
+    ) {
+      this.#handleProcessError(codexTransportError("CODEX_INTERACTION_PENDING_LIMIT_EXCEEDED"));
+      return;
+    }
+    const retainedBytes = automatic ? 0 : Buffer.byteLength(JSON.stringify(params));
+    if (
+      waiting.reduce((bytes, pending) => bytes + pending.retainedBytes, retainedBytes) >
+      this.#streamLimits.adapterQueueMaxBytes
+    ) {
+      this.#handleProcessError(codexTransportError("CODEX_INTERACTION_BYTES_EXCEEDED"));
       return;
     }
     const interactionId = codexInteractionId(
@@ -1877,27 +1943,21 @@ class CodexAppServerClient {
       this.invocation.invocationId,
       this.#nextInteractionId++
     );
-    if ([...this.#interactions.values()].some((pending) => pending.rpcId === id)) {
-      this.#write({
-        jsonrpc: "2.0",
-        id,
-        error: { code: -32600, message: "duplicate provider interaction id" }
-      });
-      return;
-    }
     const expiresAt = Date.now() + 600_000;
     const timer = setTimeout(() => {
       this.#interactions.delete(interactionId);
       this.#interactionState(interactionId, id, "expired", "approval_timeout");
       this.#rejectServerRequest(id, method);
-      this.#queue.fail(new Error("INTERACTION_EXPIRED"));
-    }, 600_000);
+      this.#handleProcessError(codexTransportError("INTERACTION_EXPIRED"));
+    }, expiresAt - Date.now());
     timer.unref?.();
     this.#interactions.set(interactionId, {
       rpcId: id,
       method,
       params,
-      responding: false,
+      responding: automatic,
+      kind,
+      retainedBytes,
       timer,
       expiresAt
     });
@@ -1960,24 +2020,19 @@ class CodexAppServerClient {
       if (automatic === undefined) {
         this.#rejectServerRequest(id, method);
         this.#invalidateInteractions("approval_mapping_unsupported");
-        this.#queue.fail(new Error("APPROVAL_OPERATION_UNSUPPORTED"));
+        this.#handleProcessError(codexTransportError("APPROVAL_OPERATION_UNSUPPORTED"));
         return;
       }
-      this.#interactions.get(interactionId)!.responding = true;
-      this.#write(
+      const pending = this.#interactions.get(interactionId);
+      // 发布 pending 期间输出队列可能已失败，不能继续发送已经失效的批准。
+      if (!pending) return;
+      void this.#deliverInteraction(
+        interactionId,
+        pending,
         { jsonrpc: "2.0", id, result: automatic },
-        (error) => {
-          this.#invalidateInteractions("response_delivery_failed");
-          this.#queue.fail(error);
-        },
-        () => {
-          const pending = this.#interactions.get(interactionId);
-          if (!pending) return;
-          clearTimeout(pending.timer);
-          this.#interactions.delete(interactionId);
-          this.#interactionState(interactionId, id, "resolved", "full_access_policy");
-        }
-      );
+        undefined,
+        true
+      ).catch(() => undefined);
     }
   }
 
@@ -1990,27 +2045,23 @@ class CodexAppServerClient {
     });
   }
 
-  #write(message: JsonRecord, onError?: (error: Error) => void, onWritten?: () => void): void {
-    if (this.#transportFailure) {
-      onError?.(this.#transportFailure);
-      return;
+  #write(
+    message: JsonRecord,
+    onError?: (error: Error) => void,
+    onWritten?: () => void,
+    options: { control?: boolean; timeoutMs?: number } = {}
+  ): () => void {
+    const error =
+      this.#transportFailure ??
+      (this.#closed || this.#exited ? codexTransportError("CODEX_TRANSPORT_FAILED") : undefined);
+    if (error) {
+      onError?.(error);
+      return () => {};
     }
-    if (this.#closed || this.#exited) {
-      onError?.(new Error("codex app-server is closed"));
-      return;
-    }
-    let line: string;
-    try {
-      line = `${JSON.stringify(message)}\n`;
-    } catch (error) {
-      onError?.(error instanceof Error ? error : new Error(String(error)));
-      return;
-    }
-    this.#child.stdin.write(line, (error) => {
-      // Writable completion means local acceptance of the bytes. Only a later
-      // frame with the same JSON-RPC id can acknowledge a request.
-      if (error) onError?.(error);
-      else onWritten?.();
+    return this.#writer.write(message, onError ?? (() => {}), onWritten, {
+      ...options,
+      // 仅本层产生的拒绝响应使用控制预留；正常批准永远进入普通队列。
+      control: options.control === true || Object.hasOwn(message, "error")
     });
   }
 
@@ -2092,12 +2143,26 @@ class CodexAppServerClient {
 
   #handleProcessError(error: Error): void {
     if (this.#transportFailure) return;
+    // 本地传输异常保留稳定原因；spawn errno 与容量错误继续使用既有专用分类。
+    const code = stringErrorCode(error);
+    if (
+      !isCodexLocalFailureReason(code) &&
+      !isStreamCapacityReason(code) &&
+      !["ENOENT", "ENOTDIR", "EACCES", "EPERM"].includes(code ?? "")
+    )
+      error = codexTransportError("CODEX_TRANSPORT_FAILED", error);
     this.#transportFailure = error;
+    this.#writer.stop(error);
     this.#reader.close();
     this.#clearFinalizationTimer();
     this.#rejectPending(error);
     this.#invalidateInteractions("execution_lost");
-    if (!this.#closing && !this.#terminal) this.#queue.fail(error);
+    if (!this.#closing && !this.#terminal) {
+      this.#queue.fail(error);
+      queueMicrotask(() => {
+        void this.close().catch(() => undefined);
+      });
+    }
   }
 
   #handleExit(exit: ProcessExit): void {
@@ -2106,12 +2171,14 @@ class CodexAppServerClient {
     this.#exited = true;
     this.#resolveExit(exit);
     const error = new CodexAppServerProcessError(this.processErrorMessage(exit), exit);
+    this.#writer.stop(error);
     this.#rejectPending(error);
     this.#invalidateInteractions("execution_lost");
     if (!this.#closing && !this.#terminal) this.#queue.fail(error);
   }
 
   #invalidateInteractions(reasonCode: string): void {
+    this.#writer.cancelPending(protocolError("INTERACTION_NOT_ACTIVE"));
     for (const [interactionId, pending] of this.#interactions) {
       clearTimeout(pending.timer);
       this.#interactionState(interactionId, pending.rpcId, "invalidated", reasonCode);
@@ -2122,6 +2189,7 @@ class CodexAppServerClient {
   #rejectPending(error: Error): void {
     for (const pending of this.#pending.values()) {
       clearTimeout(pending.timer);
+      pending.cancelWrite?.();
       pending.reject(error);
     }
     this.#pending.clear();
