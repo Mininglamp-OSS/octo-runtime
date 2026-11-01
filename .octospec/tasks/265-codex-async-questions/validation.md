@@ -5,7 +5,22 @@ description: Codex 异步问题的结构保留、活动轮次回传、生命周�
 tags: [protocol, interaction, adapter, testing]
 ---
 
-# PR 交付验证
+# 旁路补充信息修订验证
+
+源码：`59bed1986c66657f5a7318acbb51d361d914cbf3` 加本轮未提交变更，macOS arm64、Node 24.22.2、codex-cli 0.164.0；执行人为本会话 Codex。新版 brief.md 替换首版“晚填失效”。Work App UI/子模块及真实 IM 未修改或验证，Gateway 继续忽略 async。
+
+- `pnpm typecheck`、根 tsc、lint、lint:names、format:check、docs:check 通过。native:gen 已同步，native:check 通过；Go/Python 各 434 个既有权威 fixture 通过。
+- 手动离线：`node --test test/manual/codex-async-supplement.test.mjs test/manual/codex-async-questions.test.mjs test/manual/codex-async-recovery.test.mjs test/manual/codex-async-gateway.test.mjs test/manual/codex-async-codecs.test.mjs`，45 通过、0 失败、0 跳过；包含 11 项新旁路专项。覆盖两种 required-resume 失败点禁止 fresh fallback、默认无期限、取消、正常完成后新 Run、snapshot 经 Kernel 重启、未知 steer 不续跑、惰性 expiry/reset。
+- 真实 non-gating：`node --test test/manual/codex-async-supplement-live.test.mjs test/manual/codex-async-live.test.mjs`。最终源码重验四项全部通过：两项运行中选择/自定义 steer，两项结束后选择/自定义新 Run；同 Provider session resumed、模型实际复述答案、run.completed 单独断言。第一次四项也通过，最终证据以 live-final 日志为准。
+- 完整回归：WebUI 35 通过；Node 全量 2480 项，2389 通过、91 平台/环境跳过、0 失败。首次默认并发时唯一失败为既有 OpenCode 2.0.0 fake 版本探测达到 2 秒期限；没有修改旧测试或该 Adapter，最终同一全量文件集用 `node --test --test-concurrency=8 test/*.test.js packages/octo-runtime-protocol/test/*.test.js` 重验通过。沿用同一 Node 的临时隔离安装目录，避免既有缺安装测试发现机器相邻 octo-cli。没有修改默认脚本或 CI 并发。
+
+合计显式手动 49 项通过（45 离线、4 真实），0 失败/跳过。最终 Standards/Spec 各 0 开放发现，外部 watchdog P1 已修复。相对 main 基线的 .github、package.json、pnpm-lock.yaml 差异为空，无 CI 范围变化。知识检查与交付引用在 Loop 结果评论记录。
+
+日志：`/tmp/ort84-supplement-{typecheck-final,manual-45,live-final,node-final,native,docs-final,lint-final,format}.log`。fixture after 关闭其 Kernel/worker/临时目录，客户端关闭不代替取消或模型消费确认。
+
+以下是首版历史验证，不覆盖当前旁路合同。
+
+# 首版 PR 交付验证
 
 用户已授权本地审查、修复、提交、推送并创建目标为 main 的 PR。2026-11-01 同步主线至 `4a0f53b50723422d90f051944ae19eb28f60712a` 后，合入本次实现并按新增要求处理 Gateway：在 ImTask 入口成对忽略 async 问题交互，不创建卡片或操作入口、不暂停模型等待钟，保留正文与同步行为。未向 Provider 自动代答或取消。
 

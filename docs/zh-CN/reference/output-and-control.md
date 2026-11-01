@@ -57,13 +57,17 @@ HostFrame 的 control 消息报告交互状态：`pending`、`resolved`、`expir
 
 ### 异步问题合同
 
-Codex 可在继续工作时发布 `kind: "question"`、`delivery: "async"` 的 `interaction.requested`。表单打开期间仍需持续读流。请求结构为 `{schema: "octo.question-request/v1", messageId, questions: [{id, title, options, allowCustom: true}]}`；选项可为 null 或空数组，始终支持自定义文本。消息快照也保留原生问题，但只有活动交互授权提交。用 messageId 关联成一个表单，不解析 Markdown。
+Codex 可在继续工作时发布 `kind: "question"`、`delivery: "async"` 的 `interaction.requested`。表单打开期间仍需持续读流。请求结构为 `{schema: "octo.question-request/v1", messageId, questions: [{id, title, options, allowCustom: true}]}`；选项可为 null 或空数组，始终支持自定义文本。原请求与宿主持有的 pending 状态授权补答，不能仅凭消息快照推断可答。用 messageId 关联成一个表单，不解析 Markdown。
 
 整批提交一次，使用 `outcome: "answered"`，以及 `value: {schema: "octo.question-response/v1", answers: [{questionId: "q:0", text: "选项原文或自定义答案"}]}`。每个题目 ID 必须恰好回答一次；每题非空白且不超过 4096 Unicode 码点。公开入口示例见 [asyncQuestionForm](../../examples/interactions.mts)。
 
 Runtime 向原活动轮次发送一次 `turn/steer`，匹配的 RPC 成功响应到达后，Promise 才成功，并发布 `resolved/answered/provider_accepted`。它只证明 Provider 接纳，不证明落盘、模型已阅读或任务成功。`ASYNC_ANSWER_REJECTED` 表示明确拒绝；`OPERATION_OUTCOME_UNKNOWN` 表示已发送但未确认，两者均不得自动重试。`INVALID_QUESTION_RESPONSE` 可在发送前修正；重复或失效提交报 `INTERACTION_NOT_ACTIVE`。
 
-pending 时以 `outcome: "cancelled"` 且不带 value 可本地关闭表单，结果为 `user_cancelled`；它不取消 Run，也不能撤回已提交输入。未答表单十分钟过期。原轮次结束后失效，不自动新开轮次补交。原 RunRef 仍存活时重连可重放同一交互，不续期；新 invocation、会话 resume、worker/Kernel 重启均不恢复旧问题。应答 ACK 丢失时查询原流的 resolved 事件，不自动重交。
+异步 ask 是会话旁路补充：可以不填，原任务照常结束；正常完成后仍可通过同一表单补答。公共 `/executor-kernel` 的 `AsyncQuestionReply` 在活动时 steer，确认正常完成后复用 `client.invoke` 创建新的 AgentRun。宿主显式提供当前会话的 continuation input（sessionId/generation/providerSession/Context/配置），SDK 生成新执行身份，并携带原题和答案。Codex 新 Run 强制 `providerSession.requireResume=true`，恢复失败即失败，不能另开 Provider 会话。
+
+`respond` 返回 `route: "steer"` 时已获 Provider 接纳；返回 `route: "new_run"` 时只提供 `events` 执行流，消费流才提交，不能显示答案已送达。新 Run 的 Runtime 受理、Provider 接纳、模型使用与任务完成分别观察。完整示例见 [asyncSupplementForm](../../examples/interactions.mts)。原低层 respond 仍只接受活动 Run。
+
+旁路默认不设到期时间；可选 expiresAt 到期后拒绝，同步交互仍必须提供期限。cancel 只关闭表单，不取消模型。宿主唯一控制者负责保存 `snapshot()`，持续通过 `observe` 记录原 Run 的真实终态及交互结果；保存为 pending/completed 的问题可在重启后续跑，仅 running 或提交未知不能重放。会话 reset/binding 变化拒绝旧题。steer ACK 丢失返回未知，绝不转新 Run 或自动重交。SDK 不提供宿主数据库事务或跨控制者恰好一次保证。
 
 同步与异步共享 16 个活动交互上限；每批最多 50 题，每题最多 50 个选项，题目及选项各最多 4096 码点。损坏或超限问题明确失败。同步问题、elicitation、审批和 full_access 语义保持原样。宿主仍需接入表单界面。现有 channel-gateway 成对忽略异步交互及其结束通知，不显示表单、不进入等待，普通消息正文照常展示。
 

@@ -267,6 +267,7 @@ export async function* runCodexAppServerTurn({
         );
         resumed = true;
       } catch (error) {
+        if (request.providerSession?.requireResume === true) throw error;
         // A failed resume does not abort this turn; record a low-cardinality reason and fall back to a fresh thread.
         resumeFallback = rpcFailureReason(error);
       }
@@ -281,6 +282,8 @@ export async function* runCodexAppServerTurn({
 
     let threadId = extractThreadId(threadResult);
     if (!threadId) throw new Error("codex thread start/resume returned no thread id");
+    if (request.providerSession?.requireResume === true && threadId !== requestedSessionId)
+      throw new Error("codex required session resume returned a different thread id");
     client.setActiveThread(threadId);
     // 名称属于调用方；只命名本轮新建 thread，恢复时保留原生标题与句柄。
     if (!resumed && request.sessionName)
@@ -321,7 +324,8 @@ export async function* runCodexAppServerTurn({
       });
     } catch (error) {
       // Some corrupt sessions pass thread/resume but only reveal the missing rollout at turn/start.
-      if (!resumed || !isThreadNotFound(error)) throw error;
+      if (!resumed || !isThreadNotFound(error) || request.providerSession?.requireResume === true)
+        throw error;
       resumeFallback = "turn_start_thread_not_found";
       resumed = false;
       threadResult = await client.request(
@@ -1275,9 +1279,15 @@ class CodexAppServerClient {
     const item = recordValue(params.item);
     const id = stringValue(item?.id);
     if (id) this.#openItems.delete(id);
+    // 旁路消息不是最终收尾；completed-only 通知也必须撤销先前的收尾猜测。
+    if (item?.type === "agentMessage" && item.delivery === "async") {
+      this.#clearFinalizationTimer();
+      return;
+    }
     if (
       item?.type !== "agentMessage" ||
       item.phase !== "final_answer" ||
+      item.delivery === "async" ||
       params.threadId !== this.#activeThreadId ||
       notificationTurnId(params) !== this.#activeTurnId ||
       this.#openItems.size ||
@@ -1765,7 +1775,9 @@ class CodexAppServerClient {
     if (this.#native) {
       this.#queue.push({ kind: "native", messageKind: "notification", payload: message });
       if (method === "turn/completed") {
-        this.#invalidateInteractions("run_terminal");
+        this.#invalidateInteractions(
+          recordValue(params.turn)?.status === "completed" ? "run_completed" : "run_terminal"
+        );
         this.#terminal = true;
         this.#clearFinalizationTimer();
         if (this.#finalizationGraceTimer) clearTimeout(this.#finalizationGraceTimer);
@@ -1789,7 +1801,9 @@ class CodexAppServerClient {
     this.context?.reportConversion?.();
     for (const event of this.#normalizer!.normalize({ method, params })) {
       if (isTerminalEvent(event)) {
-        this.#invalidateInteractions("run_terminal");
+        this.#invalidateInteractions(
+          event.type === "run.completed" ? "run_completed" : "run_terminal"
+        );
         this.#terminal = true;
         this.#clearFinalizationTimer();
         if (this.#finalizationGraceTimer) clearTimeout(this.#finalizationGraceTimer);

@@ -30,6 +30,7 @@ export {
   assertAsyncQuestions,
   assertQuestionRequest,
   assertQuestionResponse,
+  questionAnswerText,
   assertInteractionResponse,
   assertNativeInteractionResponse,
   assertHostRunReceipt,

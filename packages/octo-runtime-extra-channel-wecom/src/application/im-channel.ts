@@ -477,6 +477,7 @@ export class ImRuntime {
       !entry ||
       entry.key !== key ||
       entry.senderId !== message.senderId ||
+      entry.request.expiresAt === undefined ||
       !Number.isFinite(Date.parse(entry.request.expiresAt)) ||
       Date.parse(entry.request.expiresAt) <= Date.now()
     ) {

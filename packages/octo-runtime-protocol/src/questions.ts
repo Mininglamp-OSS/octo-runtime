@@ -93,3 +93,25 @@ export function assertQuestionResponse(value: unknown): asserts value is Questio
     ids.add(answer.questionId);
   }
 }
+
+/** 两条补充路径使用同一原题关联；只校验并编码数据，不解析正文或执行模板。 */
+export function questionAnswerText(request: QuestionRequest, value: unknown): string {
+  assertQuestionRequest(request);
+  assertQuestionResponse(value);
+  if (
+    value.answers.length !== request.questions.length ||
+    value.answers.some((answer) => !request.questions.some((q) => q.id === answer.questionId))
+  )
+    throw invalidResponse();
+  return (
+    "Answer to async user questions:\n" +
+    JSON.stringify({
+      messageId: request.messageId,
+      answers: request.questions.map((q) => ({
+        questionId: q.id,
+        title: q.title,
+        text: value.answers.find((a) => a.questionId === q.id)!.text
+      }))
+    })
+  );
+}

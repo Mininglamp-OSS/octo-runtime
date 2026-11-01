@@ -3,10 +3,12 @@ import { assertAsyncQuestions, assertQuestionRequest } from "./questions.js";
 export {
   assertAsyncQuestions,
   assertQuestionRequest,
-  assertQuestionResponse
+  assertQuestionResponse,
+  questionAnswerText
 } from "./questions.js";
 export type {
   AsyncUserInputQuestion,
+  AsyncQuestionReplySnapshot,
   QuestionRequest,
   QuestionResponse
 } from "./generated/protocol-types.js";
@@ -25,6 +27,7 @@ export * from "./invoke-input.js";
 export * from "./model-context.js";
 export * from "./execution-plan.js";
 export { contextHash } from "./context-hash.js";
+export { assertJsonValue } from "./context.js";
 export type { ToolAuthorization, IssuedToolAuthorization } from "./generated/protocol-types.js";
 import { assertExperiencePayload } from "./experience.js";
 export { PROVIDER_DIAGNOSTIC_MAX_BYTES } from "./experience.js";
@@ -655,11 +658,12 @@ export function assertCanonicalEvent(event: unknown): asserts event is Canonical
   if (event.type === "interaction.requested") {
     requireEventString(payload, "interactionId", event.type);
     requireEventString(payload, "executionInstanceId", event.type);
-    requireEventString(payload, "expiresAt", event.type);
+    if (payload.delivery !== "async" || payload.expiresAt !== undefined)
+      requireEventString(payload, "expiresAt", event.type);
     if (
       Array.from(String(payload.interactionId)).length > 191 ||
       Array.from(String(payload.executionInstanceId)).length > 191 ||
-      !isInteractionTimestamp(payload.expiresAt as string)
+      (payload.expiresAt !== undefined && !isInteractionTimestamp(payload.expiresAt as string))
     )
       throw new TypeError("interaction.requested instance or expiry is invalid");
     if (

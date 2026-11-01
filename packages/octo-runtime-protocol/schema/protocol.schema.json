@@ -2452,6 +2452,10 @@
           "description": "Whether the provider declares that later invocations can resume this session.",
           "type": "boolean"
         },
+        "requireResume": {
+          "description": "Require the original provider session; adapters must reject rather than start a fresh fallback. Currently implemented by Codex.",
+          "type": "boolean"
+        },
         "resumeOutcome": {
           "description": "Continuity outcome for this session update. Compaction applies to the next turn; fresh fallback applies to the current turn.",
           "type": "string",
@@ -2733,12 +2737,29 @@
         }
       }
     },
+    "AsyncQuestionReplySnapshot": {
+      "description": "Host-owned supplement state, never stored by Kernel. Submitting or unknown records cannot be replayed.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "ref", "question", "providerSession", "completed", "phase"],
+      "properties": {
+        "schema": { "const": "octo.async-question-reply/v1" },
+        "ref": { "$ref": "#/definitions/KernelRunRef" },
+        "question": { "$ref": "#/definitions/InteractionRequestedPayload" },
+        "providerSession": { "$ref": "#/definitions/ProviderSession" },
+        "providerEpoch": { "type": "integer", "minimum": 0 },
+        "completed": { "type": "boolean" },
+        "phase": {
+          "enum": ["pending", "submitting", "answered", "cancelled", "invalidated", "unknown"]
+        }
+      }
+    },
     "InteractionRequestedPayload": {
       "title": "InteractionRequestedPayload",
       "description": "Provider-neutral interaction. Omitted delivery retains synchronous blocking semantics; async questions allow provider work to continue.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["interactionId", "kind", "request", "executionInstanceId", "expiresAt"],
+      "required": ["interactionId", "kind", "request", "executionInstanceId"],
       "properties": {
         "delivery": { "type": "string", "const": "async" },
         "executionInstanceId": {
@@ -2775,7 +2796,8 @@
               "kind": { "const": "question" },
               "request": { "$ref": "#/definitions/QuestionRequest" }
             }
-          }
+          },
+          "else": { "required": ["expiresAt"] }
         }
       ],
       "if": {

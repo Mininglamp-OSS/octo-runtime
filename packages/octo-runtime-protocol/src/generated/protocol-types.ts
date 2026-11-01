@@ -539,6 +539,10 @@ export interface ProviderSession {
    */
   resumable?: boolean;
   /**
+   * Require the original provider session; adapters must reject rather than start a fresh fallback. Currently implemented by Codex.
+   */
+  requireResume?: boolean;
+  /**
    * Continuity outcome for this session update. Compaction applies to the next turn; fresh fallback applies to the current turn.
    */
   resumeOutcome?: "new" | "resumed" | "fresh_fallback" | "compacted";
@@ -2494,10 +2498,25 @@ export interface QuestionResponse {
     }[]
   ];
 }
+/**
+ * Host-owned supplement state, never stored by Kernel. Submitting or unknown records cannot be replayed.
+ *
+ * This interface was referenced by `OctoRuntimeProtocolSchema`'s JSON-Schema
+ * via the `definition` "AsyncQuestionReplySnapshot".
+ */
+export interface AsyncQuestionReplySnapshot {
+  schema: "octo.async-question-reply/v1";
+  ref: KernelRunRef;
+  question: InteractionRequestedPayload;
+  providerSession: ProviderSession;
+  providerEpoch?: number;
+  completed: boolean;
+  phase: "pending" | "submitting" | "answered" | "cancelled" | "invalidated" | "unknown";
+}
 export interface InteractionRequestedPayload1 {
   delivery?: "async";
   executionInstanceId: string;
-  expiresAt: string;
+  expiresAt?: string;
   /**
    * Stable invocation-scoped interaction identifier.
    */

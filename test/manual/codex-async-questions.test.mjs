@@ -245,7 +245,7 @@ test("known unsent failure allows explicit retry; cancellation does not send", a
 });
 test("expiry and capacity enforce finite lifetime and never silently truncate", async () => {
   let now = 0;
-  const f = fixture({ now: () => now });
+  const f = fixture({ now: () => now, lifetimeMs: 600000 });
   now = 600000;
   await assert.rejects(f.state.respond(response(f.id)));
   assert.equal(f.events.at(-1).payload.status, "expired");
@@ -326,9 +326,13 @@ for (const scenario of ["normal", "wrong", "reject", "lost", "stale"])
             );
         }
         assert.equal(events.filter((e) => e.type === "interaction.requested").length, 1);
-        assert.equal(events.filter((e) => e.type === "interaction.resolved").length, 1);
-        const resolved = events.find((e) => e.type === "interaction.resolved").payload;
-        assert.equal(resolved.status, scenario === "normal" ? "resolved" : "invalidated");
+        assert.equal(
+          events.filter((e) => e.type === "interaction.resolved").length,
+          scenario === "stale" ? 0 : 1
+        );
+        const resolved = events.find((e) => e.type === "interaction.resolved")?.payload;
+        if (scenario !== "stale")
+          assert.equal(resolved.status, scenario === "normal" ? "resolved" : "invalidated");
         if (scenario === "normal")
           assert.ok(events.some((e) => e.payload.text?.includes("steers=1")));
         await assert.rejects(async () => host.respond(req.runId, original));

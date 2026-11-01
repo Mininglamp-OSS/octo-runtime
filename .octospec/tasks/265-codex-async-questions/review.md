@@ -5,7 +5,25 @@ description: 固定基线下 Standards 与 Spec 独立审查、修复和复核�
 tags: [protocol, interaction, review, testing]
 ---
 
-# 审查范围
+# 旁路补充信息修订审查
+
+本轮依据用户最新意图重写 brief.md；固定点仍为 main `4a0f53b50723422d90f051944ae19eb28f60712a`，审查全部最终差异及新增文件。使用 code-review 技能两个独立只读 agent，生产修订基线为 PR 首版 `59bed198`。
+
+## Standards
+
+确认 1 项 P2，已修复：requireResume 新增布尔字段最初未进入 TS 入口校验，字符串 true 可能被忽略。公共 assertInvokeInput 与 Core prepareInvokeInput 已补校验，通过 TS/Go/Python 正反 codec 专项。另修正专项 definition 为 InvokeInputWire、中英文文档的旧“仅活动交互”表述。当前 0 开放发现；没有另报 Fowler 异味。
+
+## Spec
+
+确认 2 项 P2，均已修复：新 Run 必须恢复同一 Provider 会话，Codex 两个 fresh fallback 点和返回不同 thread 均拒绝，匹配同 ID/resumed 后才记接纳；惰性执行在首次 invoke 前复查 expiry 与当前 generation/binding，不能延迟消费绕过资格。同步示例跳过 async 等待，completed-only async 通知清掉先前收尾 timer。最终静态复核 0 开放发现。
+
+## 外部 P1
+
+PR 的 Octo-Q / mochashanyao 指出 async final_answer 误触发 finalization timeout。判定入口现明确识别旁路，不启动并清理已有收尾 timer；手动 fixture 的 300ms 空档超过配置的 40ms deadline，模型正常完成，普通最终回答的既有超时保护保留。修复同时落实晚答合同，不能仅把 timer 修复当成完整需求。
+
+以下均为首版历史审查，终态失效等旧合同以新版 brief.md 为准。
+
+# 首版审查范围
 
 PR 准备阶段按用户要求重新独立执行双轴审查。新固定点为最新 main `4a0f53b50723422d90f051944ae19eb28f60712a`，对象为该基线至当前工作区全部差异（含新增文件）。新结论如下；后文保留原实施阶段记录。
 

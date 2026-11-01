@@ -2,7 +2,9 @@ task: 265-codex-async-questions
 baseline: 4a0f53b50723422d90f051944ae19eb28f60712a
 original_baseline: 0bcd89c528018ffd508ca8099c8ac9c6b88de35d
 branch: fix/265-codex-async-questions
-stage: pr-ready
+stage: supplement-verified
+revision_baseline: 59bed1986c66657f5a7318acbb51d361d914cbf3
+revision_intent: optional session supplement; steer while running; new AgentRun after completion
 rules_read:
   - .octospec/rules/_index.yaml
   - .octospec/rules/architecture.md
@@ -12,6 +14,7 @@ rules_read:
   - .octospec/rules/adapter-metadata.md
   - .octospec/rules/stateless-execution.md
   - .octospec/rules/local-execution.md
+  - .octospec/rules/invoke-input.md
   - .octospec/rules/engineering.md
   - .octospec/rules/channel-integration.md
   - .octospec/rules/collaboration.md
@@ -35,7 +38,7 @@ native_evidence:
   real_answer_round_trip: passed-native-and-public-kernel
 workflow:
   loop_task: e724be08-cd1a-4b01-86c7-b27f96922658
-  execution: ORT84-20261101-pr
+  execution: ORT84-20261101-supplement
   source_triage_comment: 1825e3b1-0a0a-49fd-b8e3-bee470f3a405
 authorization:
   write_spec: true

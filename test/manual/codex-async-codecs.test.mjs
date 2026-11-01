@@ -2,7 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import Ajv from "ajv";
-import { assertQuestionResponse } from "../../packages/octo-runtime-protocol/dist/index.js";
+import {
+  assertQuestionResponse,
+  assertInvokeInput
+} from "../../packages/octo-runtime-protocol/dist/index.js";
 import { build, batch } from "../../native/tests/driver.mjs";
 
 const schema = JSON.parse(
@@ -45,4 +48,48 @@ for (const language of ["go", "python"])
     );
     for (const [i, result] of results.entries())
       assert.equal(result.valid ?? false, cases[i].valid, JSON.stringify({ i, result }));
+  });
+
+for (const language of ["go", "python"])
+  test(`requireResume boolean and async optional expiry agree in TS/schema/${language}`, async () => {
+    const inputs = [true, false, "true", 1, null].map((requireResume) => ({
+      inputs: [{ type: "text", text: "supplement" }],
+      contexts: { schema: "octo.context-envelope/v3", items: [] },
+      providerSession: { sessionId: "fixture", requireResume }
+    }));
+    build(language);
+    const results = await batch(
+      language,
+      inputs.map((value) => ({ op: "codec", definition: "InvokeInputWire", value }))
+    );
+    for (let i = 0; i < inputs.length; i++) {
+      let valid = true;
+      try {
+        assertInvokeInput(inputs[i]);
+      } catch {
+        valid = false;
+      }
+      assert.equal(valid, i < 2);
+      assert.equal(results[i].valid ?? false, valid);
+    }
+    const question = {
+      interactionId: "fixture",
+      executionInstanceId: "fixture",
+      kind: "question",
+      request: {
+        schema: "octo.question-request/v1",
+        messageId: "fixture",
+        questions: [{ id: "q:0", title: "Color?", options: null, allowCustom: true }]
+      }
+    };
+    const checks = await batch(language, [
+      {
+        op: "codec",
+        definition: "InteractionRequestedPayload",
+        value: { ...question, delivery: "async" }
+      },
+      { op: "codec", definition: "InteractionRequestedPayload", value: question }
+    ]);
+    assert.equal(checks[0].valid, true);
+    assert.equal(checks[1].valid ?? false, false);
   });

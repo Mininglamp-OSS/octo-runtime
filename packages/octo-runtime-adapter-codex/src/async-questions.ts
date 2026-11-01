@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import {
   assertAsyncQuestions,
   assertQuestionRequest,
-  assertQuestionResponse,
+  questionAnswerText,
   protocolError,
   type AsyncUserInputQuestion,
   type CanonicalEvent,
@@ -39,7 +39,7 @@ interface Batch {
   threadId: string;
   turnId: string;
   expiresAt: number;
-  timer: NodeJS.Timeout;
+  timer?: NodeJS.Timeout;
   submitting: boolean;
   reject?: (error: Error) => void;
 }
@@ -60,7 +60,7 @@ export class CodexAsyncQuestions {
       rejected: (error: Error) => void
     ) => Promise<unknown>,
     readonly now = Date.now,
-    readonly lifetimeMs = 600_000
+    readonly lifetimeMs = Infinity
   ) {}
 
   get size(): number {
@@ -87,11 +87,10 @@ export class CodexAsyncQuestions {
     };
     assertQuestionRequest(request);
     const expiresAt = this.now() + this.lifetimeMs;
-    const timer = setTimeout(
-      () => this.#finish(id, "expired", "question_timeout"),
-      this.lifetimeMs
-    );
-    timer.unref?.();
+    const timer = Number.isFinite(expiresAt)
+      ? setTimeout(() => this.#finish(id, "expired", "question_timeout"), this.lifetimeMs)
+      : undefined;
+    timer?.unref?.();
     this.#seen.set(id, hash);
     // 直接 Core 消费端持有公开事件对象；独立保存原题，避免 UI 修改展示数据后改写投递关联。
     this.#pending.set(id, {
@@ -110,7 +109,7 @@ export class CodexAsyncQuestions {
         executionInstanceId: this.invocationId,
         kind: "question",
         delivery: "async",
-        expiresAt: new Date(expiresAt).toISOString(),
+        ...(Number.isFinite(expiresAt) ? { expiresAt: new Date(expiresAt).toISOString() } : {}),
         request: request as unknown as JsonRecord
       }
     });
@@ -131,18 +130,7 @@ export class CodexAsyncQuestions {
     }
     try {
       if (response.outcome !== "answered") throw failure("INVALID_QUESTION_RESPONSE");
-      assertQuestionResponse(response.value);
-      const answers = response.value.answers;
-      if (
-        answers.length !== batch.request.questions.length ||
-        answers.some((a) => !batch.request.questions.some((q) => q.id === a.questionId))
-      )
-        throw failure("INVALID_QUESTION_RESPONSE");
-      const ordered = batch.request.questions.map((q) => ({
-        questionId: q.id,
-        title: q.title,
-        text: answers.find((a) => a.questionId === q.id)!.text
-      }));
+      const text = questionAnswerText(batch.request, response.value);
       batch.submitting = true;
       clearTimeout(batch.timer);
       const hex = digest(id);
@@ -154,9 +142,7 @@ export class CodexAsyncQuestions {
         input: [
           {
             type: "text",
-            text:
-              "Answer to async user questions:\n" +
-              JSON.stringify({ messageId: batch.request.messageId, answers: ordered }),
+            text,
             text_elements: []
           }
         ]
@@ -169,11 +155,13 @@ export class CodexAsyncQuestions {
           if (error.deliveryNotAttempted === true) {
             batch.submitting = false;
             batch.reject = undefined;
-            batch.timer = setTimeout(
-              () => this.#finish(id, "expired", "question_timeout"),
-              Math.max(0, batch.expiresAt - this.now())
-            );
-            batch.timer.unref?.();
+            batch.timer = Number.isFinite(batch.expiresAt)
+              ? setTimeout(
+                  () => this.#finish(id, "expired", "question_timeout"),
+                  Math.max(0, batch.expiresAt - this.now())
+                )
+              : undefined;
+            batch.timer?.unref?.();
             reject(error);
             return;
           }
@@ -217,9 +205,14 @@ export class CodexAsyncQuestions {
     }
   }
 
-  /** 原轮次结束后不接管下一轮；已经发出的未确认答案保持结果未知。 */
+  /** 正常完成仅释放未答旁路；宿主可续跑。已发出未确认的答案仍为未知，不得重投。 */
   invalidate(reason: string): void {
     for (const [id, batch] of this.#pending) {
+      if (reason === "run_completed" && !batch.submitting) {
+        clearTimeout(batch.timer);
+        this.#pending.delete(id);
+        continue;
+      }
       const reject = batch.reject;
       this.#finish(id, "invalidated", batch.submitting ? "submission_outcome_unknown" : reason);
       reject?.(failure("OPERATION_OUTCOME_UNKNOWN"));
