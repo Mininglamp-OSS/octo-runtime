@@ -39,7 +39,7 @@ Kernel IPC 是应用与本地 Kernel 服务之间的通信协议。TypeScript �
 | `cancelInvocation(invocationId, reason?)`          | 取消同一客户端通过 invoke 发起的调用，返回 `{accepted}`。                                    |
 | `respondInteraction(invocationId, response)`       | 回复该调用的 canonical 交互请求。                                                            |
 | `respondNativeInteraction(invocationId, response)` | 回复该调用的 Provider 原生交互请求。                                                         |
-| `status()` / `list()`                              | 分别查询 Kernel 和 worker 状态、已注册 Adapter 元数据。Provider 是否安装和登录还需另外检查。 |
+| `status()` / `list()`                              | 分别查询 Kernel/worker 状态，或已注册 Adapter 元数据及 Provider 探测结果。探测不证明已登录或具有模型访问权限。 |
 | `close()`                                          | 关闭客户端连接，不取消已提交的执行，也不关闭 Kernel 服务。                                   |
 
 只有需要自行管理提交和订阅时，才使用下面的底层方法：
@@ -58,7 +58,7 @@ Kernel IPC 是应用与本地 Kernel 服务之间的通信协议。TypeScript �
 
 `adapter.list` / `KernelClient.list()` 返回已注册 Adapter 的元数据及实际探测信息，不返回模型目录，也不证明某个模型对当前账号可用。公共 IPC 及 Go/Python 客户端不承担统一模型或 effort 目录的发现、补齐和维护；这不是待补齐的执行前置条件。
 
-这个公共 Kernel 操作不同于进程内 Core 的 `AgentExecutor.list()`；后者仅返回注册元数据和协议支持。Kernel 将 `adapter.list` 经 worker 的 `list` RPC 转交给 `AgentExecutor.describe()`，探测已配置的 Provider，报告可用性、路径、版本或不可用原因。这些探测结果不枚举模型。
+宿主和 Extra 通过公共 `KernelClient` 使用同一个列表合同：已注册 Adapter 元数据及 Provider 探测结果，包含 `available`、`unavailableReason`、`providerPath` 和 `providerVersion`。列表仅覆盖该 Kernel 已装配的 Adapter；探测结果不枚举模型，也不证明已登录或具有账号权限。
 
 模型选项由接入宿主依据其 Provider、实际 endpoint 和账号取得或配置。官方服务、第三方代理站与自定义 endpoint 即使使用相同 Adapter，也可能具有不同模型或没有目录接口。宿主自行处理目录不可用和查询失败，不应伪造成功空列表，也不应要求消费者通过 Runtime 扫描私有凭据或启动探测会话来补齐列表。
 
@@ -85,7 +85,7 @@ macOS/Linux 使用 Unix domain socket，Windows 使用 Named Pipe。每条连接
 | Wire 方法                  | Params                                                 | 成功结果                                                                |
 | -------------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------- |
 | `status`                   | `{}`                                                   | KernelStatus，包含 `kernel_instance_id`、`execution_ready`、worker 状态 |
-| `adapter.list`             | `{}`                                                   | 已注册 Adapter 元数据数组                                               |
+| `adapter.list`             | `{}`                                                   | 已注册 Adapter 元数据数组，包含 `available`、`unavailableReason`、`providerPath` 和 `providerVersion` |
 | `agent_run.invoke`         | `{input, executionEnvOverrides?, kernel_instance_id?}` | `{kernel_instance_id, receipt}`，receipt 包含执行标识                   |
 | `agent_run.get`            | `{key, kernel_instance_id?}`                           | `{ref, oldest_seq, latest_seq, terminal?}`                              |
 | `agent_run.subscribe`      | `{ref, after_seq}`                                     | 快照 ACK，随后发送有序事件通知                                          |

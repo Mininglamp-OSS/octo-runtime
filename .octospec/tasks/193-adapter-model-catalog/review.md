@@ -24,3 +24,9 @@ tags: [architecture, documentation, review]
 ## YAML 交付补齐
 
 原交付的知识 Markdown 已有 YAML frontmatter；缺少的是独立结构化任务合同和最终逐项验收记录。此次新增 `spec.yaml`，`review.md` / `validation.md` 分别声明 `Review` / `Validation`，与 `context.yaml` 的用途分开。
+
+## 最新审查：IPC 方法表与 wire 表描述不一致，接受
+
+[对应 c8faa073 的审查](https://github.com/Mininglamp-OSS/octo-runtime/pull/284#pullrequestreview-5726469309)已确认规格通过、公共 Kernel 探测路径正确。剩余问题是双语 IPC 正文已说明 probe，但方法摘要仍说安装需另查，wire 返回值表仍仅写元数据。两处摘要均改为注册元数据及实际探测结果，列出四个返回字段；保留 Core 纯元数据入口区别及不证明登录/模型权限的限制。不修改实现。
+
+用户进一步明确公共文档的消费者边界：宿主/Extra 使用暴露的 `KernelClient` 服务，不需要辨认内部同名方法。因此公共 IPC 正文只保留统一的 KernelClient 列表合同和已装配范围；Core 方法区别及源码路径留在架构规则和本审查记录，不呈现为公共 API 的两种选择。
