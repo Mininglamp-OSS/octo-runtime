@@ -24,3 +24,9 @@ tags: [testing, lifecycle, architecture]
 观察限制：CLI 只公开聚合退出码 5，不能据此区分 runs 和日志问题，也不能宣称原生资源分类全部完整。规格与验证记录明确此边界；SDK 精确只允许对应 lost 的 runs incomplete，其他资源错误仍失败。
 
 最终发现数量：Standards 0，Spec 0。上述复核对应未提交代码，不代表托管 CI 或其他平台验证。
+
+## 最新主线复核
+
+用户授权提交 PR 后，已 rebase `origin/main@42102c60103a9b18166c499b0c74a23e0d2295c6`，实现提交 `8baba8d2acc200d44bcd9a361437dc05d1581c28`。只有 log.md 文本冲突，保留双方记录，测试源码未变。
+
+两轴重新审查 `42102c60...8baba8d2`，均 0 发现。主线配置快照统一在接纳前解析；本 fixture 未注入 configurations/adapterConfigurations，仍使用未配置分支，不影响 fake Adapter、RPC 身份与 worker loss。CI/default scripts/锁文件 diff 为空，配置的 Git 作者和英文提交、Codex trailer 保留。CLI 聚合退出码的观察限制继续成立。

@@ -1,6 +1,7 @@
 brief: .octospec/tasks/233-recovery-teardown/brief.md
-base: 7fd022cd725030317feee75d27621fa6b4d996e6
-previous_base: 0bcd89c528018ffd508ca8099c8ac9c6b88de35d
+base: 42102c60103a9b18166c499b0c74a23e0d2295c6
+previous_base: 7fd022cd725030317feee75d27621fa6b4d996e6
+original_base: 0bcd89c528018ffd508ca8099c8ac9c6b88de35d
 spec_revision: 2
 workflow: .claude/skills/octospec-workflow/SKILL.md
 review_skill: /Users/lvsijia/.agents/skills/code-review/SKILL.md
@@ -49,4 +50,4 @@ files_expected:
   - test-support/recovery-dependency.mjs
   - test-support/recovery-kernel-host.mjs
   - test-support/recovery-gateway-host.mjs
-updated_at: 2026-11-01T05:09:39+08:00
+updated_at: 2026-11-01T11:00:00+08:00

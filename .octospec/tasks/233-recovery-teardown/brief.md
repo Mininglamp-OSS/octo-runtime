@@ -11,7 +11,7 @@ tags: [testing, lifecycle, extra]
 
 本规格根据用户“测试 channel-gateway 时 executor 应该是 dependency”的反馈重写，替代[首版规格](brief-v1.md)。原始问题仍为 [Issue #233](https://github.com/Mininglamp-OSS/octo-runtime/issues/233) / ORT-68：测试环境关闭 Gateway 报错后，异常跳过 Kernel 的独立回收。该控制流缺陷存在，但不是 Gateway 对 Kernel 的生命周期控制，也不能据此判定生产服务缺陷。
 
-当前基线：`origin/main@7fd022cd725030317feee75d27621fa6b4d996e6`；分支 `fix/233-recovery-teardown`；worktree `/Users/lvsijia/github.com/Mininglamp-OSS/octo-runtime-issue-233`。新版实施结果见[验证记录](validation.md)的第二版章节，首轮历史结果不沿用。
+当前基线：`origin/main@42102c60103a9b18166c499b0c74a23e0d2295c6`（首次第二版实施基线为 `7fd022cd`，已 rebase）；分支 `fix/233-recovery-teardown`；worktree `/Users/lvsijia/github.com/Mininglamp-OSS/octo-runtime-issue-233`。新版实施结果见[验证记录](validation.md)的第二版及最新主线复验章节，首轮历史结果不沿用。
 
 ## 测试职责
 
@@ -63,7 +63,7 @@ Gateway 关闭失败、RPC 断开、主体断言失败均不触发产品侧 Kern
 
 - 每个已取得资源登记独立 cleanup，登记早于可能失败的初始化等待；回收过程逐项捕获错误，不能因为 Gateway 超时、探针失败或任意清理错误而漏掉 Kernel、worker、客户端及 IM fixture。
 - 正常先关闭 Gateway，再结束 Kernel；这是测试环境的回收顺序，不是二者的产品依赖关系。不得依赖多个 after hook 的隐式顺序保证回收。
-- CLI 与测试专用宿主进程保留 7000 ms SIGTERM 宽限；仍存活则尝试 SIGKILL，之后独立最多等待 3000 ms 退出。信号抛错或返回 false 后仍进行有限退出确认，再处理下一个资源。
+- CLI 使用 SIGTERM，测试专用原生宿主通过私有 IPC 消息调用 close，均保留 7000 ms 关闭宽限；仍存活则尝试 SIGKILL，之后独立最多等待 3000 ms 退出。发送失败、信号抛错或返回 false 后仍进行有限退出确认，再处理下一个资源。
 - kill 成功、管道关闭和 client.close 均不等于所属进程已退出。记录组件、PID、阶段、exitCode/signalCode 和原始 errno；未确认退出明确报告 incomplete，保留仍可能使用的目录及路径。
 - 测试主体原始失败单独保存，包括 falsy 抛出值。只有主体失败时保留原值；有清理失败时用 AggregateError 聚合，原始失败在首项及 cause 中，清理错误按发生顺序保留，最终测试输出逐项可见。
 

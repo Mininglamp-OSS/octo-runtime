@@ -7,6 +7,8 @@ tags: [testing, lifecycle]
 
 # 当前结果
 
+交付更新：用户已授权更新最新 main、提交推送和创建 PR。rebase 到 `42102c60`，实现提交 `8baba8d2`；仅日志文本冲突，双方记录完整保留。新基线构建/类型/lint/命名/格式/知识检查通过，恢复 2/2、手动 12/12、相关回归 22/22 复跑通过，两轴复审各 0 发现。详细最新 PID 与观察限制见[验证记录](../../tasks/233-recovery-teardown/validation.md#最新-main-复验与-pr-准备)。后续文档提交仅记录证据，不改变已测测试代码；托管检查结果另行记录。
+
 2026-11-01 第二版实施：外层 fixture 拥有 Kernel 与 Gateway 的独立进程，SDK Gateway 宿主只构造 Gateway、借用 endpoint。Gateway 先关闭；手动独立客户端确认无关在途完成、新 RPC 成功且 Kernel 原 PID/实例不变，再由外层关闭 Kernel。
 
 普通恢复 2/2、手动专项 12/12、已有日志/SDK 生命周期 22/22 通过；真实暂停宽限 7002/7003 ms，子测试保留 timeout 与原始失败，K/G/两代 worker/测试进程全部在兜底前退出。原生宿主使用跨平台 IPC close，发送和退出共用预算，进程退出与管道关闭分别确认。详细 PID、版本及命令见[当前验证](../../tasks/233-recovery-teardown/validation.md)。

@@ -8,7 +8,7 @@
 
 - [Issue 144](journal/shared/2026-11-01-144-handshake-capacity.md)：修正待握手容量夹具，全部 128 次成功终态、输出保留、精确 TTL 边界与 fresh 完成均有断言；7 项通过、两次负向实验捕获、双轴审查各 0 发现。类型/构建、lint 与知识检查通过，CI 范围不变，按授权准备 PR。
 
-- [Issue 233](journal/shared/2026-11-01-233-recovery-teardown.md)：基于 main@7fd022cd 完成独立 Kernel 依赖装配，Gateway 关闭后先验收独立 RPC 再回收环境；普通 2/2、手动 12/12、既有日志/生命周期 22/22 通过，保留 lost 与 timeout 证据。无 CI 扩围、未提交或推送。
+- [Issue 233](journal/shared/2026-11-01-233-recovery-teardown.md)：完成独立 Kernel 依赖装配，Gateway 关闭后先验收独立 RPC 再回收环境；按授权 rebase 最新 main@42102c60 并提交，普通 2/2、手动 12/12、既有日志/生命周期 22/22 复验通过，两轴复审各 0 发现。保留 lost/timeout 与 CLI 聚合退出码观察限制，无 CI 扩围，准备推送并创建 PR。
 
 - [Issue 145](journal/shared/2026-11-01-145-sdk-protocol-docs.md)：修正 SDK 连接、公共模式、native-only、mandatory 覆盖和 Kernel 共享订阅容量说明。手动 8 项及相关回归通过，双轴审查完成；用户授权补强 YAML 约束并补齐历史文档后知识检查通过，现同步主线复验并准备 PR，CI 不扩围。
 
