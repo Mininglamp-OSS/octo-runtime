@@ -59,7 +59,7 @@
 
 ## 当前任务
 
-- [Issue 132：OpenClaw 无效帧跳过](tasks/132-openclaw-invalid-frames/brief.md)：基于 main@148d737d 实现坏帧日志与跳过、同连接继续消费；[本地验证](tasks/132-openclaw-invalid-frames/validation.md)及[双轴审查](tasks/132-openclaw-invalid-frames/review.md)完成，未提交，等待验证审查。
+- [Issue 132：OpenClaw 无效帧跳过](tasks/132-openclaw-invalid-frames/brief.md)：实现坏帧日志与跳过、同连接继续消费；已授权提交及 PR 合并，rebase main@dc14c094 后 [192 项本地验证](tasks/132-openclaw-invalid-frames/validation.md)及[复审](tasks/132-openclaw-invalid-frames/review.md)通过，远端交付事实见 ORT-38 评论。
 
 - [Issue 252：Antigravity 代理与 Harness 专题](tasks/252-antigravity-proxy/brief.md)：非 TUN 下 Bot Context→独立 Kernel→真实 agy 已通过且宿主 env 不变；14 个内置 Harness 双语专题已补充，完整 QA IM 因凭据认证阻塞，实际 Extra TCP 直连未验。[验证与限制](tasks/252-antigravity-proxy/validation.md)。
 

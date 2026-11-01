@@ -18,3 +18,7 @@ tags: [openclaw, protocol, testing]
 ## 本地复审与补充验证
 
 按用户后续要求重新执行 code-review 双轴与 verified-review。修正审查文档类型 Task 为 Review；没有新增产品缺陷。严格 unhandled rejection 模式下手动专项 29 项通过，开启 GC 后相关回归 163 项全部通过（此前跳过的 GC 项已补验）。构建、类型、lint、命名和知识检查重新通过。最终结果补充到 ORT-38 任务评论，工作区保持未提交，仍待验证审查。
+
+## 授权交付
+
+用户进一步授权同步代码、提交 PR 并合并 main。已保留配置的 Git 作者并加入 Codex trailer，rebase 到最新 main `dc14c094`；知识日志冲突保留双方记录，产品无冲突。同步后构建、类型、lint、29 项严格专项及 163 项含 GC 回归重新通过，独立 Spec 复核无新增问题。后续 PR、检查与真实合并事实写回 ORT-38，不能把已授权合并等同于已经合并。

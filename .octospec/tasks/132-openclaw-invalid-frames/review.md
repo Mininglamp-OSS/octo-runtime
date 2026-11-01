@@ -28,3 +28,7 @@ tags: [openclaw, review]
 Standards 发现 `review.md` 的 frontmatter 使用 Task，与 AGENTS.md 规定的 Review 不符；已修正并重验知识检查。Spec 未发现需求遗漏或实现错误。verified-review 检查生产接收入口、全部日志注入点、专项测试/fixture及文档，没有发现 medium 及以上产品问题。
 
 复审重点为无效响应不能结算 pending、日志异常必须隔离、原期限不得重置，以及共享 worker 的并发调用和后续调用。执行结果见 [本轮验证](validation.md#本轮本地复验)。最终 Standards、Spec、verified-review 各 0 项未解决问题。工作区仍未提交，任务保持验证待审查。
+
+## 主线同步复核
+
+按后续交付授权 rebase 到 main `dc14c094`，双方知识日志记录均保留。独立 Spec 复核无新增问题，OpenClaw 生产差异未变；共享 Kernel/协议/watchdog 的接口兼容由源码复核及同步后重跑的 29 项专项和 163 项相关回归共同确认。已获提交、推送、PR 和合并授权，远端交付结果以任务评论为准。

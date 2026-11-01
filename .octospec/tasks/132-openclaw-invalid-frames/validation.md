@@ -60,3 +60,11 @@ tags: [openclaw, testing, validation]
 | `git diff origin/main -- .github package.json pnpm-lock.yaml` | 空；专项验证仅手动执行 |
 
 本轮唯一修复为 `review.md` 的 `type: Task` 改为 `type: Review`；按 AGENTS.md 对指定文档类型进行直接核验后通过。规范审查和规格审查均无未解决项，verified-review 没有发现 medium 及以上产品问题。未执行的真实 Provider、跨平台和全仓回归仍按上节保留，不用此次 192 项通过代替。
+
+## 同步主线后的交付验证
+
+用户明确授权“更新代码提交PR合并进入main”。先提交当前实现，再 rebase 到 `origin/main@dc14c094e123886fda3999e7c1ed779f2d060099`（#280）。只有 `.octospec/log.md` 新记录冲突，已保留双方内容；OpenClaw 生产差异与专项测试均未变化。
+
+同步后源码构建 `pnpm build`、根 tsc noEmit、`pnpm lint` 重新通过。严格模式专项沿用上节完整命令重跑为 29 通过，含 GC 的四文件相关回归为 163 通过、0 跳过。知识检查为 599 个单元、20 条规则、3880 个本地链接（新增交付段落后再次校验）。`git diff origin/main -- .github package.json pnpm-lock.yaml` 为空，没有扩大 CI。
+
+同步后独立 Spec 复核无新增产品问题：#280 的 watchdog 异步交互路径不改变本次坏帧入口的提前 return；RuntimeLog 和 Kernel 调用仍兼容。提交、PR、远端检查与实际合并状态记录在 ORT-38 交付评论；本文件不提前宣称已合并。
