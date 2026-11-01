@@ -4,9 +4,12 @@
 
 本页介绍如何从 Node.js 应用调用 Kernel。需要 Node.js 24.x 或 26.x（LTS），并在执行机器上安装、登录所选 Provider，例如 Codex。
 
-先在应用中安装 SDK：
+新建独立的示例目录并安装 SDK，或使用应用已有目录：
 
 ```sh
+mkdir runtime-sdk-example
+cd runtime-sdk-example
+npm init --yes
 npm install @mininglamp-oss/octo-runtime
 ```
 
@@ -16,17 +19,23 @@ SDK 安装完成后，选择连接已有 Kernel，或由应用创建 Kernel。�
 
 ## 连接已有 Kernel
 
-先取得服务实际监听的 endpoint：macOS/Linux 使用 socket 路径，Windows 使用 Named Pipe 地址。`attachKernel({ endpoint })` 创建客户端，在调用时才连接服务；Kernel 必须已经启动。
+Kernel 必须已经启动，例如使用 [CLI 运维](cli.md)中的前台命令，并使用相同的操作系统账号。`attachKernel({ endpoint })` 创建客户端，在调用时才连接服务，不会启动 Kernel。
 
-完整代码见 [attach.mts](../../examples/attach.mts)。它使用公开 SDK 接口，两个受支持的 Node.js 主版本都可以直接运行该 `.mts` 文件，无需先编译 TypeScript。
-
-在已构建的源码仓中运行（先 `pnpm install`，再 `pnpm build`）：
+CLI 管理的 Kernel 使用启动时的同一个 Runtime Home 计算地址。在示例目录执行以下命令，将路径换成该 Home 的绝对路径：
 
 ```sh
-node docs/examples/attach.mts /absolute/path/to/kernel.sock codex
+node --input-type=module -e 'import { componentEndpoint } from "@mininglamp-oss/octo-runtime/host"; console.log(componentEndpoint(process.argv[1]));' "/absolute/runtime-home"
 ```
 
-将命令中的 socket 路径替换为实际 endpoint；Windows 则传入 Named Pipe 地址。`codex` 是本次选择的 Adapter。
+macOS/Linux 返回 socket 路径，Windows 返回 Named Pipe 地址。CLI 的 `status --json` 报告就绪情况，不返回 endpoint。SDK 宿主创建的 Kernel 使用该宿主实际配置的 endpoint，不根据 CLI Home 推导。
+
+将 [attach.mts](../../examples/attach.mts) 和它依赖的 [invoke.mts](../../examples/invoke.mts) 下载到示例目录，使用同一文档版本的原始文件。两个受支持的 Node.js 主版本均可直接运行这些 `.mts` 文件，无需先编译 TypeScript，也无需克隆或构建 Runtime workspace。
+
+```sh
+node attach.mts "<KERNEL_ENDPOINT>" codex
+```
+
+将 `<KERNEL_ENDPOINT>` 替换为上一步取得的地址，保留引号。`codex` 是本次选择的 Adapter，需要在 Kernel 所在机器上完成安装和登录。
 
 这个示例发送一条问候请求，打印 Agent 的最终回复文本，并等待执行结束。如果出现需要用户回复的交互，示例会回复取消；实际应用的交互处理见[输出与控制](../reference/output-and-control.md)。连接或执行失败时，示例会报错退出。结束后关闭客户端连接，Kernel 服务继续运行。
 
@@ -49,21 +58,35 @@ for await (const event of client.invoke({ ...input, protocol_mode: "canonical" }
 - `endpoint`：服务监听的 socket 路径或 Named Pipe 地址。
 - `workerEntrypoint`：worker 的 JavaScript 入口文件绝对路径。
 
-需要保存服务状态时，还可以设置 `stateDirectory`。共享的 [service.mts](../../examples/service.mts) 提供 `runOwnedInvocation(options, input, consume)`，演示初始化、执行一次调用、关闭服务，以及报告执行和清理错误。长期运行的应用通常只初始化一次，在退出时关闭服务。
+需要保存服务状态时，还可以设置 `stateDirectory`。长期运行的应用通常只初始化一次，在退出时关闭服务。下面的完整示例通过公开 Adapter 导出选择 DSH，其他应用自行选择所需 Adapter。
 
-Kernel 在独立进程中运行 worker。worker 入口需要注册应用选择的 Adapter，例如：
+在同一示例目录下载 [dsh-worker.mts](../../examples/dsh-worker.mts)、[dsh-service.mts](../../examples/dsh-service.mts)、[dsh-invoke.mts](../../examples/dsh-invoke.mts) 和 [invoke.mts](../../examples/invoke.mts)。worker 注册实际的 Adapter：
 
 ```ts
 import { serveWorker } from "@mininglamp-oss/octo-runtime/executor-kernel";
-import { selectedAdapter } from "./selected-adapter.js";
-serveWorker([selectedAdapter]);
+import { dshAdapter } from "@mininglamp-oss/octo-runtime/adapters/dsh";
+serveWorker([dshAdapter]);
 ```
 
-这里的 `selected-adapter.js` 是占位模块，需要由应用提供，导出符合 `HostedAdapter` 类型的 `selectedAdapter`；SDK 不包含这个示例路径。应用负责选择和打包 Adapter。SDK 使用原生 import，不需要 manifest 或外部 Node 服务启动器。内置 Runtime CLI 自己拥有独立的 worker 和清单机制，见 [Adapter 与 Extra 载入](../concepts/module-loading.md)。
+按 [Harness 安装配置](../guides/harnesses.md)安装并认证 `0.2.1-rc.4` 或更高版本的 DSH Provider。由宿主将 `DSH_BIN` 设置为该安装的 JavaScript CLI 入口绝对路径，例如其 `lib/bin.js`；不能传 shell 包装程序、`dsh.cmd`、Desktop 可执行文件或相对路径。这个变量由示例宿主读取，不由 Adapter 发现；宿主通过 `adapterConfigurations.dsh.providerOptions.dshBin` 将值传给发现与执行。
+
+先将 worker 编译为 JavaScript，再交给 Kernel：
+
+```sh
+npm install --save-dev typescript @types/node@24
+npx tsc dsh-worker.mts --module nodenext --target es2023 --strict --types node --outDir build
+node dsh-invoke.mts build/dsh-worker.mjs
+```
+
+最后一条命令要求宿主环境已有 `DSH_BIN`。它在调用进程中创建 Kernel，以独立 worker 执行，打印 canonical 事件，等待本轮终态，再关闭自己创建的 Kernel。成功时包含 `run.completed`，执行错误或清理不完整均报错。Ctrl+C 请求取消，仍检查清理结果。示例使用新建临时目录，不修改已有 Runtime Home。
+
+DSH 要求显式 `full_access`，允许工具执行而无需逐项审批。示例明确传入该设置，只有应用接受这种权限时才选择此 Provider；遇到交互请求时示例会回复取消。Provider 安装与真实模型访问仍需单独准备，Electron 及上游限制见 [DSH 兼容性](../../../packages/octo-runtime-adapter-dsh/README.zh.md)。
+
+SDK 使用原生 import，不需要 manifest 或外部 Node 服务启动器。内置 Runtime CLI 自己拥有独立的 worker 和清单机制，见 [Adapter 与 Extra 载入](../concepts/module-loading.md)。
 
 创建服务后，等待 `initialize()` 成功，再使用 `kernel.client`。退出时，先关闭应用创建的 Extra，等待结果消费、投递和存储操作结束，再关闭应用创建的 Kernel 和数据库。检查清理结果的 `complete` 字段；为 `false` 时，还需要处理返回的待清理资源。
 
-DSH 由宿主安装并选择 npm `@deepseek-ai/dsh`，通过 `adapterConfigurations.dsh.providerOptions.dshBin` 传入 JS 入口的绝对路径。该配置同时用于 `kernel.client.list()` 和调用。参见 [dsh-service.mts](../../examples/dsh-service.mts)、[dsh-worker.mts](../../examples/dsh-worker.mts) 及含 Electron 版本要求的 [DSH 合同](../../../packages/octo-runtime-adapter-dsh/README.zh.md)。Adapter 不发现安装、不回退 Desktop/ASAR。
+可复用的 [service.mts](../../examples/service.mts) 和 [invoke.mts](../../examples/invoke.mts) 展示服务所有权、终态处理及通过 `AbortSignal` 取消。`run.failed`、`run.cancelled` 和没有终态的流均为失败。关闭 attached client 只停止观察，需要停止执行时使用调用的取消控制。可选业务接入继续阅读 [Extra 指南](../guides/extras.md)。
 
 ## 以源码 submodule 嵌入
 

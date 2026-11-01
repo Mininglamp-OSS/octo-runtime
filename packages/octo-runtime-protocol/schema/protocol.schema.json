@@ -487,6 +487,10 @@
             "status": {
               "enum": ["pending", "resolved", "expired", "invalidated"]
             },
+            "responseRequired": {
+              "description": "Whether an external response is required. Omission means required; false does not imply resolution or completion.",
+              "type": "boolean"
+            },
             "expiresAt": {
               "type": "integer",
               "minimum": 1,
@@ -502,6 +506,9 @@
           },
           "then": {
             "required": ["expiresAt"]
+          },
+          "else": {
+            "not": { "required": ["responseRequired"] }
           }
         },
         {
@@ -2756,7 +2763,7 @@
     },
     "InteractionRequestedPayload": {
       "title": "InteractionRequestedPayload",
-      "description": "Provider-neutral interaction. Omitted delivery retains synchronous blocking semantics; async questions allow provider work to continue.",
+      "description": "Provider-neutral interaction. Omitted delivery retains synchronous blocking semantics; async questions allow continued work. Only Adapter-owned automatic approvals may omit external responses; this does not imply completion.",
       "type": "object",
       "additionalProperties": false,
       "required": ["interactionId", "kind", "request", "executionInstanceId"],
@@ -2780,6 +2787,10 @@
         "kind": {
           "type": "string",
           "enum": ["approval", "question", "elicitation"]
+        },
+        "responseRequired": {
+          "description": "Whether an external response is required. Omission means required; only an Adapter-owned automatic approval may set false.",
+          "type": "boolean"
         },
         "request": {
           "description": "Display-safe provider request projected for the responding product.",
@@ -2814,6 +2825,9 @@
             "$ref": "#/definitions/ApprovalRequest"
           }
         }
+      },
+      "else": {
+        "properties": { "responseRequired": { "const": true } }
       }
     },
     "ApprovalRequest": {

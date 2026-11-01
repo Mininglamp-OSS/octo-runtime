@@ -8,9 +8,9 @@ This documentation is for developers integrating the SDK, supplying business con
 
 ## Start Here
 
-1. Read [Architecture](concepts/architecture.md) for module roles and the execution flow.
-2. Follow [CLI Installation and Operations](getting-started/cli.md) or [Your First SDK Invocation](getting-started/sdk.md).
-3. Set up your selected [Harness](guides/harnesses.md), then learn [Inputs and Contexts](concepts/inputs-and-contexts.md).
+1. Follow [CLI Installation and Operations](getting-started/cli.md) to run from the terminal, or [Your First SDK Invocation](getting-started/sdk.md) to call Runtime from an application. Each path links the required [Harness setup](guides/harnesses.md).
+2. Read [Architecture](concepts/architecture.md) for module roles and the execution flow.
+3. Learn [Inputs and Contexts](concepts/inputs-and-contexts.md) to supply application data.
 
 For module selection, read [Adapter and Extra Loading](concepts/module-loading.md): SDK native composition and CLI built-in/user manifests.
 

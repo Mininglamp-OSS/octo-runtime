@@ -1,5 +1,5 @@
 task: 265-codex-async-questions
-baseline: 4a0f53b50723422d90f051944ae19eb28f60712a
+baseline: 28c3ffa2ef685e14ac58d57c2788c9d07b92471c
 original_baseline: 0bcd89c528018ffd508ca8099c8ac9c6b88de35d
 branch: fix/265-codex-async-questions
 stage: supplement-verified

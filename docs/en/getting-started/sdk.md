@@ -4,9 +4,12 @@
 
 This page shows how to call Kernel from a Node.js application. Use Node.js 24.x or 26.x (LTS) and install/authenticate your chosen Provider, such as Codex, on the execution machine.
 
-Install the SDK in your application:
+Create a separate example directory and install the SDK there, or use your application's existing directory:
 
 ```sh
+mkdir runtime-sdk-example
+cd runtime-sdk-example
+npm init --yes
 npm install @mininglamp-oss/octo-runtime
 ```
 
@@ -16,17 +19,23 @@ Use a release matching this documentation's architecture. See [CLI installation]
 
 ## Connect to an Existing Kernel
 
-Obtain the service's actual endpoint: a socket path on macOS/Linux or a Named Pipe address on Windows. `attachKernel({ endpoint })` creates a client that connects when used; Kernel must already be running.
+Kernel must already be running, for example through the foreground command in [CLI operations](cli.md). Use the same OS account. `attachKernel({ endpoint })` creates a client that connects when used; it does not start Kernel.
 
-See [attach.mts](../../examples/attach.mts) for complete code using public SDK APIs. Both supported Node.js majors can run this `.mts` file directly without compiling TypeScript first.
-
-From a built source checkout (`pnpm install`, then `pnpm build`):
+For a CLI-managed Kernel, obtain its address from the exact Runtime Home used to start it. Run this command from the example directory, replacing the path with that Home's absolute path:
 
 ```sh
-node docs/examples/attach.mts /absolute/path/to/kernel.sock codex
+node --input-type=module -e 'import { componentEndpoint } from "@mininglamp-oss/octo-runtime/host"; console.log(componentEndpoint(process.argv[1]));' "/absolute/runtime-home"
 ```
 
-Replace the socket path with your endpoint, or use a Named Pipe address on Windows. `codex` selects the Adapter for this invocation.
+This returns the socket path on macOS/Linux or the Named Pipe address on Windows. CLI `status --json` reports readiness, not the endpoint. For a Kernel created by an SDK host, use that host's configured endpoint rather than deriving one from a CLI Home.
+
+Download [attach.mts](../../examples/attach.mts) and its helper [invoke.mts](../../examples/invoke.mts) into the example directory. Use the raw file contents from the same documentation revision. Both supported Node.js majors can run these `.mts` files directly without compiling TypeScript first. No Runtime source checkout or workspace build is required.
+
+```sh
+node attach.mts "<KERNEL_ENDPOINT>" codex
+```
+
+Replace `<KERNEL_ENDPOINT>` with the address obtained above, keeping it quoted. `codex` selects the Adapter for this invocation; it must be installed and authenticated on the Kernel's machine.
 
 The example sends a greeting request, prints the Agent's final reply text, and waits for execution to finish. It cancels any interaction that requires a user reply; see [Output and Control](../reference/output-and-control.md) for application interaction handling. Connection or execution failures exit with an error. At the end, it closes the client connection while leaving Kernel running.
 
@@ -49,21 +58,35 @@ To start the service from your application, use `createKernelService(options)` w
 - `endpoint`: the socket path or Named Pipe address to listen on.
 - `workerEntrypoint`: the absolute path to the worker's JavaScript entry file.
 
-Optionally set `stateDirectory` to store service state. The shared [service.mts](../../examples/service.mts) provides `runOwnedInvocation(options, input, consume)` to demonstrate initialization, one invocation, shutdown, and reporting execution and cleanup errors. A long-lived application normally initializes once and closes the service on exit.
+Optionally set `stateDirectory` to store service state. A long-lived application normally initializes once and closes the service on exit. The following complete example selects DSH through its public Adapter export; other applications choose their own Adapters.
 
-Kernel runs the worker in a separate process. Its entry file registers the application's selected Adapters, for example:
+In the same example directory, download [dsh-worker.mts](../../examples/dsh-worker.mts), [dsh-service.mts](../../examples/dsh-service.mts), [dsh-invoke.mts](../../examples/dsh-invoke.mts), and [invoke.mts](../../examples/invoke.mts). The worker registers the actual Adapter:
 
 ```ts
 import { serveWorker } from "@mininglamp-oss/octo-runtime/executor-kernel";
-import { selectedAdapter } from "./selected-adapter.js";
-serveWorker([selectedAdapter]);
+import { dshAdapter } from "@mininglamp-oss/octo-runtime/adapters/dsh";
+serveWorker([dshAdapter]);
 ```
 
-`selected-adapter.js` is a placeholder module that your application supplies, exporting `selectedAdapter` with the `HostedAdapter` type. The SDK does not include that example path. Your application chooses and packages its Adapters. SDK integration uses native imports without a manifest or an external Node service launcher. The bundled Runtime CLI owns its separate worker and manifest mechanism; see [Adapter and Extra Loading](../concepts/module-loading.md).
+Install and authenticate a DSH Provider at `0.2.1-rc.4` or later as described in [Harness Setup](../guides/harnesses.md). Have the host set `DSH_BIN` to the absolute JavaScript CLI entry of that installation, such as its `lib/bin.js`; a shell wrapper, `dsh.cmd`, Desktop executable or relative path is not this entry. This variable is read by the example host, not discovered by the Adapter. The host passes the value through `adapterConfigurations.dsh.providerOptions.dshBin` for discovery and invocation.
+
+Compile the worker into JavaScript before passing it to Kernel:
+
+```sh
+npm install --save-dev typescript @types/node@24
+npx tsc dsh-worker.mts --module nodenext --target es2023 --strict --types node --outDir build
+node dsh-invoke.mts build/dsh-worker.mjs
+```
+
+The last command requires `DSH_BIN` in the host environment. It creates a Kernel in the calling process with a separate execution worker, prints canonical events, waits for the invocation's terminal event, and closes its own Kernel. A successful run includes `run.completed`; errors and incomplete cleanup fail the example. Ctrl+C requests cancellation and still checks cleanup. It uses a new temporary directory, without changing an existing Runtime Home.
+
+DSH requires explicit `full_access`, which permits tools without individual approvals. The example supplies this setting; choose this Provider only when that permission matches your application. It also cancels any requested interaction. This example's Provider installation and real model access are separate prerequisites; see [DSH compatibility](../../../packages/octo-runtime-adapter-dsh/README.md) for Electron and upstream limitations.
+
+SDK integration uses native imports without a manifest or an external Node service launcher. The bundled Runtime CLI owns its separate worker and manifest mechanism; see [Adapter and Extra Loading](../concepts/module-loading.md).
 
 After creating the service, await `initialize()` before using `kernel.client`. On exit, close the application's Extras and wait for result consumption, delivery, and storage operations to finish before closing its Kernel and database. Check the cleanup result's `complete` field. If it is `false`, handle the reported pending resources.
 
-For DSH, the host installs/selects npm `@deepseek-ai/dsh` and supplies its JavaScript entry's absolute path through `adapterConfigurations.dsh.providerOptions.dshBin`. This configuration is shared by `kernel.client.list()` and invocation. See [dsh-service.mts](../../examples/dsh-service.mts), [dsh-worker.mts](../../examples/dsh-worker.mts), and the [DSH contract](../../../packages/octo-runtime-adapter-dsh/README.md), including Electron version requirements. The adapter does not discover installations or use Desktop/ASAR fallbacks.
+The reusable [service.mts](../../examples/service.mts) and [invoke.mts](../../examples/invoke.mts) show service ownership, final-status handling and cancellation via `AbortSignal`. `run.failed`, `run.cancelled` and a stream without a terminal event are failures. Closing an attached client only closes observation; use the invocation's cancellation controls when execution must stop. For optional integrations, continue with [Extras](../guides/extras.md).
 
 ## Embed the Source as a Submodule
 

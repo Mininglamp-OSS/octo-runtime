@@ -7,6 +7,18 @@ tags: [protocol, interaction, adapter, testing]
 
 # 旁路补充信息修订验证
 
+## 最新 main 集成复验
+
+提交 `22ca96b4` 推送后发现 main 已至 `28c3ffa2ef685e14ac58d57c2788c9d07b92471c`。合并主线，手工保留 Schema/运行时 async 与 responseRequired 两份合同、output 规则与日志；全部生成物重新生成。下列证据对应该合并工作区（22ca96b4 加 main 与冲突修正），而非只引用合并前通过：
+
+- typecheck/build、lint、format、docs、native:check 通过，Go/Python 各 434 个既有协议 fixture 通过。
+- 相同全量 Node 文件集、本地并发 8：2480 总数，2389 通过、91 跳过、0 失败。
+- 本任务离线 45 项、真实 Default 4 项再次全部通过；主线新增自动审批及配置快照专项合计 24 项通过。
+- 两个 reviewer 按 origin/main 重新核对冲突处：各 0 新发现。主线 full_access 自动审批、非审批 responseRequired 校验与每轮一次配置快照保留；新 Run 仍复用同一 invoke 路径。
+- `.github`、package.json、lockfile 相对 origin/main 差异为空，未合并文件列表为空。日志位于 `/tmp/ort84-supplement-merge-*.log`。
+
+## 修订实施证据
+
 源码：`59bed1986c66657f5a7318acbb51d361d914cbf3` 加本轮未提交变更，macOS arm64、Node 24.22.2、codex-cli 0.164.0；执行人为本会话 Codex。新版 brief.md 替换首版“晚填失效”。Work App UI/子模块及真实 IM 未修改或验证，Gateway 继续忽略 async。
 
 - `pnpm typecheck`、根 tsc、lint、lint:names、format:check、docs:check 通过。native:gen 已同步，native:check 通过；Go/Python 各 434 个既有权威 fixture 通过。

@@ -8,9 +8,9 @@ Octo Runtime 为应用提供统一的 Agent 调用接口。应用提交任务、
 
 ## 从这里开始
 
-1. 阅读[核心架构](concepts/architecture.md)，了解各模块的作用和执行流程。
-2. 按 [CLI 安装与运维](getting-started/cli.md)运行，或完成[第一次 SDK 调用](getting-started/sdk.md)。
-3. 配置所选 [Harness](guides/harnesses.md)，再理解 [Inputs 与 Contexts](concepts/inputs-and-contexts.md)。
+1. 从终端运行时，按 [CLI 安装与运维](getting-started/cli.md)操作；从应用调用 Runtime 时，完成[第一次 SDK 调用](getting-started/sdk.md)。两条路径均链接所需的 [Harness 安装配置](guides/harnesses.md)。
+2. 阅读[核心架构](concepts/architecture.md)，了解各模块的作用和执行流程。
+3. 理解 [Inputs 与 Contexts](concepts/inputs-and-contexts.md)，为调用提供应用数据。
 
 ## 操作指南
 

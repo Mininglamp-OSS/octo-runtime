@@ -59,6 +59,10 @@ export type HostControl =
       type: "interaction";
       requestId: string | number;
       status: "pending" | "resolved" | "expired" | "invalidated";
+      /**
+       * Whether an external response is required. Omission means required; false does not imply resolution or completion.
+       */
+      responseRequired?: boolean;
       expiresAt?: number;
     }
   | {
@@ -258,7 +262,7 @@ export type AgentSource = "preset" | "provisioned";
  */
 export type McpServers = Record<string, McpServer>;
 /**
- * Provider-neutral interaction. Omitted delivery retains synchronous blocking semantics; async questions allow provider work to continue.
+ * Provider-neutral interaction. Omitted delivery retains synchronous blocking semantics; async questions allow continued work. Only Adapter-owned automatic approvals may omit external responses; this does not imply completion.
  *
  * This interface was referenced by `OctoRuntimeProtocolSchema`'s JSON-Schema
  * via the `definition` "InteractionRequestedPayload".
@@ -2522,6 +2526,10 @@ export interface InteractionRequestedPayload1 {
    */
   interactionId: string;
   kind: "approval" | "question" | "elicitation";
+  /**
+   * Whether an external response is required. Omission means required; only an Adapter-owned automatic approval may set false.
+   */
+  responseRequired?: boolean;
   /**
    * Display-safe provider request projected for the responding product.
    */

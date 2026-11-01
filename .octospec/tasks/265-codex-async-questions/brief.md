@@ -13,6 +13,8 @@ tags: [protocol, interaction, adapter, invocation, testing]
 
 基线 `59bed1986c66657f5a7318acbb51d361d914cbf3`；分支 `fix/265-codex-async-questions`；[Issue #265](https://github.com/Mininglamp-OSS/octo-runtime/issues/265)、[PR #280](https://github.com/Mininglamp-OSS/octo-runtime/pull/280)。历史实测不作为新合同已通过的依据。
 
+交付前同步 main `28c3ffa2ef685e14ac58d57c2788c9d07b92471c`，保留配置快照与自动审批 responseRequired 合同；旁路 ask 的用户意图不变。
+
 ## 责任与公共入口
 
 拓扑维持原生宿主 → 公共 Kernel SDK → Kernel IPC → 内部 worker → 唯一 Core → Adapter。不新增服务、Provider 代理或 Runtime 数据库。

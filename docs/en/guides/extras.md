@@ -15,6 +15,43 @@ Import `createExtraService` from `@mininglamp-oss/octo-runtime/host` and supply:
 
 Call `initialize()` to start, `status()` to inspect, and `close()` on exit. Built-in modules use the main package's `/extras/channel-gateway`, `/extras/channel-wecom`, and `/extras/webui` import paths. Each module's `/config-schema.json` subpath provides its configuration schema.
 
+## Connect Channel Gateway
+
+Use an existing Kernel with an installed, authenticated Codex Provider. In the separate npm directory from [SDK setup](../getting-started/sdk.md), download [gateway.mts](../../examples/gateway.mts). It imports the public `/host` and `/extras/channel-gateway` entries and uses `createExtraService` to construct the complete Bot declaration.
+
+Prepare these variables in the example host's environment; they are not new Runtime configuration fields:
+
+| Variable | Host-supplied value |
+| --- | --- |
+| `KERNEL_ENDPOINT` | The existing Kernel's socket or Named Pipe address; see SDK setup |
+| `GATEWAY_API_URL` | Your Octo IM API base URL |
+| `GATEWAY_BOT_ID` | The Bot identity authorized for that service |
+| `GATEWAY_BOT_TOKEN` | The Bot credential from the host's protected environment |
+| `GATEWAY_WORKDIR` | An existing absolute directory for Codex execution |
+
+The file contains the complete `config: { bots: [...] }`, including `api_url`, `bot_id`, `bf_token` and `adapter: { adapter_type: "codex", workdir }`. Missing environment values fail before initialization without printing credentials. Your application can prepare the same values from its own configuration source.
+
+Create `instructions.txt` in that directory with a short instruction such as `Answer concisely.`, then run:
+
+```sh
+node gateway.mts instructions.txt
+```
+
+The example initializes Extra, prints its lifecycle phase and Kernel availability, and waits for Ctrl+C before closing and checking `complete`. Initialization does not prove Bot connectivity or delivery: message the Bot in Octo IM and observe its reply to verify that path. Closing this example leaves the borrowed Kernel running. Sessions use memory by default; add application storage only when needed.
+
+The runnable entry uses an asynchronous file loader. The same file exports both loader forms for application composition:
+
+```ts
+import { createGatewayExample, synchronousContexts, asynchronousContexts } from "./gateway.mts";
+
+let instructions = "Answer concisely.";
+const syncLoader = synchronousContexts(() => instructions);
+const asyncLoader = asynchronousContexts("instructions.txt");
+const extra = createGatewayExample(process.env, asyncLoader);
+```
+
+Choose `asyncLoader` or `syncLoader` for the last argument. The synchronous form returns `ContextItem[]`; the asynchronous form returns a Promise and passes the cancellation signal to file IO. Both construct `octo.control/instructions` with `payload.entries`, outside the reserved `extra.im` namespace. The application must initialize and close `extra` as shown in the runnable file. Updating the file or the variable read by the synchronous closure affects the next task without reconnecting. Replacing configuration or the function reference still requires closing and recreating the whole Extra.
+
 ## Load Business Data Each Turn
 
 ```mermaid
@@ -30,6 +67,8 @@ flowchart TB
 Channel Gateway can load background through `GatewayDependencies.loadContexts(config, {signal})`. The function returns `readonly ContextItem[]`, synchronously or asynchronously. Gateway calls it for every accepted task, so the next turn can read updated application data without restarting Extra.
 
 Gateway merges the result with static Context. A dynamic item replaces the entire static item with the same `namespace` and `name`, including its `payload`; fields are not merged individually. This is Channel Gateway behavior and does not run automatically for direct Kernel calls.
+
+Returning `[]` keeps the static items. A thrown error, rejected Promise, timeout, or invalid Context fails preparation for that turn; Gateway does not reuse the previous turn's dynamic data.
 
 The entire `extra.im` namespace belongs to the corresponding Octo Gateway or WeCom Channel Extra. When building Context, the channel ignores all `extra.im` items from static application configuration and `loadContexts`, including items it does not generate on this turn. Application material must use another namespace. Reserved items produce only a warning with their count; they do not interrupt AgentRun. Any external updates to channel rules must be read and assembled within the channel under its business contract; this change adds no external rule-source API. Global `octo.control/instructions` retains the composition rules below. Frozen retries preserve the complete channel-generated snapshot. See the authoritative [Channel rules](../../../.octospec/rules/channel-integration.md).
 

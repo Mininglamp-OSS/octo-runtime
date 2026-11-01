@@ -66,6 +66,13 @@ Driver 维护唯一控制者，响应写入确认后才发布 resolved；重复 
 
 旁路 async question 的 canonical expiresAt 可省略，正常 Run 完成不使未答问题失效；宿主保存原请求和 pending 状态，通过公开 AsyncQuestionReply 在活动时 steer、正常完成后同会话新 AgentRun。低层响应仍不能控制已结束 Run，native 同步 pending 期限不变。详见 [交互合同](protocol-design.md#交互与取消)。
 
+canonical `interaction.requested.payload.responseRequired` 和 native pending interaction control 的
+可选布尔 `responseRequired` 表示外部是否需要回答。缺字段按 true 处理；仅 Adapter 已承担的
+自动审批可标 false，canonical question/elicitation 不得标 false，native 非 pending 不携带此字段。
+false 不表示已批准、已写入或执行成功，resolved 仍等本次响应写入确认。Provider native payload
+保持原样。Playboard 仅在此字段为 false 时继续消费，其他 pending/requested 立即报
+PLAYBOARD_INTERACTION_REQUIRED；不依赖全局 full_access 猜测，也不自动回答问题。
+
 `gap` 携带 `requested_after_seq / oldest_seq / latest_seq`。
 运行时要求确实存在缺口，且窗口下界不超过 `latest_seq + 1`；JSON Schema 只校验字段形态和数值范围。
 所有序号、代次、数值请求 ID 与期限均要求 JavaScript 安全整数。

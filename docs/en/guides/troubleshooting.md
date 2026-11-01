@@ -13,8 +13,10 @@ CLI Extras also emit these records to stdout. Native SDK hosts remain silent unl
 | Symptom / code                             | Action                                                                                                                                                                   |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `KERNEL_UNAVAILABLE` or connection failure | Confirm the endpoint, Kernel initialization, and matching OS account. Check `status().execution_ready` and worker state. `attachKernel` does not start the service.      |
-| Worker state `recovering`                 | Kernel keeps its local listener and retries serially. After three fast attempts, each further attempt waits 15 seconds; restoring the worker environment can recover execution without a Kernel restart. |
-| `WORKER_RESTART_EXHAUSTED`                 | Cleanup or ownership is unconfirmed, so automatic replacement is blocked. Inspect the old worker and ownership records before restoring the service. A replacement worker does not resume old executions. |
+| Worker state `recovering`                 | Kernel keeps its listener and retries serially. Worker startup waits 250 ms, 1 second and 4 seconds within the fast retry budget, then uses 15-second slow retries. Restoring the environment can recover new execution without restarting Kernel. |
+| `WORKER_RESTART_EXHAUSTED` / worker state `exhausted` | Current recovery is blocked; inspect `worker.recovery.stage`, `code` and `retry_at`. Cleanup/manifest failures wait 1, 2, then 5 seconds between retries while the service remains open; unexpected recovery errors may need intervention. A replacement worker never replays old executions. |
+
+Retry waits exclude cleanup, startup and handshake time. Do not infer readiness from the service process being `running`: check `execution_ready`. Fix the reported cause rather than deleting Home or blindly restarting services; see [CLI operations](../getting-started/cli.md) for status and logs.
 
 ## Input Rejected
 

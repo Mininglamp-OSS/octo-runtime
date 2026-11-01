@@ -4,9 +4,15 @@
 
 - [Issue 265 旁路 ask 修订](tasks/265-codex-async-questions/brief.md)：按用户最新意图保留正常完成后的补答资格，公开 SDK 活动 steer / 完成后同会话新 AgentRun；修复 async final_answer 收尾误杀。49 项手动（含 4 项真实）、全量 Node 2389 项及 WebUI 35 项通过，双轴审查确认问题均修复；不扩大 CI，不合并。
 
+- [Issue 136](journal/shared/2026-11-01-136-configuration-snapshot.md)：先快进最新 main，再将每轮配置解析收敛到提交前；5 项手动专项、50 项相关回归及类型/lint/命名通过，双轴审查各 0 项实现问题。未扩大 CI，未提交或推送，等待验证审查。
+
+- [Issue 166](journal/shared/2026-11-01-166-playboard-auto-approval.md)：完成 Playboard 自动审批、CLI 专属默认值、双轴审查及本地和真实 Codex 验证；用户授权同步最新主线并提交 PR，CI 范围不变。
+
 - [Issue 22 / PR 275](journal/shared/2026-11-01-22-secret-scan-closeout.md)：核对既有 45 条历史处置和 main 扫描证据，准备英文收尾草稿。按用户及远端审查补齐 frontmatter、Validation 类型、独立 review/journal 与索引入口，实际执行知识检查；检测行为和 CI 范围不变，原 Issue 未关闭。
 
 - [Issue 144](journal/shared/2026-11-01-144-handshake-capacity.md)：修正待握手容量夹具，全部 128 次成功终态、输出保留、精确 TTL 边界与 fresh 完成均有断言；7 项通过、两次负向实验捕获、双轴审查各 0 发现。类型/构建、lint 与知识检查通过，CI 范围不变，按授权准备 PR。
+
+- [Issue 233](journal/shared/2026-11-01-233-recovery-teardown.md)：完成独立 Kernel 依赖装配，Gateway 关闭后先验收独立 RPC 再回收环境；按授权 rebase 最新 main@42102c60 并提交，普通 2/2、手动 12/12、既有日志/生命周期 22/22 复验通过，两轴复审各 0 发现。保留 lost/timeout 与 CLI 聚合退出码观察限制，无 CI 扩围，准备推送并创建 PR。
 
 - [Issue 145](journal/shared/2026-11-01-145-sdk-protocol-docs.md)：修正 SDK 连接、公共模式、native-only、mandatory 覆盖和 Kernel 共享订阅容量说明。手动 8 项及相关回归通过，双轴审查完成；用户授权补强 YAML 约束并补齐历史文档后知识检查通过，现同步主线复验并准备 PR，CI 不扩围。
 

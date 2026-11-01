@@ -21,6 +21,10 @@ tags: [protocol, interaction, review, testing]
 
 PR 的 Octo-Q / mochashanyao 指出 async final_answer 误触发 finalization timeout。判定入口现明确识别旁路，不启动并清理已有收尾 timer；手动 fixture 的 300ms 空档超过配置的 40ms deadline，模型正常完成，普通最终回答的既有超时保护保留。修复同时落实晚答合同，不能仅把 timer 修复当成完整需求。
 
+## main 合并复核
+
+交付前 main 前进至 28c3ffa2，合并时保留最新配置快照、自动审批 responseRequired 与本分支 async optional expiry 两份合同，重新生成 TS/Go/Python。两个独立 reviewer 以 origin/main 为固定点复核，Standards/Spec 各 0 新发现；确认新 Run 不绕过每轮配置快照、非审批不能 responseRequired=false、主线 full_access 自动审批保持。主执行复验全量、49 项本任务专项及 24 项主线相关专项通过，见 validation.md。
+
 以下均为首版历史审查，终态失效等旧合同以新版 brief.md 为准。
 
 # 首版审查范围

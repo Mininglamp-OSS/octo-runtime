@@ -680,6 +680,12 @@ export function assertCanonicalEvent(event: unknown): asserts event is Canonical
         throw new TypeError("INVALID_INTERACTION_DELIVERY");
       assertQuestionRequest(payload.request);
     }
+    if (
+      (Object.hasOwn(payload, "responseRequired") &&
+        typeof payload.responseRequired !== "boolean") ||
+      (payload.responseRequired === false && payload.kind !== "approval")
+    )
+      throw new TypeError("interaction.requested responseRequired is invalid");
     if (payload.kind === "approval") assertApprovalRequest(payload.request);
   }
   if (event.type === "interaction.resolved") {
