@@ -7,6 +7,16 @@ tags: [protocol, interaction, adapter, testing]
 
 # 旁路补充信息修订验证
 
+## Provider 错误码 IPC 审查复核
+
+最新 head `1cbbdf12` 的 yujiawei review 认为 server.ts 的 provider_rpc_code 与 rpc.ts 的 providerRpcCode 不匹配。核对完整链路后判定为误报：这是两层不同的 IPC，不是同一消息的收发两端。
+
+1. Adapter 抛出 providerRpcCode；worker 的 RpcServer 在 rpc.ts 使用同名字段序列化，Kernel 的 RpcClient 在同文件读取并还原该属性。
+2. server.ts 收到还原后的错误，在公开 socket 上转换为 provider_rpc_code；client.ts 的 response 将整个 error.data 保存到 KernelError.data，不经过内部 RpcClient。
+3. `pnpm typecheck` 重新构建当前源码通过。`node --test test/manual/codex-async-recovery.test.mjs` 三项全部通过，包含真实 worker/Kernel socket 边界及最终 `error.data.provider_rpc_code === -32602`，并非直接调用内存 mock。
+
+本次增加两处边界注释，将回归改为逐项断言公开字段、数字值及不泄露内部 camelCase 别名；没有改生产字段或行为，也没有扩大 CI。无需将两套不同协议误改为同一命名。
+
 ## WebUI 与企微行为对齐
 
 用户明确三个内置 Extra 均忽略 async 控制、保留正文及旧同步交互。企微与 Gateway 已实现过滤；本次补 WebUI 的 RawRunPresentation，在推进原游标后过滤配对的 async requested/resolved，不生成 interaction.upsert 或交互快照项。集合按单 Run 有界保存，不进入通用 SDK 或改变原始 SSE 协议。

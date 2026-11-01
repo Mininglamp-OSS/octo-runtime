@@ -390,6 +390,7 @@ export async function startKernelServer(options: KernelServerOptions, signal?: A
                   message: "Kernel request failed",
                   data: {
                     code,
+                    // worker RPC 已还原 camelCase 属性；此处转换为公开 socket 协议字段，client 保留整个 data。
                     ...(code === "ASYNC_ANSWER_REJECTED" &&
                     record(error) &&
                     Number.isSafeInteger(error.providerRpcCode)

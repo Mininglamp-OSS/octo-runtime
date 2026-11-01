@@ -102,16 +102,19 @@ test(
 );
 
 test(
-  "public Kernel preserves explicit rejection and safe numeric provider diagnostic",
+  "worker rejection crosses Kernel socket with the public snake_case provider diagnostic",
   { timeout: 15000 },
   async (t) => {
     const f = await kernelFixture(t, options);
     const { ref } = await f.client.submit(input({ prompt: "reject", modelInput: "reject" }));
     const q = await question(f.client, ref);
-    await assert.rejects(
-      f.client.respond(ref, answer(q.interactionId)),
-      (error) => error.code === "ASYNC_ANSWER_REJECTED" && error.data.provider_rpc_code === -32602
-    );
+    await assert.rejects(f.client.respond(ref, answer(q.interactionId)), (error) => {
+      // 真实 worker RPC 用 camelCase；公开 socket 统一转为 snake_case，不能跨层对比字段名。
+      assert.equal(error.code, "ASYNC_ANSWER_REJECTED");
+      assert.equal(error.data.provider_rpc_code, -32602);
+      assert.equal(error.data.providerRpcCode, undefined);
+      return true;
+    });
     const events = [];
     for await (const frame of f.client.subscribe(ref)) events.push(frame.event);
     assert.equal(
