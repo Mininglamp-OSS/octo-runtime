@@ -1,5 +1,5 @@
 task: 289-approval-delivery
-phase: implementation-and-review
+phase: reviewed-pr-ready
 issue: https://github.com/Mininglamp-OSS/octo-runtime/issues/289
 related_issue: https://github.com/Mininglamp-OSS/octo-runtime/issues/288
 baseline: 148d737d3ee14f0453ae5018c563b08d6b21ec5b

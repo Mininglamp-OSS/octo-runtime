@@ -20,3 +20,5 @@ tags: [adapter, interaction, protocol, planning]
 用户追加实施、code-review 和 PR 授权。实现人工等待 256 与独立发送器；普通 RPC 和审批响应共享 callback/drain 背压，取消删除未发送响应，清理沿 EOF 和受管进程回收。公开期限保留 10 分钟，内部投递使用 30 秒期限与 5 秒无进展期限。中央分类、Core native 投影与受限公共校验保持原因一致。
 
 真实 Codex shell 在 canonical/native 分别观察到 20/27 个并发待写回审批，各 32 条请求成功；动态 MCP 各 32 次调用完成但无审批突发。清理完成且未改变既有认证。最终验证结果见 [验证记录](../../tasks/289-approval-delivery/validation.md)。未触碰 Work App 子模块或扩大 CI。
+
+两轴审查发现三项问题并完成闭环：容量拒绝移出 8 条控制预留、聚合清理故障保留本地执行首因，以及验证记录范围表述。复核未关闭问题均为 0；修复后专项及相关回归 123/123 PASS。具体证据见 [审查记录](../../tasks/289-approval-delivery/review.md)。

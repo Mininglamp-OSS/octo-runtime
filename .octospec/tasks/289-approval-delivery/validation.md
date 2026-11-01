@@ -8,7 +8,7 @@ baseline: 148d737d3ee14f0453ae5018c563b08d6b21ec5b
 
 # 本轮状态
 
-用户已追加实施、code-review 和 PR 授权。当前实现基于 `148d737d`；以下证据在本 worktree 的未提交实现上执行，最终提交号以 PR 为准。
+用户已追加实施、code-review 和 PR 授权。当前实现基于 `148d737d`。初版与真实验证在该基线的 dirty 实现上执行，随后固化为 `129d4cc8`；审查修复固化为 `5783727f`，修复后的专项与全量检查以该提交执行。操作者为本任务 Codex，日期为 2026-11-01。
 
 已核实最新主线及 Codex 两种输出路径、中央分类器、Core 错误投影、HostControl 校验、既有 fixture 和默认 CI 入口。固定 OctoSpec 缓存由干净的 `octo-spec@d456507bbd37cd4e3ac58671d07b89a61af35579` 恢复。同步脚本仅造成 AGENTS 空行变化，已撤销该工具副作用；同步过程未修改规则正文；本次实施补充了 output-protocol.md 的本地失败附件合同。
 
@@ -86,10 +86,18 @@ live runner 在调用进程原生创建 Kernel 服务，内部 worker 注册此�
 
 每项记录执行时间、源码 SHA/dirty、平台、Node/Codex 版本、命令、PASS/FAIL/BLOCKED/NOT RUN、请求/写回/终态计数、资源清理及脱敏证据。没有 Provider 读取 ACK 时只声称本地 write 完成。实现阶段所有阻塞必须如实列出，不能用本计划 96 分替代验收。
 
-历史计划检查通过（594 个 OKF 单元）；实施后的知识检查需要重新执行。A01–A16 是验收维度，不是测试通过数。Windows/Linux 真机、GC 长时趋势及真实 Provider 故意拒收未执行；本轮记录 macOS 实测与离线故障注入。专项注入时间阈值缩短，不声称做了 30 秒墙钟压力测试。
+历史计划及实施知识检查均已执行，最终结果见交付检查。A01–A16 是验收维度，不是测试通过数。Windows/Linux 真机、GC 长时趋势及真实 Provider 故意拒收未执行；本轮记录 macOS 实测与离线故障注入。专项注入时间阈值缩短，不声称做了 30 秒墙钟压力测试。
 
 ## 最终覆盖边界
 
 A01–A06、A10、A12 与 A14 的 Codex 两模式路径由 Adapter/Kernel 用例覆盖；A07–A09 在内部发送器注入小预算和短时限验证，另验证 32 MiB 帧可入队。A11 的未写 RPC 删除通过 writer 取消句柄验证，既有超时用例验证 Adapter 返回；未伪称对全部 RPC 超时交错做穷举。A13 验证 TypeScript 公共接收与篡改拒绝，未新增 Go/Python 真机回放；现有可选字段/Schema 不变。A15 已覆盖保留 params 释放、超额失败和 writer listener 清理，未执行 GC 长时压力。A16 四组真实路径完成，MCP 审批突发未出现。
 
 内部实现将交互的 awaiting_decision/responding 与 writer 的 queued/active 分别归属各自所有者；没有重复存储一套状态枚举。一个 timer 调度较早的无进展期限或绝对投递期限。以上为计划细化，不改变对外合同。
+
+## 审查修复与交付检查
+
+[两轴审查](review.md)初审发现 Standards 1 项 P3、Spec 1 项 P1 和 1 项 P2，全部修复并独立复核关闭。修复后显式专项 56 项加相关既有 67 项，共 **123/123 PASS**。其中包括 512 条人工请求和写入/清理同时失败；Spec 审查者独立复跑 6/6 PASS。更新后的 lint 与 format:check 通过。
+
+最终相对 origin/main 的 `.github/`、根 package.json 与 pnpm-lock.yaml diff 为空。新增专项仅显式运行，不新增 workflow/job/矩阵/触发器/默认测试开关/必需检查。上游 main 再次 fetch 后仍为 `148d737d`。Work App 集成须待上游合并后独立验证。
+
+修复提交 `5783727f` 的最终全量检查：`pnpm typecheck` PASS；`pnpm test:suites` 再次为 Node 2389 PASS / 91 SKIP / 0 FAIL、WebUI 35/35 PASS。OctoSpec lint PASS：595 个 OKF 单元、20 条规则、3856 个本地链接；`git diff --check` PASS。真实四组验收发生在审查修复前，未再次消耗模型请求；新增修复由上述确定性用例验证，不能声称真实 Provider 已故意触发清理失败。
