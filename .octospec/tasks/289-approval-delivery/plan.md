@@ -53,7 +53,7 @@ stateDiagram-v2
 - 请求先经过原 invocation/thread/turn、类型、ID 和方法支持检查。native 原有 4096 个已见 requestId 的全轮保护继续有效；它与同时等待人工的 256 是不同预算，本次不移除或宣传无限全轮请求。
 - 人工额度只统计 awaiting_decision 的 approval；ask/assisted 保持 Provider 映射，不能把 mode 名称当作实际审批已发生。有效决定与 queued 的转换在无 await 的临界段一次完成；队列准入失败则按投递失败收敛，不能恢复成可重复批准。
 - full_access 的自动回复先冻结决定并标记 responding，再发布 `responseRequired=false` 的 pending，然后投递；防止消费者抢先回复。仍保留 requested/pending→resolved 审计顺序。
-- 问题和 elicitation 共用独立的 16 条未完成预算，保留原 10 分钟期限及超额失败语义；不占人工 approval 的 256，也不自动答复。为该旧类限制使用 `CODEX_INTERACTION_PENDING_LIMIT_EXCEEDED`，避免再次误称人工审批满。
+- 同步/异步问题和 elicitation 共用独立的 16 条未完成预算，保留原 10 分钟期限及超额失败语义；不占人工 approval 的 256，也不自动答复。为该旧类限制使用 `CODEX_INTERACTION_PENDING_LIMIT_EXCEEDED`，避免再次误称人工审批满。
 - 人工第 257 条通过 JSON-RPC error `-32000`、固定 message `APPROVAL_PENDING_LIMIT_EXCEEDED` 明确拒绝。保持其他 256 条有效，不建立可由用户回答的 pending。native 保留实际收到的原生 request，不能制造 provider response；canonical 不制造 accepted/resolved，安全诊断记录容量拒绝。Provider 若随后自行失败，保留其真实终态。
 - `item/permissions/requestApproval`、unknown method、扩权 grant 不因队列重构变为支持；沿用拒绝路径并结构化已存在的错误原因。
 - `params` 只在验证回答仍需使用时保留。自动审批在生成回复/发布事件后不再由交互表长期持有完整 params；已冻结人工回答同样释放原始 params。输出事件仍独立受 DriverQueue 预算约束。

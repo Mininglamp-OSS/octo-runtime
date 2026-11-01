@@ -2,7 +2,8 @@ task: 289-approval-delivery
 phase: reviewed-pr-ready
 issue: https://github.com/Mininglamp-OSS/octo-runtime/issues/289
 related_issue: https://github.com/Mininglamp-OSS/octo-runtime/issues/288
-baseline: 148d737d3ee14f0453ae5018c563b08d6b21ec5b
+baseline: dc14c094e123886fda3999e7c1ed779f2d060099
+original_baseline: 148d737d3ee14f0453ae5018c563b08d6b21ec5b
 branch: codex/289-approval-delivery-plan
 inherits: octo-spec@1.2.0
 global_source_revision: d456507bbd37cd4e3ac58671d07b89a61af35579

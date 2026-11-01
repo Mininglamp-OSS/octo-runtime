@@ -36,9 +36,11 @@ export function approvalFixture({ hold = false, highWaterMark = 16 * 1024 } = {}
               ? { thread: { id: "thread-fixture" } }
               : message.method === "skills/list"
                 ? { data: [] }
-                : message.method === "turn/start"
-                  ? { turn: { id: "turn-fixture" } }
-                  : {};
+                : message.method === "turn/steer"
+                  ? { turnId: "turn-fixture" }
+                  : message.method === "turn/start"
+                    ? { turn: { id: "turn-fixture" } }
+                    : {};
         send({ id: message.id, result });
         if (message.method === "turn/start") started = true;
       }

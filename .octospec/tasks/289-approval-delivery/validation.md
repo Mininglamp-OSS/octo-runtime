@@ -101,3 +101,11 @@ A01–A06、A10、A12 与 A14 的 Codex 两模式路径由 Adapter/Kernel 用例
 最终相对 origin/main 的 `.github/`、根 package.json 与 pnpm-lock.yaml diff 为空。新增专项仅显式运行，不新增 workflow/job/矩阵/触发器/默认测试开关/必需检查。上游 main 再次 fetch 后仍为 `148d737d`。Work App 集成须待上游合并后独立验证。
 
 修复提交 `5783727f` 的最终全量检查：`pnpm typecheck` PASS；`pnpm test:suites` 再次为 Node 2389 PASS / 91 SKIP / 0 FAIL、WebUI 35/35 PASS。OctoSpec lint PASS：595 个 OKF 单元、20 条规则、3856 个本地链接；`git diff --check` PASS。真实四组验收发生在审查修复前，未再次消耗模型请求；新增修复由上述确定性用例验证，不能声称真实 Provider 已故意触发清理失败。
+
+## 主线合并集成
+
+创建 PR 期间 main 合入 `dc14c094`（#280 旁路问题），已合并最新主线。保留 async 问题的 RPC accept/rejected、终态与晚答语义；其 16 条额度与同步问题/elicitation 共用，独立于 256 条人工审批和自动投递。新增两种审批策略下 256 条审批与 async steer 共存，以及同步/异步问题双向额度测试；INTERACTION_PENDING_LIMIT_EXCEEDED 保留明确容量原因。
+
+合并后的 typecheck、lint、format、docs:check 通过；全量 Node 2389 PASS / 91 SKIP / 0 FAIL，WebUI 35/35 PASS。首次额外 codec 验证有 2 项因 worktree 缺少 Python venv 失败；仅在忽略的 native/python/.venv 安装本地包后复验，不修改用户 Python 环境。
+
+PR 标题初次未遵循 Conventional Commit，已改为 `fix(codex): handle approval bursts with bounded response delivery`；标题校验已重新运行并通过。合并提交推送后重新运行现有 CI，检查远端状态，不扩大工作流。

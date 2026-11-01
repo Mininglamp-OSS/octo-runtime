@@ -261,6 +261,7 @@ for (const mode of ["canonical", "native"]) {
 for (const reason of [
   "APPROVAL_PENDING_LIMIT_EXCEEDED",
   "CODEX_INTERACTION_BYTES_EXCEEDED",
+  "INTERACTION_PENDING_LIMIT_EXCEEDED",
   "CODEX_STDIN_QUEUE_ITEMS_EXCEEDED",
   "CODEX_STDIN_QUEUE_BYTES_EXCEEDED",
   "CODEX_STDIN_WRITE_FAILED",
@@ -322,3 +323,83 @@ test("legacy local reason names do not alter another adapter classification", ()
     "OH-PRV-4001"
   );
 });
+
+function asyncQuestion(fixture, id) {
+  fixture.send({
+    method: "item/completed",
+    params: {
+      threadId: "thread-fixture",
+      turnId: "turn-fixture",
+      item: {
+        id,
+        type: "agentMessage",
+        phase: "commentary",
+        delivery: "async",
+        text: "Choose?",
+        questions: [{ title: "Choose?", options: ["yes", "no"] }]
+      }
+    }
+  });
+}
+for (const approvalMode of ["ask", "full_access"]) {
+  test(
+    `canonical/${approvalMode}: async answers share the writer without consuming approval slots`,
+    { timeout: 5000 },
+    async (t) => {
+      const r = await running(t, "canonical", approvalMode, { hold: true, highWaterMark: 1 });
+      for (let i = 0; i < 256; i++) r.fixture.request(`id-${i}`);
+      await until(() => r.pending().length === 256);
+      asyncQuestion(r.fixture, "async-question");
+      await until(() => r.pending().length === 257);
+      const question = r.pending().find((event) => event.payload.delivery === "async");
+      const response = r.adapter.respondInteraction(r.request.invocationId, {
+        interactionId: question.payload.interactionId,
+        outcome: "answered",
+        value: {
+          schema: "octo.question-response/v1",
+          answers: [{ questionId: "q:0", text: "yes" }]
+        }
+      });
+      r.fixture.release();
+      await response;
+      await until(() =>
+        r.events.some(
+          (event) =>
+            event.type === "interaction.resolved" &&
+            event.payload.reasonCode === "provider_accepted"
+        )
+      );
+      assert.equal(r.fixture.writes.filter((frame) => frame.method === "turn/steer").length, 1);
+      await r.complete();
+    }
+  );
+}
+for (const first of ["async", "sync"]) {
+  test(
+    `canonical: ${first} questions share the independent 16-question limit`,
+    { timeout: 5000 },
+    async (t) => {
+      const r = await running(t, "canonical", "full_access");
+      const syncQuestion = (id) =>
+        r.fixture.request(id, "item/tool/requestUserInput", {
+          questions: [
+            { id: "q", question: "Choose?", options: [{ label: "yes", description: "Yes" }] }
+          ]
+        });
+      for (let i = 0; i < 16; i++) {
+        if (first === "async") asyncQuestion(r.fixture, `q-${i}`);
+        else syncQuestion(`q-${i}`);
+      }
+      await until(() => r.pending().length === 16);
+      if (first === "async") syncQuestion("overflow");
+      else asyncQuestion(r.fixture, "overflow");
+      await r.done;
+      assert.equal(
+        r.events.find((event) => event.type === "run.failed")?.payload.code,
+        first === "async"
+          ? "CODEX_INTERACTION_PENDING_LIMIT_EXCEEDED"
+          : "INTERACTION_PENDING_LIMIT_EXCEEDED"
+      );
+    }
+  );
+}
