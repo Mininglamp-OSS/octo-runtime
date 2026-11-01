@@ -52,6 +52,10 @@ const extra = createGatewayExample(process.env, asyncLoader);
 
 最后一个参数选择 `asyncLoader` 或 `syncLoader`。同步实现返回 `ContextItem[]`，异步实现返回 Promise，并将取消信号传给文件 IO。两者构造带 `payload.entries` 的 `octo.control/instructions`，不使用保留的 `extra.im` 命名空间。应用仍需按可运行文件中的方式初始化、关闭 `extra`。修改文件或同步闭包读取的变量，下一轮即可取得新内容，无需重连；更换配置或函数引用仍需关闭并重新创建整个 Extra。
 
+## 仅 Provider 使用代理
+
+在对应 Bot 的 `context.items` 中配置 `octo.execution/envs`，可向本轮 Provider 子进程注入代理变量，不修改 Extra 的进程环境。完整声明、导入重启步骤、非 TUN 边界及 OpenClaw 例外见 [Harness 的 Gateway 代理指南](harnesses/channel-gateway.md)。不要在宿主全局 export 代理来实现此隔离。
+
 ## 每轮加载业务数据
 
 ```mermaid
@@ -115,6 +119,21 @@ Gateway 将已确认的用户/Bot 名称与身份类型缓存在内存中，按 
 插件入口的形式为 `extra(context, jsonConfig)(dependencies)`。配置值放在 `jsonConfig`，应用函数放在 `dependencies`。插件与这些函数运行在同一进程中。
 
 插件通过 `ctx.kernel.invoke` 调用共享 Kernel，通过 `ctx.onDispose` 注册清理函数，通过 `ctx.onStatus` 提供业务状态，通过 `ctx.log` 记录诊断信息。应用通过这些公开接口管理插件，不需要访问插件内部对象或另外建立执行转发接口。
+
+## 通过宿主依赖使用 Provider 或外部服务
+
+查询模型目录或向外部服务传递业务数据与 Kernel 无关。宿主可以选择两种方式：
+
+1. **宿主直接调用** Provider 或外部服务，无需 Extra。
+2. **Extra 调用宿主注入的 dependency**，由该函数查询 Provider 或向外部服务传递数据。
+
+Extra 是可选路径。用户可以自行实现 lambda，也可复用 Provider 集成模块的函数；不要求 Provider 新增扩展机制，两种方式都不经过 Kernel。
+
+例如，模型选项 Extra 可以调用宿主注入的目录查询函数，获得所选官方服务、代理站或自定义 endpoint 的选项；需要将目录或业务结果发布到外部服务时，则调用对应的发布函数。查询和发布属于该 Extra 的业务依赖，不是 Kernel 的统一模型目录接口。Provider 可以提供集成实现，不需要将 worker 内的 Adapter 实例暴露给 Extra。
+
+具体 Extra 必须定义并消费对应依赖；入口存在时，用户只需提供实现。宿主选择实现并封装配置、凭据和授权，Extra 按业务合同调用并处理结果、错误和取消。函数在 Extra 所在进程中运行，可以通过网络访问外部服务，不放进 JSON，也不通过 Kernel IPC 传输；框架不自动发现 Provider 函数或代替业务决定发送、重试与确认语义。现有依赖关闭及实际在途管理继续生效，`signal` 需要调用方显式传递。
+
+这使模型目录的责任保持在 Provider/宿主侧，同时允许 Extra 使用实际业务能力。背景见[模型目录与选模归属](../concepts/architecture.md)，工程约束见 [Extra 规则](../../../.octospec/rules/extras.md)。
 
 ## 关闭 Extra
 
