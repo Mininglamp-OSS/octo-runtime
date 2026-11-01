@@ -58,9 +58,11 @@ The host queries catalogs and passes business data directly, or lets Extra call 
 
 `adapter.list` / `KernelClient.list()` returns registered Adapter metadata and actual probe information, not a model catalog or proof of account access to a model. Public IPC and Go/Python clients do not own unified model or effort catalog discovery, completion, or maintenance. A catalog is not a missing execution prerequisite.
 
+This public Kernel operation differs from the in-process Core `AgentExecutor.list()`, which only returns registered metadata and protocol support. Kernel routes `adapter.list` through the worker's `list` RPC to `AgentExecutor.describe()`, which probes configured Providers and reports availability, path, version, or an unavailable reason. These probe results do not enumerate models.
+
 The integrating host obtains or configures model options for its Provider, actual endpoint, and account. Official services, third-party proxies, and custom endpoints may expose different models or no catalog API while using the same Adapter. The host handles unavailable catalogs and query failures without fabricating successful empty lists or requiring consumers to use Runtime to scan private credentials or start discovery sessions.
 
-Callers continue to express explicit models through existing invoke inputs. Omitting a model retains existing default semantics. Adapter-native selection validation, confirmation, and error reporting still apply; this does not add a Runtime catalog allowlist or dynamic capability admission. See [Model Catalog and Selection Ownership](../concepts/architecture.md#model-catalog-and-selection-ownership).
+Callers continue to express explicit models through existing invoke inputs. Omitting a model retains existing default semantics. Adapter-native selection validation, confirmation, and error reporting still apply; this does not add a Runtime catalog allowlist or dynamic capability admission. See [Model Catalog and Selection Ownership](../concepts/architecture.md).
 
 ## Manage Unfinished Client Invocations
 

@@ -34,7 +34,7 @@ timestamp: 2026-11-01T02:50:00+08:00
 
 链接检查器从已有 `octo-runtime-issue-263` worktree 加载依赖；执行前使用 `cmp` 确认其 `scripts/lib/developer-doc-links.mjs` 与本分支完全相同，检查目标为本 worktree 的全部新增/修改 Markdown，而非其他分支内容。双语检查使用同一既有 prettier Markdown parser。
 
-对照规格 A1–A7 完成文档及 diff 人工核对：责任、官方/代理/自定义 endpoint 案例、非永久 CLI 假设、必要原生选模校验和 effort 边界均已覆盖。A8 的附件及阶段写回在 Loop 结果评论记录，不以本地文件代替上传成功证据。
+初稿曾对照 A1–A7 完成核对；此处仅为当时记录，不代表后续 A9 已验证。当前 A1–A9 的完整逐项证据见[最终验收记录](../../tasks/193-adapter-model-catalog/validation.md)，A8 的附件及阶段写回仍以 Loop 记录为准。
 
 本次未运行 Provider/模型或功能测试；未修改产品代码、schema、生成绑定或 CI，未提交、推送或创建 PR。完整 OKF 检查的三项既有失败和默认文档入口的依赖缺失不表述为通过。
 
@@ -61,3 +61,13 @@ timestamp: 2026-11-01T02:50:00+08:00
 完整 OKF lint 通过：571 个单元、20 条规则、3567 个本地链接；本次 14 份 Markdown 的链接与锚点检查通过，外链未作网络验证。架构、IPC、Extra 指南三组双语代码块和图形数量一致，`git diff --check` 通过。复用已有 Python 环境和相邻 worktree 的同内容链接检查器，不安装或修改依赖。默认文档检查入口因本 worktree 无依赖未执行，不等同于完整 docs:check 通过。额外尝试全部变更文件 Prettier 检查时发现既有排版差异；文档不在现有 format:check 范围内，保留原有段落和示例排版，不扩大格式修改范围。
 
 按 code-review 进行规范与规格两轴审查，各 0 项问题。本次仅文档验证，不运行功能或真实 Provider 测试，不自动关闭原 issue，不合并。最终提交版本与 PR 链接写入 Loop 交付评论，避免在提交内自引用。
+
+## PR 审查与 CI 修正
+
+远端审查指出最终验收缺少 A9 显式证据：已补充独立 `spec.yaml` 和具有完整 OKF YAML frontmatter 的 [review.md](../../tasks/193-adapter-model-catalog/review.md)、[validation.md](../../tasks/193-adapter-model-catalog/validation.md)，逐项覆盖 A1–A9。原知识文件已有 frontmatter，独立 YAML 合同此前未交付，本轮补齐。
+
+公共 `KernelClient.list()` 与 Core `AgentExecutor.list()` 的区别已沿源码及本机临时 Kernel 实测确认；公共 IPC 经 worker 调用 `describe()`，返回真实探测信息。双语 IPC 和架构规则补充此区别。真实已运行 Kernel 的 Adapter 列表脱敏后已发布到 [PR 评论](https://github.com/Mininglamp-OSS/octo-runtime/pull/284#issuecomment-6553089993)，请求重新审查，不将此证据解释为模型目录或模型调用成功。
+
+CI 运行 `41271393276` 的六个矩阵任务均被本次 docs 新增 fragment 链接阻断，Gate 随之失败；此前替代检查只验证链接存在和锚点有效，没有复现默认检查器对 fragment 的禁令，属于验证入口遗漏。将双语架构/IPC 的相关链接改为整页链接，保留检查器和 CI 范围不变。
+
+分支快进至 `82a88313` 后，本地使用 frozen lockfile 补齐缓存依赖，无依赖文件变更；`pnpm build`、完整 `pnpm docs:check` 通过（18 对页面、37 Markdown、22 JSON、16 Mermaid、12 Context，4 项示例测试全过），完整 OKF lint 通过（586 单元、20 规则、3606 本地链接）。本次 Markdown 链接及 diff 检查通过；最新完整证据见 validation。未执行模型调用、native 或全量运行时测试；远端结果按修正提交重新确认，不沿用历史失败或提前声称通过。

@@ -62,7 +62,7 @@ Without a reliable catalog, the host can allow manual entry, offer only the Prov
 
 Native protocol requirements still apply. For example, CodeBuddy requires selection and confirmation against the catalog advertised within an execution session; the Adapter must preserve those steps. Session validation does not establish a public catalog service. Omitting a model keeps existing default semantics, and effort follows existing mappings and actual application reporting. A catalog entry does not guarantee account access.
 
-[Issue 193](https://github.com/Mininglamp-OSS/octo-runtime/issues/193) illustrates the boundary: a client needs a model selector, but that does not make the execution infrastructure responsible for producing a model catalog. A new query API in one Provider does not automatically change this ownership. See the [Octospec architecture rule](../../../.octospec/rules/architecture.md#模型目录归-provider-与宿主以-issue-193-为例) and the [Kernel IPC catalog boundary](../reference/kernel-ipc.md#model-catalog-boundary).
+[Issue 193](https://github.com/Mininglamp-OSS/octo-runtime/issues/193) illustrates the boundary: a client needs a model selector, but that does not make the execution infrastructure responsible for producing a model catalog. A new query API in one Provider does not automatically change this ownership. See the [Octospec architecture rule](../../../.octospec/rules/architecture.md) and the [Kernel IPC catalog boundary](../reference/kernel-ipc.md).
 
 ## Channel Context and History
 

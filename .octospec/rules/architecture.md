@@ -55,7 +55,7 @@ OpenClaw 远端产物转换为 Gateway 可读取 HTTPS 资源的方案已接受�
 #46 将唯一执行实现收敛到 `octo-runtime-executor-core` 的 `AgentExecutor`。主发行物公开
 `@mininglamp-oss/octo-runtime/executor-core`，宿主可显式注册 Adapter 并直接执行，不需要
 Kernel、IPC、Extra、云端账号或进程信号接线。默认链路由 executor-kernel 监督独立
-worker，通过 stdio NDJSON 调用同一实现；旧 adapter-host 包和 AdapterHost 类别名已删除。
+worker，通过 stdio NDJSON 调用同一实现；旧 adapter-host 包和 AgentExecutor 类别名已删除。
 
 直接执行与宿主共享进程故障域，不能隔离 process.exit、OOM 或同步阻塞。Core 负责输入准备、
 本轮固定渲染、接纳身份、执行、交互路由、取消和正常终态；不加载业务、安装 Provider 或保存
@@ -157,6 +157,8 @@ octo-cli 是 Octo 场景的重要产品能力。用户明确：对使用 Octo Ru
 同一个 Codex 等 Provider harness、同一 Adapter 和版本，可能由宿主配置为连接官方服务、第三方代理站或自定义 endpoint。实际模型 ID、别名、账号权限、默认模型和推理选项可能不同；协议兼容不保证提供目录查询，官方目录也不能代表代理后端。Provider CLI 是否存在查询命令、某版本协议是否提供查询方法，必须按实际接入核实，不能写成永久假设。
 
 [Issue 193](https://github.com/Mininglamp-OSS/octo-runtime/issues/193) 希望通过 Kernel IPC 返回模型及 effort 目录，其客户端展示诉求有价值，但“消费者需要列表”不能推出“Runtime 必须生产或发现列表”。`adapter.list` 描述宿主已装配的执行实现及实际探测状态，不是后端模型目录。某个 Provider 的执行响应含有模型选项，也不能推出其他 Provider 或后端具备相同的独立只读查询能力。
+
+公共 Kernel `adapter.list` / `KernelClient.list()` 经 worker RPC 调用 Core 的 `AgentExecutor.describe()`，因此包含 Provider 探测结果；进程内 `AgentExecutor.list()` 仅返回注册元数据与协议支持。不能因方法同名而混淆这两个入口，也不能将 Provider 安装可用性解释为模型目录或账号权限。
 
 | 责任方 | 模型目录相关责任 |
 | --- | --- |

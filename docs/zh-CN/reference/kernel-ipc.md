@@ -58,9 +58,11 @@ Kernel IPC 是应用与本地 Kernel 服务之间的通信协议。TypeScript �
 
 `adapter.list` / `KernelClient.list()` 返回已注册 Adapter 的元数据及实际探测信息，不返回模型目录，也不证明某个模型对当前账号可用。公共 IPC 及 Go/Python 客户端不承担统一模型或 effort 目录的发现、补齐和维护；这不是待补齐的执行前置条件。
 
+这个公共 Kernel 操作不同于进程内 Core 的 `AgentExecutor.list()`；后者仅返回注册元数据和协议支持。Kernel 将 `adapter.list` 经 worker 的 `list` RPC 转交给 `AgentExecutor.describe()`，探测已配置的 Provider，报告可用性、路径、版本或不可用原因。这些探测结果不枚举模型。
+
 模型选项由接入宿主依据其 Provider、实际 endpoint 和账号取得或配置。官方服务、第三方代理站与自定义 endpoint 即使使用相同 Adapter，也可能具有不同模型或没有目录接口。宿主自行处理目录不可用和查询失败，不应伪造成功空列表，也不应要求消费者通过 Runtime 扫描私有凭据或启动探测会话来补齐列表。
 
-调用方继续通过现有 invoke 输入表达显式模型；省略模型时保留既有默认语义。Adapter 的原生选模校验、确认和错误返回保持有效，不新增 Runtime 目录白名单或动态能力准入。案例与责任划分见[模型目录与选模归属](../concepts/architecture.md#模型目录与选模归属)。
+调用方继续通过现有 invoke 输入表达显式模型；省略模型时保留既有默认语义。Adapter 的原生选模校验、确认和错误返回保持有效，不新增 Runtime 目录白名单或动态能力准入。案例与责任划分见[模型目录与选模归属](../concepts/architecture.md)。
 
 ## 管理客户端尚未结束的调用
 

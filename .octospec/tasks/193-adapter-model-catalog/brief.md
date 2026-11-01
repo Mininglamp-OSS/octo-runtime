@@ -8,6 +8,8 @@ timestamp: 2026-11-01T02:50:00+08:00
 
 # 目标
 
+结构化合同见 [spec.yaml](spec.yaml)，A1–A9 的逐项证据见[验证记录](validation.md)，远端审查处理见[审查记录](review.md)。
+
 将 [Issue 193](https://github.com/Mininglamp-OSS/octo-runtime/issues/193) 作为职责判断案例写入架构规则及 docs：模型目录由 Provider 及实际后端定义，来源与选项展示归接入宿主；Runtime 负责显式执行输入的原生适配和真实结果，不建立统一模型/effort 目录服务。
 
 本规格取代[初始分诊](triage.md)中“建议 P2 新增模型目录 API、贯通 Go/Python 绑定”的建议。用户已明确要求更新规格、架构约束和 docs，本次直接落地文档，不修改产品代码。

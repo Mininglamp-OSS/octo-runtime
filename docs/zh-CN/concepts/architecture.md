@@ -62,7 +62,7 @@ Provider harness 的登录、授权及凭据准备归使用者、宿主与 harne
 
 这不取消 Provider 原生协议的约束。例如 CodeBuddy 在执行会话中要求按原生广告目录选择并确认模型，Adapter 仍须执行这些步骤；但会话内校验不构成公共目录服务。省略模型时保留既有默认语义，effort 仍按既有映射报告实际应用情况，不承诺目录内模型对当前账号一定可调用。
 
-[Issue 193](https://github.com/Mininglamp-OSS/octo-runtime/issues/193) 是这一边界的典型案例：客户端需要模型选择器，不意味着执行基础设施需要生产模型目录。此责任划分不因某个 Provider 新增查询接口而自动改变。工程约束见 [Octospec 架构规则](../../../.octospec/rules/architecture.md#模型目录归-provider-与宿主以-issue-193-为例)，IPC 边界见 [Kernel IPC](../reference/kernel-ipc.md#模型目录边界)。
+[Issue 193](https://github.com/Mininglamp-OSS/octo-runtime/issues/193) 是这一边界的典型案例：客户端需要模型选择器，不意味着执行基础设施需要生产模型目录。此责任划分不因某个 Provider 新增查询接口而自动改变。工程约束见 [Octospec 架构规则](../../../.octospec/rules/architecture.md)，IPC 边界见 [Kernel IPC](../reference/kernel-ipc.md)。
 
 ## Channel Context 与历史
 

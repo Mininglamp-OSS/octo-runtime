@@ -1,4 +1,7 @@
-stage: spec
+stage: pr-review-fix
+contract: .octospec/tasks/193-adapter-model-catalog/spec.yaml
+review_head: 1184c04cfe17ed819cd33ef36c0d1cd3d802e6f7
+ci_fix_head: 82a88313ebad8c2c43c2f3267b8084cfb1445a4f
 baseline: a5a32835882deab5e2364b559dd06bf1675c1335
 rules_read:
   - .octospec/rules/architecture.md
