@@ -7,6 +7,16 @@ tags: [protocol, interaction, adapter, testing]
 
 # 旁路补充信息修订验证
 
+## 企业微信 P1 修复
+
+远端评审针对 `86e5be40` 确认企微误登记 async 事件、发布必然失败的 `/respond` 命令。修复在登记、秘密输入取消、提示和 projector 之前成对过滤，仅保留普通正文；同步问答、审批和 full_access 逻辑保持。
+
+- `pnpm --filter @mininglamp-oss/octo-runtime-extra-channel-wecom build` 通过。
+- `node --test test/manual/codex-async-wecom.test.mjs test/manual/codex-async-gateway.test.mjs test/im-wecom.test.js`：16 通过、0 失败/跳过。
+- 新增企微手动专项覆盖无期限/显式期限、重复事件、与同步请求交错、原正文交付，以及 async 秘密问题不触发取消；使用本地 WebSocket，不宣称真实企微验收。
+- 本轮读取所有 Extra 源码交互消费者，Gateway 已有配对过滤；未发现第三个直接登记该事件的 Extra。WebUI/自定义宿主需按其公开协议消费方式判断，不能由此承诺全部第三方 UI 已兼容。
+- Standards 找到新测试固定凭据占位值，已改为运行期随机生成；Spec 无确认缺陷。专项仍位于 manual，不扩大默认测试或 CI。
+
 ## 最新 main 集成复验
 
 提交 `22ca96b4` 推送后发现 main 已至 `28c3ffa2ef685e14ac58d57c2788c9d07b92471c`。合并主线，手工保留 Schema/运行时 async 与 responseRequired 两份合同、output 规则与日志；全部生成物重新生成。下列证据对应该合并工作区（22ca96b4 加 main 与冲突修正），而非只引用合并前通过：
