@@ -3,7 +3,7 @@ type: Task
 title: Issue 289 实施计划与状态合同
 description: 明确 Codex 审批状态、发送队列、容量与时间预算、失败传播及分阶段实施顺序。
 tags: [adapter, interaction, protocol, stream, testing]
-status: planned
+status: implemented
 baseline: 148d737d3ee14f0453ae5018c563b08d6b21ec5b
 ---
 
@@ -17,7 +17,7 @@ baseline: 148d737d3ee14f0453ae5018c563b08d6b21ec5b
 
 | 位置 | 当前事实与拟改动 |
 | --- | --- |
-| `packages/octo-runtime-adapter-codex/src/app-server.ts:81` | `PendingInteraction` 只有 responding；改为明确的交互类别、决定状态和可取消投递句柄，集中释放额度/计时器。 |
+| `packages/octo-runtime-adapter-codex/src/app-server.ts:81` | `PendingInteraction` 保留 responding 区分等待决定与投递；增加类别和保留字节。queued/writing 由唯一发送器持有，不在交互表重复保存状态。 |
 | 同文件 `#handleServerRequest:1835` | 拆分人工审批计数和自动投递；先校验身份/重复 ID/方法，再决定准入；满 256 的处理不调用整轮 queue.fail。 |
 | 同文件 `respondNative:1432` / `respondInteraction:1522` | 两条响应入口共用“校验→决定冻结→投递”状态转换和一次性结算。 |
 | 同文件 `#write:1993` / request / notify | 全部 stdin 写入改走同一内部发送器；保留 request 在写入前登记、onWritten 的原语义。 |
@@ -68,7 +68,7 @@ stateDiagram-v2
 | 等待回答的 params 总字节 | 本 invocation `adapterQueueMaxBytes`，默认 32 MiB | `CODEX_INTERACTION_BYTES_EXCEEDED`，本轮失败并有界清理。请求仍受原 rawMessageMaxBytes 单项限制。 |
 | 普通发送条目，含唯一写入中条目 | 4096 / client | `CODEX_STDIN_QUEUE_ITEMS_EXCEEDED`，失败并清理本轮。 |
 | 普通发送总 UTF-8 字节，含换行和写入中条目 | 64 MiB / client | `CODEX_STDIN_QUEUE_BYTES_EXCEEDED`，失败并清理本轮。 |
-| 控制保留额 | 8 条且合计 64 KiB / client，独立于普通额 | 只容纳拒绝应答及 turn/interrupt；不能给批准借用。耗尽时真实传输容量失败。 |
+| 控制保留额 | 8 条且合计 64 KiB / client，独立于普通额 | 容纳协议拒绝及 turn/interrupt；人工额度拒绝属于正常突发，走普通队列，不能挤占此预留。不能给批准借用。耗尽时真实传输容量失败。 |
 | 等待人工决定 | 600000 ms，沿用现值 | expired，按现有合同拒绝并结束本轮；不继续发送批准。 |
 | 单条发送总期限 | 入队起 30000 ms，包含排队、write 回调和需要的 drain | `CODEX_STDIN_DELIVERY_TIMEOUT`，不因后续流量不断续期。 |
 | 无发送进展 | 有发送债务时 5000 ms | `CODEX_STDIN_STALLED`；成功写回调或必要 drain 才算进展，stdout/stderr 活跃不算。 |
@@ -83,7 +83,7 @@ stateDiagram-v2
 2. FIFO 取一条为 writing；只允许一个本地 write 等待回调。安装 error/close/drain 监听并设置泵的重入保护，再调用 write。同步 throw、同步回调的 fixture 与异步回调均要正确结算。
 3. write 返回 true 时，在其成功回调后发下一条；false 时，下一条必须等本条成功回调及 drain 均已观察到。两个事件顺序任意，不能错过提前发生的 drain。drain 不表示该条已写入成功。
 4. write 回调成功即可确认该交互本地 written/resolved；如尚待 drain，发送器继续阻塞后续写，但不得将已 written 交互改报未送达。暂停发送只依赖管道状态，不等待工具执行或 RPC response。
-5. 维护一份发送器进展 timer 和最早绝对 deadline timer，有限条目的 deadline 检查不启动无界 Promise。重复 stop/失败共享首次 cause，所有条目一次性结算；迟到回调只清理引用，不再发下一条。
+5. 由一个 timer 调度发送器无进展期限与最早绝对 deadline 的较早者，有限条目的 deadline 检查不启动无界 Promise。重复 stop/失败共享首次 cause，所有条目一次性结算；迟到回调只清理引用，不再发下一条。
 6. 控制队列在当前不可撤回 write 后优先发送；普通项之间 FIFO。控制预留不能绕过 false/drain。取消清除 queued 的普通项后可 best-effort 发一次 turn/interrupt；管道仍堵塞时现有进程清理期限优先，不能为等 5 秒 drain 推迟清理。
 7. 普通 RPC 的原 timeout 从 request 登记开始，取其剩余期限与发送预算的更早者；若到期时还 queued，必须移除该发送条目，不能超时后迟发 turn/start。已 writing 的字节不可撤回，不自动重试。无需响应的 notify 写失败也必须进入共同失败路径，不得因无 onError 被吞掉。
 

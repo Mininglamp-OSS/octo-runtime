@@ -59,7 +59,7 @@
 
 ## 当前任务
 
-- [Issue 289：Codex 审批投递 P0](tasks/289-approval-delivery/brief.md)：最新 main 独立 worktree，仅完成 OctoSpec [实施计划](tasks/289-approval-delivery/plan.md)，准备度 96/100；人工审批 256、自动投递有界队列、stdin 背压与准确错误归因。[验收矩阵](tasks/289-approval-delivery/validation.md)待实施，专项不扩大 CI。
+- [Issue 289：Codex 审批投递 P0](tasks/289-approval-delivery/brief.md)：基于最新 main 独立实施人工审批 256、统一有界发送器、stdin 背压与结构化错误归因。全量离线检查及真实 Codex 两模式 shell/MCP 验收已执行，结果与限制见[验证记录](tasks/289-approval-delivery/validation.md)；专项不扩大 CI。
 
 - [Issue 252：Antigravity 代理与 Harness 专题](tasks/252-antigravity-proxy/brief.md)：非 TUN 下 Bot Context→独立 Kernel→真实 agy 已通过且宿主 env 不变；14 个内置 Harness 双语专题已补充，完整 QA IM 因凭据认证阻塞，实际 Extra TCP 直连未验。[验证与限制](tasks/252-antigravity-proxy/validation.md)。
 

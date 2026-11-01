@@ -117,6 +117,30 @@ for (const mode of ["canonical", "native"]) {
       }
     );
   }
+  for (const approvalMode of ["ask", "assisted"]) {
+    test(
+      `${mode}/${approvalMode}: 512 human requests drain capacity rejections without aborting admitted approvals`,
+      { timeout: 5000 },
+      async (t) => {
+        const r = await running(t, mode, approvalMode, { hold: true, highWaterMark: 1 });
+        for (let i = 0; i < 512; i++) r.fixture.request(`id-${i}`);
+        await until(() => r.pending().length === 256 && r.fixture.responses.length === 1);
+        assert.equal(r.error, undefined);
+        r.fixture.release();
+        await until(() => r.fixture.responses.length === 256);
+        assert.ok(
+          r.fixture.responses.every(
+            (reply) => reply.error?.message === "APPROVAL_PENDING_LIMIT_EXCEEDED"
+          )
+        );
+        await Promise.all(r.pending().map((event) => r.respond(event)));
+        await until(() => r.resolved().length === 256);
+        assert.equal(r.fixture.responses.length, 512);
+        assert.equal(new Set(r.fixture.responses.map((reply) => reply.id)).size, 512);
+        await r.complete();
+      }
+    );
+  }
   test(
     `${mode}: manual slot is released while actual response callback is blocked`,
     { timeout: 5000 },

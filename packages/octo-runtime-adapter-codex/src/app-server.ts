@@ -477,12 +477,16 @@ async function closeClientAndResources(
     await client.close();
   } catch (cleanupError) {
     // R06b：清理失败不能覆盖原始执行失败，也不能阻止调用方资源释放。
-    if (executionFailure !== undefined)
-      throw new AggregateError(
+    if (executionFailure !== undefined) {
+      const error = new AggregateError(
         [executionFailure, cleanupError],
         "Codex execution and process cleanup failed",
         { cause: cleanupError }
       );
+      // Core 从顶层 code 分类；保留本地执行首因，同时用 errors/cause 暴露清理失败。
+      const code = stringErrorCode(executionFailure);
+      throw isCodexLocalFailureReason(code) ? Object.assign(error, { code }) : error;
+    }
     throw cleanupError;
   } finally {
     await spec.cleanup?.();
@@ -1915,11 +1919,12 @@ class CodexAppServerClient {
         invocation_id: this.invocation.invocationId,
         code: "APPROVAL_PENDING_LIMIT_EXCEEDED"
       });
+      // 容量拒绝也是正常突发流量，使用普通有界队列；不能因 9 条拒绝挤满控制预留而终止整轮。
       this.#write(
         { jsonrpc: "2.0", id, error: { code: -32000, message: "APPROVAL_PENDING_LIMIT_EXCEEDED" } },
         undefined,
         undefined,
-        { control: true }
+        { control: false }
       );
       return;
     }
@@ -2060,8 +2065,8 @@ class CodexAppServerClient {
     }
     return this.#writer.write(message, onError ?? (() => {}), onWritten, {
       ...options,
-      // 仅本层产生的拒绝响应使用控制预留；正常批准永远进入普通队列。
-      control: options.control === true || Object.hasOwn(message, "error")
+      // 普通容量拒绝可显式走普通队列；协议拒绝默认使用控制预留，批准不借用预留。
+      control: options.control ?? Object.hasOwn(message, "error")
     });
   }
 

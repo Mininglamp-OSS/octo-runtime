@@ -1,7 +1,7 @@
 ---
 type: Validation
-title: Issue 289 计划验证与实施验收矩阵
-description: 区分已执行的计划检查和待实施的审批突发、背压、错误传播及真实 Provider 验收。
+title: Issue 289 实施验证与验收矩阵
+description: 记录审批突发、背压、错误传播、全量回归与真实 Codex 验收及其边界。
 tags: [adapter, interaction, protocol, testing]
 baseline: 148d737d3ee14f0453ae5018c563b08d6b21ec5b
 ---
@@ -10,16 +10,16 @@ baseline: 148d737d3ee14f0453ae5018c563b08d6b21ec5b
 
 用户已追加实施、code-review 和 PR 授权。当前实现基于 `148d737d`；以下证据在本 worktree 的未提交实现上执行，最终提交号以 PR 为准。
 
-已核实最新主线及 Codex 两种输出路径、中央分类器、Core 错误投影、HostControl 校验、既有 fixture 和默认 CI 入口。固定 OctoSpec 缓存由干净的 `octo-spec@d456507bbd37cd4e3ac58671d07b89a61af35579` 恢复。同步脚本仅造成 AGENTS 空行变化，已撤销该工具副作用；没有修改仓库规则正文。
+已核实最新主线及 Codex 两种输出路径、中央分类器、Core 错误投影、HostControl 校验、既有 fixture 和默认 CI 入口。固定 OctoSpec 缓存由干净的 `octo-spec@d456507bbd37cd4e3ac58671d07b89a61af35579` 恢复。同步脚本仅造成 AGENTS 空行变化，已撤销该工具副作用；同步过程未修改规则正文；本次实施补充了 output-protocol.md 的本地失败附件合同。
 
 环境：macOS、Node `v24.19.0`、pnpm `11.25.0`、Codex `0.162.0-alpha.17.2`。本次 shell 补齐 bundled Node PATH 后，依赖安装与全量 typecheck 通过，lockfile 未变。知识检查使用 `uv run --with pyyaml python .octospec/scripts/lint.py`。
 
 ## 已执行结果
 
 - 旧 dist 对照：32 条自动审批在 16 条处停住；本地额度原因被插件 Unauthorized 污染。两条定向测试均失败，重建后通过。
-- 初版专项 43/43 PASS；公开 Kernel/worker 两模式另 2/2 PASS，覆盖 256 条写回和并行调用失败隔离。新增 cancel/exit 与 retained params 预算用例后重新执行最终专项。
+- 初版专项 43/43 PASS；公开 Kernel/worker 两模式另 2/2 PASS，覆盖 256 条写回和并行调用失败隔离。新增 cancel/exit、retained params 及非 Codex 分类隔离后，52 项专项与 33 项相关既有用例合计 85/85 PASS。
 - 既有相关回归初次 111/116；修正公开 expiresAt 为原有 10 分钟，保留 EOF 优先关闭后，相关 Codex 两组 34/34 PASS。内部发送期限仍为 30 秒。
-- 全量 `pnpm test:suites`：2389 PASS、91 SKIP、0 FAIL（Node 共 2480；另含 WebUI 测试）。`pnpm typecheck`、lint、lint:names、format:check 通过。首次 lint 与构建并行造成 dist 暂时缺失，已改为构建完成后执行；两个新增冗余类型断言已删除。
+- 全量 `pnpm test:suites`：2389 PASS、91 SKIP、0 FAIL（Node 共 2480；另有 35/35 WebUI 测试）。`pnpm typecheck`、lint、lint:names、format:check 通过。首次 lint 与构建并行造成 dist 暂时缺失，已改为构建完成后执行；两个新增冗余类型断言已删除。
 - 真实 Codex canonical shell：32 requested / 32 resolved / 32 tools，峰值 20，run.completed，9912 ms；native shell：32/32/32，峰值 27，completed，9540 ms。
 - canonical MCP：32 tools，run.completed，14520 ms；native MCP：32 tools，completed，11477 ms。MCP 均无审批请求，不宣称 MCP 审批突发通过。四组最终 cleanupComplete=true。
 - live runner 经公共 KernelClient.invoke、真实 worker/app-server，使用既有认证和本次临时只读 MCP；显式 opt-in，不修改 Home/profile/插件/配置。仅删除本次临时资源。
@@ -87,3 +87,9 @@ live runner 在调用进程原生创建 Kernel 服务，内部 worker 注册此�
 每项记录执行时间、源码 SHA/dirty、平台、Node/Codex 版本、命令、PASS/FAIL/BLOCKED/NOT RUN、请求/写回/终态计数、资源清理及脱敏证据。没有 Provider 读取 ACK 时只声称本地 write 完成。实现阶段所有阻塞必须如实列出，不能用本计划 96 分替代验收。
 
 历史计划检查通过（594 个 OKF 单元）；实施后的知识检查需要重新执行。A01–A16 是验收维度，不是测试通过数。Windows/Linux 真机、GC 长时趋势及真实 Provider 故意拒收未执行；本轮记录 macOS 实测与离线故障注入。专项注入时间阈值缩短，不声称做了 30 秒墙钟压力测试。
+
+## 最终覆盖边界
+
+A01–A06、A10、A12 与 A14 的 Codex 两模式路径由 Adapter/Kernel 用例覆盖；A07–A09 在内部发送器注入小预算和短时限验证，另验证 32 MiB 帧可入队。A11 的未写 RPC 删除通过 writer 取消句柄验证，既有超时用例验证 Adapter 返回；未伪称对全部 RPC 超时交错做穷举。A13 验证 TypeScript 公共接收与篡改拒绝，未新增 Go/Python 真机回放；现有可选字段/Schema 不变。A15 已覆盖保留 params 释放、超额失败和 writer listener 清理，未执行 GC 长时压力。A16 四组真实路径完成，MCP 审批突发未出现。
+
+内部实现将交互的 awaiting_decision/responding 与 writer 的 queued/active 分别归属各自所有者；没有重复存储一套状态枚举。一个 timer 调度较早的无进展期限或绝对投递期限。以上为计划细化，不改变对外合同。

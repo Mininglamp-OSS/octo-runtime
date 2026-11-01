@@ -30,7 +30,19 @@ for (const mode of ["native", "canonical"])
         return events;
       };
       // 同一 worker 上故障调用与成功调用并行，确保不回收共享内核或兄弟 Provider。
-      const [success, failed] = await Promise.all([run("success"), run("transport-error")]);
+      const [success, failed, cleanupFailed] = await Promise.all([
+        run("success"),
+        run("transport-error"),
+        run("transport-error-cleanup-error")
+      ]);
+      for (const result of [failed, cleanupFailed]) {
+        const failure =
+          mode === "native"
+            ? result.find((event) => event.control?.type === "error")?.control.failure
+            : result.at(-1).payload.failure;
+        assert.equal(failure?.reasonCode, "CODEX_STDIN_WRITE_FAILED");
+        assert.equal(failure.code, "OH-ADP-3004");
+      }
       if (mode === "native") {
         assert.equal(success.at(-1).control.state, "completed");
         assert.equal(success.filter((e) => e.control?.status === "resolved").length, 256);

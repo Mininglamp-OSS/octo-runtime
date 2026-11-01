@@ -13,8 +13,15 @@ serveWorker([
         f.child.stderr.write("plugin catalog: 401 Unauthorized\n");
         for (let i = 0; i < 256; i++) f.request(`request-${i}`);
         await until(() => f.responses.length === 1);
-        if (text.includes("transport-error")) f.child.stdin.emit("error", new Error("broken pipe"));
-        else {
+        if (text.includes("transport-error")) {
+          if (text.includes("cleanup-error")) {
+            f.child.stdin.end = () => f.child.stdin;
+            f.child.kill = () => {
+              throw Object.assign(new Error("cleanup failed"), { code: "EIO" });
+            };
+          }
+          f.child.stdin.emit("error", new Error("broken pipe"));
+        } else {
           f.release();
           await until(() => f.responses.length === 256);
           f.complete();
