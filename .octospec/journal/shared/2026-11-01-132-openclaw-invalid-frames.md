@@ -22,3 +22,5 @@ tags: [openclaw, protocol, testing]
 ## 授权交付
 
 用户进一步授权同步代码、提交 PR 并合并 main。已保留配置的 Git 作者并加入 Codex trailer，rebase 到最新 main `dc14c094`；知识日志冲突保留双方记录，产品无冲突。同步后构建、类型、lint、29 项严格专项及 163 项含 GC 回归重新通过，独立 Spec 复核无新增问题。后续 PR、检查与真实合并事实写回 ORT-38，不能把已授权合并等同于已经合并。
+
+PR #291 获得两位审查者批准后，等待 CI 时补跑全量，发现旧 adapters Gateway 测试仍要求破损 JSON 失败，并因 server/client 清理先后顺序卡住。此前相关定向验证遗漏该文件。已更新既有测试的合同和有限清理，不新增 CI 范围；35 秒未退出到修复后自然退出 0 的证据和增量双轴复审见任务 validation/review。最终 CI 和合并事实仍由任务评论记录。

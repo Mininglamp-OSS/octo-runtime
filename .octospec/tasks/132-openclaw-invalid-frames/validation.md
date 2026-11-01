@@ -68,3 +68,11 @@ tags: [openclaw, testing, validation]
 同步后源码构建 `pnpm build`、根 tsc noEmit、`pnpm lint` 重新通过。严格模式专项沿用上节完整命令重跑为 29 通过，含 GC 的四文件相关回归为 163 通过、0 跳过。知识检查为 599 个单元、20 条规则、3880 个本地链接（新增交付段落后再次校验）。`git diff origin/main -- .github package.json pnpm-lock.yaml` 为空，没有扩大 CI。
 
 同步后独立 Spec 复核无新增产品问题：#280 的 watchdog 异步交互路径不改变本次坏帧入口的提前 return；RuntimeLog 和 Kernel 调用仍兼容。提交、PR、远端检查与实际合并状态记录在 ORT-38 交付评论；本文件不提前宣称已合并。
+
+## CI 等待期间发现的旧测试合同
+
+PR 获得批准后，四个 Linux/macOS job 长时间停在 Test。补跑本地 `pnpm test:suites`，确认 `test/adapters.test.js` 的既有 Gateway 测试仍断言“破损 JSON 立即失败”；新合同下原请求保持，随后超时触发断言失败，而注册在前的 server.close 清理等待仍打开的 client，导致进程不退出。此前定向验证没有包含该文件，漏掉了这一旧合同冲突。
+
+独立 supervisor 运行 `node --test --test-name-pattern='Gateway client authenticates' test/adapters.test.js`，旧测试在 35 秒内不退出（supervisor 回收并返回 42）；修复后同一命令通过并自然退出 0。修复仅将既有测试改为坏 JSON 后发送同 id 合法 res 并断言成功；将清理合并为先 client.close 再回收 server，增加本测试和请求的有限期限。不新增默认测试项、workflow 或 Gate。
+
+`node --test test/adapters.test.js` 修复后为 58 通过、1 个原生 Windows 项跳过。双轴增量复审各 0 发现。首次全量本地运行另发现 verification-command 的 ENOENT 用例受本机 Node 同目录已安装 octo-cli 影响，独立记录为环境因素，不修改无关实现或掩盖为通过；完整修复后的本地及远端结果以最终任务评论为准。
