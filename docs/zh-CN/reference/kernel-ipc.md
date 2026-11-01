@@ -52,6 +52,16 @@ Kernel IPC 是应用与本地 Kernel 服务之间的通信协议。TypeScript �
 | `cancel(ref, reason?)`                                    | 按完整 ref 取消执行；返回是否接受请求，最终结果仍从输出读取。 |
 | `respond(ref, response)` / `respondNative(ref, response)` | 按完整 ref 回复交互请求。                                     |
 
+## 模型目录边界
+
+模型目录查询和业务数据传递由宿主直接完成，或由 Extra 调用宿主注入的 dependency 完成；二者均不经过 Kernel，不需要为此增加 IPC 方法。
+
+`adapter.list` / `KernelClient.list()` 返回已注册 Adapter 的元数据及实际探测信息，不返回模型目录，也不证明某个模型对当前账号可用。公共 IPC 及 Go/Python 客户端不承担统一模型或 effort 目录的发现、补齐和维护；这不是待补齐的执行前置条件。
+
+模型选项由接入宿主依据其 Provider、实际 endpoint 和账号取得或配置。官方服务、第三方代理站与自定义 endpoint 即使使用相同 Adapter，也可能具有不同模型或没有目录接口。宿主自行处理目录不可用和查询失败，不应伪造成功空列表，也不应要求消费者通过 Runtime 扫描私有凭据或启动探测会话来补齐列表。
+
+调用方继续通过现有 invoke 输入表达显式模型；省略模型时保留既有默认语义。Adapter 的原生选模校验、确认和错误返回保持有效，不新增 Runtime 目录白名单或动态能力准入。案例与责任划分见[模型目录与选模归属](../concepts/architecture.md#模型目录与选模归属)。
+
 ## 管理客户端尚未结束的调用
 
 `client.invocations` 最多跟踪 128 个通过 `invoke` 发起的调用，包括结果未知的调用。底层 `submit` 不会自动加入此表。

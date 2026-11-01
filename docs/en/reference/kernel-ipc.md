@@ -52,6 +52,16 @@ Use these lower-level methods only when managing submission and subscription you
 | `cancel(ref, reason?)`                                    | Cancel by complete ref. The result says whether the request was accepted; read output for the final outcome. |
 | `respond(ref, response)` / `respondNative(ref, response)` | Reply to an interaction by complete ref.                                                                     |
 
+## Model Catalog Boundary
+
+The host queries catalogs and passes business data directly, or lets Extra call a host-injected dependency. Neither path goes through Kernel or requires an additional IPC method.
+
+`adapter.list` / `KernelClient.list()` returns registered Adapter metadata and actual probe information, not a model catalog or proof of account access to a model. Public IPC and Go/Python clients do not own unified model or effort catalog discovery, completion, or maintenance. A catalog is not a missing execution prerequisite.
+
+The integrating host obtains or configures model options for its Provider, actual endpoint, and account. Official services, third-party proxies, and custom endpoints may expose different models or no catalog API while using the same Adapter. The host handles unavailable catalogs and query failures without fabricating successful empty lists or requiring consumers to use Runtime to scan private credentials or start discovery sessions.
+
+Callers continue to express explicit models through existing invoke inputs. Omitting a model retains existing default semantics. Adapter-native selection validation, confirmation, and error reporting still apply; this does not add a Runtime catalog allowlist or dynamic capability admission. See [Model Catalog and Selection Ownership](../concepts/architecture.md#model-catalog-and-selection-ownership).
+
 ## Manage Unfinished Client Invocations
 
 `client.invocations` tracks up to 128 calls started through `invoke`, including calls with unknown outcomes. Lower-level `submit` is not added automatically.
