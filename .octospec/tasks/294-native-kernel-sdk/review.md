@@ -13,7 +13,7 @@ tags: [review, architecture, lifecycle, sdk, documentation]
 
 **1 项 P2，已修复：真实清理失败被活着的宿主掩盖。** 原生 Adapter finally 抛错后，`kernel.close()` 为 incomplete，但 `inspectOrphanCleanup()` 因 owner PID 仍活着报告 available。已实际复现 `cleanup:false, phase:failed, recovery:available`，违反“未完成的实际操作仍为 incomplete”的生命周期规则。
 
-资源记录新增可选 `cleanupFailed` 区分运行中保守标记和已发生的关闭失败，保持 schemaVersion 1。Kernel 在共享关闭截止内登记失败；持久化错误不覆盖原错误。健康原生 owner 仍 available，真实失败和旧 worker 失败记录显示 cleanup_incomplete；人工确认仍拒绝活 owner。回归覆盖正常、失败、旧记录和确认边界，见 [关闭测试](../../../test/host-process-close.test.js)。
+资源记录新增可选 `cleanupFailed` 区分运行中保守标记和已发生的关闭失败，保持 schemaVersion 1。Kernel 在共享关闭截止内登记失败；持久化错误不覆盖原错误。健康原生 owner 仍 available，真实失败显示 cleanup_incomplete；人工确认仍拒绝活 owner。最终按用户决定拒绝旧 worker 格式，不再保留旧恢复路径。回归覆盖正常、失败、旧格式拒绝和确认边界，见 [关闭测试](../../../test/host-process-close.test.js)。
 
 未发现其他可确认的硬标准违反或值得单独阻塞的代码异味。RPC 分层和同进程对象注入属于明确架构要求，不按一般转发层异味删除。
 
@@ -35,6 +35,12 @@ Adapter 工厂盘点：14 个内置 Adapter 中 9 个已有专用 create 工厂�
 
 ## 验证与边界
 
-双语文档、示例类型检查、Core/Kernel 定向回归、构建、lint 和根类型检查已执行；最终全量结果见[验证记录](validation.md)。未执行真实 Electron、Provider、线上 IM 或原生 Windows/Linux 验证。没有变更 CI 范围，没有提交、推送或发布。
+双语文档、示例类型检查、Core/Kernel 定向回归、构建、lint 和根类型检查已执行；最终全量结果见[验证记录](validation.md)。未执行真实 Electron、Provider、线上 IM 或原生 Windows/Linux 验证。首轮 review 时尚未提交；后续按用户授权提交并创建 PR #295，没有变更 CI 范围或发布。
+
+## 删除旧架构后的复核
+
+用户明确不提供兼容或升级后，再次交叉检查原生所有权记录、真实 RPC 测试、执行源接口和验证脚本。旧 WorkerRpc、心跳、进程身份回收及旧日志白名单全部删除；旧格式和损坏资源记录明确拒绝并保留原文件。原生异常退出的摘要确认、活 owner 拒绝、实际清理失败诊断继续有效。Spec 轴未发现新增可确认问题。
+
+Standards 轴发现并修复 2 项 P2 验证脚本问题及 1 项 P3 文档偏差：IM 重试专项使用当前 KernelClient.invoke/cancelInvocation，保留取消跟踪；关闭失败仍执行 HTTP 清理并聚合原始失败和清理错误，未确认回收时保留工作目录；生命周期规则删除旧 worker 日志兼容声明。复核无新增发现。脚本仅做语法验证，不将这些修复标为线上 IM/真实 Codex 已通过。
 
 Standards：1 项 P2 已修复；Spec：1 项 P2 代码问题及 1 项接入文档偏差已修订；当前没有未处理的已确认 finding。

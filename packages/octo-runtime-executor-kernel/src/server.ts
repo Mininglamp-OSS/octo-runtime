@@ -22,8 +22,7 @@ import {
 import { HostRunService } from "./host-run-service.js";
 import { AgentExecutor, type HostedAdapter } from "@mininglamp-oss/octo-runtime-executor-core";
 import { beforeDeadline } from "./lifecycle.js";
-import type { ExecutionSource } from "./rpc.js";
-import { probeOptions } from "./rpc.js";
+import { probeOptions, type ExecutionSource } from "./execution-source.js";
 import { acquireEndpoint } from "./endpoint.js";
 import { InvocationManifest } from "./invocation-manifest.js";
 import {

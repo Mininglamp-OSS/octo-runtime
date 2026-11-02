@@ -5,7 +5,7 @@ import { createKernelService } from "@mininglamp-oss/octo-runtime-executor-kerne
 import { componentEndpoint } from "@mininglamp-oss/octo-runtime-host-sdk";
 import { createInputInvoke } from "@mininglamp-oss/octo-runtime-protocol";
 
-// 测试宿主原生装配。兼容测试用执行源接口的所有操作也通过真实 Kernel RPC。
+// 测试宿主原生装配。测试用执行源接口的所有操作都通过真实 Kernel RPC。
 export async function nativeHost(adapters, options = {}) {
   const home = await mkdtemp(join(process.platform === "darwin" ? "/tmp" : tmpdir(), "onh-"));
   const kernel = createKernelService({ endpoint: componentEndpoint(home), adapters, ...options });

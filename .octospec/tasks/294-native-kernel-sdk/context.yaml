@@ -47,6 +47,7 @@ context_read:
   - docs/zh-CN/getting-started/sdk.md
 global_rules: .octospec/_global/ 不存在，未补建或同步。
 user_decisions:
+  - 旧架构直接拒绝并删除实现，不提供兼容或升级；未知资源记录保留现场但不解释或转换。
   - Electron 原生 SDK 是核心模式，CLI 是特殊宿主。
   - 同进程也必须统一通过 KernelClient/RPC，不能绕过 ExecutorKernel 稳定性逻辑。
   - Adapter 由宿主 import、构造并原生注入；Kernel 不启动执行 worker。

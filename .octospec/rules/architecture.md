@@ -585,6 +585,10 @@ Extra 的函数式入口负责封装内部流程：宿主传入完整配置和�
 
 图中的插件仅作架构示例。当前还有独立的 `extra-channel-wecom` 和 `octo-runtime-extra-webui` 包，以各包实际合同为准。`webui-extra` 提供类似 OpenClaw 的 WebUI 能力，仅用于本地服务调试，不用于实际生产环境。旧 `worker-access` 已退出当前 workspace，不作为已完成的设备 Agent 访问方案。
 
+## 旧装配方式的处理
+
+#294 明确删除旧 worker 启动、stdio WorkerRpc、心跳与恢复实现。旧 workerEntrypoint、manifest 和模块路径选项直接拒绝，不保留兼容入口或升级路径。旧格式资源记录不能证明当前资源归属，因此明确拒绝并保留原文件，不自动转换、清理或终止进程。此决定只替换错误装配架构，不授权重置用户 Home、身份或 Provider 数据。
+
 ## 保持的执行约束
 
 - 更新不默认采用破坏性切换，也不统一排除兼容或迁移方案；按具体需求评估宿主、SDK、Adapter、Extra 与已安装 Runtime 的影响。历史方案中的删库或状态重置授权不延续至后续任务；既有 Runtime 身份、Home、profile、配置与运行状态的删除或重新初始化须有当前任务的明确目标与授权。

@@ -70,7 +70,7 @@ async function fixture(t) {
     // 先确认本专项 Provider 已退出，再删除其目录；不把 kill 请求当回收证据。
     for (const row of await readTrace({ trace })) {
       if (row.pid) assert.throws(() => process.kill(row.pid, 0), { code: "ESRCH" });
-      if (row.workerPid) assert.throws(() => process.kill(row.workerPid, 0), { code: "ESRCH" });
+      if (row.hostPid) assert.throws(() => process.kill(row.hostPid, 0), { code: "ESRCH" });
       if (row.temporary) await rm(row.temporary, { recursive: true, force: true });
     }
     await rm(directory, { recursive: true, force: true });
@@ -132,7 +132,7 @@ async function cli(settings, value, { signal, cleanup } = {}) {
       timedOut = true;
       cleanupTask = (async () => {
         const rows = await readTrace(settings);
-        const pids = new Set(rows.flatMap((row) => [row.pid, row.workerPid]).filter(Boolean));
+        const pids = new Set(rows.flatMap((row) => [row.pid, row.hostPid]).filter(Boolean));
         // 所属 Provider/worker 先退，CLI 最后；每个 PID 的退出确认独立有界。
         for (const pid of pids) await terminateFixtureProcess(pid);
         await terminateFixtureProcess(child.pid);

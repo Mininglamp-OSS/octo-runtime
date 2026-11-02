@@ -94,7 +94,13 @@ test("native orphan evidence blocks replacement until the dead owner's exact rec
   assert.equal(await readFile(archivePath, "utf8"), source);
   assert.equal((await inspectOrphanCleanup(path)).state, "acknowledged");
   // 旧确认不能放行后来变化的记录，即使 owner PID 没变。
-  await writeFile(path, JSON.stringify({ ...evidence, updatedAt: "changed" }));
+  await writeFile(
+    path,
+    JSON.stringify({
+      ...evidence,
+      updatedAt: new Date(Date.parse(evidence.updatedAt) + 1000).toISOString()
+    })
+  );
   await assert.rejects(InvocationManifest.open(path), { code: "ORPHAN_CLEANUP_INCOMPLETE" });
   await acknowledgeOrphanCleanup(path);
   const replacement = await InvocationManifest.open(path);
@@ -104,7 +110,7 @@ test("native orphan evidence blocks replacement until the dead owner's exact rec
   assert.equal(await readFile(archivePath, "utf8"), source);
 });
 
-test("cleanup diagnostics distinguish live native ownership from actual and legacy failures", async (t) => {
+test("cleanup diagnostics distinguish live native ownership from failure and reject legacy records", async (t) => {
   const home = await mkdtemp(join(tmpdir(), "octo-cleanup-diagnostics-"));
   t.after(() => rm(home, { recursive: true, force: true }));
   const path = join(home, "kernel-invocations.json");
@@ -114,7 +120,7 @@ test("cleanup diagnostics distinguish live native ownership from actual and lega
   await manifest.markCleanupIncomplete();
   assert.equal((await inspectOrphanCleanup(path)).state, "cleanup_incomplete");
   await assert.rejects(acknowledgeOrphanCleanup(path), /ORPHAN_CLEANUP_OWNER_ALIVE/);
-  // 旧 schemaVersion 1 的失败记录没有 nativeOwner/cleanupFailed，也不能因 owner 活着被隐藏。
+  // 旧 worker 记录不迁移、不删除，也不能通过人工确认转成原生记录。
   await writeFile(
     path,
     JSON.stringify({
@@ -125,7 +131,9 @@ test("cleanup diagnostics distinguish live native ownership from actual and lega
       invocations: []
     })
   );
-  assert.equal((await inspectOrphanCleanup(path)).state, "cleanup_incomplete");
-  await assert.rejects(acknowledgeOrphanCleanup(path), /ORPHAN_CLEANUP_OWNER_ALIVE/);
-  await manifest.close();
+  const legacy = await readFile(path, "utf8");
+  assert.equal((await inspectOrphanCleanup(path)).state, "unsupported");
+  await assert.rejects(acknowledgeOrphanCleanup(path), { code: "ORPHAN_RECORD_UNSUPPORTED" });
+  await assert.rejects(InvocationManifest.open(path), { code: "ORPHAN_RECORD_UNSUPPORTED" });
+  assert.equal(await readFile(path, "utf8"), legacy);
 });

@@ -53,7 +53,7 @@ owner 等待 initialize 后使用 client。close 幂等，closed 返回同一个
 
 关闭先停止接纳、关闭连接，再取消 Core、等待 Adapter 清理和回收 Run/日志/端点。共用 5 秒截止时间，不为每步重启预算。Adapter next 异常可能来自 finally，不能据此证明清理完成；complete=false 保留失败事实和端点所有权证据。stateDirectory 可显式指定恢复记录目录；POSIX 缺省使用 endpoint + .runs，Windows 需显式配置才能保留该记录。
 
-原生 owner 的记录不是模块 manifest。异常退出后不能通过宿主 PID 推断 Provider 子进程已回收；保留 nativeOwner/cleanupIncomplete 证据，操作者确认资源已停止后沿既有 orphan-cleanup 确认流程处理。升级时旧 worker 记录仍按原身份校验后清理，不创建新 worker。
+原生 owner 的记录不是模块 manifest。异常退出后不能通过宿主 PID 推断 Provider 子进程已回收；保留 nativeOwner/cleanupIncomplete 证据，操作者确认资源已停止后沿既有 orphan-cleanup 确认流程处理。旧 worker 格式或损坏记录报 ORPHAN_RECORD_UNSUPPORTED 并保留原文件；不提供旧架构兼容、升级或自动清理。
 
 Kernel 与 Adapter 共享宿主事件循环、内存及故障域。RPC 不隔离同步阻塞、process.exit 或 OOM；关闭期限要求事件循环可调度。服务重建产生新 kernel_instance_id，旧 Run 不重放。Adapter 内部 Provider 进程仍由 Adapter 回收。
 

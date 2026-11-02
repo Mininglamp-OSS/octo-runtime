@@ -23,14 +23,6 @@ export {
   InvocationManifest,
   acknowledgeOrphanCleanup,
   inspectOrphanCleanup,
-  processStartIdentity,
   reapOrphanedInvocationManifest
 } from "./invocation-manifest.js";
-export {
-  WorkerRpcClient,
-  WorkerRpcServer,
-  type WorkerRpc,
-  type RpcTrace,
-  type RpcTraceDirection
-} from "./rpc.js";
 export { acquireEndpoint } from "./endpoint.js";

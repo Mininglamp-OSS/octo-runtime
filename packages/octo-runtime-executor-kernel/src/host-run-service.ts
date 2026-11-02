@@ -1,4 +1,4 @@
-import type { ExecutionSource } from "./rpc.js";
+import type { ExecutionSource } from "./execution-source.js";
 import {
   createInputInvoke,
   assertInvokeRequestSize,

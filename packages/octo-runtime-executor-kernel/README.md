@@ -53,7 +53,7 @@ Await initialize before accessing client. close is idempotent; closed resolves t
 
 Shutdown stops admission and closes connections, then cancels Core, awaits Adapter cleanup, and releases Run/log/endpoint resources under one five-second deadline. An Adapter next rejection may originate in finally, so it cannot prove cleanup. complete=false retains failure and endpoint ownership evidence. stateDirectory selects the recovery-record directory; POSIX defaults to endpoint + .runs. Windows needs an explicit directory to retain this record.
 
-The ownership record is not a module manifest. After abnormal host exit, nativeOwner/cleanupIncomplete evidence is retained rather than treating the host PID as a child to kill. Operators stop remaining resources and use the existing orphan-cleanup acknowledgement flow. Legacy worker records are still checked against original process identity before cleanup; this does not start replacement workers.
+The ownership record is not a module manifest. After abnormal host exit, nativeOwner/cleanupIncomplete evidence is retained rather than treating the host PID as a child to kill. Operators stop remaining resources and use the existing orphan-cleanup acknowledgement flow. Legacy worker formats and malformed records fail with ORPHAN_RECORD_UNSUPPORTED and remain untouched. No legacy compatibility, upgrade, or automatic cleanup is provided.
 
 Kernel and Adapters share the host event loop, memory, and failure domain. RPC does not isolate blocking code, process.exit, or OOM; deadlines require a schedulable event loop. Reconstruction creates a new kernel_instance_id and never replays old Runs. Adapters remain responsible for Provider subprocess cleanup.
 

@@ -4,7 +4,7 @@ import { appendFileSync } from "node:fs";
 // 专项独占的假 Provider；回执记录响应次数、实际 cwd 和 PID，不使用真实账号。
 const trace = (value) => appendFileSync(process.env.ORT166_TRACE, JSON.stringify(value) + "\n");
 const send = (value) => process.stdout.write(JSON.stringify(value) + "\n");
-trace({ pid: process.pid, workerPid: process.ppid, cwd: process.cwd() });
+trace({ pid: process.pid, hostPid: process.ppid, cwd: process.cwd() });
 let scenario;
 const identity = { threadId: "thread-166", turnId: "turn-166" };
 const finish = (status = "completed") =>

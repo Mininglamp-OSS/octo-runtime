@@ -34,7 +34,7 @@ Electron 的 composition root 是主进程；CLI 的 composition root 是对应�
 
 CLI 可继续通过原生服务管理器部署独立 Kernel/Extra 宿主进程；SDK 工厂自身不再创建执行 worker。Extra 的宿主函数留在对应服务进程。允许存在的 Provider 子进程归 Adapter 的本轮资源，不是 Kernel 的另一份执行服务。
 
-Kernel 的职责、允许/禁止案例和共享故障域见[架构案例](../../rules/architecture.md#装配职责与典型案例)。内部状态和遗留未确认清理记录不能因其旧实现名称含 manifest 而与 CLI 模块目录一起清空；模块配置读取和执行资源记录是不同职责，资源记录保留 schemaVersion 1，并新增可选 nativeOwner 标记；旧 worker 记录仍按原身份规则处理。
+Kernel 的职责、允许/禁止案例和共享故障域见[架构案例](../../rules/architecture.md#装配职责与典型案例)。内部状态和遗留未确认清理记录不能因其旧实现名称含 manifest 而与 CLI 模块目录一起清空；模块配置读取和执行资源记录是不同职责，资源记录只接受 schemaVersion 1 且 nativeOwner/cleanupIncomplete 为 true 的原生格式；旧 worker 或损坏记录明确拒绝并保留原文件，不升级、不清理。旧 WorkerRpc、心跳、进程身份探测和 worker 恢复实现全部删除，不提供兼容层。
 
 ## 本轮范围
 

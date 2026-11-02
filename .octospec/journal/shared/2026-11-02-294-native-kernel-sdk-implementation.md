@@ -11,7 +11,7 @@ tags: [architecture, adapter, ipc, lifecycle, testing, documentation]
 
 Kernel 只接收 endpoint 与宿主已构造的 Adapter 等配置值，在服务进程注册到唯一 AgentExecutor；真实 socket/pipe RPC、HostRunService、Run 身份、观察恢复和控制继续保留。删除执行 worker launcher/supervisor/runner 及 Kernel 模块 loader；CLI 自己读取 manifest、import、调用工厂和完成 OpenClaw 准备。常驻服务与 Playboard 均使用同一个原生工厂。
 
-状态不再包含虚构的 worker generation/recovery，CLI 展示 execution_ready。Core、Run 与日志共用关闭预算，清理失败保留资源记录；资源记录中的 manifest 命名不代表 Kernel 仍读取模块 manifest。旧 worker 身份回收兼容保留，原生 owner 异常退出的资源确认不杀宿主、不伪造成功。
+状态不再包含虚构的 worker generation/recovery，CLI 展示 execution_ready。Core、Run 与日志共用关闭预算，清理失败保留资源记录；资源记录中的 manifest 命名不代表 Kernel 仍读取模块 manifest。按用户最终决定，旧 WorkerRpc、心跳及 worker 身份回收实现全部删除，不提供兼容或升级。旧格式明确拒绝并保留原文件；原生 owner 异常退出的资源确认不杀宿主、不伪造成功。
 
 双语 SDK 页改为 API 用途/签名表和具体调用例子；不规定唯一加载方式，仅一句建议 pnpm workspace + Git submodule。CLI 运维、排障、模块加载、架构和相关 README 与实现对齐，不维护签名迁移表。当前规则正文集中在 `.octospec/rules/`；历史 worker 的执行证据留在各自历史任务。
 

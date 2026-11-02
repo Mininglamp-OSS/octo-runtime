@@ -77,4 +77,4 @@ status: implemented-locally
 
 ## 实施决策
 
-KernelStatus 只保留协议版本、instance、宿主 pid 和 execution_ready；不提供 worker 恢复状态。资源记录兼容旧 worker 身份，并对原生 owner 保留清理未确认事实。逐调用环境继续通过 RPC 的 InvokeEnvironment 传递，Kernel 不修改 process.env。日志在 Core/Run 排空后关闭。具体测试与边界见[验证记录](validation.md)。
+KernelStatus 只保留协议版本、instance、宿主 pid 和 execution_ready；不提供 worker 恢复状态。资源记录仅接受原生 owner 格式并保留清理未确认事实；旧 worker 格式拒绝且不改写，不提供兼容或升级。旧 stdio WorkerRpc、心跳和 worker 恢复实现一并删除。逐调用环境继续通过 RPC 的 InvokeEnvironment 传递，Kernel 不修改 process.env。日志在 Core/Run 排空后关闭。具体测试与边界见[验证记录](validation.md)。

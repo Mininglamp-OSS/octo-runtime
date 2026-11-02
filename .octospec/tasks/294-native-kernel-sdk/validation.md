@@ -36,6 +36,16 @@ SDK 章节按最新指令区分服务接入、高级 dependencies 和可选 Agen
 
 提交准备阶段已按既有格式范围格式化修改文件，重新生成受格式变化影响的 native 摘要；format:check、native:check 通过。最新 typecheck（含构建）及默认全量重跑通过，仍为 WebUI 35、Node 2370 通过/69 跳过/0 失败。对 CI YAML 结构做前后比较，确认触发器、jobs、矩阵、Gate 依赖和步骤数量均未扩展，所有显式测试路径存在。main 当前保护规则要求 CI Gate 及 1 个批准评审，不能绕过，也未更改仓库设置。
 
+## 删除旧架构后的最终验证
+
+按用户“不提供兼容或升级”的最终决定删除 WorkerRpc、心跳、旧资源身份回收及其专属测试。Core/Adapter 适用测试改为真实 Kernel socket RPC；原生资源记录专项 25 通过、4 平台跳过，RPC 迁移定向 56 通过，两套显式手动 fixture 30 通过。
+
+最终 `pnpm typecheck`（含构建）、lint、lint:names、format:check、docs:check、native:check 通过。全量首次发现发行测试仍断言已删除的 worker 身份查询超时配置，删除该旧机制断言后发行文件重验通过；完整 `pnpm test:suites` 重跑为 WebUI 35 通过、Node 2419 项中 2352 通过/67 跳过/0 失败。两阶段数量变化来自删除旧架构专属用例，不通过跳过失败规避回归。
+
+最终重新打包并通过 `verify-release.mjs`：空缓存离线安装、公开 SDK 类型、原生 Kernel、独立 Extra、Gateway 宿主存储、CLI 服务及卸载保留 Home 均通过，未发布包。OKF 仍为 610 单元、20 规则、3886 链接通过；修改的手动 IM 脚本语法通过，未执行线上验证。
+
+CI YAML 再次结构比对通过，新增删除 heartbeat 失效路径后累计移除 5 个旧 worker 测试引用；现有 jobs、矩阵、触发器、Gate 依赖及步骤数量不变，所有显式测试路径存在。PR #295 首个提交的六个平台/Node 组合和 CI Gate 均通过；本轮后续提交结果独立核对，不复用旧 head 的通过状态。仓库要求 1 个批准评审且不启用自动合并，未更改保护设置。
+
 ## 合同与证据
 
 | 合同 | 验证与结果 |
@@ -44,11 +54,11 @@ SDK 章节按最新指令区分服务接入、高级 dependencies 和可选 Agen
 | CLI 独占模块装配 | `adapter-host-manifest`、`native-module-selection`、`module-loading`、`channel-tool-environment` 覆盖 manifest 来源、未选模块不加载、工厂次数、真实 type 与 OpenClaw 准备；常驻和 Playboard 使用相同对象工厂 |
 | 接纳、观察与执行分离 | 既有 Kernel invoke/lifecycle/clients、Host SDK、Core 测试迁移后通过；Go/Python 覆盖 ACK 丢失、原身份查询、断线续流、gap/expired、instance 改变、取消/回答 ACK 未知 |
 | Provider 子进程仍由 Adapter 管理 | ACP、NDJSON、CodeBuddy、DSH 等 fake Provider 的启动、交互、异常与清理回归通过；未把 Provider 子进程改成 Kernel worker |
-| 有界关闭和失败事实 | Core finally 完成后才关闭日志；失败/超时报告 incomplete。原生资源记录保留，活 owner 拒绝人工确认，变更后的记录不能复用旧确认；旧 worker 资源恢复测试保留 |
+| 有界关闭和失败事实 | Core finally 完成后才关闭日志；失败/超时报告 incomplete。原生资源记录保留，活 owner 拒绝人工确认，变更后的记录不能复用旧确认；旧 worker 资源格式明确拒绝且原文件不变，不支持旧架构恢复 |
 | Extra 所有权 | Host SDK/Extra 回归与手动 Gateway 专项通过；Extra 关闭不关闭共享 Kernel，独立调用仍完成 |
 | 公共文档 | SDK 页仅用途/签名表与实例；源码加载由宿主选择，一句建议 pnpm workspace + Git submodule。CLI、架构、排障、Kernel/Core/DSH README 同步修正 |
 
-删除的 supervisor/worker 心跳、自动替换和执行 worker 强杀专属用例对应已删除的机制；原生装配、取消、绑定、关闭及对象身份用例替代其适用部分。没有将同进程 RPC 写成进程隔离，也没有保留“杀 worker 后原宿主继续服务”的承诺。内部低层字节流 RPC 类为兼容现有流调用方保留，但标准服务不使用它们启动进程。
+删除的 supervisor/worker 心跳、自动替换和执行 worker 强杀专属用例对应已删除的机制；原生装配、取消、绑定、关闭及对象身份用例替代其适用部分。没有将同进程 RPC 写成进程隔离，也没有保留“杀 worker 后原宿主继续服务”的承诺。按用户最终决定，内部 WorkerRpc 类及其专属测试全部删除；仍适用的 Core/Adapter 验收改经真实 Kernel socket RPC，不提供兼容或升级。
 
 ## 验证边界
 
