@@ -99,7 +99,7 @@ Everything in this directory is a private `@mininglamp-oss/octo-runtime-*` works
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
 | `octo-runtime-protocol`              | `/protocol`, plus `/protocol/schema.json`                                                                    |
 | `octo-runtime-executor-core`         | `/executor-core`: `AgentExecutor`                                                                            |
-| `octo-runtime-executor-kernel`       | `/executor-kernel`: `attachKernel`, `createKernelService`, `serveWorker`, `/executor-kernel/ipc-schema.json` |
+| `octo-runtime-executor-kernel`       | `/executor-kernel`: `attachKernel`, `createKernelService`, `/executor-kernel/ipc-schema.json` |
 | `octo-runtime-host-sdk`              | `/host`: `createExtraService`, `componentEndpoint`; `/extra`: plugin types                                   |
 | `octo-runtime-adapter-dsh`           | `/adapters/dsh`: `dshAdapter`, `createDshAdapter`                                                            |
 | `octo-runtime-extra-channel-gateway` | `/extras/channel-gateway`                                                                                    |

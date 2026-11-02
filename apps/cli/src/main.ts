@@ -1,10 +1,10 @@
+import { loadCliAdapters } from "./adapters.js";
 import { runExtraCommand, commandError } from "./extra-commands.js";
 import net from "node:net";
 import { randomUUID } from "node:crypto";
 import { once } from "node:events";
 import { lstat, mkdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import {
   attachKernel,
   acknowledgeOrphanCleanup,
@@ -330,23 +330,19 @@ export async function runCli(args: string[], dependencies: CliDependencies = {})
           logging: { directory: join(home, "logs") },
           endpoint,
           stateDirectory: kernelStateDirectory,
-          workerEntrypoint: fileURLToPath(new URL("./worker.js", import.meta.url)),
-          adapterModules: resolveAdapterModules(manifest),
+          adapters: await loadCliAdapters(resolveAdapterModules(manifest), {
+            profileRoot: paths.profileRoot,
+            syncOpenClawTools: true
+          }),
           adapterConfigurations: await readCliAdapterConfigurations(
             paths.profileRoot,
             config?.adapters,
             manifest,
             dependencies.env ?? process.env
-          ),
-          env: {
-            ...(dependencies.env ?? process.env),
-            OCTO_RUNTIME_HOME: home,
-            OCTO_RUNTIME_CLI_PROFILE_ROOT: paths.profileRoot,
-            OCTO_RUNTIME_CLI_SYNC_OPENCLAW_TOOLS: "1",
-            OCTO_RUNTIME_LOGS_DIRECTORY: join(home, "logs")
-          }
+          )
         });
       } else {
+        // CLI 的 Gateway 等 Extra 独立托管；ExtraService 内部 attach 已有 Kernel，不创建执行内核。
         const registration = await readExtra(paths, component, manifest);
         const module =
           registration.enabled === false

@@ -99,7 +99,7 @@ Host SDK 依赖 Kernel；Core 和 Kernel 不依赖 Host SDK。本地执行不需
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
 | `octo-runtime-protocol`              | `/protocol`，以及 `/protocol/schema.json`                                                                    |
 | `octo-runtime-executor-core`         | `/executor-core`：`AgentExecutor`                                                                            |
-| `octo-runtime-executor-kernel`       | `/executor-kernel`：`attachKernel`、`createKernelService`、`serveWorker`、`/executor-kernel/ipc-schema.json` |
+| `octo-runtime-executor-kernel`       | `/executor-kernel`：`attachKernel`、`createKernelService`、`/executor-kernel/ipc-schema.json` |
 | `octo-runtime-host-sdk`              | `/host`：`createExtraService`、`componentEndpoint`；`/extra`：插件类型                                       |
 | `octo-runtime-adapter-dsh`           | `/adapters/dsh`：`dshAdapter`、`createDshAdapter`                                                            |
 | `octo-runtime-extra-channel-gateway` | `/extras/channel-gateway`                                                                                    |

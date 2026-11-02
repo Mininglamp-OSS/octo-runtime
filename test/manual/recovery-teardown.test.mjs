@@ -294,7 +294,7 @@ for (const { mode, action, bodyFailure = false } of [
         assert.equal(events[independent].unrelatedCompleted, true);
         assert.equal(events[independent].freshCompleted, true);
         assert.ok(index("executor-kernel", "graceful-exit", "done") > kernelTerm);
-        assert.ok(state.workers.length >= (action === "pause" ? 2 : 1), "track worker generations");
+        assert.deepEqual(state.workers, [], "native Kernel starts no execution workers");
         for (const pid of [...state.children.map((row) => row.pid), ...state.workers])
           assert.equal(alive(pid), false, `leaked pid ${pid}`);
         assert.equal(alive(state.testPid), false, "test-file runner must also exit");

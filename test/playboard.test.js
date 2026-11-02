@@ -306,10 +306,10 @@ test("temporary daemon renders ordered context and leaves no identity or process
   assert.equal(wire.controlInstructions, "control-only");
   assert.ok(wire.modelInput.indexOf("business-b") < wire.modelInput.indexOf("business-a"));
   assert.doesNotMatch(wire.modelInput, /control-only|test-model/);
-  assert.doesNotMatch(result.stderr, /playboard fixture diagnostic/);
+  assert.match(result.stderr, /playboard fixture diagnostic/);
   assert.doesNotMatch(result.stdout, /playboard fixture diagnostic/);
   assert.throws(() => process.kill(wire.hostPid, 0), { code: "ESRCH" });
-  assert.throws(() => process.kill(wire.daemonPid, 0), { code: "ESRCH" });
+  assert.equal(wire.daemonPid, wire.hostPid);
   assert.equal(wire.runMetadata.profile, "default");
   const repeated = await execute(settings, request);
   assert.equal(observed(repeated).modelInput, wire.modelInput);
@@ -445,9 +445,7 @@ test("Ctrl+C cancels execution and reaps the temporary daemon and Host", async (
   assert.throws(() => process.kill(JSON.parse(frame.payload.text).hostPid, 0), {
     code: "ESRCH"
   });
-  assert.throws(() => process.kill(JSON.parse(frame.payload.text).daemonPid, 0), {
-    code: "ESRCH"
-  });
+  assert.equal(JSON.parse(frame.payload.text).daemonPid, JSON.parse(frame.payload.text).hostPid);
   assert.throws(() => process.kill(result.pid, 0), { code: "ESRCH" });
   assert.deepEqual(await readdir(temporary), []);
   const next = await execute(settings, echoInput("after cancellation"), { env });

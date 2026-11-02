@@ -17,7 +17,7 @@ export interface KernelStatusRecord {
   data: Record<string, string | number>;
 }
 
-/** Kernel 父进程的监督诊断白名单；读盘时也重建，绝不包含执行正文或原始异常。 */
+/** Kernel 生命周期诊断白名单（兼容读取旧 worker 日志）；读盘时也重建，绝不包含执行正文或原始异常。 */
 export function kernelStatusRecord(
   level: RuntimeLogLevel,
   event: string,
@@ -27,6 +27,11 @@ export function kernelStatusRecord(
   if (
     !["info", "warn", "error"].includes(level) ||
     ![
+      "kernel.ready",
+      "kernel.closing",
+      "kernel.execution_drained",
+      "kernel.cleanup_incomplete",
+      "kernel.start_failed",
       "worker.ready",
       "worker.lost",
       "worker.recovery_blocked",

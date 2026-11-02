@@ -14,14 +14,15 @@ for (const custom of [false, true])
     { timeout: 180000 },
     async (t) => {
       const f = await kernelFixture(t, {
-        manifest: undefined,
-        adapterModules: [
+        adapters: await (
+          await import("../../apps/cli/dist/adapters.js")
+        ).loadCliAdapters([
           {
             type: "codex",
             module: resolve("packages/octo-runtime-adapter-codex/dist/index.js"),
             export: "default"
           }
-        ]
+        ])
       });
       const marker = `LATE_${randomUUID().replaceAll("-", "")}`;
       const prompt = `Local async-input test. Invoke request_user_input_async with exactly one question titled "Test color?" and options ["${marker}", "Green"]. After publishing the question, finish this turn immediately with "Original turn complete". Do not wait for an answer. In a later turn, when supplemental answers arrive, repeat the exact supplied answer including the complete LATE marker. No file edits or network requests. Use Default mode, no synchronous question.`;

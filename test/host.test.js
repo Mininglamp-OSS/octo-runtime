@@ -5,11 +5,7 @@ import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import { PassThrough, Writable } from "node:stream";
 import { AgentExecutor } from "@mininglamp-oss/octo-runtime-executor-core";
-import {
-  WorkerRpcClient,
-  WorkerRpcServer,
-  spawnWorker
-} from "@mininglamp-oss/octo-runtime-executor-kernel";
+import { WorkerRpcClient, WorkerRpcServer } from "@mininglamp-oss/octo-runtime-executor-kernel";
 import { contextHash, invocationInput } from "@mininglamp-oss/octo-runtime-protocol";
 
 const request = {

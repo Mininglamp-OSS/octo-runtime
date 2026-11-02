@@ -1,10 +1,9 @@
 import { spawn } from "node:child_process";
-import { serveWorker } from "@mininglamp-oss/octo-runtime-executor-kernel";
 import { createCodexAdapter } from "../packages/octo-runtime-adapter-codex/dist/index.js";
 
 // 只替换本次验收第一个 Provider 进程的上游，不改用户的 config.toml 或认证文件。
 let first = true;
-serveWorker([
+export const adapters = [
   createCodexAdapter({
     spawnFn(command, args, options) {
       const overrides = first
@@ -47,4 +46,4 @@ serveWorker([
       return spawn(command, [...args, ...overrides], spawnOptions);
     }
   })
-]);
+];

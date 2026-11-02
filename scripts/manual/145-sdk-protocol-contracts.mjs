@@ -391,7 +391,11 @@ test(
       join(process.platform === "darwin" ? "/tmp" : tmpdir(), "ort145-")
     );
     const endpoint = componentEndpoint(directory);
-    const service = createKernelService({ endpoint, workerEntrypoint });
+    const service = createKernelService({
+      endpoint,
+      adapters: (await import((await import("node:url")).pathToFileURL(workerEntrypoint).href))
+        .adapters
+    });
     const sockets = new Set();
     const errors = [];
     let client;

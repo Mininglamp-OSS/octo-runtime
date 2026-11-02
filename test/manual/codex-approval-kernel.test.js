@@ -10,7 +10,13 @@ for (const mode of ["native", "canonical"])
     { timeout: 15000 },
     async (t) => {
       const f = await kernelFixture(t, {
-        workerEntrypoint: resolve("test/manual/codex-approval-worker.mjs")
+        adapters: (
+          await import(
+            (await import("node:url")).pathToFileURL(
+              resolve("test/manual/codex-approval-worker.mjs")
+            ).href
+          )
+        ).adapters
       });
       const run = async (scenario) => {
         const events = [];

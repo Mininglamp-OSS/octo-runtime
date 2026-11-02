@@ -15,14 +15,15 @@ import { kernelFixture } from "../kernel-fixture.js";
 import { invokeRequest } from "../runtime-fixture.js";
 
 const options = {
-  manifest: undefined,
-  adapterModules: [
+  adapters: await (
+    await import("../../apps/cli/dist/adapters.js")
+  ).loadCliAdapters([
     {
       type: "codex",
       module: resolve("test/manual/fixtures/codex-async-adapter.mjs"),
       export: "default"
     }
-  ]
+  ])
 };
 const value = {
   schema: "octo.question-response/v1",
@@ -167,8 +168,19 @@ test(
     assert.equal((await f.server.close()).complete, true);
     const server = createKernelService({
       endpoint: f.endpoint,
-      workerEntrypoint: resolve("packages/octo-runtime-executor-kernel/dist/runner.js"),
-      ...options
+      ...options,
+      adapters: await (
+        await import("../../apps/cli/dist/adapters.js")
+      ).loadCliAdapters(
+        (
+          await (
+            await import("../../packages/octo-runtime-adapter-sdk/dist/module-manifest.js")
+          ).readModuleManifest(
+            new URL("../../apps/cli/dist/manifest.json", import.meta.url).pathname,
+            { legacy: true }
+          )
+        ).adapters
+      )
     });
     t.after(() => server.close());
     await server.initialize();

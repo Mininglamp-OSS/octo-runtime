@@ -1,4 +1,4 @@
-// Kernel 只提供 IPC、Run 观察与 worker 监督；执行逻辑统一委托给 worker 中的 Core。
+// Kernel 在宿主进程拥有 Core 与 Run 管理；所有业务调用统一经过本地 RPC。
 export {
   type HostedAdapter,
   type HostedAdapterMetadata,
@@ -26,10 +26,6 @@ export {
   processStartIdentity,
   reapOrphanedInvocationManifest
 } from "./invocation-manifest.js";
-export { readAdapterConfigurations } from "./runtime-configuration.js";
-export { spawnWorker } from "./process.js";
-export { serveWorker } from "./serve.js";
-export type { WorkerProcess, SpawnWorkerOptions } from "./process.js";
 export {
   WorkerRpcClient,
   WorkerRpcServer,

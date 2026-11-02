@@ -13,14 +13,15 @@ for (const custom of [false, true]) {
     { timeout: 150000 },
     async (t) => {
       const f = await kernelFixture(t, {
-        manifest: undefined,
-        adapterModules: [
+        adapters: await (
+          await import("../../apps/cli/dist/adapters.js")
+        ).loadCliAdapters([
           {
             type: "codex",
             module: resolve("packages/octo-runtime-adapter-codex/dist/index.js"),
             export: "default"
           }
-        ]
+        ])
       });
       const marker = `ASYNC_${randomUUID().replaceAll("-", "")}`;
       const prompt = `This is a local async-input test. Invoke request_user_input_async with exactly one question, title "Test color?", and options ["${marker}", "Green"]. Then run a shell command sleeping for 8 seconds to keep the turn active. After that, report the exact answer you receive, including its full ASYNC marker. Do not edit files or make network requests. Do not ask a synchronous question. Use Default mode.`;

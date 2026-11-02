@@ -224,9 +224,9 @@ for (const mode of ["canonical", "native"]) {
     const settings = await fixture(t);
     const kernel = createKernelService({
       endpoint: join(settings.directory, "k.sock"),
-      workerEntrypoint: join(root, "apps/cli/dist/worker.js"),
-      adapterModules: [settings.adapter],
-      env: settings.env
+      adapters: await (
+        await import("../../apps/cli/dist/adapters.js")
+      ).loadCliAdapters([settings.adapter])
     });
     try {
       await kernel.initialize();

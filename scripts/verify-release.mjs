@@ -312,11 +312,6 @@ export async function verifyRelease(archiveInput, { expectedCommit, requireClean
       { cwd: consumer, timeout: 30_000, label: "Compile documentation examples" }
     );
     await cp(join(root, "test/fixtures/invoke-adapter.js"), join(consumer, "docs-adapter.mjs"));
-    await writeFile(
-      join(consumer, "docs-worker.mjs"),
-      'import { serveWorker } from "@mininglamp-oss/octo-runtime/executor-kernel";\n' +
-        'import { testAdapter } from "./docs-adapter.mjs";\nserveWorker([testAdapter]);\n'
-    );
     await execute(
       process.execPath,
       [
@@ -326,11 +321,12 @@ export async function verifyRelease(archiveInput, { expectedCommit, requireClean
       import assert from "node:assert/strict";
       import { resolve } from "node:path";
       import { componentEndpoint } from "@mininglamp-oss/octo-runtime/host";
+      import { testAdapter } from "./docs-adapter.mjs";
       import { runOwnedInvocation } from "./docs-examples/service.mts";
       let completed = false;
       await runOwnedInvocation({
         endpoint: componentEndpoint(resolve("docs-home")),
-        workerEntrypoint: resolve("docs-worker.mjs")
+        adapters: [testAdapter]
       }, {
         inputs: [{type: "text", text: "documentation package example"}],
         contexts: {schema: "octo.context-envelope/v3", items: [

@@ -48,9 +48,9 @@ Harness 是 Adapter 背后实际运行 Agent 的程序，负责模型调用、�
 
 `dsh` 要求通过 npm 安装 **`0.2.1-rc.4` 或更高版本**的 `@deepseek-ai/dsh` Provider。这与 Adapter 内固定为 `0.2.1-rc.3` 的未修改官方 Client SDK 不同。Provider 使用 `sdk` profile。Runtime CLI 宿主自动将 PATH 中首个 `dsh` 解析为 npm 包的 JS 入口，通过 `providerOptions.dshBin` 同时传给 Kernel 发现与调用，`playboard` 使用同一逻辑。`<home>/<profile>/config.json` 中显式的 `adapters.dsh.execution.provider_options.dshBin` 优先，缺失或不兼容时不回退其他安装。SDK 宿主自行选择并传入入口；Adapter 不发现安装、不使用 Desktop/ASAR。默认账户 provider 为 deepseek-account，只接受显式 full_access。SDK 注册与配置见 [DSH Adapter](../../../packages/octo-runtime-adapter-dsh/README.md)。
 
-通用 `acp` 是接入其他 ACP Harness 的 Adapter 工厂，不是需要另外安装的 Harness。通过 `createAcpAdapter` 配置命令和参数，并将返回的 Adapter 注册到 worker 或 manifest；默认 CLI manifest 未注册这个通用类型，见[工厂实现](../../../packages/octo-runtime-adapter-acp/src/index.ts)和 [ACP 文档](https://agentclientprotocol.com/get-started/introduction)。
+通用 `acp` 是接入其他 ACP Harness 的 Adapter 工厂，不是需要另外安装的 Harness。通过 `createAcpAdapter` 配置命令和参数，并将返回的 Adapter 原生注入 createKernelService；CLI 则由宿主 manifest 选择该工厂；默认 CLI manifest 未注册这个通用类型，见[工厂实现](../../../packages/octo-runtime-adapter-acp/src/index.ts)和 [ACP 文档](https://agentclientprotocol.com/get-started/introduction)。
 
-安装完成后，按 [CLI 安装与调用](../getting-started/cli.md)检查所选 Adapter，并发送一个小任务。worker 不能直接执行 shell alias；后台服务也需要正确的 `PATH`、用户目录和账号配置，修改服务环境后需重启服务。
+安装完成后，按 [CLI 安装与调用](../getting-started/cli.md)检查所选 Adapter，并发送一个小任务。Adapter 不能直接执行 shell alias；后台服务也需要正确的 `PATH`、用户目录和账号配置，修改服务环境后需重启服务。
 
 ## 开启 Codex Computer Use
 
@@ -59,7 +59,7 @@ Harness 是 Adapter 背后实际运行 Agent 的程序，负责模型调用、�
 
 可用区域和平台配置以 [OpenAI Computer Use 官方文档](https://learn.chatgpt.com/docs/computer-use)为准。
 
-接入 Runtime 时，使用相同的操作系统账号和 `CODEX_HOME` 运行 worker。[Codex Adapter](../../../packages/octo-runtime-adapter-codex/src/index.ts) 使用真实的该目录启动 `codex app-server`，因此已有 Codex 配置和插件状态仍然可用。Runtime 没有 `computer_use: true` 配置项，`full_access` 也不会安装插件或授予操作系统权限。
+接入 Runtime 时，使用相同的操作系统账号和 `CODEX_HOME` 运行宿主进程。[Codex Adapter](../../../packages/octo-runtime-adapter-codex/src/index.ts) 使用真实的该目录启动 `codex app-server`，因此已有 Codex 配置和插件状态仍然可用。Runtime 没有 `computer_use: true` 配置项，`full_access` 也不会安装插件或授予操作系统权限。
 
 上述官方步骤用于开启桌面功能；该安装是否将所需工具提供给当前 CLI/app-server，还需要通过 Runtime 实际调用确认，本文的自动化测试未验证 Computer Use 兼容性。如果调用中没有这些工具，应先检查 Codex 版本、`CODEX_HOME`、插件配置和 app-server 可见工具，再决定是否修改 Runtime MCP 配置。应用还需要处理受支持的审批请求，见[输出与控制](../reference/output-and-control.md)。
 

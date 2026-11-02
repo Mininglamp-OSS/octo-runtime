@@ -38,8 +38,8 @@ type RpcId = string | number | null;
 export type RpcTraceDirection = "send" | "receive";
 export type RpcTrace = (direction: RpcTraceDirection, frame: string) => void;
 
-/** Kernel 到 worker 的内部执行合同；取消回执 cancelled 由外层 RPC 映射为 accepted，均不表示终态。 */
-export interface WorkerRpc {
+/** 执行源的内部合同；取消回执 cancelled 由公开 RPC 映射为 accepted，均不表示终态。 */
+export interface ExecutionSource {
   list(configurations?: Record<string, AdapterProbeOptions>): Promise<HostedAdapterMetadata[]>;
   probe(adapterType: string, options?: AdapterProbeOptions): Promise<unknown>;
   cancel(invocationId: string, reason?: string): Promise<{ cancelled: boolean }>;
@@ -48,6 +48,9 @@ export interface WorkerRpc {
   invoke: InputInvoke;
   invokeFrames: InputFrames;
 }
+
+/** 兼容已有流传输调用方的类型名；不创建或监督进程。 */
+export type WorkerRpc = ExecutionSource;
 
 interface RpcMessage extends JsonRecord {
   jsonrpc: "2.0";
@@ -472,8 +475,8 @@ export class WorkerRpcServer {
 }
 
 /**
- * Kernel 持有的 worker RPC 客户端，将按身份校验的通知还原为有界异步流。
- * 这里只管理逻辑请求与流；进程存活、心跳和回收由 WorkerSupervisor/WorkerProcess 负责。
+ * 兼容低层字节流调用方的 RPC 客户端，将按身份校验的通知还原为有界异步流。
+ * 这里只管理外部提供的字节流；不创建进程。标准宿主接入使用 KernelClient 的 socket RPC。
  */
 export class WorkerRpcClient implements WorkerRpc {
   readonly invoke = createInputInvoke((input, environment) =>

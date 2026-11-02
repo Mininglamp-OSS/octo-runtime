@@ -1,3 +1,4 @@
+import { loadCliAdapters } from "./adapters.js";
 import {
   defaultRuntimeHome,
   runtimePaths,
@@ -11,7 +12,6 @@ import {
   createKernelService,
   type KernelService
 } from "@mininglamp-oss/octo-runtime-executor-kernel";
-import { fileURLToPath } from "node:url";
 import { componentEndpoint } from "@mininglamp-oss/octo-runtime-host-sdk";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -120,13 +120,10 @@ export async function runPlayboard(options: PlayboardOptions): Promise<number> {
     kernel = createKernelService({
       endpoint:
         process.platform === "win32" ? componentEndpoint(temporary) : join(temporary, "k.sock"),
-      workerEntrypoint: fileURLToPath(new URL("./worker.js", import.meta.url)),
-      adapterModules: resolveAdapterModules(manifest),
-      env: {
-        ...(options.env ?? process.env),
-        OCTO_RUNTIME_CLI_PROFILE_ROOT: paths.profileRoot,
-        OCTO_RUNTIME_CLI_SYNC_OPENCLAW_TOOLS: "0"
-      },
+      adapters: await loadCliAdapters(resolveAdapterModules(manifest), {
+        profileRoot: paths.profileRoot,
+        syncOpenClawTools: false
+      }),
       adapterConfigurations: await readCliAdapterConfigurations(
         paths.profileRoot,
         configuration?.adapters,

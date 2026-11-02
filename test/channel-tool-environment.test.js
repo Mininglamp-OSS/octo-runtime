@@ -1,3 +1,5 @@
+import { nativeHost } from "./native-host-fixture.js";
+import { adapter } from "./fixtures/tool-environment-adapter.js";
 import { preparedFrames } from "./runtime-fixture.js";
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -10,7 +12,7 @@ import { PassThrough } from "node:stream";
 import { randomUUID } from "node:crypto";
 import { octoCliEnvironment } from "@mininglamp-oss/octo-runtime-extra-channel-gateway";
 import { configureCliOpenClaw, syncCliOpenClawToolEnvironment } from "../apps/cli/dist/openclaw.js";
-import { spawnWorker, WorkerRpcClient } from "@mininglamp-oss/octo-runtime-executor-kernel";
+import { WorkerRpcClient } from "@mininglamp-oss/octo-runtime-executor-kernel";
 import {
   assertInvokeRequest,
   invocationInput,
@@ -120,18 +122,7 @@ test("tool overrides cross a real Host subprocess and reach child tools without 
       ]
     })
   );
-  const host = await spawnWorker({
-    entrypoint: resolve("packages/octo-runtime-executor-kernel/dist/runner.js"),
-    manifest,
-    env: {
-      ...process.env,
-      OCTO_RUNTIME_HOME: root,
-      OCTO_RUNTIME_LOGS_DIRECTORY: join(root, "logs"),
-      OCTO_BOT_TOKEN: "wrong-device",
-      OCTO_TOKEN: randomUUID(),
-      OCTO_API_BASE_URL: "wrong-device"
-    }
-  });
+  const host = await nativeHost([adapter], { logging: { directory: join(root, "logs") } });
   t.after(() => host.close());
   const original = structuredClone(context);
   const execute = async (value, index) => {

@@ -29,10 +29,8 @@ async function ready(path) {
   throw new Error("fixture did not become ready");
 }
 
-for (const transport of ["ACP", "NDJSON", "Host"])
-  for (const mode of transport === "Host"
-    ? ["normal"]
-    : ["normal", "ignore-term", "parent-exits"]) {
+for (const transport of ["ACP", "NDJSON"])
+  for (const mode of ["normal", "ignore-term", "parent-exits"]) {
     test(
       `${transport} reaps group after ${mode}; concurrent closes await same cleanup`,
       { skip: process.platform === "win32", timeout: 5000 },
@@ -51,14 +49,7 @@ for (const transport of ["ACP", "NDJSON", "Host"])
               mode
             ]
           };
-          if (transport === "Host") {
-            const { spawnWorker } = await import("@mininglamp-oss/octo-runtime-executor-kernel");
-            client = await spawnWorker({
-              entrypoint: options.args[0],
-              env: { ...process.env, OCTO_REVIEW_READY: readyPath, OCTO_REVIEW_TICKS: tickPath }
-            });
-            close = () => client.close();
-          } else if (transport === "ACP") {
+          if (transport === "ACP") {
             client = spawnAcpClient(options);
             close = () => client.close();
           } else {

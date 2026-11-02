@@ -23,6 +23,9 @@ interface ManifestFile {
   updatedAt: string;
   worker?: WorkerIdentity;
   cleanupIncomplete?: true;
+  nativeOwner?: true;
+  /** 实际关闭已报告失败/超时；区别于原生运行期间预先登记的保守标记。 */
+  cleanupFailed?: true;
   invocations: InvocationManifestEntry[];
 }
 
@@ -40,13 +43,16 @@ export interface OrphanReapResult {
 }
 
 /**
- * 持久化 Kernel/worker 身份与在途执行事实，用于下次启动时识别遗留资源，不保存业务历史。
- * 写入串行化并通过 rename 替换；只有 owner 确认 worker 回收后才能 close 删除清单。
+ * 持久化原生 Kernel 所有权与在途执行事实，兼容读取旧 worker 身份，不保存业务历史。
+ * 这是资源恢复记录，不是模块 manifest。写入串行化并通过 rename 替换；
+ * 只有 owner 确认 Core/Adapter 资源回收后才能 close 删除记录。
  */
 export class InvocationManifest {
   readonly #path: string;
   readonly #invocations = new Map<string, InvocationManifestEntry>();
   #worker?: WorkerIdentity;
+  #nativeOwner = false;
+  #cleanupFailed = false;
   #writes = Promise.resolve();
 
   private constructor(path: string) {
@@ -72,6 +78,18 @@ export class InvocationManifest {
     await manifest.#persist();
     await removeAcknowledgement(path);
     return { manifest, reap };
+  }
+
+  /** 原生服务异常退出无法证明 Adapter 资源已清空；正常 close 才删除所有权证据。 */
+  async markNativeOwner(): Promise<void> {
+    this.#nativeOwner = true;
+    await this.#persist();
+  }
+
+  /** owner 关闭未完成时登记实际失败；宿主继续存活也不能将诊断恢复为 available。 */
+  async markCleanupIncomplete(): Promise<void> {
+    this.#cleanupFailed = true;
+    await this.#persist();
   }
 
   async setWorker(pid: number | undefined, entrypoint: string): Promise<void> {
@@ -111,6 +129,12 @@ export class InvocationManifest {
       kernelPid: process.pid,
       updatedAt: new Date().toISOString(),
       ...(this.#worker ? { worker: { ...this.#worker } } : {}),
+      ...(this.#nativeOwner
+        ? { nativeOwner: true as const, cleanupIncomplete: true as const }
+        : {}),
+      ...(this.#cleanupFailed
+        ? { cleanupFailed: true as const, cleanupIncomplete: true as const }
+        : {}),
       invocations: [...this.#invocations.values()].map((entry) => ({ ...entry }))
     };
     // 当前调用仍收到自己的 IO 失败；后续完整快照可重试，不能让一次失败毒化整个串行队列。
@@ -148,6 +172,16 @@ export async function reapOrphanedInvocationManifest(path: string): Promise<Orph
     processAlive(parsed.kernelPid)
   ) {
     return { found: true, reaped: false, reason: "kernel_alive" };
+  }
+  // 原生 owner 没有可杀的 worker；禁止把宿主 PID 当成子进程处理。
+  if (parsed.nativeOwner && parsed.cleanupIncomplete) {
+    return {
+      found: true,
+      reaped: false,
+      reason: (await cleanupWasAcknowledged(path, source))
+        ? "cleanup_acknowledged"
+        : "cleanup_incomplete"
+    };
   }
   const host = parsed.worker;
   if (!host || !Number.isSafeInteger(host.pid) || host.pid < 1 || !processAlive(host.pid)) {
@@ -214,11 +248,15 @@ export async function inspectOrphanCleanup(path: string): Promise<{
     const parsed = JSON.parse(source) as ManifestFile;
     return {
       manifestPath: path,
-      state: parsed.cleanupIncomplete
-        ? (await cleanupWasAcknowledged(path, source))
-          ? "acknowledged"
-          : "cleanup_incomplete"
-        : "available",
+      // 原生运行中的保守记录不表示已发生清理失败；实际失败以及旧 worker 失败记录
+      // 均独立于宿主存活状态。活 owner 的人工确认仍由 acknowledge 拒绝。
+      state:
+        parsed.cleanupIncomplete &&
+        (!parsed.nativeOwner || parsed.cleanupFailed || !processAlive(parsed.kernelPid))
+          ? (await cleanupWasAcknowledged(path, source))
+            ? "acknowledged"
+            : "cleanup_incomplete"
+          : "available",
       workerPid: parsed.worker?.pid
     };
   } catch (error) {
@@ -244,14 +282,13 @@ export async function acknowledgeOrphanCleanup(
     !Number.isSafeInteger(parsed.kernelPid) ||
     parsed.kernelPid < 1 ||
     parsed.cleanupIncomplete !== true ||
-    !parsed.worker ||
-    !Number.isSafeInteger(parsed.worker.pid) ||
-    parsed.worker.pid < 1
+    (!parsed.nativeOwner &&
+      (!parsed.worker || !Number.isSafeInteger(parsed.worker.pid) || parsed.worker.pid < 1))
   ) {
     throw new Error("ORPHAN_CLEANUP_NOT_PENDING");
   }
   if (processAlive(parsed.kernelPid)) throw new Error("ORPHAN_CLEANUP_OWNER_ALIVE");
-  if (processAlive(parsed.worker.pid)) {
+  if (parsed.worker && processAlive(parsed.worker.pid)) {
     const identity = await processStartIdentity(parsed.worker.pid);
     if (!identity || identity === parsed.worker.started)
       throw new Error("ORPHAN_CLEANUP_OWNER_ALIVE");

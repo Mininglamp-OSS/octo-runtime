@@ -94,7 +94,7 @@ RPC 从同一源的首个状态帧取得回执并 ACK，继续消费后才启动
 
 | 已接线的调用点                                              | 当前行为                                                    |
 | ----------------------------------------------------------- | ----------------------------------------------------------- |
-| `executor-kernel/src/rpc.ts`                               | 接纳前拒绝不支持的选择；将 RPC ACK 与帧流绑定到同一执行     |
+| `executor-kernel/src/server.ts`                               | 接纳前拒绝不支持的选择；将 RPC ACK 与帧流绑定到同一执行     |
 | `executor-kernel/src/server.ts`、`host-run-service.ts`       | 转发冻结模式，缓冲原帧，按 Host 控制事实维护终态            |
 | `executor-kernel/src/client.ts` | App 与 Extra 共用 invoke；显式传递选择；续流继承回执模式；canonical 暴露类型化视图 |
 | `extra-channel-*/src/execution/dispatcher.ts`               | 执行、final 文本与投递链路显式 canonical                    |
@@ -107,7 +107,7 @@ Kernel 缓冲真实 HostFrame，保留原身份、模式、序号和载荷。默
 受信 Adapter execution 配置可在中央硬最大值内覆盖容量；每次 invocation 冻结有效策略，
 低预算运行不得借全局清理淘汰其他 Adapter 已保留的帧。
 IPC 队列同样有上限，慢输出使用背压。重放不启动 Provider、不转换事件、不重复写响应。
-Host RPC 与 Kernel client 的 NDJSON 接收上限共用中央 HostFrame 硬最大值加 64 KiB 包装预算，
+Kernel RPC 与 Kernel client 的 NDJSON 接收上限共用中央 HostFrame 硬最大值加 64 KiB 包装预算，
 覆盖有界身份的 JSON 转义与重复字段；实际帧、队列和重放仍执行本 invocation 的有效策略。
 SDK 在换行前逐段累计 UTF-8 字节，不用字符长度代替容量，也不反复扫描或拼接完整在途大行。
 Kernel client 在丢失 ACK 后通过 `agent_run.get` 查回已接纳身份，再订阅原 stream；已知缺口与
