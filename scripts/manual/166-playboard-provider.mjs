@@ -32,6 +32,8 @@ const interaction = (kind) =>
 for await (const line of createInterface({ input: process.stdin })) {
   const message = JSON.parse(line);
   if (message.method === "initialize") send({ id: message.id, result: {} });
+  // SDK 每轮注入环境时，生产 Adapter 先读取原生配置再合并覆盖。
+  else if (message.method === "config/read") send({ id: message.id, result: { config: {} } });
   else if (message.method === "thread/start" || message.method === "thread/resume")
     send({ id: message.id, result: { thread: { id: identity.threadId } } });
   else if (message.method === "thread/name/set") send({ id: message.id, result: {} });

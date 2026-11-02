@@ -23,7 +23,7 @@ flowchart TB
   Adapter --> Provider[Provider CLI / server]
 ```
 
-createKernelService 在调用进程创建 Kernel、AgentExecutor 与 RPC 端点；宿主无需运行 Runtime CLI，也可通过 attachKernel 连接已有服务。
+createKernelService 在调用进程创建 Kernel、AgentExecutor 与 RPC 端点；原生宿主无需运行 Runtime CLI，使用 kernel.client 调用服务。另一个进程中的独立应用通过 attachKernel 连接已有 Kernel。
 
 CLI 用 Home 目录保存设备实例的身份和配置，用 workdir 指定 Agent 工作目录，两者用途不同。使用 SDK 的应用自行决定配置和状态存放位置。
 

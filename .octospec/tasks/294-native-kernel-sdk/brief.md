@@ -46,9 +46,11 @@ Kernel 的职责、允许/禁止案例和共享故障域见[架构案例](../../
 
 ## 实施与验证
 
+PR 复审补齐交付：同步 packages/README.md 与 README.zh.md 的接入入口、拓扑、宿主加载责任和共享故障域；普通原生 SDK 接入仍推荐 KernelService/RPC。统一复核本 PR 迁移的验证脚本：SDK fixture 原生导入对象，重建 Kernel 沿用 fake Provider，每轮 Provider 环境显式传递，清理区分存活 SDK 宿主与 CLI 子进程。手动专项实际执行并记录，不加入 CI；修复后在 PR 新增英文评论并重新请求现有 reviewers 审查。
+
 2026-11-02 用户追加决定：因该 GUI 接入基于逆向方案，彻底移除该 Adapter，不修补其 Electron 启动方式、不提供替代或兼容入口。范围包括包、默认 CLI 清单、workspace 依赖、UI 图标/名称、专属测试和当前使用文档；验收检查当前源码及发行包不再包含该实现，其他 Adapter 的原生装配和测试继续有效。用户随后授权 Playboard 人工停止直接强退本次进程树：它仅用于本地测试，无需引入通用 import 取消或启动状态机；执行入口负责强退，SDK 不退出宿主，正常完成仍回收。验收覆盖模块加载卡住、可识别后代终止、兄弟进程保留及现有执行/输出行为。
 
-后续接入说明按用户补充拆章：原生 SDK 通过 kernel.client 使用服务，显式 attachKernel 仅说明 CLI 模式跨进程连接；KernelService、ChannelGateway ExtraService、高级 dependencies 分章，AgentRun 调用/事件/控制另列可选使用页。高级示例覆盖 loadContexts、createSessionStore 和自定义 Extra。此次不统一新增所有 Provider 的专用工厂；当前内置 13 个 Adapter 中 8 个已有专用 create 工厂、5 个导出默认 ACP 实例。
+后续接入说明按用户补充拆章：原生 SDK 通过 kernel.client 使用服务，显式 attachKernel 用于跨进程独立应用连接已有 Kernel，CLI 客户端是其中一种；KernelService、ChannelGateway ExtraService、高级 dependencies 分章，AgentRun 调用/事件/控制另列可选使用页。高级示例覆盖 loadContexts、createSessionStore 和自定义 Extra。此次不统一新增所有 Provider 的专用工厂；当前内置 13 个 Adapter 中 8 个已有专用 create 工厂、5 个导出默认 ACP 实例。
 
 具体顺序、Electron/CLI 流程及稳定性验收见[实施计划](plan.md)。与 [#293](https://github.com/Mininglamp-OSS/octo-runtime/issues/293) 的文档工作保持区分：#293 澄清已有 API，本任务改变目标装配合同；后续公开示例必须跟随真实实现，不提前宣称目标已可用。
 

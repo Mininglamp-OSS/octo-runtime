@@ -32,7 +32,7 @@ Construction performs no I/O. The selection array is copied while Adapter identi
 | --- | --- | --- |
 | Electron | Main-process imports/factories, endpoint, Extras, exit coordination | Registration, RPC, admission, execution lifecycle |
 | CLI | Manifest reading/merging, module resolution/imports/factories, OpenClaw preparation | The same service factory using actual objects |
-| CLI cross-process caller | attachKernel, its client, and its own Runs; native SDK hosts use kernel.client | Shared service and original execution |
+| Independent cross-process application (including CLI clients) | attachKernel, its client, and its own Runs; native SDK hosts use kernel.client | Shared service and original execution |
 | Provider subprocess | Adapter native launch/control/cleanup | Core invocation and truthful cleanup reporting |
 
 Kernel accepts no workerEntrypoint, adapterModules, manifest, or subprocess env. It launches no execution workers and provides no worker heartbeat/restart. Status contains ipc_version, kernel_instance_id, host pid, and execution_ready without worker state. Configure logs explicitly with logging.directory; SDK does not read CLI log environment variables.

@@ -19,6 +19,12 @@ PR #295 后续评审指出该 GUI Provider 在 Electron 中依赖旧 worker 的 
 
 默认回归、类型与 lint、双语文档、Go/Python RPC 客户端验证已通过。本地 tgz 的离线安装、独立工程公开 SDK/示例、原生 Kernel/Extra、CLI 前台服务及卸载保留 Home 检查通过；OKF 检查通过。真实 Electron、Provider、线上 IM 和 Windows/Linux 原生平台未运行。未扩大 GitHub CI，未提交、推送、创建 PR 或发布。
 
-用户后续要求本地审查并细分 SDK 文档。双轴 review 复现并修复两项 P2：真实在途 probe 未纳入关闭等待，以及活宿主掩盖实际清理失败。回归后 Node 2370 通过、69 跳过、0 失败，WebUI 35 通过。SDK 服务接入、高级依赖、可选 AgentRun 使用分别成页；显式 attachKernel 归 CLI 模式跨进程接入说明。CLI Gateway 仍由 ExtraService 内部 attach 已有 Kernel。详细发现、修复和验证波动见任务 review/validation。
+用户后续要求本地审查并细分 SDK 文档。双轴 review 复现并修复两项 P2：真实在途 probe 未纳入关闭等待，以及活宿主掩盖实际清理失败。回归后 Node 2370 通过、69 跳过、0 失败，WebUI 35 通过。SDK 服务接入、高级依赖、可选 AgentRun 使用分别成页；显式 attachKernel 面向跨进程独立应用，CLI 文档提供其中一种示例，不属于原生服务装配步骤。CLI Gateway 仍由 ExtraService 内部 attach 已有 Kernel。详细发现、修复和验证波动见任务 review/validation。
 
 Playboard 强退阶段的双轴复核发现并修复清理失败返回后过早卸载监听的问题：处理器必须持续到可执行进程退出。真实 import 卡住和清理未完成两项新回归通过；最终全量 WebUI 35、Node 2328 通过/66 跳过/0 失败，构建与静态检查通过。仅定位本次 PID 后代，不按进程名称匹配，不把强退记为清理成功。用户明确授权将决策及原因评论到 Issue #294，并提交推送到已有 PR #295；不扩展 CI。
+
+## PR 交付补漏
+
+外部评审指出包导航仍描述已删除的 worker；verified-review 同时发现手动 fixture 的模块装配没有迁移完整。本轮修复双语包导航、原生工厂调用、重建时的 fake Provider 选择、逐轮环境与宿主 PID 断言，并统一修正手动验证中的旧文档、清理成功及计时前提。114 项离线专项全部通过；真实 Provider/IM 脚本没有线上执行。
+
+可复用检查：架构迁移的交付范围必须包含聚合导航和非默认验证入口；主测试通过不能替代手动脚本检查。环境值不能因原 worker 消失而丢失；SDK 关闭服务资源不代表退出宿主；测试重建必须保留原 Adapter 选择；关闭计时应使用操作实际单调时钟起点，不以日志落盘时间反推。具体证据与未验证边界见[验证记录](../../tasks/294-native-kernel-sdk/validation.md)。本轮未扩大 CI，按用户授权提交后新增 PR 评论并请求重新评审。

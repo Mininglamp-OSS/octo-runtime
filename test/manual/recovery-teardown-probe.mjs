@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { appendFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { performance } from "node:perf_hooks";
 import { attachKernel } from "@mininglamp-oss/octo-runtime/executor-kernel";
 import { kernelInput, frames } from "../kernel-fixture.js";
 import { waitFor, withTimeout } from "../runtime-fixture.js";
@@ -28,7 +29,7 @@ export function createRecoveryProbe(directory) {
     }
     appendFileSync(
       join(directory, "events.jsonl"),
-      `${JSON.stringify({ ...row, at: Date.now() })}\n`
+      `${JSON.stringify({ ...row, at: Date.now(), monotonicAt: performance.now() })}\n`
     );
   };
   return {

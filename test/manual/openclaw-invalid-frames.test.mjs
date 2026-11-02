@@ -327,7 +327,7 @@ test(
 );
 
 test(
-  "A9: bad OpenClaw input leaves sibling and later invocations on the same real worker",
+  "A9: bad OpenClaw input leaves sibling and later invocations on the same native Kernel",
   { timeout: 15000 },
   async (t) => {
     const held = new Map();

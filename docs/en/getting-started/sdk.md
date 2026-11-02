@@ -28,7 +28,7 @@ await kernel.initialize();
 const client = kernel.client;
 ```
 
-Native SDK callers use `kernel.client`, which still calls Kernel through local RPC. **Explicit `attachKernel` is for cross-process access to an existing service in CLI mode**, not a native SDK integration step; see [CLI](cli.md).
+Native SDK hosts use `kernel.client`, which calls Kernel through local RPC. `attachKernel` is for an independent application in another process connecting to an existing Kernel; it is not part of native service composition.
 
 ```ts
 // 应用退出时执行；如果创建了 Extra，先按下一章关闭 Extra。

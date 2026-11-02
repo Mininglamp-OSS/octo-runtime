@@ -23,7 +23,7 @@ tags: [review, architecture, lifecycle, sdk, documentation]
 
 Core 登记实际 Promise/thenable，describe 走同一 probe 入口；shutdown 在原预算内等待，仍在途则 incomplete，关闭后拒绝新 probe。保留 Adapter this、同步值/异常和 thenable 单次消费；正常拒绝会释放在途记录。probe 不属于 invocation，不伪造遗留 invocationId。回归见 [Kernel 测试](../../../test/kernel-invoke.test.js)和 [Core 测试](../../../test/executor-core.test.js)。
 
-**1 项接入文档偏差，已修订。** 原 SDK 页并列 attachKernel 和原生接入，且把 AgentRun invoke 混进快速接入。按用户补充，显式 attach 只在 CLI 模式跨进程接入说明中展示；原生宿主使用 kernel.client，Extra 内部管理自己的 RPC client。
+**1 项接入文档偏差，已修订。** 原 SDK 页并列 attachKernel 和原生接入，且把 AgentRun invoke 混进快速接入。原生宿主使用 kernel.client，Extra 内部管理自己的 RPC client。按用户最新澄清，显式 attach 用于跨进程独立应用连接已有 Kernel，CLI 是示例而非唯一宿主；不属于原生服务装配步骤。
 
 文档现分为三个页面：
 
@@ -58,3 +58,15 @@ yujiawei 对 `ba30c478` 提出 P1：该 Adapter JavaScript 启动依赖旧 worke
 Spec 轴发现并修复 1 项 P1：初版在 runCli 返回后移除信号处理器，但清理失败时进程仍可能因 Provider 或其他句柄存活，此时 Ctrl+C 只退出 CLI、遗留 Provider。现将入口信号处理器保留到进程真正退出；监听本身不维持事件循环。使用真实 Adapter 的 finally 永不完成及独立进程组 Provider 复现后重验：先出现 cleanup incomplete，再次 Ctrl+C 输出强退诊断、退出码 130，Provider 已结束。
 
 新增真实顶层 import 卡住并持有两层后代、清理失败返回后仍有子进程两项回归；确认无关兄弟进程继续存活。定向测试 28 项中 26 通过、2 平台跳过、0 失败。复核后无新增未处理 finding；Windows 原生控制台验证未在本机执行。
+
+## 包级架构指南与验证脚本补漏
+
+后续 verified-review 在 `dc561a64` 发现手动 SDK fixture 仍把无 sourceManifest 的模块声明交给 CLI loader；复现为初始化前失败。yujiawei 随后指出 `packages/README.md` 与中文页仍承诺独立 worker、替换恢复，并误导普通 SDK 使用裸 Core。此前审查没有覆盖完整交付清单，这两项均属于原需求遗漏，不能以生产主路径通过视为交付完成。
+
+本轮同步两份包级指南的入口、拓扑、装配责任与故障域；普通原生接入使用 KernelService + kernel.client，CLI 自行读取 manifest，同进程 RPC 不提供宿主崩溃隔离或执行恢复。修复 5 个手动 SDK 装配入口及 2 个 Kernel 重建分支，保留原 fake Provider，补齐逐轮环境传递与 SDK/CLI 的 PID 所有权断言。
+
+扩大本地审计到 scripts、test/manual、test-support 后，修正旧 attachKernel 文档断言、故意清理失败仍期待成功的断言、已入队响应被误判为审批过期的测试，以及将磁盘日志时间当作关闭预算起点的断言。关闭预算保持 7000 ms，改为记录实际单调时钟截止点；发送停滞仍验证失败、交互失效和 Provider 退出。实时脚本显式注入日志目录，并修正同 PID 的宿主报告。未改生产合同、CI 或默认测试范围。
+
+完整本地手动专项 114 项通过、0 跳过；其余结果见[验证记录](validation.md)。线上脚本只完成静态检查，未宣称真实 Provider/IM 已通过。修复推送后以新增 PR 评论请求其他评审者重新审查，不能将本地复核当作批准评审。
+
+用户进一步澄清 attachKernel 面向任何跨进程独立应用，不能限为 CLI。已同步架构规则、SDK/CLI/架构双语页、Kernel README 和 Gateway 接入指南；验证脚本不再要求原生 SDK 展示 attach 示例，跨进程示例保留在 CLI 章节。

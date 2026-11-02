@@ -306,7 +306,7 @@ octo-runtime executor-kernel start --home <home>
 | `channel-gateway run` | CLI 创建 ExtraService；其内部通过 `attachKernel({ endpoint })` 跨进程连接已有 Kernel，不创建或关闭 Kernel |
 | `playboard` | CLI 用同一 createKernelService 创建临时 Kernel，经 kernel.client 执行并回收本次服务 |
 
-`attachKernel` 用于 CLI 模式下另一个进程连接已经运行的 Kernel；不会启动服务。原生 SDK 宿主使用自己创建的 `kernel.client`，不执行这一步。
+`attachKernel` 用于另一个进程中的独立应用连接已经运行的 Kernel，CLI 客户端是其中一种；它不会启动服务。原生 SDK 宿主使用自己创建的 `kernel.client`，不执行这一步。
 
 ```ts
 import { attachKernel } from "@mininglamp-oss/octo-runtime/executor-kernel";

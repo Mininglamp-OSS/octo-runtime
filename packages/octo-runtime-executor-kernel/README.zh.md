@@ -32,7 +32,7 @@ if (!cleanup.complete) throw new Error("KERNEL_CLEANUP_INCOMPLETE");
 | --- | --- | --- |
 | Electron | 主进程 import/构造对象、选择 endpoint、创建 Extra、退出协调 | 注册对象、RPC、Run 接纳与执行管理 |
 | CLI | 读取/合并 manifest、解析模块、动态 import/工厂、OpenClaw 产品准备 | 接收实例，与 Electron 使用同一服务工厂 |
-| CLI 模式跨进程调用方 | attachKernel、发起和取消自己拥有的 Run、关闭 client；原生 SDK 使用 kernel.client | 维持共享服务和原执行 |
+| 跨进程独立应用（包括 CLI 客户端） | attachKernel、发起和取消自己拥有的 Run、关闭 client；原生 SDK 使用 kernel.client | 维持共享服务和原执行 |
 | Provider 子进程 | Adapter 按原生协议创建、控制和确认清理 | 调用 Core 并如实汇总清理事实 |
 
 模块路径、workerEntrypoint、adapterModules、manifest、子进程 env 均不属于 Kernel 装配输入。Kernel 不启动执行 worker，不提供 worker 心跳或自动重启；status 返回 ipc_version、kernel_instance_id、宿主 pid 和 execution_ready，没有虚构 worker 状态。日志通过 logging.directory 显式配置，SDK 不读取 CLI 日志环境变量。

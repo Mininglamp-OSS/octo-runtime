@@ -304,7 +304,7 @@ Recovery acknowledges one manifest archive; it never kills unknown processes and
 | `channel-gateway run` | CLI creates ExtraService, which internally uses `attachKernel({ endpoint })` across processes; it does not create or close Kernel |
 | `playboard` | CLI creates a temporary Kernel with the same createKernelService, invokes through kernel.client, and closes its service |
 
-`attachKernel` connects another process to an already running Kernel in CLI mode; it does not start the service. Native SDK hosts use their own `kernel.client` and skip this step.
+`attachKernel` lets an independent application in another process connect to an already running Kernel; CLI clients are one example. It does not start the service. Native SDK hosts use their own `kernel.client` and skip this step.
 
 ```ts
 import { attachKernel } from "@mininglamp-oss/octo-runtime/executor-kernel";

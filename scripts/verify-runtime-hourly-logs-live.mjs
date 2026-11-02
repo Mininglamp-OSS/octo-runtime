@@ -23,6 +23,8 @@ process.env.OCTO_RUNTIME_DEBUG = "1";
 const endpoint = componentEndpoint(home);
 const kernel = createKernelService({
   endpoint,
+  // 原生 SDK 显式接收日志目录，不再依赖 worker 环境中的 Home。
+  logging: { directory: join(home, "logs") },
   adapters: await (
     await import("../apps/cli/dist/adapters.js")
   ).loadCliAdapters(

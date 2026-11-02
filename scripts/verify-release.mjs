@@ -425,7 +425,7 @@ export async function verifyRelease(archiveInput, { expectedCommit, requireClean
         adapters.map((adapter) => adapter.type).sort(),
         moduleManifest.adapters.map((adapter) => adapter.type).sort()
       );
-      // Windows 的 SIGTERM 会直接杀掉 leader，之后无法再沿原 PID 找到 worker 树。
+      // Windows 的 SIGTERM 会直接杀掉 leader，之后无法再沿原 PID 找到所属后代树。
       if (process.platform === "win32") await stopReleaseProcess(child);
       else child.kill("SIGTERM");
       await Promise.race([

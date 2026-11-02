@@ -28,7 +28,7 @@ supersedes: []
 - **宿主装配。** Electron 在主进程 import、选择并构造 Adapter；CLI 在自己的服务 run 入口读取模块 manifest、解析来源、动态 import 并构造 Adapter。两者将实际对象传给同一个服务工厂。对象的方法、闭包、原型、`this` 和宿主依赖保留在 Kernel 所在进程，不序列化或在另一进程重建。
 - **模块 manifest 完全归宿主。** `executor-kernel` 不接受 manifest 文件、`AdapterModuleEntry`、模块 URL、导出名或工厂描述，不读取、解析、合并、扫描或动态 import 所选 Provider 模块。CLI 即使提前解析成绝对模块路径，也不能将该快照交给 Kernel。原 Kernel 包中的模块 loader、runner、launcher 和相应导出已删除，不能换名恢复。
 - **统一 RPC。** 应用与 Extra 通过实际 `KernelClient` 发起执行、订阅、查询、取消和交互；服务自身的 `kernel.client` 也连接该服务 endpoint。同进程原生构造不产生直接执行的快捷分支，不把业务方转接到裸 `AgentExecutor`，不建立 Extra 专用执行层。
-- **接入入口分章说明。** 原生 SDK 宿主创建并初始化 KernelService 后使用 `kernel.client`，不显式调用 `attachKernel`；显式 attach 只在 CLI 模式跨进程连接已有服务的接入说明中出现。Kernel/Extra 内部管理 RPC client 不属于宿主额外接入步骤。SDK 文档分别说明 KernelService、ChannelGateway ExtraService 和高级依赖；AgentRun invoke、事件消费与控制另列可选使用章节，不作为接入条件。
+- **接入入口分章说明。** 原生 SDK 宿主创建并初始化 KernelService 后使用 `kernel.client`，不显式调用 `attachKernel`。显式 attach 用于另一个进程中的独立应用连接已有 Kernel，CLI 客户端是其中一种；不得把它写成原生服务装配步骤或 CLI 专属能力。Kernel/Extra 内部管理 RPC client 不属于宿主额外接入步骤。SDK 文档分别说明 KernelService、ChannelGateway ExtraService 和高级依赖；AgentRun invoke、事件消费与控制另列可选使用章节，不作为接入条件。
 - **统一执行。** Kernel 在自己的进程内使用唯一 `AgentExecutor` 执行实现，注册宿主传入的 Adapter。Kernel 保留接纳、Run 所有权、事件源和有界恢复等责任。原生的 `initialize/status/close` 是宿主管理服务对象的生命周期入口，不是绕过 RPC 发起业务执行的接口。
 - **不启动执行替身。** Kernel 不通过 `spawn`、`fork`、外部 Node、Runtime CLI 或其他等价 launcher 启动另一份执行 worker；也不能将所注入的 Adapter 移到线程/进程重新装配。Adapter 内部按 Provider 协议启动程序仍然允许，其取消与清理由对应执行合同负责。CLI 的系统服务部署属于宿主，不能下沉到 Kernel 工厂。此条针对执行装配，不把既有日志线程等其他资源误当成执行 worker。
 - **Extra 独立。** 宿主另行 import 并创建 Extra 服务，函数依赖留在对应 Extra 服务进程；其执行仍经 `ctx.kernel` 的 RPC。Kernel 不读取 Extra 目录、不持有插件、不接管宿主数据库。
@@ -73,7 +73,7 @@ export interface KernelService extends ServiceLifecycle<KernelServiceStatus> {
 | --- | --- | --- | --- |
 | Electron 主进程托管 | 原生 import Adapter，准备对象和配置，创建并初始化 Kernel；业务取 `kernel.client` | Kernel 监听 endpoint，业务经 RPC 进入接纳、执行和控制 | Electron 传 `octo-runtime.js`/worker 文件；或因同进程改为业务直调 Core |
 | CLI 常驻 Kernel | CLI 自己读取/合并 manifest、解析来源、动态 import 并调用选中工厂，然后把对象交给服务 | 同一 Kernel 工厂使用对象，不知道它们来自静态 import 还是 manifest | Kernel 读取 manifest；CLI 仅解析绝对路径，再让 Kernel import 或 spawn 加载 |
-| CLI 模式跨进程调用 | `attachKernel({ endpoint })`，通过 RPC 调用已有 CLI 服务，结束时关闭自己的 client | 已接纳 Run 由服务持有，观察断开不等于取消 | 把 attach 列为原生 SDK 接入步骤；attached client 自动拉起服务，或 client.close 关闭共享 Kernel |
+| 跨进程独立应用（包括 CLI 客户端） | `attachKernel({ endpoint })`，通过 RPC 调用已有 Kernel，结束时关闭自己的 client | 已接纳 Run 由服务持有，观察断开不等于取消 | 把 attach 列为原生 SDK 接入步骤或 CLI 专属能力；attached client 自动拉起服务，或 client.close 关闭共享 Kernel |
 | Electron 或 CLI 加载 Extra | 宿主原生创建 Extra，注入业务函数，为其选择 Kernel endpoint | Extra 通过自己的 `ctx.kernel` RPC 调用；服务只排空所属调用 | Extra 直接使用注入的 Adapter 执行；Kernel 读取 Extra manifest 或接管其数据库 |
 | Adapter 调用 Provider CLI | 宿主选择安装、版本和配置 | Adapter 可按原生协议启动 Provider，并处理本轮交互、取消及资源清理 | 将 Kernel 执行 worker 包装成“Adapter 内部逻辑”来规避原生对象装配 |
 | CLI Playboard | CLI 装配所选 Adapter，创建本次临时 endpoint 与同一 Kernel 服务，关闭后核对清理 | 执行仍经 `kernel.client` RPC，保留既有单次资源所有权 | 为临时执行绕过 Kernel，或恢复独立执行 runner |

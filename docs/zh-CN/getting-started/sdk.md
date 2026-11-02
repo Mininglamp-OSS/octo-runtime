@@ -28,7 +28,7 @@ await kernel.initialize();
 const client = kernel.client;
 ```
 
-原生 SDK 直接使用 `kernel.client`，它仍通过本地 RPC 调用 Kernel。**`attachKernel` 仅用于 CLI 模式跨进程连接已有服务**，不是原生 SDK 的接入步骤；见 [CLI 文档](cli.md)。
+原生 SDK 宿主使用 `kernel.client`，它通过本地 RPC 调用 Kernel。`attachKernel` 用于另一个进程中的独立应用连接已有 Kernel，不属于原生服务装配步骤。
 
 ```ts
 // 应用退出时执行；如果创建了 Extra，先按下一章关闭 Extra。

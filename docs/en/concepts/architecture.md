@@ -23,7 +23,7 @@ flowchart TB
   Adapter --> Provider[Provider CLI / server]
 ```
 
-`createKernelService` creates the Kernel service and IPC endpoint in the calling process. AgentExecutor and host-injected Adapter objects share the Kernel host process. A native application can create Kernel in its main process without separately running the Runtime CLI. It can also connect to an existing service with `attachKernel({ endpoint })`.
+`createKernelService` creates the Kernel service and IPC endpoint in the calling process. AgentExecutor and host-injected Adapter objects share the Kernel host process. A native application can create Kernel in its main process without separately running the Runtime CLI and use `kernel.client`. An independent application in another process uses `attachKernel({ endpoint })` to connect to an existing Kernel.
 
 The CLI stores a device instance's identity and configuration in its Home directory. The workdir is the Agent's working directory and has a different purpose. SDK applications choose their own configuration and state locations.
 

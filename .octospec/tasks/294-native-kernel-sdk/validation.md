@@ -69,6 +69,17 @@ CI YAML 再次结构比对通过，新增删除 heartbeat 失效路径后累计�
 
 验证平台为 macOS；Windows 原生 Ctrl+C 与 taskkill、Linux 原生进程树未在本机执行。POSIX 仅依据当前父子关系快照，不承诺已经重新归属或快照之后新建的后代完整回收；强退诊断始终声明执行和清理未确认，不将进程退出写成 Run cancelled 或 cleanup complete。
 
+## 包级指南与验证脚本补漏验证
+
+在 `dc561a64` 上按 PR 评审补齐包级指南与手动验证入口。修复范围覆盖原生装配、重建后的 Adapter 选择、逐轮环境、宿主 PID、关闭失败、响应发送停滞和关闭截止点；没有修改生产实现或新增默认测试。
+
+- `node --test scripts/manual/145-sdk-protocol-contracts.mjs scripts/manual/166-playboard-auto-approval.mjs test/manual/136-configuration-snapshot.mjs test/manual/codex-approval-kernel.test.js test/manual/codex-async-questions.test.mjs test/manual/codex-async-recovery.test.mjs test/manual/codex-async-supplement.test.mjs test/manual/openclaw-invalid-frames.test.mjs test/manual/recovery-teardown.test.mjs`：114 项通过、0 失败、0 跳过。首次运行暴露的旧文档、清理成功与计时断言均修复后重跑；没有缩短 7000 ms 清理预算。
+- `pnpm typecheck`（含构建）、lint、lint:names、format:check 通过。最终 `pnpm test:suites`：WebUI 35 通过；Node 2394 项中 2328 通过、66 跳过、0 失败。
+- `pnpm docs:check`：34 组双语页、69 Markdown 与 4 项可执行示例测试通过；按用户最新澄清修正文档后重跑，显式 `node scripts/check-developer-docs.mjs --scope current` 检查 161 文档、2051 链接、105 锚点，0 错误。A7 文档合同定向复测通过：attachKernel 适用于跨进程独立应用，CLI 只是其中一种；原生装配使用 kernel.client。
+- 相对 main 修改的 scripts、test/manual、test-support 中 41 个 JS/MJS/MTS 文件逐个 `node --check` 通过。线上 IM/真实 Provider 脚本未运行，不将语法检查视作线上集成通过。
+- 本轮没有修改 `.github`、`package.json` 或默认发现范围；相对 main 的 workflow diff 仅保留前述移除失效测试引用及步骤名称调整。专项仅本地显式执行，未加入 CI。
+- 最终 OKF 检查通过：610 个单元、20 条规则、3857 个本地文件链接；修改的知识文件元数据完整，`git diff --check` 通过。
+
 ## 合同与证据
 
 | 合同 | 验证与结果 |

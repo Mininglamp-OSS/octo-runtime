@@ -190,7 +190,7 @@ try {
   });
   await kernel.initialize();
   assert.equal((await kernel.client.status()).pid, process.pid);
-  report.independentHost = true;
+  report.nativeKernelHost = true;
   group = await createTestGroup();
   assert.ok(group.group_no);
   report.groupId = group.group_no;

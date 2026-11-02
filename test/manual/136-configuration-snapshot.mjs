@@ -89,7 +89,7 @@ test("A1/A2: changing resolver matches one fixed revision for options, limits an
       assert.ok(bytes > 5120 && bytes <= 6144, `complete frame: ${bytes}`);
       t.diagnostic(`complete output frame: ${bytes} bytes`);
     }
-    // 保持专项的 worker 数量有界；fixture after 仍确认同一个幂等 close 的结果。
+    // 保持专项的原生 Kernel 实例数量有界；fixture after 仍确认同一个幂等 close 的结果。
     assert.equal((await changing.server.close()).complete, true);
     assert.equal((await fixed.server.close()).complete, true);
   }
