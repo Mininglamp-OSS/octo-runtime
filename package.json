@@ -124,7 +124,6 @@
     "@mininglamp-oss/octo-runtime-adapter-opencode": "workspace:*",
     "@mininglamp-oss/octo-runtime-adapter-qodercli": "workspace:*",
     "@mininglamp-oss/octo-runtime-adapter-qoderclicn": "workspace:*",
-    "@mininglamp-oss/octo-runtime-adapter-zcode-gui": "workspace:*",
     "@mininglamp-oss/octo-runtime-extra-channel-gateway": "workspace:*",
     "@mininglamp-oss/octo-runtime-executor-core": "workspace:*",
     "@mininglamp-oss/octo-runtime-cross-service": "workspace:*",

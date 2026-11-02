@@ -31,7 +31,7 @@ Core 登记实际 Promise/thenable，describe 走同一 probe 入口；shutdown 
 2. [高级依赖](../../../docs/zh-CN/guides/sdk-dependencies.md)：loadContexts 的内存/文件场景、createSessionStore 的宿主存储工厂、自定义 Extra 模型目录函数；明确 Gateway 仅声明两个公开依赖。
 3. [可选 AgentRun 使用](../../../docs/zh-CN/guides/agent-runs.md)：invoke、事件、交互和取消，非接入条件。
 
-Adapter 工厂盘点：14 个内置 Adapter 中 9 个已有专用 create 工厂；Hermes、Kimi Code、MCode、QoderCLI、QoderCLICN 导出默认 ACP 实例。本轮未把“是否全部已有工厂”的询问解释为新增工厂授权。
+Adapter 工厂盘点：13 个内置 Adapter 中 8 个已有专用 create 工厂；Hermes、Kimi Code、MCode、QoderCLI、QoderCLICN 导出默认 ACP 实例。本轮未把“是否全部已有工厂”的询问解释为新增工厂授权。
 
 ## 验证与边界
 
@@ -44,3 +44,9 @@ Adapter 工厂盘点：14 个内置 Adapter 中 9 个已有专用 create 工厂�
 Standards 轴发现并修复 2 项 P2 验证脚本问题及 1 项 P3 文档偏差：IM 重试专项使用当前 KernelClient.invoke/cancelInvocation，保留取消跟踪；关闭失败仍执行 HTTP 清理并聚合原始失败和清理错误，未确认回收时保留工作目录；生命周期规则删除旧 worker 日志兼容声明。复核无新增发现。脚本仅做语法验证，不将这些修复标为线上 IM/真实 Codex 已通过。
 
 Standards：1 项 P2 已修复；Spec：1 项 P2 代码问题及 1 项接入文档偏差已修订；当前没有未处理的已确认 finding。
+
+## PR #295 的后续评审处置
+
+yujiawei 对 `ba30c478` 提出 P1：该 Adapter JavaScript 启动依赖旧 worker 环境；P2：Playboard 动态模块装配等待不可取消。用户先要求只给建议，随后明确因该 GUI 接入基于逆向方案而彻底移除此特性及文档。本轮按产品删除处理 P1：删除完整包、CLI 清单与依赖、推理映射、WebUI 图标/别名、专属测试与双语使用文档，不补 Electron 启动模式、不保留兼容入口。P2 仍按用户要求暂不实施，不宣称两个问题均已修复。
+
+交付检查覆盖共享测试仅删对应 Provider 分支、其余 Adapter 保留、workspace lock 无无关版本变化、当前源码和产品文档无残余引用；历史评审中的相关说明和链接也已删除。CI 只移除已删除测试的路径，不新增检查范围。实际验证见[验证记录](validation.md)。

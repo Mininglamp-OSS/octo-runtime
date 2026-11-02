@@ -46,6 +46,16 @@ SDK 章节按最新指令区分服务接入、高级 dependencies 和可选 Agen
 
 CI YAML 再次结构比对通过，新增删除 heartbeat 失效路径后累计移除 5 个旧 worker 测试引用；现有 jobs、矩阵、触发器、Gate 依赖及步骤数量不变，所有显式测试路径存在。PR #295 首个提交的六个平台/Node 组合和 CI Gate 均通过；本轮后续提交结果独立核对，不复用旧 head 的通过状态。仓库要求 1 个批准评审且不启用自动合并，未更改保护设置。
 
+## 撤销逆向 GUI 接入后的验证
+
+按用户追加决定移除整个逆向 GUI Adapter；双语接入页、README、能力矩阵及 Octospec 历史任务/记录中的相关说明、链接和示例也已清理。全仓跟踪文件内容扫描无该 Adapter 名称或包名残留。历史混合验证数量仍对应原始完整范围，不改写为当前支持范围。
+
+- `pnpm typecheck`（含构建）、lint、lint:names、format:check、native:check 通过；lockfile 仅删除对应 workspace 引用，无其他依赖版本变化。
+- 全量首次发现扩展清单数量断言仍保留旧值，改为内置数量加一个扩展后重跑通过：WebUI 35；Node 2392 项，2326 通过、66 平台/显式跳过、0 失败。未扩大 skip，数量减少对应已撤销 Provider 的测试。
+- `pnpm docs:check`：34 组双语页、69 Markdown、20 JSON 示例、14 Mermaid、12 类 Context；4 项示例测试通过。OKF：610 单元、20 规则、3855 本地链接通过。
+- 重新打包并执行离线 `verify-release.mjs` 通过，覆盖公开 SDK 类型、原生 Kernel、独立 Extra、CLI、卸载保留 Home。直接检查 tgz：不含已撤销的包或路径，CLI 仅注册 13 个 Adapter。
+- CI 仅删除已移除专属测试的引用；相对 main 的 jobs、矩阵、触发条件、Gate 依赖和步骤数量保持不变。未执行真实 Provider/IM 或 Electron 验收，未修复 Playboard 装配取消问题。
+
 ## 合同与证据
 
 | 合同 | 验证与结果 |

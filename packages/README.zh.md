@@ -54,7 +54,6 @@ Kernel 和 Extra 的服务对象都在调用进程里构造。Electron 宿主可
 | OpenClaw         | [octo-runtime-adapter-openclaw](octo-runtime-adapter-openclaw/README.zh.md)       | Gateway WebSocket RPC                   | canonical；调用远端已有 Agent                           |
 | Grok Build       | [octo-runtime-adapter-grok-build](octo-runtime-adapter-grok-build/README.zh.md)   | ACP stdio，自带认证协商                 | canonical；`>=1.0.67 <2`                                |
 | Antigravity      | [octo-runtime-adapter-antigravity](octo-runtime-adapter-antigravity/README.zh.md) | `agy` stream-json stdio                 | canonical；只支持 `full_access`                         |
-| ZCode            | [octo-runtime-adapter-zcode-gui](octo-runtime-adapter-zcode-gui/README.zh.md)     | 自带 app-server 的 NDJSON stdio         | canonical；没有单次调用选模                             |
 | Hermes           | [octo-runtime-adapter-hermes](octo-runtime-adapter-hermes/README.zh.md)           | `hermes acp`                            | canonical；空 load 结果视为会话丢失                     |
 | Kimi Code        | [octo-runtime-adapter-kimi-code](octo-runtime-adapter-kimi-code/README.zh.md)     | `kimi acp`                              | canonical；模型来自广告的 `configOptions`               |
 | MCode            | [octo-runtime-adapter-mcode](octo-runtime-adapter-mcode/README.zh.md)             | `mcode acp`                             | canonical；MiniMax 自己选模                             |

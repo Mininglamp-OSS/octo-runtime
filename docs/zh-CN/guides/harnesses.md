@@ -20,7 +20,6 @@ Harness 是 Adapter 背后实际运行 Agent 的程序，负责模型调用、�
 - [Qoder CN CLI](harnesses/qoderclicn.md)
 - [OpenCode](harnesses/opencode.md)
 - [OpenClaw](harnesses/openclaw.md)
-- [ZCode](harnesses/zcode-gui.md)
 - [Antigravity](harnesses/antigravity.md)
 - [DeepSeek Harness](harnesses/dsh.md)
 - [Grok Build](harnesses/grok-build.md)
@@ -43,7 +42,6 @@ Harness 是 Adapter 背后实际运行 Agent 的程序，负责模型调用、�
 | `qoderclicn`  | `qoderclicn --acp`                                                        | 按 [Qoder CN 官方指南](https://docs.qoder.cn/cli/installation)安装中国区版本并登录。确保 Runtime 能执行支持 ACP 的 `qoderclicn`，上游发行方式变化时需核对实际命令名。                                                                                |
 | `opencode` | full_access 用 `opencode run …`；ask 用 `opencode acp` | 按[官方指南](https://dev.opencode.ai/docs/)安装 `>=2.1.3 <3` 的 OpenCode，并通过 `/connect` 配置模型账号。不支持 assisted；具体参数见 [OpenCode 专题](harnesses/opencode.md)。 |
 | `openclaw`    | 连接已运行的 Gateway                                                      | 按 [OpenClaw 官方入门指南](https://docs.openclaw.ai/start/getting-started)安装、完成初始化并启动 Gateway。配置 Runtime 连接并指定 `provider_agent_id`，例如 `main`；启动 Executor Kernel 不会同时启动该 Gateway。                                    |
-| `zcode-gui`   | ZCode Desktop 内置客户端                                                  | 安装 [ZCode Desktop](https://zcode.z.ai/cn/docs/install)，在应用中配置模型账号。Adapter 依次检查 `ZCODE_BIN`、`PATH` 和桌面安装目录，未能自动识别客户端时可设置 `ZCODE_BIN`。                                                                        |
 | `antigravity` | `agy` 的 stream-json 无头模式                                             | 按 [Antigravity 官方指南](https://antigravity.google/docs/getting-started?tab=cli)安装 CLI，先交互运行一次 `agy` 完成认证。确保 Runtime 的 `PATH` 能找到该可执行文件，所需 CLI 能力见[无头模式文档](https://antigravity.google/docs/cli/headless/)。 |
 
 `dsh` 要求通过 npm 安装 **`0.2.1-rc.4` 或更高版本**的 `@deepseek-ai/dsh` Provider。这与 Adapter 内固定为 `0.2.1-rc.3` 的未修改官方 Client SDK 不同。Provider 使用 `sdk` profile。Runtime CLI 宿主自动将 PATH 中首个 `dsh` 解析为 npm 包的 JS 入口，通过 `providerOptions.dshBin` 同时传给 Kernel 发现与调用，`playboard` 使用同一逻辑。`<home>/<profile>/config.json` 中显式的 `adapters.dsh.execution.provider_options.dshBin` 优先，缺失或不兼容时不回退其他安装。SDK 宿主自行选择并传入入口；Adapter 不发现安装、不使用 Desktop/ASAR。默认账户 provider 为 deepseek-account，只接受显式 full_access。SDK 注册与配置见 [DSH Adapter](../../../packages/octo-runtime-adapter-dsh/README.md)。

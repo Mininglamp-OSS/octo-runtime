@@ -107,7 +107,7 @@ export async function verifyRelease(archiveInput, { expectedCommit, requireClean
     const moduleManifest = JSON.parse(
       await readFile(join(installed, "apps/cli/dist/manifest.json"), "utf8")
     );
-    assert.equal(moduleManifest.adapters.length, 14);
+    assert.equal(moduleManifest.adapters.length, 13);
     const dshEntry = moduleManifest.adapters.find((entry) => entry.type === "dsh");
     assert.equal(dshEntry?.module, "@mininglamp-oss/octo-runtime-adapter-dsh");
     const dshModule = await import(`${pathToFileURL(installed).href}/dist/public/dsh.js`);

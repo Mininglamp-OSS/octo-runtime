@@ -130,7 +130,7 @@ Claude Code 当前范围依据现有 `can_use_tool` 桥；不能据此宣称已�
 
 其他 Adapter 通过 SDK 定义阶段明确声明 canonical-only；Host 注册阶段验证声明，
 请求未声明的 native 模式在接纳前拒绝。清单中的 codebuddy、hermes、kimi-code、mcode、
-opencode、openclaw、qodercli、qoderclicn、zcode-gui、antigravity 及通用 ACP 均为 canonical-only。
+opencode、openclaw、qodercli、qoderclicn、antigravity 及通用 ACP 均为 canonical-only。
 Codex 协议标识为 `codex.app-server`，Claude 为 `claude.stream-json`。
 初始化和唯一 turn 启动由 Driver 完成。
 native 日志只记录元数据、数量、字节和转换次数，不记录原生正文。

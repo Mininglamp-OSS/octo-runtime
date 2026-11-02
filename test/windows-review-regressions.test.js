@@ -13,7 +13,6 @@ import {
 import { buildClaudeCommand } from "../packages/octo-runtime-adapter-claude-code/dist/index.js";
 import { buildCodexCommand } from "../packages/octo-runtime-adapter-codex/dist/index.js";
 import { buildOpenCodeCommand } from "../packages/octo-runtime-adapter-opencode/dist/index.js";
-import { buildZcodeCommand } from "../packages/octo-runtime-adapter-zcode-gui/dist/index.js";
 import { resolveDshLaunch } from "../packages/octo-runtime-adapter-dsh/dist/launch.js";
 import { spawnAcpClient } from "../packages/octo-runtime-acp-client/dist/index.js";
 import { spawnGrokBuildAcpClient } from "../packages/octo-runtime-adapter-grok-build/dist/client.js";
@@ -108,42 +107,7 @@ for (const platform of ["win32", "linux"]) {
       await exact.cleanup();
     }
   });
-
-  test(`${platform} ZCode preserves explicit desktop selection across environment aliases`, () => {
-    const original = Object.getOwnPropertyDescriptor(process, "platform");
-    Object.defineProperty(process, "platform", { ...original, value: platform });
-    try {
-      const context = join(tmpdir(), "context desktop", "zcode.cjs");
-      const override = join(tmpdir(), "override desktop", "zcode.cjs");
-      const req = request({ ZCODE_BIN: context });
-      req.executionEnvOverrides = payload({ zcode_bin: override });
-      const before = structuredClone(req);
-      const command = buildZcodeCommand(req);
-      assert.equal(command.command, process.execPath);
-      assert.equal(command.args[0], platform === "win32" ? override : context);
-      assert.deepEqual(req, before);
-    } finally {
-      Object.defineProperty(process, "platform", original);
-    }
-  });
 }
-
-test(
-  "native Windows ZCode discovers Desktop through a mixed-case LOCALAPPDATA override",
-  { skip: process.platform !== "win32" },
-  async (t) => {
-    const directory = await mkdtemp(join(tmpdir(), "octo-zcode-review-"));
-    t.after(() => rm(directory, { recursive: true, force: true }));
-    const entry = join(directory, "Programs", "ZCode", "resources", "glm", "zcode.cjs");
-    await mkdir(dirname(entry), { recursive: true });
-    await writeFile(entry, "// fixture\n");
-    const req = request({ ZCODE_BIN: "", PATH: "", LOCALAPPDATA: join(directory, "missing") });
-    req.executionEnvOverrides = payload({ localappdata: directory });
-    const command = buildZcodeCommand(req);
-    assert.equal(command.command, process.execPath);
-    assert.equal(command.args[0], entry);
-  }
-);
 
 test(
   "native Windows MCP, Claude, shared probe and DSH consume mixed-case overrides",
