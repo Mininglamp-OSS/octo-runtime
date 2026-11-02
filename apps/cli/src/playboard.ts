@@ -26,6 +26,8 @@ import {
 import { INVOKE_REQUEST_MAX_BYTES } from "@mininglamp-oss/octo-runtime-protocol";
 
 export interface PlayboardOptions {
+  /** CLI 可执行入口已接管强退时关闭本函数的协作信号监听；不在此退出宿主。 */
+  handleSignals?: boolean;
   input: NodeJS.ReadableStream;
   output?: (line: string) => void | Promise<void>;
   env?: NodeJS.ProcessEnv;
@@ -107,8 +109,10 @@ export async function runPlayboard(options: PlayboardOptions): Promise<number> {
     controller.abort(error);
   };
   if (!options.output) process.stdout.on("error", onOutputError);
-  process.once("SIGINT", onInterrupt);
-  process.once("SIGTERM", onTerminate);
+  if (options.handleSignals !== false) {
+    process.once("SIGINT", onInterrupt);
+    process.once("SIGTERM", onTerminate);
+  }
   let kernel: KernelService | undefined;
   let outcome: number | undefined;
   let primaryFailure: { error: unknown } | undefined;

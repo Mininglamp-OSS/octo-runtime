@@ -99,6 +99,8 @@ status 汇总原生服务状态、Kernel 可用性和每个已配置 Extra 自�
 
 CLI 可执行入口仅为参数解析及校验确认的前台组件 run 选择有界最终退出：命令返回后设置原退出码，250ms 后若仍因残留句柄存活则显式退出。该定时器 unref，正常资源回收后无需额外等待。extraget 等数据命令、帮助、状态和部署命令必须自然等待 stdout/stderr 刷新，不能以固定 timer 截断慢管道并返回成功。命令类型由既有解析结果通知可执行入口，不能重复猜测参数。最终退出不改变 incomplete 事实；进程退出只属于可执行入口，不进入 SDK 或可导入的 runCli，也不作为同进程同步死循环的强停保证。
 
+Playboard 人工停止采用用户明确授权的本地测试例外：入口接管 SIGINT/SIGTERM 后，按本次 PID 树定向强退，不等待动态模块装配或优雅关闭；正常完成仍等待既有关闭和输出。系统进程查询/终止命令最多等待 2 秒，失败仍非零退出并标记树停止未确认；不把 OS 终止等同于 Run cancelled 或 cleanup complete。具体范围见[临时执行](local-execution.md#临时执行与证据)。
+
 旧 daemon 架构的 1.0.1 列为 deprecated；不支持旧版升级或迁移。已有安装须先停止并移除旧服务，执行 npm uninstall -g @mininglamp-oss/octo-runtime 后重新安装新架构版本并重新配置。npm 卸载不会自动移除系统服务或 Home；遗留数据存在不表示支持迁移。发行时须另行完成 npm registry deprecation，记录实际结果，不能用文档声明替代 registry 操作。
 
 Provider/插件安装和认证方案始终归 HostApp。SDK 不继承 CLI 的全量 manifest、JSON 配置目录或系统服务约定。详见 [SDK 入门](../../docs/zh-CN/getting-started/sdk.md)。

@@ -48,7 +48,7 @@ context_read:
 global_rules: .octospec/_global/ 不存在，未补建或同步。
 user_decisions:
   - 逆向 GUI Adapter 基于逆向接入，用户明确彻底移除 Adapter、注册、依赖、图标、专属测试和当前使用文档，不做 Electron 兼容修补。
-  - Playboard 装配取消问题暂不修复，本轮只执行该 Adapter 移除。
+  - 用户后续明确授权 Playboard CLI 人工停止直接定向强退进程树，不等待 import 或 Kernel；正常结束仍关闭，可导入函数/SDK不强退。将决策与原因英文评论至 Issue294 并提交推送。
   - 旧架构直接拒绝并删除实现，不提供兼容或升级；未知资源记录保留现场但不解释或转换。
   - Electron 原生 SDK 是核心模式，CLI 是特殊宿主。
   - 同进程也必须统一通过 KernelClient/RPC，不能绕过 ExecutorKernel 稳定性逻辑。

@@ -95,7 +95,9 @@ JSON-lines Provider 的 stdout、stderr 及 readline 错误归属单次调用，
 
 ## 临时执行与证据
 
-CLI playboard 通过同一原生工厂在本进程创建临时 Kernel 服务，读取选定 profile 的 Provider 配置，跳过 Extra 和渠道工具环境同步。退出只回收本次资源，保留 Home/profile，不复用常驻服务。只有确认 close 完整，才删除本次临时目录。
+CLI playboard 通过同一原生工厂在本进程创建临时 Kernel 服务，读取选定 profile 的 Provider 配置，跳过 Extra 和渠道工具环境同步。正常结束只回收本次资源，保留 Home/profile，不复用常驻服务。只有确认 close 完整，才删除本次临时目录。
+
+2026-11-02 用户明确 Playboard 仅为一次性本地测试 CLI：可执行入口确认命令后、加载 Adapter 前接管 SIGINT/SIGTERM，直接定向强退，不等待 import、Run 终态或 Kernel.close。POSIX 查询当前父子关系并按后代优先发送 SIGKILL，再退出本进程；Windows 在 owner 仍存活时调用 taskkill /PID /T /F。不得按 node/应用名匹配、杀父 shell、兄弟服务或其他 Runtime，不引入 worker。已重新归属的孤儿进程及查询之后新增的后代不具备完整归属保证；诊断明确执行/清理未确认，允许尾流、日志和临时状态未收尾。可导入 runCli/runPlayboard 默认仍协作取消，不执行强退；此策略不进入 Kernel/SDK。
 
 信号处理和最终退出归 CLI/Electron 宿主。SDK 不安装进程退出处理器；宿主须等待 Extra 和 Kernel 的关闭结果。真实 Windows Ctrl+C 需独立控制台验证，child.kill 的强制终止不能作为优雅关闭证据。旧 worker EOF/IPC 信号协作保留在 [#38 记录](../journal/shared/2026-10-20-windows-host-log-close.md)和 [#58 记录](../tasks/58-windows-cli-signals/brief.md)，不再是当前服务要求。
 

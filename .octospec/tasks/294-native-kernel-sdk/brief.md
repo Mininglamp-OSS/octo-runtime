@@ -46,7 +46,7 @@ Kernel 的职责、允许/禁止案例和共享故障域见[架构案例](../../
 
 ## 实施与验证
 
-2026-11-02 用户追加决定：因该 GUI 接入基于逆向方案，彻底移除该 Adapter，不修补其 Electron 启动方式、不提供替代或兼容入口。范围包括包、默认 CLI 清单、workspace 依赖、UI 图标/名称、专属测试和当前使用文档；验收检查当前源码及发行包不再包含该实现，其他 Adapter 的原生装配和测试继续有效。Playboard 装配取消问题按用户要求仍只讨论，未授权本轮修改。
+2026-11-02 用户追加决定：因该 GUI 接入基于逆向方案，彻底移除该 Adapter，不修补其 Electron 启动方式、不提供替代或兼容入口。范围包括包、默认 CLI 清单、workspace 依赖、UI 图标/名称、专属测试和当前使用文档；验收检查当前源码及发行包不再包含该实现，其他 Adapter 的原生装配和测试继续有效。用户随后授权 Playboard 人工停止直接强退本次进程树：它仅用于本地测试，无需引入通用 import 取消或启动状态机；执行入口负责强退，SDK 不退出宿主，正常完成仍回收。验收覆盖模块加载卡住、可识别后代终止、兄弟进程保留及现有执行/输出行为。
 
 后续接入说明按用户补充拆章：原生 SDK 通过 kernel.client 使用服务，显式 attachKernel 仅说明 CLI 模式跨进程连接；KernelService、ChannelGateway ExtraService、高级 dependencies 分章，AgentRun 调用/事件/控制另列可选使用页。高级示例覆盖 loadContexts、createSessionStore 和自定义 Extra。此次不统一新增所有 Provider 的专用工厂；当前内置 13 个 Adapter 中 8 个已有专用 create 工厂、5 个导出默认 ACP 实例。
 

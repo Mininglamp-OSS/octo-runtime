@@ -47,6 +47,14 @@ Standards：1 项 P2 已修复；Spec：1 项 P2 代码问题及 1 项接入文�
 
 ## PR #295 的后续评审处置
 
-yujiawei 对 `ba30c478` 提出 P1：该 Adapter JavaScript 启动依赖旧 worker 环境；P2：Playboard 动态模块装配等待不可取消。用户先要求只给建议，随后明确因该 GUI 接入基于逆向方案而彻底移除此特性及文档。本轮按产品删除处理 P1：删除完整包、CLI 清单与依赖、推理映射、WebUI 图标/别名、专属测试与双语使用文档，不补 Electron 启动模式、不保留兼容入口。P2 仍按用户要求暂不实施，不宣称两个问题均已修复。
+yujiawei 对 `ba30c478` 提出 P1：该 Adapter JavaScript 启动依赖旧 worker 环境；P2：Playboard 动态模块装配等待不可取消。用户先要求只给建议，随后明确因该 GUI 接入基于逆向方案而彻底移除此特性及文档。本轮按产品删除处理 P1：删除完整包、CLI 清单与依赖、推理映射、WebUI 图标/别名、专属测试与双语使用文档，不补 Electron 启动模式、不保留兼容入口。当时 P2 按用户要求暂不实施；后续用户明确授权仅为本地 Playboard CLI 增加人工强退策略，详见验证记录。
 
 交付检查覆盖共享测试仅删对应 Provider 分支、其余 Adapter 保留、workspace lock 无无关版本变化、当前源码和产品文档无残余引用；历史评审中的相关说明和链接也已删除。CI 只移除已删除测试的路径，不新增检查范围。实际验证见[验证记录](validation.md)。
+
+## Playboard 人工强退复核
+
+按用户追加授权，Playboard 作为一次性本地测试命令，在可执行入口定向强退本次进程树；不把动态 import 包装成可取消操作，不引入 worker，也不修改 Kernel/SDK 关闭合同。Standards 轴未发现新增可确认问题。
+
+Spec 轴发现并修复 1 项 P1：初版在 runCli 返回后移除信号处理器，但清理失败时进程仍可能因 Provider 或其他句柄存活，此时 Ctrl+C 只退出 CLI、遗留 Provider。现将入口信号处理器保留到进程真正退出；监听本身不维持事件循环。使用真实 Adapter 的 finally 永不完成及独立进程组 Provider 复现后重验：先出现 cleanup incomplete，再次 Ctrl+C 输出强退诊断、退出码 130，Provider 已结束。
+
+新增真实顶层 import 卡住并持有两层后代、清理失败返回后仍有子进程两项回归；确认无关兄弟进程继续存活。定向测试 28 项中 26 通过、2 平台跳过、0 失败。复核后无新增未处理 finding；Windows 原生控制台验证未在本机执行。

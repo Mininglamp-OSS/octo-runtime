@@ -56,6 +56,19 @@ CI YAML 再次结构比对通过，新增删除 heartbeat 失效路径后累计�
 - 重新打包并执行离线 `verify-release.mjs` 通过，覆盖公开 SDK 类型、原生 Kernel、独立 Extra、CLI、卸载保留 Home。直接检查 tgz：不含已撤销的包或路径，CLI 仅注册 13 个 Adapter。
 - CI 仅删除已移除专属测试的引用；相对 main 的 jobs、矩阵、触发条件、Gate 依赖和步骤数量保持不变。未执行真实 Provider/IM 或 Electron 验收，未修复 Playboard 装配取消问题。
 
+## Playboard 人工强退验证
+
+用户明确授权将 Playboard 作为一次性本地测试 CLI 处理人工停止：可执行入口强退本次可识别进程树，不等待 import、Run 终态或 Kernel 关闭；正常完成仍执行既有关闭。可导入入口与 SDK 不获得强退策略。
+
+- `pnpm typecheck`（含构建）、lint、lint:names、format:check、docs:check 通过。
+- `node --test test/playboard.test.js test/cli-foreground.test.js`：28 项中 26 通过、2 平台跳过、0 失败。覆盖正在输出时中断、真实顶层 import 不结束且持有两层独立进程组后代、清理不完整返回后中断，并验证无关兄弟进程继续存活。
+- 双轴复核发现并修复入口过早卸载信号处理器；另用真实 Adapter 的 finally 永不完成场景重验：先报告清理不完整，Ctrl+C 后退出码 130、输出强退诊断、Provider 已结束。详见[审查记录](review.md)。
+- 最终全量首次有 2 项既有 OpenCode 版本探测触发 2 秒超时；原文件独立重跑 25 项通过，随后保持原命令与原超时重跑全量：WebUI 35 通过；Node 2394 项中 2328 通过、66 跳过、0 失败。没有扩大 skip 或调整超时。
+- 重新打包并执行离线 `verify-release.mjs` 通过，覆盖公开 SDK 类型、原生 Kernel、独立 Extra、CLI 和卸载保留 Home。OKF 610 单元、20 规则、3857 本地链接通过；`git diff --check` 通过。
+- 本轮没有修改 workflow、测试脚本或默认发现范围；相对 main 的 CI diff 仍仅为此前删除失效测试引用及改正步骤名称，实际既有 CI 列表已核对。
+
+验证平台为 macOS；Windows 原生 Ctrl+C 与 taskkill、Linux 原生进程树未在本机执行。POSIX 仅依据当前父子关系快照，不承诺已经重新归属或快照之后新建的后代完整回收；强退诊断始终声明执行和清理未确认，不将进程退出写成 Run cancelled 或 cleanup complete。
+
 ## 合同与证据
 
 | 合同 | 验证与结果 |

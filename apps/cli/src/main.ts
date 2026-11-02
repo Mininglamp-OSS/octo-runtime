@@ -45,6 +45,8 @@ import {
 } from "./output.js";
 
 export interface CliDependencies extends ServiceControlOptions {
+  /** 参数确认后通知可执行入口接管 Playboard 信号；可导入调用方默认保留协作取消。 */
+  onPlayboardRun?: () => void;
   env?: NodeJS.ProcessEnv;
   input?: NodeJS.ReadableStream;
   output?: (line: string) => void;
@@ -247,6 +249,7 @@ export async function runCli(args: string[], dependencies: CliDependencies = {})
       return 0;
     }
     if (positional[0] === "playboard" && positional.length === 1) {
+      dependencies.onPlayboardRun?.();
       const { runPlayboard } = await import("./playboard.js");
       return runPlayboard({
         home,
@@ -254,7 +257,8 @@ export async function runCli(args: string[], dependencies: CliDependencies = {})
         manifest: flags.manifest,
         input,
         output: dependencies.output,
-        env: dependencies.env
+        env: dependencies.env,
+        handleSignals: !dependencies.onPlayboardRun
       });
     }
     if (positional[0] === "adapter" && positional[1] === "list" && positional.length === 2) {

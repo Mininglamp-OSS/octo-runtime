@@ -58,6 +58,8 @@ octo-runtime playboard < request.json
 
 `playboard` 为这次请求启动临时 Kernel，不要求 Kernel 服务已运行，不会将请求提交给常驻服务，也不加载 Extra。stdout 输出 NDJSON 事件，stderr 输出诊断信息。成功时可看到 `message.delta` 中的最终回复文本及 `run.completed` 终态，具体措辞由模型决定；`run.failed`、`run.cancelled` 不表示执行成功。调用结束后，命令关闭自己创建的临时服务，清理不完整时报错。
 
+Playboard 是一次性本地测试工具。按 Ctrl+C 会直接强制结束本次 CLI 及其可识别的子进程，不等待模块加载或执行收尾；可能没有终态事件，日志和临时文件也可能保留。正常完成仍执行服务关闭。
+
 遇到需要回复的交互时，会以 `PLAYBOARD_INTERACTION_REQUIRED` 结束；应用需要回答审批或追问时，应使用 SDK。Provider 无法启动或认证被拒绝时，先检查同一操作系统账号下的安装和登录状态；错误码见[故障排查](../guides/troubleshooting.md)。这个本地请求不需要 `octo-cli` 或 IM Bot。
 
 顶层 `approvalMode` 和 Context `octo.security/approval_policy` 均省略时，Playboard 默认 `full_access`；SDK 仍默认 `ask`。显式策略保留原有校验。Adapter 自动处理的审批继续到真实终态，通知不证明执行完成；即使在 `full_access` 下，问题与 elicitation 仍需外部回答。普通 provisioned 执行缺省工作目录为 CLI 进程的 `process.cwd()`；显式工作区及 preset Provider 自有目录保持原语义。
