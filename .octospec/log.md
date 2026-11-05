@@ -1,5 +1,9 @@
 # 工程知识变更记录
 
+## 2026-11-05
+
+- [Issue 309 本地实施](journal/shared/2026-11-05-309-runtime-client.md)：确认 runtime 内置 client/protocol、client 同 tag 独立发布，两份自包含归档。完成唯一实现迁移、双包恢复与三 latest；现有完整回归、手动 25 项、原基线互操作、离线/global 安装通过。Standards 三项修复后剩余 0，Spec 0；CI 不扩围，按追加授权准备英文提交及 main PR，未合并或正式发布。
+
 ## 2026-11-04
 
 - [Issue 312 实施](journal/shared/2026-11-04-312-extra-execution-implementation.md)：按追加授权完成 direct/ipc/legacy 与内置 Extra 迁移；Core 首次清理凭据、共享有界窗口、包外公共产物与真实 Codex 验证，#313 暂缓。原规划评分已撤回，实际结果见任务 validation。

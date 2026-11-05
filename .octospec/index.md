@@ -1,5 +1,7 @@
 # Octo Runtime 工程知识目录
 
+- [Issue 309：独立客户端与双包发行](tasks/309-runtime-client/brief.md)：确认完整 runtime 内置 client/protocol、client 独立发布。[设计](tasks/309-runtime-client/design.md)、[计划](tasks/309-runtime-client/plan.md)、[验收](tasks/309-runtime-client/acceptance.md)及[95 分规划自评](tasks/309-runtime-client/assessment.md)完整；本地实现、双包/离线/global/恢复与基线互操作结果见[验证](tasks/309-runtime-client/validation.md)，两轴[Review](tasks/309-runtime-client/review.md)问题已关闭。未扩大 CI；用户追加授权英文提交及目标 main 的 PR，未执行合并或正式发布。
+
 - [Issue 312：Extra direct / IPC 执行规划](tasks/312-extra-execution-modes/brief.md)：按用户要求进入实现与验证，#313 的 Codex app-server 生命周期改造单独暂缓；[A01-A16 验收](tasks/312-extra-execution-modes/acceptance.md)记录专项范围。
 
 - [Issue 303：直接 Kernel 端点](tasks/303-direct-kernel-endpoint/brief.md)：直接修改 POSIX 地址，保留现有 Home 和生命周期合同；[验证](tasks/303-direct-kernel-endpoint/validation.md)记录精简版本的结果与限制。

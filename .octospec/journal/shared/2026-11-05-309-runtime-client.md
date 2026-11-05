@@ -1,0 +1,18 @@
+---
+type: Journal
+title: Issue 309：独立客户端与双包发行本地交付
+description: 记录先规划后实施的发布约束、双包自包含模型、本地验证及两轴审查闭环。
+tags: [architecture, packaging, release, testing, review]
+---
+
+# Issue 309 本地实施
+
+从最新 main `de3ff37a` 建立独立 worktree 后，按用户要求先补齐背景、目标、收益、风险与 95/100 可执行性自评。用户随后确认“一份源码、两种自包含发行物”：runtime 使用自己内置的 client/protocol，client 同 tag 独立发布且仅内置 protocol；protocol 不成为第三个 npm 包。跨发行物不承诺类/函数/WeakSet 身份，保持结构类型及协议行为兼容。
+
+授权实施后完成唯一 client 源码迁移、Kernel 兼容转发、纯路径诊断及 metadata 类型边界、IPC 版本拒绝、双包产物与现有发布恢复步骤。runtime 单 tgz 离线及 npm/pnpm 全局安装保留。workflow/job/矩阵/触发/needs/必需状态、step 数及根默认脚本均未扩大；新增专项仅显式手动运行。
+
+本地完整构建/类型、lint/命名/格式、docs、native 生成检查通过；WebUI 35 项、Node 2334 通过/66 原有跳过、client 手动 6 项、发布恢复手动 19 项均通过。最终归档空缓存包外安装、严格类型/身份边界、原始 `de3ff37a` Kernel 互操作、runtime 原单包验收与 global Extra npm/pnpm 场景通过。global verifier 为适配 npm12 输出复用现有 parser，没有新增验收范围。
+
+用户指定 code-review 后执行独立 Standards/Spec 两轴。Standards 发现测试凭据占位、attach 注释和 incomplete 清理三项，修复复核后剩余 0；Spec 0 项实现问题。
+
+详细归档完整性、体积、命令、失败处置和未验环境见[验证](../../tasks/309-runtime-client/validation.md)及[Review](../../tasks/309-runtime-client/review.md)。完成审查后用户追加授权英文提交、推送并向 main 创建 PR；交付前 fetch 确认 main 未变化。合并、打 tag 和正式发布未授权；Node26、Linux/Windows 真机、Electron、真实 Provider 与官方 npm 权限/provenance 未验。

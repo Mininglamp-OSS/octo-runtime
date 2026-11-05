@@ -332,7 +332,7 @@ test("workflow 将不可变发布、Release 修复和共享 promotion 分离", a
   assert.match(npmWorkflow, /--tag "release-\$VERSION"/);
   assert.doesNotMatch(npmWorkflow, /npm publish[^\n]+--tag latest/);
   assert.match(npmWorkflow, /node scripts\/check-release-registry\.mjs/);
-  assert.match(npmWorkflow, /"\$REGISTRY" --wait/);
+  assert.match(npmWorkflow, /--package "@mininglamp-oss\/octo-runtime\$SUFFIX" --wait/);
   assert.match(npmWorkflow, /node scripts\/resolve-release-build-time\.mjs "\$VERSION" "\$SHA"/);
   assert.match(npmWorkflow, /build_time: \$\{\{ needs\.validate\.outputs\.build_time \}\}/);
   const ciWorkflow = await readFile(resolve(root, ".github/workflows/ci.yml"), "utf8");

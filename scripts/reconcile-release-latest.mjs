@@ -67,7 +67,12 @@ export async function reconcileLatest(
   let observed;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const before = includeCandidate(await client.readState(), candidate);
-    const latestFloor = selectLatestFloor(before.npmLatest, before.githubLatest);
+    const latestFloor = selectLatestFloor(
+      before.npmLatest,
+      before.clientNpmLatest,
+      before.githubLatest
+    );
+    const paired = Object.hasOwn(before, "clientNpmLatest");
     if (before.completeVersions.length === 0 && latestFloor !== null) {
       if (!dryRun && attempt < maxAttempts) {
         await retryDelay();
@@ -90,12 +95,14 @@ export async function reconcileLatest(
     }
     const actions = [
       ...(before.npmLatest === target ? [] : [["npm", target]]),
+      ...(!paired || before.clientNpmLatest === target ? [] : [["npm-client", target]]),
       ...(before.githubLatest === target ? [] : [["github", target]])
     ];
 
     if (dryRun) return { target, relation, attempts: attempt, actions };
 
     if (before.npmLatest !== target) await client.setNpmLatest(target);
+    if (paired && before.clientNpmLatest !== target) await client.setClientNpmLatest(target);
     if (before.githubLatest !== target) await client.setGitHubLatest(target);
 
     observed = includeCandidate(await client.readState(), candidate);
@@ -107,7 +114,11 @@ export async function reconcileLatest(
       throw new Error(`写入后没有完整 Release 资产：${JSON.stringify(observed)}`);
     }
     const expected = selectHighestCompleteVersion(observed.completeVersions);
-    if (observed.npmLatest === expected && observed.githubLatest === expected) {
+    if (
+      observed.npmLatest === expected &&
+      observed.githubLatest === expected &&
+      (!paired || observed.clientNpmLatest === expected)
+    ) {
       return { target: expected, relation, attempts: attempt };
     }
   }
@@ -158,7 +169,8 @@ function stableLatest(output) {
     : null;
 }
 
-export function createCommandClient({ packageName, repository, runCommand = run }) {
+export function createCommandClient({ packageName, repository, runCommand = run, paired = false }) {
+  const clientName = "@mininglamp-oss/octo-runtime-client";
   async function readReleaseIntegrity(version, archive) {
     const directory = await mkdtemp(join(tmpdir(), "octo-release-integrity-"));
     try {
@@ -196,6 +208,16 @@ export function createCommandClient({ packageName, repository, runCommand = run 
       );
       const latestOutput = await npmView(runCommand, `${packageName}@latest`, "version");
       const npmLatest = stableLatest(latestOutput);
+      let clientVersions;
+      let clientNpmLatest;
+      if (paired) {
+        const output = await npmView(runCommand, clientName, "versions");
+        const versions = output === null ? [] : JSON.parse(output);
+        clientVersions = new Set(Array.isArray(versions) ? versions : [versions]);
+        clientNpmLatest = stableLatest(
+          await npmView(runCommand, `${clientName}@latest`, "version")
+        );
+      }
       const releases = JSON.parse(
         await runCommand("gh", [
           "release",
@@ -221,6 +243,7 @@ export function createCommandClient({ packageName, repository, runCommand = run 
       );
       const completeVersions = [];
       for (const version of npmVersions.sort(compareStableVersions).reverse()) {
+        if (paired && !clientVersions.has(version)) continue;
         if (!byVersion.has(version)) continue;
         const release = JSON.parse(
           await runCommand("gh", [
@@ -233,17 +256,24 @@ export function createCommandClient({ packageName, repository, runCommand = run 
             repository
           ])
         );
-        const archive = `mininglamp-oss-octo-runtime-${version}.tgz`;
-        if (release.assets.some((asset) => asset.name === archive)) {
-          const npmIntegrity = await readRegistryIntegrity(version, "https://registry.npmjs.org", {
-            runCommand,
-            name: packageName
-          });
-          if (npmIntegrity === null) {
-            throw new Error(`Missing npm archive integrity: ${packageName}@${version}`);
-          }
-          if ((await readReleaseIntegrity(version, archive)) !== npmIntegrity) {
-            throw new Error(`GitHub Release archive integrity mismatch: ${packageName}@${version}`);
+        const names = [packageName, ...(paired ? [clientName] : [])];
+        const archives = names.map(
+          (name) => `${name.replace(/^@/, "").replace("/", "-")}-${version}.tgz`
+        );
+        if (archives.every((archive) => release.assets.some((asset) => asset.name === archive))) {
+          for (const [index, name] of names.entries()) {
+            const npmIntegrity = await readRegistryIntegrity(
+              version,
+              "https://registry.npmjs.org",
+              {
+                runCommand,
+                name
+              }
+            );
+            if (npmIntegrity === null)
+              throw new Error(`Missing npm archive integrity: ${name}@${version}`);
+            if ((await readReleaseIntegrity(version, archives[index])) !== npmIntegrity)
+              throw new Error(`GitHub Release archive integrity mismatch: ${name}@${version}`);
           }
           completeVersions.push(version);
           break;
@@ -257,7 +287,8 @@ export function createCommandClient({ packageName, repository, runCommand = run 
       return {
         completeVersions,
         npmLatest,
-        githubLatest
+        githubLatest,
+        ...(paired ? { clientNpmLatest } : {})
       };
     },
     async setNpmLatest(version) {
@@ -265,6 +296,15 @@ export function createCommandClient({ packageName, repository, runCommand = run 
         "dist-tag",
         "add",
         `${packageName}@${version}`,
+        "latest",
+        "--registry=https://registry.npmjs.org"
+      ]);
+    },
+    async setClientNpmLatest(version) {
+      await runCommand("npm", [
+        "dist-tag",
+        "add",
+        `${clientName}@${version}`,
         "latest",
         "--registry=https://registry.npmjs.org"
       ]);
@@ -284,9 +324,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const candidate = candidateIndex === -1 ? null : (process.argv[candidateIndex + 1] ?? null);
   if (dryRun && candidate === null) throw new Error("dry-run 缺少 --candidate VERSION");
   if (!dryRun && candidate !== null) throw new Error("--candidate 仅能与 --dry-run 一起使用");
-  const result = await reconcileLatest(createCommandClient({ packageName, repository }), {
-    dryRun,
-    candidate
-  });
+  const result = await reconcileLatest(
+    createCommandClient({ packageName, repository, paired: process.argv.includes("--paired") }),
+    {
+      dryRun,
+      candidate
+    }
+  );
   console.log(JSON.stringify(result));
 }
