@@ -90,6 +90,8 @@ runtime tgz 将 client 和 protocol 的编译产物一并物化在包内 node_mo
 
 历史单包 tag 保持原归档及使用方式；本设计不向其补发 client，也不把其误判为新双包的成功记录。新流程的恢复和双包 latest 以首次双包发行开始，不更改历史 npm 字节。
 
+dry-run 在发布前允许传入尚未发布的候选版本，但该输入不加入 `readState()` 返回的已验证完整版本集合。输出分别报告 `candidate.version/verified` 与 `targetVerified`；只有目标已通过远端双包/附件/integrity 检查时，才在 `actions` 返回提升计划。未经验证的候选仅返回 `conditionalActions`、空 `actions` 和明确警告，表示发布与完整性校验成功后的假设计划，不表示发布就绪。两类 dry-run 均零远端写入；读取、鉴权和完整性错误继续失败，latest 下界检查不放宽。正式执行在 CLI 和函数入口均拒绝 `candidate`。
+
 ## 6. 风险及停止条件
 
 | 风险 | 对策与检查 | 未满足时 |

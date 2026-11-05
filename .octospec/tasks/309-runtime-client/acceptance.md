@@ -23,7 +23,7 @@ tags: [testing, protocol, lifecycle, packaging, release]
 | A10 | 两个包均缺失、仅 client 已发、仅 runtime 已发、两包已发的可控 registry 状态 | 每种恢复只上传缺失归档；两个包分别预检来源/integrity；两包同源、单包可恢复 buildTime；完整性不一致停止 |
 | A11 | 任一 lookup 鉴权/网络错、归档冲突、发布 ACK 未知、延迟可读 | 只有 E404 当缺包；冲突在任何新上传前失败；未知上传先读取确认，无盲重发/unpublish/重打 tag |
 | A12 | npm 双包成功但 GitHub 附件部分失败，或三 latest 更新中断、并发旧版恢复 | 仅补缺失附件；完整集合核对两个 npm integrity 和两个附件；三 latest 重读收敛到最高完整版本，不因旧版恢复回退 |
-| A13 | 既有 dry-run 发行模式 | 两包均执行现有发布校验但无真实 npm/GitHub 写入；缺包、预检错误与实际失败可区分；包名参数不能误查成 runtime |
+| A13 | 既有 dry-run 发行模式 | 两包均执行现有发布校验但无真实 npm/GitHub 写入；缺包、预检错误与实际失败可区分；未验证候选明确标注 verified=false、空 actions，仅返回带警告的 conditionalActions；已验证目标才返回 actions；正式执行拒绝 candidate；包名参数不能误查成 runtime |
 | A14 | 原 offline SDK、npm global Extra、pnpm global Extra 和 Windows verifier | 只提供 runtime 一个物料，原场景通过；client 也可单 tgz 独立离线安装；失败保留所属进程/registry 清理事实；单 client 离线仍只需一个 tgz |
 | A15 | 既有跨包回归、双语文档示例、native/codegen 校验与 CI 范围核对 | 原 checks 通过或给出同基线失败证据；Schema 不变；专项未进入默认选择器/CI；workflow 只变更双包材料处理和发布对象 |
 | A16 | 依赖和体积记录、平台与真实集成清单 | 两包压缩/解包字节、依赖数、源码 revision 可复查；Node、OS、真实 Provider/Electron 各自有证据或明确 not run |

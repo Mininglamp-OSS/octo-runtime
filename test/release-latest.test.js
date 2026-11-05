@@ -199,10 +199,15 @@ test("dry-run 使用同一决策并保持 npm 与 GitHub 零写入", async () =>
       target: "1.2.0",
       relation: "newer",
       attempts: 1,
-      actions: [
+      targetVerified: false,
+      candidate: { version: "1.2.0", verified: false },
+      actions: [],
+      conditionalActions: [
         ["npm", "1.2.0"],
         ["github", "1.2.0"]
-      ]
+      ],
+      warning:
+        "Candidate release completeness is not verified. This is a simulation, not release readiness; conditional actions require successful publication and integrity verification."
     }
   );
   assert.deepEqual(release.actions, []);

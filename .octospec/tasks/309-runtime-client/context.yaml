@@ -10,6 +10,7 @@ rules_read:
 issue: https://github.com/Mininglamp-OSS/octo-runtime/issues/309
 baseline: de3ff37a
 synced_main: 11dbab88
+review_followup: "2026-11-05：用户授权修复 yujiawei 指出的 dry-run 输出歧义并英文回复改动与 P1 定级意见；提交推送当前 PR 后评论请求复审，不修改 reviewer 状态，不扩大 CI。"
 conflict_resolution: "2026-11-05：用户授权解决 PR #316 冲突并重新英文提交、推送；将 main 合入功能分支，保留 #314 统一启动诊断，纯诊断与 catalog 由 client 提供唯一实现。验证见 validation.md 末节。不合并 PR、不打 tag、不正式发布。"
 phase: verified
 user_direction: "2026-11-05：先将 runtime 内置 client、client 独立发布的约束写入 spec 再实施；完成 code-review 后，用户追加授权英文提交、推送并向 main 创建 PR。未授权合并或正式发布。"

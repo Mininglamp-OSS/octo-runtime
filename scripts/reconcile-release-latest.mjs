@@ -44,17 +44,6 @@ function selectLatestFloor(...latestVersions) {
   return versions.length === 0 ? null : selectHighestCompleteVersion(versions);
 }
 
-function includeCandidate(state, candidate) {
-  if (candidate === null) return state;
-  if (candidate === "0.0.0" || !stableVersion.test(candidate)) {
-    throw new Error(`候选版本不是可发布的稳定 SemVer：${candidate}`);
-  }
-  return {
-    ...state,
-    completeVersions: [...state.completeVersions, candidate]
-  };
-}
-
 export async function reconcileLatest(
   client,
   {
@@ -64,16 +53,24 @@ export async function reconcileLatest(
     retryDelay = () => new Promise((resolve) => setTimeout(resolve, 2000))
   } = {}
 ) {
+  if (candidate !== null) {
+    if (!dryRun) throw new Error("--candidate 仅能与 --dry-run 一起使用");
+    if (candidate === "0.0.0" || !stableVersion.test(candidate))
+      throw new Error(`候选版本不是可发布的稳定 SemVer：${candidate}`);
+  }
   let observed;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const before = includeCandidate(await client.readState(), candidate);
+    const before = await client.readState();
+    // 候选只参与发布前模拟；远端完整性证据始终来自 readState，不能被候选输入补造。
+    const plannedVersions =
+      candidate === null ? before.completeVersions : [...before.completeVersions, candidate];
     const latestFloor = selectLatestFloor(
       before.npmLatest,
       before.clientNpmLatest,
       before.githubLatest
     );
     const paired = Object.hasOwn(before, "clientNpmLatest");
-    if (before.completeVersions.length === 0 && latestFloor !== null) {
+    if (plannedVersions.length === 0 && latestFloor !== null) {
       if (!dryRun && attempt < maxAttempts) {
         await retryDelay();
         continue;
@@ -82,7 +79,7 @@ export async function reconcileLatest(
         `当前 latest ${latestFloor} 暂时没有完整 Release 资产：${JSON.stringify(before)}`
       );
     }
-    const target = selectHighestCompleteVersion(before.completeVersions);
+    const target = selectHighestCompleteVersion(plannedVersions);
     const relation = classifyVersion(target, before.npmLatest);
     if (latestFloor !== null && compareStableVersions(target, latestFloor) < 0) {
       if (!dryRun && attempt < maxAttempts) {
@@ -99,13 +96,37 @@ export async function reconcileLatest(
       ...(before.githubLatest === target ? [] : [["github", target]])
     ];
 
-    if (dryRun) return { target, relation, attempts: attempt, actions };
+    if (dryRun) {
+      const targetVerified = before.completeVersions.includes(target);
+      return {
+        target,
+        relation,
+        attempts: attempt,
+        targetVerified,
+        ...(candidate === null
+          ? {}
+          : {
+              candidate: {
+                version: candidate,
+                verified: before.completeVersions.includes(candidate)
+              }
+            }),
+        actions: targetVerified ? actions : [],
+        ...(!targetVerified
+          ? {
+              conditionalActions: actions,
+              warning:
+                "Candidate release completeness is not verified. This is a simulation, not release readiness; conditional actions require successful publication and integrity verification."
+            }
+          : {})
+      };
+    }
 
     if (before.npmLatest !== target) await client.setNpmLatest(target);
     if (paired && before.clientNpmLatest !== target) await client.setClientNpmLatest(target);
     if (before.githubLatest !== target) await client.setGitHubLatest(target);
 
-    observed = includeCandidate(await client.readState(), candidate);
+    observed = await client.readState();
     if (observed.completeVersions.length === 0) {
       if (attempt < maxAttempts) {
         await retryDelay();

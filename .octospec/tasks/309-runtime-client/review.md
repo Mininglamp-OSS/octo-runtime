@@ -38,3 +38,9 @@ tags: [review, architecture, packaging, release, testing]
 **最终 Spec：0 项已确认问题。**
 
 本次审查与运行验证仅覆盖本地源码和归档；平台、真实 Provider/Electron、正式权限与发布仍受验证记录的未验边界限制。未提交或发起远端 review。
+
+## 远端 review 后续：dry-run 候选就绪语义
+
+上述结论属于首轮本地审查。PR #316 在 `954e2c16` 的远端 review 中，yujiawei 复现空状态传入未发布候选后仍返回提升 actions，判为 P1。复现成立：旧实现把候选合入 `completeVersions`，输出未区分模拟假设与远端证据。该逻辑在 main `11dbab88` 已存在，双包改动扩展了其输出对象；正式 workflow 不传候选，仍通过双包、附件和 SHA-512 验证，dry-run 本身没有远端写入。因此接受输出歧义修复，建议按 P2 评估影响，而非认定正式发布校验失效。
+
+按用户授权修复：候选与已验证集合分开，显式标注候选/目标 verified 状态；未验证目标仅返回带警告的 conditionalActions 和空 actions，正式函数入口也拒绝候选。新增专项仅在手动测试文件，既有默认测试只同步原断言。验证结果见[后续记录](validation.md#远端-review-后续dry-run-候选语义修复)。英文回复附修复提交、复现与验证结果，并请求 reviewer 复审；不代替 reviewer 撤销 changes-requested。

@@ -20,3 +20,7 @@ tags: [architecture, packaging, release, testing, review]
 ## PR #316 冲突解决
 
 用户随后授权解决冲突、英文提交并推送。将最新 main `11dbab88` 合入功能分支，协调 #314 统一启动诊断与纯路径抽取：纯诊断及 catalog 在 client 保存唯一实现，Kernel 保留显式转发，服务生命周期和 IO 继续归完整 Runtime。完整构建、类型、lint、格式、文档、原测试套件、双包手动 25 项和单包离线验收通过；启动诊断手动 30 项通过、1 项 Windows 专属跳过，macOS 长临时目录场景通过仅本次指定 `TMPDIR=/tmp` 重验。相对最新 main 的 13 个 workflow 结构和默认 scripts 复核未扩围；实际结果及环境边界见验证记录末节。
+
+## 远端 review 后续
+
+yujiawei 指出 dry-run 把未验证候选当作完整版本输出提升 actions。已复现并按用户授权修复为显式候选/目标验证状态、未验证目标仅给 conditionalActions 和警告；正式入口拒绝 candidate。该模拟逻辑在 main 原已存在，实际发布始终保留远端完整性校验，故接受修复并在英文回复中建议按 P2 评估。只补本地手动专项，未新增 CI 或默认测试；具体命令及结果见验证记录后续小节。

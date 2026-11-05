@@ -137,14 +137,69 @@ function fixture() {
   };
 }
 
-test("dry-run plans both npm tags and GitHub, and performs no writes", async () => {
+test("dry-run labels an unverified paired candidate as conditional and performs no writes", async () => {
   const { api, writes } = fixture();
   const result = await reconcileLatest(api, { dryRun: true, candidate: "1.3.0" });
-  assert.deepEqual(result.actions, [
+  assert.equal(result.targetVerified, false);
+  assert.deepEqual(result.candidate, { version: "1.3.0", verified: false });
+  assert.deepEqual(result.actions, []);
+  assert.match(result.warning, /not verified.*simulation.*not release readiness/);
+  assert.deepEqual(result.conditionalActions, [
     ["npm", "1.3.0"],
     ["npm-client", "1.3.0"],
     ["github", "1.3.0"]
   ]);
+  assert.deepEqual(writes, []);
+});
+
+test("an unpublished candidate never becomes verified evidence or promotion actions", async () => {
+  const { api, state, writes } = fixture();
+  state.completeVersions = [];
+  state.npmLatest = state.clientNpmLatest = state.githubLatest = null;
+  api.readState = async () => state;
+  const result = await reconcileLatest(api, { dryRun: true, candidate: "9.9.9" });
+  assert.equal(result.target, "9.9.9");
+  assert.equal(result.targetVerified, false);
+  assert.deepEqual(result.candidate, { version: "9.9.9", verified: false });
+  assert.deepEqual(result.actions, []);
+  assert.equal(result.conditionalActions.length, 3);
+  assert.match(result.warning, /not verified/);
+  assert.deepEqual(state.completeVersions, []);
+  await assert.rejects(reconcileLatest(api, { maxAttempts: 1 }), /没有同时完成/);
+  await assert.rejects(reconcileLatest(api, { candidate: "9.9.9" }), /仅能与 --dry-run/);
+  assert.deepEqual(writes, []);
+});
+
+test("verified dry-run targets retain actionable plans without conditional readiness", async () => {
+  for (const candidate of [null, "1.2.0", "1.1.0"]) {
+    const { api, state, writes } = fixture();
+    const result = await reconcileLatest(api, { dryRun: true, candidate });
+    assert.equal(result.target, "1.2.0");
+    assert.equal(result.targetVerified, true);
+    assert.equal(result.actions.length, 3);
+    assert.equal(Object.hasOwn(result, "conditionalActions"), false);
+    assert.equal(Object.hasOwn(result, "warning"), false);
+    if (candidate !== null)
+      assert.deepEqual(result.candidate, {
+        version: candidate,
+        verified: state.completeVersions.includes(candidate)
+      });
+    assert.deepEqual(writes, []);
+  }
+});
+
+test("candidate simulation retains latest floors and propagates verification failures", async () => {
+  const { api, state, writes } = fixture();
+  state.clientNpmLatest = "1.4.0";
+  await assert.rejects(reconcileLatest(api, { dryRun: true, candidate: "1.3.0" }), /拒绝把 latest/);
+  const failure = new Error("GitHub Release archive integrity mismatch");
+  api.readState = async () => {
+    throw failure;
+  };
+  await assert.rejects(
+    reconcileLatest(api, { dryRun: true, candidate: "9.9.9" }),
+    (error) => error === failure
+  );
   assert.deepEqual(writes, []);
 });
 
@@ -176,7 +231,7 @@ test("a newer client latest is a floor even when runtime and GitHub lag behind",
   assert.deepEqual(writes, []);
 });
 
-for (const absentAsset of [null, "client"]) {
+for (const absentAsset of [null, "client", "runtime", "client-version"]) {
   test(`command client requires both package versions and both assets (missing=${absentAsset})`, async () => {
     const tags = new Map([
       [runtime, "1.0.0"],
@@ -193,7 +248,10 @@ for (const absentAsset of [null, "client"]) {
           tags.set(args[2].slice(0, at), args[2].slice(at + 1));
           return "";
         }
-        if (args[2] === "versions") return JSON.stringify(["1.0.0", "1.2.0"]);
+        if (args[2] === "versions")
+          return JSON.stringify(
+            absentAsset === "client-version" && args[1] === client ? ["1.0.0"] : ["1.0.0", "1.2.0"]
+          );
         if (args[2] === "version") return JSON.stringify(tags.get(args[1].replace(/@latest$/, "")));
         if (args[2] === "dist.integrity") {
           checked.push(args[1]);
@@ -212,9 +270,16 @@ for (const absentAsset of [null, "client"]) {
       if (args[1] === "view") {
         const v = args[2].slice(1);
         return JSON.stringify({
-          assets: [runtime, ...(v === "1.2.0" && absentAsset ? [] : [client])].map((name) => ({
-            name: artifact(name, v)
-          }))
+          assets: [runtime, client]
+            .filter(
+              (name) =>
+                v !== "1.2.0" ||
+                !(
+                  (absentAsset === "client" && name === client) ||
+                  (absentAsset === "runtime" && name === runtime)
+                )
+            )
+            .map((name) => ({ name: artifact(name, v) }))
         });
       }
       if (args[1] === "download") {
@@ -238,6 +303,20 @@ for (const absentAsset of [null, "client"]) {
       paired: true,
       runCommand
     });
+    const plan = await reconcileLatest(api, { dryRun: true, candidate: "1.2.0" });
+    assert.equal(plan.targetVerified, absentAsset === null);
+    assert.deepEqual(plan.candidate, { version: "1.2.0", verified: absentAsset === null });
+    if (absentAsset) {
+      assert.deepEqual(plan.actions, []);
+      assert.equal(plan.conditionalActions.length, 3);
+      assert.match(plan.warning, /not verified/);
+    } else {
+      assert.equal(plan.actions.length, 3);
+      assert.equal(Object.hasOwn(plan, "warning"), false);
+    }
+    assert.equal(tags.get(runtime), "1.0.0");
+    assert.equal(tags.get(client), "1.0.0");
+    assert.equal(githubLatest, "1.0.0");
     const result = await reconcileLatest(api);
     const expected = absentAsset ? "1.0.0" : "1.2.0";
     assert.equal(result.target, expected);

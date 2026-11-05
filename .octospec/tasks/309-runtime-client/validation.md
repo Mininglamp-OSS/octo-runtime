@@ -99,3 +99,17 @@ Node 26、Linux/Windows 原生安装及 named pipe 真机、Electron 打包、�
 - 相对最新 `origin/main` 解析比较全部 13 个 workflow：文件集合、触发器、job、矩阵、needs、权限、step 数和 actions 均相同；根默认 scripts 相同。workflow diff 仍仅为原 PR 的三个双包发行适配文件，本次同步未修改 workflow。推送前 PR 实际 checks 仍为既有 CI 六个平台组合及 Gate、依赖/历史/标签/标题/密钥/workflow 检查，另有既有 `code-review` 状态；本次不增加检查。
 
 本节结果为本机 macOS/Node 24 证据；新合并提交的远端 CI 需由推送触发，未以旧 HEAD 的远端通过状态代替。Linux/Windows/Node 26 和正式发布边界仍按前节列明。
+
+## 远端 review 后续：dry-run 候选语义修复
+
+2026-11-05，在干净 HEAD `954e2c1605f0073c329610c58e37f031f1ba7f7d` 复现 yujiawei 的 review：空发布状态与候选 `9.9.9` 原返回三项提升 actions，但没有任何写入；正常执行拒绝空完整集合。用户随后授权改代码并英文回复修复内容与定级意见。
+
+修复后不修改 readState 的完整集合；候选只参与模拟目标选择。未验证目标输出 `targetVerified: false`、`candidate.verified: false`、空 `actions`、三项 `conditionalActions` 及明确的非发布就绪警告，写入仍为零。已验证目标正常返回 actions；候选较旧时分别报告候选与实际目标验证事实。正式函数调用与 CLI 一样拒绝候选，鉴权/读取/integrity 失败和 latest 下界拒绝保持。
+
+- `node --test test/release-latest.test.js test/release-build-time.test.js test/release-manifest.test.js test/manual/runtime-client-release-309.test.mjs`：52/52 通过，含既有 28 项和显式手动 24 项。新增 5 项均在手动文件；既有默认 dry-run 测试只同步返回值断言，未增加默认测试数。
+- 手动专项覆盖未发布空状态且输入对象不被污染、已验证/较旧候选、函数正式执行拒绝候选、client latest 下界、验证失败透传；生产 command client 分别覆盖双包完整、缺 client npm 版本、缺 runtime 附件和缺 client 附件，验证 dry-run 零写入及正式提升行为。
+- `pnpm typecheck`：完整构建和根类型检查通过。本次不改 SDK、wire、打包或依赖，未重跑全量业务套件与发行安装，不将之前结果标为本轮重验。
+- 原复现以 `node --input-type=module` 显式调用重跑：返回未验证状态、空 actions、conditionalActions 和警告；写入数组为空。未执行真实 npm publish、latest 更新或 GitHub Release 写入。
+- `pnpm lint`、`pnpm lint:names`、`pnpm format:check`、开发文档检查和 OctoSpec 检查全部通过：166 文档/2133 链接无错误，661 个 OKF 单元/20 条规则/4011 个本地文件链接。相对最新 main 重新结构比对 13 个 workflow 及根 scripts，范围相同；本次相对 HEAD 的 workflow/package.json diff 为空。
+
+新增专项保持显式手动运行；本次 workflow、默认 scripts 和测试 selector 均未修改。英文 review 回复说明该模拟假设在 main `11dbab88` 已存在、正式发布不传候选且始终验证远端产物，建议 P2 定级；接受并修复输出歧义，不自行撤销 reviewer 的 changes-requested。
