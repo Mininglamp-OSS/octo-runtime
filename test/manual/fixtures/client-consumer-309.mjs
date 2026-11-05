@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile, mkdir } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-import { attachKernel, KernelError } from "@mininglamp-oss/octo-runtime-client";
+import { attachKernel, KernelError, RuntimeHomeError } from "@mininglamp-oss/octo-runtime-client";
 import * as protocol from "@mininglamp-oss/octo-runtime-client/protocol";
 import schema from "@mininglamp-oss/octo-runtime-client/protocol/schema.json" with { type: "json" };
 import ipcSchema from "@mininglamp-oss/octo-runtime-client/protocol/ipc-schema.json" with { type: "json" };
@@ -15,6 +15,23 @@ const input = {
   invocationId: randomUUID()
 };
 assert.ok(schema && ipcSchema && fixtures && behavior);
+const invalidEndpoint = `token=${randomUUID()}`;
+let pathDiagnostic;
+assert.throws(
+  () => attachKernel({ endpoint: invalidEndpoint }),
+  (error) => {
+    assert.ok(error instanceof RuntimeHomeError);
+    assert.equal(error.code, "IPC_ENDPOINT_INVALID");
+    const diagnostic = error.diagnostic;
+    assert.equal(diagnostic.rootCode, error.code);
+    assert.equal(diagnostic.path, diagnostic.context.path);
+    assert.equal(diagnostic.action, diagnostic.actions.join(" "));
+    assert.equal(Object.hasOwn(JSON.parse(JSON.stringify(diagnostic)), "path"), false);
+    assert.ok(!JSON.stringify(diagnostic).includes(invalidEndpoint));
+    pathDiagnostic = diagnostic;
+    return true;
+  }
+);
 const client = attachKernel({ endpoint });
 try {
   assert.equal((await client.status()).ipc_version, 1);
@@ -35,6 +52,9 @@ if (process.argv.includes("--paired")) {
   );
   assert.equal(full.attachKernel, internalClient.attachKernel);
   assert.equal(full.KernelError, internalClient.KernelError);
+  assert.equal(full.RuntimeHomeError, internalClient.RuntimeHomeError);
+  assert.equal(pathDiagnostic.actions[0], full.STARTUP_CATALOG.IPC_ENDPOINT_INVALID.action);
+  assert.throws(() => full.attachKernel({ endpoint: "relative-endpoint" }), full.RuntimeHomeError);
   const internalProtocol = await import(
     new URL("../../node_modules/@mininglamp-oss/octo-runtime-protocol/dist/index.js", runtimeEntry)
   );

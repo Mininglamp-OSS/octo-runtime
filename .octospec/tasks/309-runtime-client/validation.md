@@ -7,6 +7,8 @@ tags: [testing, packaging, release, protocol, lifecycle]
 
 # 验证记录
 
+首轮实现记录保留如下；PR #316 同步最新 main 的冲突解决与重验见末节。前述归档大小和完整性仅属于首轮产物。
+
 2026-11-05，按[确认设计](design.md)完成本地实现。worktree `octo-runtime-issue-309-runtime-client`，分支 `codex/issue-309-runtime-client`；基线和 HEAD 均为 `de3ff37a86ee3cb8f6ab66148ceca817f6ae5240`，工作树 dirty，尚无本次提交。测试包版本 `0.0.309` 仅用于本地，不表示已发布。构建元数据为相同 commit、`dirty: true`、`buildTime: 2026-11-05T02:28:58.985Z`。
 
 环境：macOS 26.6.2 / Darwin arm64，Node 24.22.2、pnpm 11.19.0、npm 12.2.1。所有安装和模拟发布均在独占临时目录，不安装系统服务、不执行真实 npm/GitHub 写入，不改变用户 Runtime Home。
@@ -84,3 +86,16 @@ client 唯一运行依赖为内置 `@mininglamp-oss/octo-runtime-protocol@0.0.30
 Node 26、Linux/Windows 原生安装及 named pipe 真机、Electron 打包、真实 Provider turn、官方 npm 新包权限/provenance 和真实 npm/GitHub Release 均 **not run**。本次移动既有客户端实现，真实 Provider/Electron 不由 Node fake Provider 结果推定；没有通过真实 publish 试探权限。原生 Go/Python 运行测试未重跑，本轮仅明确执行 native 生成校验。所有手动临时服务均完整关闭后清理，未改变用户 Home。
 
 以上为提交前取得的本地证据。两轴审查完成后，用户追加授权英文 commit/push 并向 main 创建 PR；提交前重新 fetch 确认 origin/main 仍为相同基线，并复核知识检查和 workflow 范围。合并、打 tag 和正式发行须另按授权执行。
+
+## PR #316 同步 main 与冲突重验
+
+2026-11-05，按用户追加授权将 `origin/main@11dbab88` 合入 `codex/issue-309-runtime-client`，合并前 HEAD 为 `0fe46d97640fea01416b4e6c4fdfe8e38079eb17`。`runtime-home.ts` 文本冲突来自 #314 统一启动诊断与本分支纯路径抽取。将纯启动诊断和 catalog 迁入 client，Kernel 显式兼容转发，生命周期仅复用数据类型；服务启动、文件系统及日志 IO 保持完整 Runtime 所有。包外消费者手动夹具增加安全诊断、旧别名、catalog 和发行物内部错误身份断言，不增加默认测试或专项 CI。
+
+- `pnpm typecheck`、`pnpm lint`、`pnpm lint:names`、`pnpm format:check`、`pnpm docs:check` 全部通过。
+- `pnpm test:suites`：WebUI 35 项通过；Node 2334 通过、66 项原有条件跳过、0 失败。
+- `env TMPDIR=/tmp node --test test/manual/startup-diagnostics.test.js test/manual/startup-diagnostics-review.test.mjs`：30 通过、1 项 Windows ACL 真机测试跳过。首次使用 macOS 默认长临时目录时，一例 CLI 缺模块场景先触发 IPC 路径过长校验；仅缩短本次手动运行的 TMPDIR 后通过，未修改产品校验或上游测试。
+- `node scripts/pack-release.mjs --version 0.0.309` 重新生成双包；`node --test test/manual/runtime-client-309.test.mjs test/manual/runtime-client-release-309.test.mjs`：25 项全部通过，包含新增诊断断言、独立安装及原基线 Kernel 互操作。
+- `node scripts/verify-release.mjs dist/release/mininglamp-oss-octo-runtime-0.0.309.tgz --expected-commit 0fe46d97640fea01416b4e6c4fdfe8e38079eb17`：完整包离线安装、公开类型、原生 Kernel、独立 Extra、Host store、恢复、CLI 及卸载保留 Home 全部通过。构建发生在合并提交前，因此元数据使用该旧 HEAD 且 dirty；未将该归档作为正式发行物。
+- 相对最新 `origin/main` 解析比较全部 13 个 workflow：文件集合、触发器、job、矩阵、needs、权限、step 数和 actions 均相同；根默认 scripts 相同。workflow diff 仍仅为原 PR 的三个双包发行适配文件，本次同步未修改 workflow。推送前 PR 实际 checks 仍为既有 CI 六个平台组合及 Gate、依赖/历史/标签/标题/密钥/workflow 检查，另有既有 `code-review` 状态；本次不增加检查。
+
+本节结果为本机 macOS/Node 24 证据；新合并提交的远端 CI 需由推送触发，未以旧 HEAD 的远端通过状态代替。Linux/Windows/Node 26 和正式发布边界仍按前节列明。

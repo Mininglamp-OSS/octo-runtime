@@ -2,3 +2,4 @@
 export * from "./runtime-path.js";
 export * from "./invocation-lifecycle.js";
 export * from "./submission-error.js";
+export * from "./startup-diagnostics.js";

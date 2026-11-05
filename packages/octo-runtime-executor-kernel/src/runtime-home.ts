@@ -17,8 +17,6 @@ import {
   normalizeRuntimeHome,
   assertRuntimePath,
   platformLimits,
-  action,
-  lengthAction,
   type PathLimits
 } from "@mininglamp-oss/octo-runtime-client/internal";
 export {
@@ -53,8 +51,7 @@ export function validateRuntimeHome(input: string, paths: readonly RuntimePath[]
         code: "HOME_NOT_DIRECTORY",
         path: home,
         resource: "home",
-        operation,
-        action
+        operation
       });
     operation = "filesystem-limits";
     const cache = new Map<string, PathLimits>();
@@ -184,12 +181,6 @@ export function runtimePathFailure(
       path,
       resource,
       operation,
-      action:
-        code === "HOME_PATH_TOO_LONG"
-          ? lengthAction
-          : code === "HOME_LIMIT_UNAVAILABLE"
-            ? "Make the operating system /usr/bin/getconf utility available to query PATH_MAX/NAME_MAX, then retry with the same prepared directory."
-            : action,
       ...(systemCode ? { systemCode } : {})
     },
     error

@@ -1,10 +1,14 @@
-export type ServicePhase = "created" | "initializing" | "ready" | "closing" | "closed" | "failed";
+import {
+  describeStartupError,
+  type StartupDiagnostic,
+  type StartupLocation
+} from "./startup-diagnostics.js";
 
-export interface ServiceCleanupResult {
-  readonly complete: boolean;
-  readonly errors: readonly { resource: string; code: string }[];
-  readonly pendingResources: readonly string[];
-}
+import type { ServiceCleanupResult } from "@mininglamp-oss/octo-runtime-client/internal";
+export type {
+  ServiceCleanupResult,
+  ServicePhase
+} from "@mininglamp-oss/octo-runtime-client/internal";
 
 export interface ServiceLifecycle<S> {
   initialize(options?: { signal?: AbortSignal }): Promise<void>;
@@ -14,12 +18,15 @@ export interface ServiceLifecycle<S> {
 }
 
 export class ServiceInitializationError extends Error {
+  readonly diagnostic: StartupDiagnostic;
   constructor(
     cause: unknown,
-    readonly cleanup: ServiceCleanupResult
+    readonly cleanup: ServiceCleanupResult,
+    location: StartupLocation = { component: "host", phase: "initializing" }
   ) {
     super("SERVICE_INITIALIZATION_FAILED", { cause });
     this.name = "ServiceInitializationError";
+    this.diagnostic = describeStartupError(this, location);
   }
 }
 

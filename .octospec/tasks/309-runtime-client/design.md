@@ -23,6 +23,8 @@ tags: [architecture, protocol, lifecycle, packaging, release]
 
 端点校验和错误诊断从 `runtime-home.ts` 中抽出纯路径计算部分，放入 client 内部模块；Home 的 stat/getconf、目录探测与创建继续留在完整 Runtime。保留现有错误类别、字段、长度和平台限制。纯函数存在于 client 不意味着 attach 会创建或验证某个 Home 目录。
 
+同步 main 的 #314 后，统一启动诊断的纯投影、净化和 catalog 同样由 client 保存唯一实现，Kernel 原模块显式转发现有导出。`RuntimeHomeError` 使用统一诊断，保留不可枚举的旧路径字段别名；client 和完整 Runtime 各自在发行物内部共享该错误类及 catalog。诊断所需的 `ServicePhase`、`ServiceCleanupResult` 仅为数据类型；服务生命周期实现、启动记录 IO 仍留在完整 Runtime，不增加 client 到服务端的依赖。
+
 ## 2. 公开入口清单
 
 | 入口 | 本轮计划导出 |
@@ -34,7 +36,7 @@ tags: [architecture, protocol, lifecycle, packaging, release]
 | client `/protocol/ipc-fixtures.json` | kernel-ipc-fixtures.json 原始内容 |
 | client `/protocol/behavior.json` | kernel-client.behavior.json 原始内容 |
 | client `/protocol/browser`、`/protocol/notification` | 既有 protocol 对应子入口，供完整 SDK 转发和协议消费者使用；不承诺浏览器 transport |
-| client `/internal` | 仅用于本仓同版本 Runtime 装配所必需的调用登记/拒绝证据/路径校验辅助；不承诺独立版本兼容，不在普通接入示例推荐 |
+| client `/internal` | 仅用于本仓同版本 Runtime 装配所必需的调用登记/拒绝证据/路径校验及纯启动诊断辅助；不承诺独立版本兼容，不在普通接入示例推荐 |
 | full `/executor-kernel`、`/protocol` 及现有 schema 路径 | 保持现有导出名、签名与行为；客户端/协议部分转发到共享实现 |
 
 `createKernelService`、`createExtraService`、AgentExecutor、HostedAdapter、Adapter 注册、Home IO、租约、服务监听与关闭不进入 client。`/internal` 不得包含上述服务实现；实施时清点确实被 full 使用的符号，未使用辅助不得为了“以后可能使用”扩充入口。

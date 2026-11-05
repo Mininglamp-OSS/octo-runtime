@@ -16,3 +16,7 @@ tags: [architecture, packaging, release, testing, review]
 用户指定 code-review 后执行独立 Standards/Spec 两轴。Standards 发现测试凭据占位、attach 注释和 incomplete 清理三项，修复复核后剩余 0；Spec 0 项实现问题。
 
 详细归档完整性、体积、命令、失败处置和未验环境见[验证](../../tasks/309-runtime-client/validation.md)及[Review](../../tasks/309-runtime-client/review.md)。完成审查后用户追加授权英文提交、推送并向 main 创建 PR；交付前 fetch 确认 main 未变化。合并、打 tag 和正式发布未授权；Node26、Linux/Windows 真机、Electron、真实 Provider 与官方 npm 权限/provenance 未验。
+
+## PR #316 冲突解决
+
+用户随后授权解决冲突、英文提交并推送。将最新 main `11dbab88` 合入功能分支，协调 #314 统一启动诊断与纯路径抽取：纯诊断及 catalog 在 client 保存唯一实现，Kernel 保留显式转发，服务生命周期和 IO 继续归完整 Runtime。完整构建、类型、lint、格式、文档、原测试套件、双包手动 25 项和单包离线验收通过；启动诊断手动 30 项通过、1 项 Windows 专属跳过，macOS 长临时目录场景通过仅本次指定 `TMPDIR=/tmp` 重验。相对最新 main 的 13 个 workflow 结构和默认 scripts 复核未扩围；实际结果及环境边界见验证记录末节。
