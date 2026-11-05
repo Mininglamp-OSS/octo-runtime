@@ -55,6 +55,22 @@ Linux、Windows 原生运行和 Electron 外部宿主为 not run；im-test 未�
 
 提交前再次核对相对 main 的 workflow、package.json、scripts、锁文件 diff 均为空，默认用例数保持 2400；知识与元数据检查通过。PR 创建后的实际托管检查以 GitHub 为准，不能把本地通过写成远端 CI 已通过；上述“无 PR / not applicable”描述的是运行验收当时状态。
 
+## 外部 Review 修复后重验
+
+PR 为 [#317](https://github.com/Mininglamp-OSS/octo-runtime/pull/317)，用户询问未通过的外部路径 review。整改基线为 `2515e7be6c82c3c6c6562bc868d8ea7f33d6c3e4` 加当前路径修复；macOS arm64、Node 24.22.2。远端原 head 的既有 CI 全绿，code-review 因 P2 为 failure；这不代表下面修复后的远端检查已完成。
+
+| 命令/检查 | 结果 |
+| --- | --- |
+| `node --test --test-name-pattern='replacing .* selects a new service' --test-timeout=10000 test/manual/codex-service-lifecycle-313.test.mjs`（修复前） | 2 pass、2 fail；绝对 cwd 本来正确，相对 cwd 替换程序后错误复用旧服务；日志 `/tmp/octo-317-relative-command-before.log` |
+| 同四项真实 POSIX 可执行夹具（修复后） | 4 pass；文件未变时复用，替换文件后服务 ID/PID 不同，旧服务仍 ready，owner 清理 complete |
+| `node --test --test-timeout=20000 test/manual/codex-service-lifecycle-313.test.mjs` | 30 pass、0 skip、0 fail；四项新增用例仅手动运行，Windows 显式跳过 POSIX 可执行夹具 |
+| `pnpm typecheck` | pass，完整构建及类型检查 |
+| `pnpm lint`、`pnpm lint:names`、`pnpm format:check` | pass |
+| `pnpm test:suites` | 2400 项，2334 pass、66 skip、0 fail；默认数量和入口保持 |
+| code-review / verified-review | 两轴最终无未关闭项；主 agent 复现前后差异，Spec 实际运行四项回归，Standards 复核测试清理顺序 |
+
+本轮未重新调用真实模型、IM 或执行原生 Windows/Linux 验收，不将 POSIX fake Provider 当成真实 Codex 升级实测。仅修路径计算，未更改旧任务、旧服务的生命周期、升级策略或默认验证范围。相对 main 的 workflow、package.json、scripts、锁文件仍无 diff。
+
 # 规划阶段历史记录
 
 以下记录发生在用户授权实施之前，其中“未实施/未执行”只描述当时状态；当前状态以上文为准。

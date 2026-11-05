@@ -328,9 +328,10 @@ function executableIdentity(command: string, env: NodeJS.ProcessEnv, cwd: string
     process.platform === "win32" && !/\.[a-z]+$/i.test(command)
       ? (processEnvironmentValue(env, "PATHEXT") ?? ".EXE;.CMD;.BAT").split(";")
       : [""];
+  // 带路径的命令只相对 cwd 解析一次；裸命令仍按 PATH 搜索。
   const directories =
     isAbsolute(command) || /[/\\]/.test(command)
-      ? [cwd]
+      ? [""]
       : (processEnvironmentValue(env, "PATH") ?? "").split(delimiter);
   for (const directory of directories)
     for (const extension of extensions) {

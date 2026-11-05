@@ -20,3 +20,5 @@ Linux/Windows 原生、外部 Electron、实际 im-test HTML 投递与部分真�
 无 workflow、脚本、默认测试选择器或 Gate 扩围；所有新增专项在 test/manual 显式运行。上述实施审查阶段未 commit、push、PR、merge 或 publish。
 
 用户于 2026-11-05 追加“提交 PR -> Main”，现授权英文提交、push 并创建目标为 main 的 PR。再次 fetch 后 main 仍为原基线，无冲突；Git 作者沿用本地配置并追加一次 Codex trailer。远端实际检查以 PR 为准；不自动合并或发布，跨平台/IM 验收范围保持。
+
+PR 为 [#317](https://github.com/Mininglamp-OSS/octo-runtime/pull/317)。后续外部 P2 在相对 cwd + 相对可执行文件路径下复现，绝对 cwd 本来正常；生产代码仅改一次路径解析，四个真实 POSIX 可执行夹具验证替换后新增服务且旧服务保持。30 项手动专项和默认 2400 项回归通过，类型/lint/格式通过，本地双轴复审无未关闭项；[整改记录](../../tasks/313-codex-service-lifecycle/review.md#pr-317-外部路径审查整改)与[重验](../../tasks/313-codex-service-lifecycle/validation.md#外部-review-修复后重验)保留证据。没有改成热重启或仅重启生效策略，未扩 CI；GitHub 重新批准需看远端实际状态。

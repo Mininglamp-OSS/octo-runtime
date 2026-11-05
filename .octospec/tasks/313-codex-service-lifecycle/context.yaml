@@ -124,3 +124,14 @@ delivery:
   messages: English Conventional Commit and PR title/body; preserve configured author and append Codex trailer once
   ci_scope: workflows, package.json, scripts and lockfile unchanged; inspect actual PR checks after creation
   status_source: GitHub pull request associated with feat/codex-service-lifecycle; hosted checks are reported separately from local evidence
+external_review_followup:
+  pull_request: https://github.com/Mininglamp-OSS/octo-runtime/pull/317
+  baseline: 2515e7be6c82c3c6c6562bc868d8ea7f33d6c3e4
+  observed: 'relative cwd plus path-qualified command misses executable file identity; absolute cwd already passed'
+  fix: 'resolve path-qualified commands from cwd once; preserve bare PATH search and service lifecycle'
+  manual_regressions: '30 passed on macOS; four new real POSIX executable cases, including replacement and scope cleanup'
+  typecheck_lint_format: pass
+  default_suites: '2400 total; 2334 passed, 66 skipped, zero failed'
+  local_review: 'code-review Standards and Spec have zero open findings; verified-review reproduced before/after'
+  hosted_review: consult GitHub; local fix does not dismiss a changes-requested review
+  native_windows_linux_and_models: not rerun for this follow-up

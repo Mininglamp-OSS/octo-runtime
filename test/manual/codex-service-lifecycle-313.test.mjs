@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 import { randomUUID } from "node:crypto";
@@ -136,6 +136,48 @@ async function eventually(predicate) {
     await delay(10);
   }
 }
+for (const command of ["./codex", "bin/codex"])
+  for (const cwdMode of ["absolute", "relative"])
+    test(
+      `replacing ${command} selects a new service with ${cwdMode} cwd`,
+      { skip: process.platform === "win32" && "POSIX executable fixture" },
+      async (t) => {
+        const temporaryRoot = join(process.cwd(), ".tmp");
+        await mkdir(temporaryRoot, { recursive: true });
+        const directory = await mkdtemp(join(temporaryRoot, "codex-identity-"));
+        const binary = join(directory, command);
+        const replacement = binary + ".next";
+        const program = "#!/usr/bin/env node\n" + (await readFile(fixture, "utf8"));
+        const scope = createCodexAdapter({ command, appServerArgs: [] }).createExecutionScope({
+          log: logSink
+        });
+        t.after(async () => {
+          assert.equal((await scope.close({ deadline: performance.now() + 2500 })).complete, true);
+          await rm(directory, { recursive: true, force: true });
+        });
+        await mkdir(join(directory, "bin"), { recursive: true });
+        await writeFile(binary, program, { mode: 0o700 });
+        const workdir = cwdMode === "absolute" ? directory : relative(process.cwd(), directory);
+        const invoke = () => Array.fromAsync(scope.invoke(request("hello", { workdir })));
+        assert.equal((await invoke()).at(-1).type, "run.completed");
+        const original = scope.processes()[0];
+        assert.equal((await invoke()).at(-1).type, "run.completed");
+        assert.equal(scope.processes().length, 1);
+        assert.equal(scope.processes()[0].pid, original.pid);
+        await writeFile(replacement, program + "\n// replacement executable\n", { mode: 0o700 });
+        await rename(replacement, binary);
+        assert.equal((await invoke()).at(-1).type, "run.completed");
+        const processes = scope.processes();
+        assert.equal(processes.length, 2);
+        const next = processes.find((entry) => entry.service_id !== original.service_id);
+        assert.equal(next.state, "ready");
+        assert.notEqual(next.pid, original.pid);
+        assert.equal(
+          processes.find((entry) => entry.service_id === original.service_id).state,
+          "ready"
+        );
+      }
+    );
 test("stdout enforces the effective budget before parsing an unterminated line", async (t) => {
   const { scope } = await setup(t);
   const events = await Array.fromAsync(

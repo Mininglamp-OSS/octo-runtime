@@ -49,3 +49,13 @@ Linux/Windows 原生、外部 Electron、实际 IM、真实并发审批、完整
 相对基线的 `.github/workflows`、`package.json`、`scripts` 和锁文件无 diff；专项仅本地显式执行，未扩大 CI。审查执行时没有 PR，实际托管检查列表为 not applicable；当时无 commit、push、merge 或 publish。用户随后授权提交和创建 main PR，后续状态见[交付记录](validation.md#后续-pr-交付授权)及对应 GitHub PR。
 
 两轴最终结果：Standards 0 项未关闭（首次 5 项，最高 P2）；Spec 0 项未关闭（首次 2 项，最高 P1）。
+
+## PR 317 外部路径审查整改
+
+2026-11-05 对[外部 P2](https://github.com/Mininglamp-OSS/octo-runtime/pull/317#pullrequestreview-5779607241)逐项核对，复现基线为 PR head `2515e7be6c82c3c6c6562bc868d8ea7f33d6c3e4`。本地已 fast-forward 远端合并 main 的提交，保留 #314 的全部改动。审查指出 executableIdentity 可能因重复 cwd 解析而遗漏文件身份；其对绝对 cwd 的解释不成立，但显式 Adapter scope 接收相对 cwd 时确实可以复现。
+
+增加四个仅手动运行的真实 POSIX 可执行夹具：`./codex`、`bin/codex` 分别搭配绝对和相对 cwd。替换前连续调用复用 PID，原子替换文件后应新增服务并保持旧服务 ready。修复前：两项绝对 cwd 通过、两项相对 cwd 失败，服务数实际 1、预期 2。修复后：四项全部通过，scope 最终清理 complete；未调用真实模型。
+
+生产修复只将带路径命令的搜索目录从 `[cwd]` 改为 `[""]`，使现有 `resolve(cwd, directory, command)` 只应用一次 cwd。裸命令仍按 PATH 搜索，Windows 扩展名规则不变。本修复没有引入自动热重启：旧进程及已接受任务保持，新请求按既有文件身份合同选择新服务。用户尚未确认改为“仅重启 Runtime 后升级生效”，因此不借此次整改变更生命周期策略。
+
+code-review 复审：Spec 无新增问题，并实际运行四项回归；Standards 指出的新增测试清理顺序已修正为先确认 complete 再删目录，最终未关闭项为 0。主 agent 的 verified-review 复现及修复后运行结果见[验证](validation.md#外部-review-修复后重验)。新专项保持手动入口，无 CI 扩围。代码修复不等于 GitHub 已重新批准，远端审查状态仍以 PR 为准。
