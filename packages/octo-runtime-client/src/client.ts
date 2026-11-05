@@ -5,6 +5,7 @@ import {
   assertHostFrame,
   assertHostFrameIdentity,
   assertHostRunReceipt,
+  assertKernelStatus,
   createInputInvoke,
   identifyInvokeInput,
   isHostTerminal,
@@ -241,15 +242,13 @@ export function attachKernel(options: { endpoint: string }): KernelClient {
         throw new KernelError("INVALID_RESPONSE");
       // 包版本不参与 wire 兼容判断；submit 复用此既有查询，拒绝后不会发起执行。
       if (value.ipc_version !== 1) throw new KernelError("KERNEL_IPC_VERSION_UNSUPPORTED");
-      if (
-        typeof value.kernel_instance_id !== "string" ||
-        !value.kernel_instance_id ||
-        !Number.isSafeInteger(value.pid) ||
-        value.pid! <= 0 ||
-        typeof value.execution_ready !== "boolean"
-      )
+      try {
+        // 与服务端/doctor 共用快照白名单；仍保持客户端的受控错误与版本拒绝顺序。
+        assertKernelStatus(value);
+      } catch {
         throw new KernelError("INVALID_RESPONSE");
-      return value as KernelStatus;
+      }
+      return value;
     },
     list: async () => (await exchange("adapter.list")) as Awaited<ReturnType<KernelClient["list"]>>,
     get: query,

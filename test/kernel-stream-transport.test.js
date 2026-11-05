@@ -110,10 +110,9 @@ test("Kernel client decodes a UTF-8 character split across native IPC writes", a
         id,
         result: {
           ipc_version: 1,
-          kernel_instance_id: "fixture",
+          kernel_instance_id: text,
           pid: process.pid,
-          execution_ready: true,
-          text
+          execution_ready: true
         }
       }) + "\n"
     );
@@ -123,7 +122,7 @@ test("Kernel client decodes a UTF-8 character split across native IPC writes", a
     socket.end(bytes.subarray(offset));
   });
   // 合成响应仅验证接收解码；业务协议与终态由上面的真实 Kernel 测试验证。
-  assert.equal((await client.status()).text, text);
+  assert.equal((await client.status()).kernel_instance_id, text);
 });
 
 test("Kernel client rejects unterminated UTF-8 by bytes and keeps the next connection usable", async (t) => {
@@ -137,7 +136,7 @@ test("Kernel client rejects unterminated UTF-8 by bytes and keeps the next conne
         id,
         result: {
           ipc_version: 1,
-          kernel_instance_id: "fixture",
+          kernel_instance_id: "utf8-test",
           pid: process.pid,
           execution_ready: true
         }

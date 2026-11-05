@@ -66,6 +66,8 @@ runtime tgz 将 client 和 protocol 的编译产物一并物化在包内 node_mo
 
 上述 status 校验是本次实现增量；拆包前基线只做类型断言，不能写成基线已有保证。`get/subscribe/cancel/respond` 不为了版本探测增加新握手；保留原引用和既有 wire/身份校验。没有全协议协商或预先发现所有不兼容字段的保证。IPC=1、Run=7、Context=v3、Adapter transport=2 分别解释，schema hash 记录内容来源，不代替兼容范围。
 
+同步 main 的 #317 后，client 使用 protocol 的 `assertKernelStatus` 唯一校验器，保留可选 `service_processes` 及其安全白名单/数量上限。没有该字段的旧 status 仍接受；缺失或畸形响应继续报客户端 `INVALID_RESPONSE`，明确不支持的数值 IPC 版本先报 `KERNEL_IPC_VERSION_UNSUPPORTED`。校验失败不发送 invoke；Kernel 旧客户端入口继续转发到 client，不恢复第二份实现。Codex 常驻服务及 execution scope 留在完整 Runtime，不进入独立 client 依赖闭包。
+
 ## 5. 同 tag 双包发布与部分失败
 
 源码版本继续保持 0.0.0。新 tag 注入同一个稳定 SemVer，现有 pack 入口产出两个确定文件名：`mininglamp-oss-octo-runtime-X.Y.Z.tgz` 与 `mininglamp-oss-octo-runtime-client-X.Y.Z.tgz`。不直接对 workspace package 执行未经物化的 npm publish。

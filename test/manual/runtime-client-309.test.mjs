@@ -299,13 +299,56 @@ test(
   }
 );
 
-for (const ipcVersion of [2, undefined]) {
-  test(`unsupported/missing status version ${ipcVersion} rejects before invoke`, async (t) => {
+const serviceProcess = {
+  scope_id: "fixture-scope",
+  service_id: "fixture-service",
+  incarnation: 1,
+  provider: "codex",
+  owner_pid: process.pid,
+  pid: process.pid,
+  state: "ready",
+  observation: "alive",
+  ownership: "owned"
+};
+const statusCases = [
+  {
+    name: "unsupported IPC version",
+    status: { ipc_version: 2 },
+    code: "KERNEL_IPC_VERSION_UNSUPPORTED"
+  },
+  { name: "missing IPC version", status: { ipc_version: undefined }, code: "INVALID_RESPONSE" },
+  { name: "legacy status without service snapshots", status: {} },
+  { name: "valid service snapshots", status: { service_processes: [serviceProcess] } },
+  {
+    name: "service snapshot with unapproved fields",
+    status: { service_processes: [{ ...serviceProcess, argv: ["unexpected"] }] },
+    code: "INVALID_RESPONSE"
+  },
+  {
+    name: "invalid service snapshot owner PID",
+    status: { service_processes: [{ ...serviceProcess, owner_pid: 0 }] },
+    code: "INVALID_RESPONSE"
+  },
+  {
+    name: "too many service snapshots",
+    status: { service_processes: Array(257).fill(serviceProcess) },
+    code: "INVALID_RESPONSE"
+  }
+];
+for (const [index, scenario] of statusCases.entries()) {
+  test(`client status: ${scenario.name}`, async (t) => {
     const path = await directory(t);
     const endpoint =
       process.platform === "win32"
-        ? `\\\\.\\pipe\\oc309-${process.pid}-${ipcVersion}`
+        ? `\\\\.\\pipe\\oc309-${process.pid}-${index}`
         : join(path, "k.sock");
+    const status = {
+      ipc_version: 1,
+      kernel_instance_id: "fixture",
+      pid: process.pid,
+      execution_ready: true,
+      ...scenario.status
+    };
     const methods = [];
     const sockets = new Set();
     const server = net.createServer((socket) => {
@@ -322,12 +365,7 @@ for (const ipcVersion of [2, undefined]) {
           JSON.stringify({
             jsonrpc: "2.0",
             id: request.id,
-            result: {
-              ipc_version: ipcVersion,
-              kernel_instance_id: "fixture",
-              pid: process.pid,
-              execution_ready: true
-            }
+            result: status
           }) + "\n"
         );
       });
@@ -341,9 +379,8 @@ for (const ipcVersion of [2, undefined]) {
       for (const socket of sockets) socket.destroy();
       await new Promise((close) => server.close(close));
     });
-    await assert.rejects(client.submit(kernelInput()), {
-      code: ipcVersion === 2 ? "KERNEL_IPC_VERSION_UNSUPPORTED" : "INVALID_RESPONSE"
-    });
+    if (scenario.code) await assert.rejects(client.submit(kernelInput()), { code: scenario.code });
+    else assert.deepEqual(await client.status(), status);
     assert.deepEqual(methods, ["status"]);
   });
 }

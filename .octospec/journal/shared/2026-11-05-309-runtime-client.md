@@ -24,3 +24,7 @@ tags: [architecture, packaging, release, testing, review]
 ## 远端 review 后续
 
 yujiawei 指出 dry-run 把未验证候选当作完整版本输出提升 actions。已复现并按用户授权修复为显式候选/目标验证状态、未验证目标仅给 conditionalActions 和警告；正式入口拒绝 candidate。该模拟逻辑在 main 原已存在，实际发布始终保留远端完整性校验，故接受修复并在英文回复中建议按 P2 评估。只补本地手动专项，未新增 CI 或默认测试；具体命令及结果见验证记录后续小节。
+
+## 再次同步 main：#317
+
+按用户追加授权，将最新 main `b5396834` 合入 PR #316 原分支。保留 #309 的唯一 client 和已提交的 dry-run 语义修复；#317 的共享 status 校验移接到 client，接纳旧 status 与合法服务快照，保留客户端版本拒绝和受控错误。合并两边知识索引，UTF-8 夹具采用新共享白名单允许的合法字段。补充的 status 场景只在原手动文件执行，未扩 CI。实际结果及未验边界见验证记录的再次同步小节。

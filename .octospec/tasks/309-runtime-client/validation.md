@@ -113,3 +113,16 @@ Node 26、Linux/Windows 原生安装及 named pipe 真机、Electron 打包、�
 - `pnpm lint`、`pnpm lint:names`、`pnpm format:check`、开发文档检查和 OctoSpec 检查全部通过：166 文档/2133 链接无错误，661 个 OKF 单元/20 条规则/4011 个本地文件链接。相对最新 main 重新结构比对 13 个 workflow 及根 scripts，范围相同；本次相对 HEAD 的 workflow/package.json diff 为空。
 
 新增专项保持显式手动运行；本次 workflow、默认 scripts 和测试 selector 均未修改。英文 review 回复说明该模拟假设在 main `11dbab88` 已存在、正式发布不传候选且始终验证远端产物，建议 P2 定级；接受并修复输出歧义，不自行撤销 reviewer 的 changes-requested。
+
+## 再次同步 main：#317
+
+2026-11-05，按用户追加授权将 `origin/main@b5396834`（#317：Codex 常驻服务及 Core scope）合入原 PR 分支，合并前 HEAD 为 `0110782dc9277ca5c695154e93b8497de9a12b25`。四处文本冲突分别为知识目录、日志、Kernel 客户端转发和 UTF-8 测试；知识内容均保留，Kernel 仍仅转发，新的 `assertKernelStatus` 接入 client 唯一实现。保留既有 IPC 版本错误优先级与 `INVALID_RESPONSE`，新服务快照按共享校验器白名单/数量限制处理；UTF-8 场景使用合法 kernel_instance_id 字段承载文本。此前 dry-run 修复完整保留。
+
+- `pnpm typecheck`、`pnpm lint`、`pnpm lint:names`、`pnpm format:check`、`pnpm docs:check`、`pnpm native:check` 均通过。native Schema/生成文件来自 main，未手改生成产物。
+- `pnpm test:suites`：WebUI 35 项通过，Node 2334 通过、66 项原有条件跳过、0 失败。
+- `node scripts/pack-release.mjs --version 0.0.309` 重新产出双包；`node --test test/manual/runtime-client-309.test.mjs test/manual/runtime-client-release-309.test.mjs`：35 项全部通过。新增 5 项仅在手动 client 文件，覆盖旧 status、合法快照、禁止字段、非法 owner PID 和快照超限；非法响应仅发 status、不发 invoke。原基线 Kernel 互操作、npm/pnpm 单 client/双包离线安装、严格类型与 dry-run/恢复验证继续通过。
+- `node --test test/manual/codex-service-lifecycle-313.test.mjs`：30 项全部通过，包含服务快照、scope 清理、恢复和成功/清理分离的离线夹具。
+- `node scripts/verify-release.mjs dist/release/mininglamp-oss-octo-runtime-0.0.309.tgz --expected-commit 0110782dc9277ca5c695154e93b8497de9a12b25`：完整包离线安装、公开类型、原生 Kernel、独立 Extra、Host store、恢复、CLI 及卸载保留 Home 全通过。归档构建于合并提交前，元数据仍为上述旧 HEAD/dirty，仅作为本地验证产物。
+- OctoSpec、开发文档和最终格式检查通过：670 个 OKF 单元/20 条规则/4066 个本地链接，166 文档/2143 链接无错误。提交前再次 fetch 确认 main 仍为 `b5396834`；相对该目标解析比对 13 个 workflow，触发器、权限、job、矩阵、needs、步骤数和 actions 以及根 scripts 均未扩围。本次合并相对上一 HEAD 不修改 workflow/package.json；PR workflow diff 仍仅为原双包适配的三个文件。推送前实际检查列表仍是既有六个平台组合、Gate 和治理检查，旧 HEAD 全通过不作新合并提交通过的证据。
+
+本轮保持既有 workflow、默认 scripts 和测试 selector；新增专项仅手动运行。未重新调用真实 Provider、修改用户 Home 或执行正式发布，Windows/Linux/Node 26 等结果仍由新提交远端 CI 及独立实测提供，不借用 main 或前一提交的通过状态。
