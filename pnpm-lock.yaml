@@ -88,7 +88,7 @@ importers:
         version: 15.0.0
       ws:
         specifier: ^8.22.0
-        version: 8.22.0
+        version: 8.22.1
     devDependencies:
       '@eslint/js':
         specifier: ^10.0.1
@@ -321,7 +321,7 @@ importers:
         version: link:../octo-runtime-protocol
       ws:
         specifier: ^8.22.0
-        version: 8.22.0
+        version: 8.22.1
     devDependencies:
       '@types/ws':
         specifier: ^8.18.2
@@ -418,7 +418,7 @@ importers:
         version: 2.1.0
       ws:
         specifier: ^8.22.0
-        version: 8.22.0
+        version: 8.22.1
     devDependencies:
       '@types/ws':
         specifier: ^8.18.2
@@ -440,7 +440,7 @@ importers:
         version: link:../octo-runtime-protocol
       ws:
         specifier: ^8.22.0
-        version: 8.22.0
+        version: 8.22.1
     devDependencies:
       '@types/ws':
         specifier: ^8.18.2
@@ -3945,11 +3945,6 @@ packages:
     resolution: {integrity: sha512-tlqY9xq5ukxTUZBmoOp+m61cqwQD5pHJtFY3Mn8CA8ps6yghLH/Hw8UPdqg4OLmFW3IFlcXnQNmo/dh8HzXYIQ==}
     engines: {node: '>=18'}
 
-  '@smithy/core@3.36.2':
-    resolution: {integrity: sha512-oRw0rB9QSUiCZfEs23G5F4Af+b2rQt1lItIICWu5IejFNd+uPM8SWqiKLMpQ6bX1Q7slsLbjuoE2niErFtkVPQ==}
-    engines: {node: '>=18.0.0'}
-    deprecated: Deprecated due to a bug in custom logger data redaction. See https://github.com/aws/aws-sdk-js-v3/issues/8393.
-
   '@smithy/core@3.37.0':
     resolution: {integrity: sha512-97imTcCyiPd8k0e9+ts/Sp0W65Dn9Ti357J7M09Ov4tI8Q1JDJVFSoAJtjEVKqfHEr3Pdo2jfolqKCaaiszH0g==}
     engines: {node: '>=18.0.0'}
@@ -5775,6 +5770,18 @@ packages:
 
   ws@8.22.0:
     resolution: {integrity: sha512-Ydggc987+RO0AnWtZ/7Wq9FtNvcrL1b/RO0ud9mWjUPgDrsAAwQSF51sm2hm1XofbU/4jkpGEsLFsZZxU+1DOg==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
+  ws@8.22.1:
+    resolution: {integrity: sha512-oyL6OPYme/CmiFvNuGzeoxCJ4nOrZE2O1FwM9MWM1AsGri6nLXB2pg+lNA8aLeXMSav0J6eIVS1j6vUPzUtK9g==}
     engines: {node: '>=10.0.0'}
     peerDependencies:
       bufferutil: ^4.0.1
@@ -10038,11 +10045,6 @@ snapshots:
 
   '@sindresorhus/merge-streams@4.0.0': {}
 
-  '@smithy/core@3.36.2':
-    dependencies:
-      '@smithy/types': 4.19.0
-      tslib: 2.8.1
-
   '@smithy/core@3.37.0':
     dependencies:
       '@smithy/types': 4.19.0
@@ -10050,13 +10052,13 @@ snapshots:
 
   '@smithy/credential-provider-imds@4.5.2':
     dependencies:
-      '@smithy/core': 3.36.2
+      '@smithy/core': 3.37.0
       '@smithy/types': 4.19.0
       tslib: 2.8.1
 
   '@smithy/fetch-http-handler@5.8.0':
     dependencies:
-      '@smithy/core': 3.36.2
+      '@smithy/core': 3.37.0
       '@smithy/types': 4.19.0
       tslib: 2.8.1
 
@@ -10074,7 +10076,7 @@ snapshots:
 
   '@smithy/signature-v4@5.7.4':
     dependencies:
-      '@smithy/core': 3.36.2
+      '@smithy/core': 3.37.0
       '@smithy/types': 4.19.0
       tslib: 2.8.1
 
@@ -12076,6 +12078,8 @@ snapshots:
   word-wrap@1.2.5: {}
 
   ws@8.22.0: {}
+
+  ws@8.22.1: {}
 
   wsl-utils@1.0.1:
     dependencies:
