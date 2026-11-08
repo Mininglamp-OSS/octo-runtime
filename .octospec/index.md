@@ -1,6 +1,6 @@
 # Octo Runtime 工程知识目录
 
-- [agentEnv 与可定位中断](tasks/agent-env-invocation/brief.md)：[实际验证](tasks/agent-env-invocation/validation.md)、[独立双轴审查](tasks/agent-env-invocation/review.md)。IPC v2 / client 2.x 为当前调用合同。
+- [agentEnv 与可定位中断](tasks/agent-env-invocation/brief.md)：[实际验证](tasks/agent-env-invocation/validation.md)、[独立双轴审查](tasks/agent-env-invocation/review.md)。IPC v2 为当前传输合同；npm Runtime/client 按 1.1.12 继续发行，不由 IPC 版本决定主版本。
 当前架构以 [Issue 328](tasks/328-remove-extra/brief.md) 和[架构规则](rules/architecture.md)为准：Runtime 只提供执行基础设施；Channel Gateway 已迁入独立仓库。下方早期任务是历史证据，不再定义 Extra 装配。
 
 - [Issue 155：WebUI 图片限制与草稿保留](tasks/155-webui-image-draft/brief.md)：共享浏览器安全图片合同，按 HTTP 受理边界清空发送快照，隔离读图/编辑/切换竞态。[验证](tasks/155-webui-image-draft/validation.md)和[自审](tasks/155-webui-image-draft/review.md)记录 Windows 本地结果；用户追加授权提交、SSH 推送与关联 PR，范围外失败由其他 Issue/PR 处理，不扩大 CI。
