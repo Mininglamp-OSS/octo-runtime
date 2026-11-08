@@ -12,7 +12,6 @@ import {
   type AsyncQuestionReplySnapshot,
   type CanonicalEvent,
   type HostFrame,
-  type InvokeEnvironment,
   type InvokeInput
 } from "@mininglamp-oss/octo-runtime-protocol";
 import { KernelError, type KernelClient } from "./types.js";
@@ -31,8 +30,7 @@ export class AsyncQuestionReply {
   constructor(
     readonly client: KernelClient,
     snapshot: AsyncQuestionReplySnapshot,
-    readonly continuation: () => InvokeInput,
-    readonly environment?: InvokeEnvironment
+    readonly continuation: () => InvokeInput
   ) {
     assertJsonValue(snapshot);
     if (
@@ -177,8 +175,7 @@ export class AsyncQuestionReply {
         freshFallbackModelInput: text,
         freshFallbackModelInputParts: [{ type: "text", text }]
       };
-      const client = this.client,
-        environment = this.environment;
+      const client = this.client;
       const beforeInvoke = () => {
         this.#assertNotExpired();
         const currentInput = this.continuation();
@@ -193,7 +190,13 @@ export class AsyncQuestionReply {
       const events = (async function* () {
         try {
           beforeInvoke();
-          for await (const event of client.invoke(input, environment)) {
+          const { inputs: parts, sessionId, providerSession, agentEnv, ...content } = input;
+          for await (const event of client.invoke(
+            { ...content, parts },
+            sessionId,
+            providerSession,
+            agentEnv
+          )) {
             if (
               event.type === "session.update" &&
               event.payload.providerSession?.sessionId === original.providerSession.sessionId &&

@@ -1,6 +1,6 @@
 # Output and Control
 
-Extras use `context.execution` in both direct and IPC modes. Ending observation does not cancel admitted work; explicit cancellation and Extra shutdown do. A terminal event is separate from resource cleanup: direct Extra shutdown also awaits the Core's first cleanup result for the exact accepted receipt. Raw Core iterator closure retains its cancellation semantics.
+KernelClient streams observe admitted work. Ending observation does not cancel execution; request cancellation explicitly and consume its outcome before closing owned connections. A terminal event is separate from resource cleanup. Closing a direct Core execution iterator early requests cancellation.
 
 [简体中文](../../zh-CN/reference/output-and-control.md) | [Documentation](../README.md)
 
@@ -17,7 +17,7 @@ The default is `native`, but some Adapters support only `canonical`. For most in
 
 For canonical output, check the final event: `run.completed` means success, `run.failed` means failure, and `run.cancelled` means cancellation. Execution failures may arrive as events without throwing, so handle events as well as errors thrown while reading. [invokeOnce](../../examples/invoke.mts) demonstrates both.
 
-For HostFrame output, use public `isHostTerminal` to identify Runtime's final status. States are `running`, `completed`, `failed`, `cancelled`, and `lost`. A terminal cannot replace resource cleanup confirmation; direct Extra closure also waits for Core's first cleanup result for the accepted receipt.
+For HostFrame output, use public `isHostTerminal` to identify Runtime's final status. States are `running`, `completed`, `failed`, `cancelled`, and `lost`. A terminal cannot replace resource cleanup confirmation; hosts must inspect their owned service’s close result separately.
 
 `lost` means the execution outcome cannot be determined; KernelClient reports `RUN_OUTCOME_UNKNOWN`. Missing final status, output loss and cleanup failure alone never prove success. Your application separately confirms whether results were saved, messages delivered, or the UI updated.
 
@@ -31,18 +31,13 @@ There are three frame kinds: `native` preserves Provider data and extension fiel
 
 ## Cancellation
 
-There are two ways to cancel:
+Use `client.interrupt(run.invocationId, reason?)` on the client that created the handle. There is no public invoke signal parameter. Identity is available immediately; before submission interruption prevents sending, while after submission it controls the original execution and preserves observation of the tail.
 
-- Pass an `AbortSignal` to `client.invoke(input, {signal})`, then call `abort(reason)` on its `AbortController`.
-- Call `cancelInvocation(invocationId, reason?)` on the same client that started the invocation. Set `invocationId` in the input first so other application code can refer to it.
-
-Cancellation before sending prevents submission. After sending, the client finds the original execution and requests cancellation while continuing to receive remaining output. With an aborted signal, normal completion of reading throws the original cancellation reason. A more specific output or control error encountered while reading takes precedence.
-
-The cancellation API returns `{accepted}` to indicate whether the cancellation request was accepted. Keep reading output to learn whether execution ultimately cancelled. For KernelClient, loop `break`, iterator `return()`, client `close()`, and subscription cancellation only stop receiving output. They do not cancel execution. Closing a direct AgentExecutor execution iterator early does request cancellation.
+An accepted ACK is not a terminal or cleanup confirmation. Keep consuming the original stream. For accepted KernelClient calls, break/return/throw/close only end observation. Before submission, return/throw release the local reservation. Direct Core execution iterators retain their internal cancellation contract. See [identifier ownership](../concepts/identifiers.md).
 
 ## Reply to Approvals and User Questions
 
-> **Extra compatibility requirement:** Check `payload.delivery` before registering or presenting an interaction. `delivery: "async"` is optional supplemental input, not a blocking question. Do not route it into an existing synchronous form, `/respond` command, or waiting-state handler without implementing the async contract below.
+> **Application compatibility requirement:** Check `payload.delivery` before registering or presenting an interaction. `delivery: "async"` is optional supplemental input, not a blocking question. Do not route it into an existing synchronous form, `/respond` command, or waiting-state handler without implementing the async contract below.
 
 In canonical mode, `interaction.requested` carries `interactionId`, `executionInstanceId`, and `request`. Its `kind` is `approval`, `question`, or `elicitation`, which requests additional user information. Synchronous requests require `expiresAt` (an ISO timestamp); async questions may omit it. The following response flow describes synchronous interactions:
 
@@ -77,16 +72,16 @@ Async questions have no default expiry; optional `expiresAt` is enforced, while 
 
 The shared limit is 16 active interactions, with at most 50 questions per batch, 50 options per question, and 4096 code points per title/option. Oversized or malformed snapshots fail explicitly. Synchronous questions, elicitation, approvals and `full_access` behavior remain unchanged. Host UI integration is still required; no Markdown parsing is needed.
 
-### Required Handling in Extras
+### Required Handling in Applications
 
-**Every Extra that consumes interaction events must explicitly choose one of these policies:**
+**Every application that consumes interaction events must explicitly choose one of these policies:**
 
 - **Without async form support:** Ignore async `interaction.requested` before interaction registration, secret-input handling, command/card generation, or waiting-state projection. Track its `interactionId` within the original Run and also ignore its `interaction.resolved`, which does not carry `delivery`. Continue consuming the stream, advance the original cursor, and display ordinary message text. Do not submit an automatic answer, pause execution, or let an ignored resolution clear a synchronous interaction's waiting state. Bound and clean up the identity tracking with the Run.
 - **With async form support:** Preserve the original request, question IDs, provider/session binding and submission state. Collect a complete `octo.question-response/v1` batch, support custom text and cancellation, and use the public `AsyncQuestionReply` lifecycle above. Handle expiry, duplicate submissions, stale bindings, restart and unknown delivery explicitly. Active runs use steer; confirmed normal completion permits a new AgentRun in the same session. Report delivery only when the provider accepts it.
 
 **Do not remove expiry checks or pass a plain answer string to make an old synchronous handler appear compatible.** Missing async `expiresAt` is valid, not evidence of expiry; async replies require the structured batch. `delivery` controls this distinction, not `kind`, `full_access`, message wording, or the presence of options. `responseRequired: false` is reserved for automatic approvals and is not an async-question discriminator.
 
-The built-in `channel-gateway`, `channel-wecom` and `webui` use the first policy: they display message text without async forms, answer commands, or waiting-state changes. Their synchronous questions, approvals and elicitation keep their existing behavior. New Extras and custom interaction renderers must make this choice explicitly; receiving the public protocol does not provide async UI support automatically. See [Extra development](../guides/extras.md).
+Each business UI chooses its own asynchronous question display and response policy; protocol support does not imply UI support.
 
 ## Errors and Recovery
 

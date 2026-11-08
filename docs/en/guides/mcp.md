@@ -4,7 +4,7 @@
 
 MCP lets an Agent use tools to access external systems, such as project documents, databases, or business APIs. This guide shows how to configure MCP servers for a Runtime invocation.
 
-Add a Context item to `InvokeInput.contexts.items` with `namespace: "octo.execution"` and `name: "mcp"`. Put the connection settings in `payload.mcpServers`. This guide refers to that Context type as `octo.execution/mcp`.
+Add a Context item to `agentEnv.items` with `namespace: "octo.execution"` and `name: "mcp"`. Put the connection settings in `payload.mcpServers`. This guide refers to that Context type as `octo.execution/mcp`.
 
 Prepare your MCP server, then choose its connection type:
 
@@ -21,7 +21,7 @@ This example connects to a service that uses Bearer Token authentication. Replac
 {
   "protocol_mode": "canonical",
   "inputs": [{ "type": "text", "text": "Use the project tools to summarize the current task." }],
-  "contexts": {
+  "agentEnv": {
     "schema": "octo.context-envelope/v3",
     "items": [
       { "namespace": "octo.execution", "name": "adapter", "payload": { "type": "codex" } },
@@ -43,7 +43,7 @@ This example connects to a service that uses Bearer Token authentication. Replac
 }
 ```
 
-Pass this object as `input` to `client.invoke(input)` and consume the returned event stream. See the [SDK quickstart](../getting-started/sdk.md) and [invokeOnce example](../../examples/invoke.mts) for the complete invocation code.
+This is the IPC/CLI JSON shape. For the public client, pass its inputs, sessionId, providerSession and agentEnv as four separate invoke arguments. See the [SDK quickstart](../getting-started/sdk.md) and [invokeOnce example](../../examples/invoke.mts) for the complete invocation code.
 
 Configuring MCP makes the service's tools available to the Agent. The Agent does not necessarily use them on every turn. Inspect the Provider's tool calls and results to confirm that a particular tool ran.
 
@@ -55,7 +55,7 @@ Install the MCP server on the machine running Runtime, then replace `command` be
 {
   "protocol_mode": "canonical",
   "inputs": [{ "type": "text", "text": "List the available project documents." }],
-  "contexts": {
+  "agentEnv": {
     "schema": "octo.context-envelope/v3",
     "items": [
       { "namespace": "octo.execution", "name": "adapter", "payload": { "type": "codex" } },
