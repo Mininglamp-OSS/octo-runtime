@@ -62,13 +62,30 @@ Codex 可在继续工作时发布 `kind: "question"`、`delivery: "async"` 的 `
 
 Runtime 向原活动轮次发送一次 `turn/steer`，匹配的 RPC 成功响应到达后，Promise 才成功，并发布 `resolved/answered/provider_accepted`。它只证明 Provider 接纳，不证明落盘、模型已阅读或任务成功。`ASYNC_ANSWER_REJECTED` 表示明确拒绝；`OPERATION_OUTCOME_UNKNOWN` 表示已发送但未确认，两者均不得自动重试。`INVALID_QUESTION_RESPONSE` 可在发送前修正；重复或失效提交报 `INTERACTION_NOT_ACTIVE`。
 
-异步 ask 是会话旁路补充：可以不填，原任务照常结束；正常完成后仍可通过同一表单补答。公共 `/executor-kernel` 的 `AsyncQuestionReply` 在活动时 steer，确认正常完成后复用 `client.invoke` 创建新的 AgentRun。宿主显式提供当前会话的 continuation input（sessionId/generation/providerSession/Context/配置），SDK 生成新执行身份，并携带原题和答案。Codex 新 Run 强制 `providerSession.requireResume=true`，恢复失败即失败，不能另开 Provider 会话。
+异步 ask 是会话旁路补充：可以不填，原任务照常结束；正常完成后仍可通过同一表单补答。公共 `/executor-kernel` 的 `AsyncQuestionReply` 在活动时 steer，确认正常完成后复用 `client.invoke` 创建新的 AgentRun。宿主显式提供当前会话的 continuation input（sessionId/generation/providerSession/agentEnv），SDK 生成新执行身份，并携带原题和答案。Codex 新 Run 强制 `providerSession.requireResume=true`，恢复失败即失败，不能另开 Provider 会话。
 
 `respond` 返回 `route: "steer"` 时已获 Provider 接纳；返回 `route: "new_run"` 时只提供 `events` 执行流，消费流才提交，不能显示答案已送达。新 Run 的 Runtime 受理、Provider 接纳、模型使用与任务完成分别观察。完整示例见 [asyncSupplementForm](../../examples/interactions.mts)。原低层 respond 仍只接受活动 Run。
 
-旁路默认不设到期时间；可选 expiresAt 到期后拒绝，同步交互仍必须提供期限。cancel 只关闭表单，不取消模型。宿主唯一控制者负责保存 `snapshot()`，持续通过 `observe` 记录原 Run 的真实终态及交互结果；保存为 pending/completed 的问题可在重启后续跑，仅 running 或提交未知不能重放。会话 reset/binding 变化拒绝旧题。steer ACK 丢失返回未知，绝不转新 Run 或自动重交。SDK 不提供宿主数据库事务或跨控制者恰好一次保证。
+旁路默认不设到期时间；可选 expiresAt 到期后拒绝，同步交互仍必须提供期限。cancel 只关闭表单，不取消模型。宿主唯一控制者负责保存 `snapshot()`，持续通过 `observe` 记录原 Run 的真实终态及交互结果；保存为 pending/completed 的问题可在重启后续跑，仅 running 或提交未知不能重放。已提供的会话身份/代次不匹配时拒绝旧题；业务绑定与配置的区别及宿主责任见下节。steer ACK 丢失返回未知，绝不转新 Run 或自动重交。SDK 不提供宿主数据库事务或跨控制者恰好一次保证。
 
 同步与异步共享 16 个活动交互上限；每批最多 50 题，每题最多 50 个选项，题目及选项各最多 4096 码点。损坏或超限问题明确失败。同步问题、elicitation、审批和 full_access 语义保持原样。宿主仍需接入表单界面，不解析 Markdown。
+
+### 续跑配置由应用决定
+
+`agentEnv` 是本次执行配置，不是会话身份。Runtime 不对整个 agentEnv 做跨轮签名或相等性检查；它的变化本身不使旧问题失效。宿主可以明确授权下一轮调整思考强度、刷新环境变量、修改 MCP、审批策略或工作目录，但执行权限校验和 Provider 的恢复/配置支持仍然适用。
+
+| 场景 | 配置与责任 |
+| --- | --- |
+| 原 Run 仍活动 | 按原 RunRef/interactionId steer；continuation 的 agentEnv 不修改或重定向原执行 |
+| 原 Run 已确认正常完成 | continuation 由宿主明确选择并授权下一轮 agentEnv；SDK 创建新执行身份并要求恢复原 Provider 会话 |
+| 会话 reset 或 Provider 绑定替换 | 宿主隔离旧表单；显式 sessionId/generation、Provider sessionId 或 epoch 不匹配时 SDK 拒绝 |
+| 目标或授权无法确认 | 宿主拒绝 continuation，不能将未经确认的全局“当前配置”当作续跑许可 |
+
+`providerEpoch` 可选，由应用在其认定的 Provider 绑定替换时维护；不要求每次 agentEnv 调整递增。使用时须将原值保存到问题 snapshot；两边均省略仅表示缺少这项版本保护。SDK 不自动检测相同 ID 背后的 Adapter、账号、服务端或外部配置变更。宿主未使用 epoch 时仍须主动使被替换绑定的旧表单/控制者失效，不能将原 providerSession 投向另一个 Provider 身份域。
+
+`respond()` 读取并复制 continuation input，包括 agentEnv；消费返回的 events 前，再调用 continuation 核对会话/代次。后一次读取不会替换已捕获的 agentEnv。宿主须在提交和消费前核对自己的业务授权，必要时让回调抛错；SDK 的身份复核不代替业务授权，也不提供跨业务存储事务。若要使用新的配置，应在调用 respond 前完成选择。
+
+因此，文档中的“旧绑定失效”不是“环境必须永久不变”。这是业务授权下的新执行，恢复失败明确失败，未知投递不能借配置变化重新发送。当前约束不宣称所有外部应用已正确维护 epoch；各应用需验证自己的绑定变更与表单生命周期。
 
 ### 应用必须明确选择处理方式
 

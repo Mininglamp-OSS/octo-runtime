@@ -56,6 +56,19 @@ Codex 异步 ask 是可选的会话旁路补充，使用 `delivery: async` 与�
 
 Core shutdown 的完整/未确认清理语义保持 [Core 合同](../../packages/octo-runtime-executor-core/README.md)。Kernel/Host SDK 的所有权、退避、限额和清理详见 [本地执行](local-execution.md)、[生命周期](runtime-lifecycle.md)。
 
+### 异步续跑配置与身份边界
+
+`AsyncQuestionReply` 不持有业务配置源。宿主传入 `continuation()`，明确授权正常完成后的下一次执行，并负责同会话串行管理。只读取“当前配置”而不确认它是否仍适用于原题，不构成 SDK 提供的安全保证。
+
+- 原 Run 活动时，只按原 RunRef 和 interactionId steer；continuation 的 agentEnv 不修改或重定向该 Run。
+- `respond()` 校验 continuation 的 sessionId、sessionGeneration（省略按 0）、providerSession.sessionId/resumable 与 providerEpoch；新 Run 必须恢复原 Provider 会话，不能 fresh fallback。
+- `respond()` 捕获下一次输入和 agentEnv 的副本。消费 events 前再次读取 continuation 核对 sessionId/generation、Provider sessionId 和 epoch；后来的配置修改不会替换已经捕获的 agentEnv。需要采用另一份配置时，业务必须在发起 respond 前完成选择。
+- agentEnv 不是身份凭据，也不参与跨轮全量签名。业务可以明确授权新 Run 调整 effort、环境变量、MCP、权限或工作目录，仍须满足执行校验和 Provider 恢复能力；允许提交不等于 Provider 一定支持。
+- providerEpoch 继续可选，只表示业务 Provider 绑定的版本。使用时必须将产生问题时的值保存到 snapshot，并在绑定替换后提供新值；两边均省略仅表示没有版本比较保护，不证明绑定未变。未使用 epoch 的宿主须主动使旧控制者/表单失效，避免同 ID 背后的 Adapter、账号或服务端身份域替换。
+- reset、绑定替换的判定与旧表单销毁归 Gateway/宿主；Runtime 不按任意配置差异猜测。业务无法确认原题仍获授权续跑时，continuation 应抛错，禁止投递。宿主须在提交/消费前重新核对自身业务授权；SDK 的身份复核不能代替这一步。
+
+因此“旧绑定拒绝”特指已提供的身份/代次不匹配及宿主管理的绑定失效，不承诺自动检测所有 agentEnv 或外部配置变化。该边界是当前用户确认的合同，取代历史任务中未区分配置与身份的概括表述。
+
 ## 核对位置
 
 [client](../../packages/octo-runtime-client/src/client.ts)、[server](../../packages/octo-runtime-executor-kernel/src/server.ts)、[原生执行源](../../packages/octo-runtime-executor-kernel/src/execution-source.ts)、[源窗口](../../packages/octo-runtime-executor-kernel/src/host-run-service.ts)、[调用登记](../../packages/octo-runtime-client/src/invocation-lifecycle.ts)。仓库外类型和运行验证使用 [发行验收脚本](../../scripts/verify-release.mjs)。其他语言的生产 client、外部 Go Loop 和真实线上业务不由本地 fixture 证明。

@@ -24,6 +24,8 @@ sessionName 是展示名称，不是恢复句柄、权限或 registry key；同�
 
 业务 reset 与执行取消是两个动作。消费者更换 binding 后须隔离旧代次的迟到更新；Runtime 对原调用保持其冻结身份和实际执行终态。Provider 返回 sessionId 不保证下次恢复成功，真实失败按执行合同返回。
 
+agentEnv 是本轮配置，不是 Provider binding 的身份或 hash。providerEpoch 可选且归业务维护；是否替换 binding 由业务判断，不要求任意配置变化递增。使用 epoch 时将原值保存到异步问题快照；省略时须由业务使被替换绑定的旧表单失效，SDK 不检测隐藏配置变更。正常完成后的续跑配置由宿主显式授权，详见[异步续跑边界](protocol-design.md#异步续跑配置与身份边界)。
+
 业务方负责下一轮所需背景、持久性、数据保护与历史展示。Runtime 不依赖 SQLite，不提供业务 store/数据库适配/迁移，也不读取或自动删除旧用户数据库。
 
 Octo 渠道的 reset/new/stop、群与话题身份、调度额度、会话缓存和历史窗口已归[独立 Gateway 仓库](https://github.com/Mininglamp-OSS/octo-channel-gateway)，不作为 Runtime 当前业务定义。迁移依据见[Issue 328](../tasks/328-remove-extra/brief.md)。

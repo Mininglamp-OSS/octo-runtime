@@ -53,3 +53,14 @@ Gateway 包先显式 tsc 构建，再 `npm pack --ignore-scripts --pack-destinat
 - `node --test --test-concurrency=4 test/*.test.js packages/octo-runtime-protocol/test/*.test.js`：**1606 项，1545 通过，61 跳过，0 失败**。远端评审提到的 OpenCode instructions-path ENOENT 在本轮专项与完整回归均未复现，没有放宽断言或修改 Provider 逻辑。
 - Standards 与 Spec 独立复审均无未关闭问题；Standards 另行独立运行新增 6 项通过，见 review。
 - 本轮未进行真实 Provider/IM 或用户服务操作。先前 head 00bd48d 的托管 CI 全部通过，不代表本轮新提交的 CI 结果；外部审批尚待重新确认。
+
+
+## 用户澄清 agentEnv 边界后的文档验证
+
+基线 bf8d6f63038dfb237767110ba500278815ba5413；仅修改架构、工程规则、两语言概念/交互文档和共享示例注释，执行实现不变。
+
+- `npm run docs:check`：示例类型检查、37 对页面检查、4 项可执行示例全部通过。首次检查指出 docs 内新增片段链接不符合既有检查器约束，已改为页面链接后复验，未修改或绕过检查器。
+- 当前文档链接检查：161 篇、1542 链接、38 锚点，0 错误。
+- octospec lint 与 `git diff --check` 通过；Standards / Spec 独立复审各 0 个未关闭问题。
+- 本轮为文档澄清，没有重新运行完整执行回归或重新打包；此前 bf8d6f63 的完整回归、包外验证及六组托管 CI 证据仍仅归属于该提交。
+- 未验所有外部应用的 providerEpoch/绑定管理，也未进行真实 Provider/IM 操作。SDK 不新增全环境签名或自动失效行为。

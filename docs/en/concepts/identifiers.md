@@ -26,3 +26,10 @@ invoke captures identity and inputs before first consumption. Before submission,
 Core owns the unified interruption contract; the Adapter maps it to native cancellation, such as Codex threadId/turnId. Applications do not compose Provider messages or pass native turnId to the client. Closing an iterator/socket only stops observation. Owner stopAdmission/drain/close handles owned calls. Another client cannot interrupt a registration it does not own; advanced low-level cancel(ref) remains the responsibility of callers holding the complete RunRef.
 
 See [Invoke API](../reference/invoke-input.md), [IPC](../reference/kernel-ipc.md) and [execution/control](../reference/output-and-control.md).
+
+
+## providerEpoch Versus agentEnv
+
+providerEpoch represents an application-defined Provider binding version, not an execution-configuration fingerprint. Each invocation snapshots agentEnv, but later calls in the same session may explicitly use different configuration. Changing effort, refreshing credentials or selecting a workdir does not automatically require an epoch increment. Replacing the Adapter, account or server identity domain owning the Provider session requires the application to isolate old forms and late updates.
+
+AsyncQuestionReply compares the snapshot and continuation providerEpoch values. Hosts using this field must save the original value when the question is created. Both values being absent passes the comparison; it means no epoch protection, not SDK confirmation of an unchanged binding. Hosts omitting it still own invalidation of forms for replaced bindings. See [continuation configuration](../reference/output-and-control.md).

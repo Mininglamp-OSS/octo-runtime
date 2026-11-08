@@ -26,3 +26,10 @@
 Core 保持统一中断合同，Adapter 绑定自己的原生取消能力（例如 Codex threadId/turnId）；应用不拼接 Provider 协议，也不需要传原生 turnId 给 client。关闭 iterator/socket 仅停止观察，owner 的 stopAdmission/drain/close 管理自己所属的调用。另一个 client 不能用 interrupt 操作本 client 登记；高级低层 cancel(ref) 仍由持有完整 RunRef 的调用方负责。
 
 详见 [Invoke API](../reference/invoke-input.md)、[IPC](../reference/kernel-ipc.md)、[执行和控制](../reference/output-and-control.md)。
+
+
+## providerEpoch 与 agentEnv 的区别
+
+providerEpoch 表达业务认定的 Provider 绑定版本，不是执行配置签名。agentEnv 每次调用冻结，但同一会话后续调用可以显式使用另一份配置；修改 effort、刷新凭据或调整工作目录不自动要求递增 epoch。若实际替换了 Provider 会话所属的 Adapter、账号或服务端身份域，应用须隔离旧表单与迟到更新。
+
+AsyncQuestionReply 比较 snapshot 与 continuation 的 providerEpoch；使用该字段时须在产生问题时保存原值。两边均省略时比较通过，只表示没有 epoch 防护，不代表 SDK 已确认绑定相同。宿主未使用版本时仍负责使被替换绑定的旧表单失效。完整条件见[续跑配置](../reference/output-and-control.md)。

@@ -39,6 +39,14 @@ Gateway 是独立 Git 仓库和 npm package：https://github.com/Mininglamp-OSS/
 
 执行边界采用 inputs 与 agentEnv 分离；业务 extra.* 仅可作为应用自己的格式，Runtime 不定义或渲染。当前 SDK/IPC v2 为用户授权的破坏性变更，保留执行信封结构。
 
+### agentEnv 不定义会话身份
+
+agentEnv 是每次执行的显式配置，冻结仅保证本次调用不被后续修改影响，不要求同一会话各轮配置相同。Runtime 不对完整 agentEnv 建立跨轮相等性约束，不自动计算绑定签名，也不因配置变化自动递增 providerEpoch 或使旧表单失效。
+
+异步问题的两条路径必须分开：活动时按原 RunRef/interactionId 回答，不用新配置重定向原执行；确认正常完成后，新 Run 的 agentEnv 由 Gateway/宿主显式选择并授权。AsyncQuestionReply 是宿主选择使用的便利控制者，continuation 回调承担这项决定；它不证明回调读取的全局“当前配置”适合原题。宿主不能确定目标或授权时必须拒绝续跑。
+
+sessionId/sessionGeneration、providerSession.sessionId 和可选 providerEpoch 用于身份/代次核对，不证明执行配置相等。providerEpoch 表达宿主认定的 Provider 绑定替换，不是任意配置修改计数。省略时 SDK 无法识别相同 ID 背后的绑定替换；宿主必须通过自身控制者生命周期或显式代次隔离旧表单，不能把旧 providerSession 投向另一个 Adapter、账号或不共享该会话身份的服务端。调整配置不豁免权限校验、Provider 配置支持和真实恢复结果。完整条件见[异步问题协议](protocol-design.md#异步续跑配置与身份边界)。
+
 ## 凭据值严禁进入代码仓库
 
 真实凭据由宿主从仓库外注入，不写日志、命令参数或提交。Harness 认证及模型目录由 Provider/宿主管理；测试占位值在运行期生成。

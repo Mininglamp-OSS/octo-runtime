@@ -56,3 +56,13 @@ tags: [review, architecture, security, lifecycle]
 - Codex finding 不是本 PR 回归：主线 bf9ff6b 与 PR 00bd48d 的 app-server.ts 仅有第 2394 行注释差异。已见 ID 集合属于每次 invocation 的独立 CodexAppServerClient，pending 回答后释放，但 seen 保留用于防止原始 requestId 重用导致迟到回复误配。adapter-sdk/native.ts 也保持同一合同。不能将集合改成仅 pending 而移除安全边界。独立审查相关 4 项测试通过；超长单轮的累计上限若要调整，需要另行设计身份与生命周期。
 
 该结论是本地技术复审，不代表 GitHub 外部审查已批准；分支保护和审批要求保持原样。
+
+
+## 用户澄清后的配置边界复审（基线 bf8d6f63）
+
+用户明确不同意 agentEnv 跨轮全量签名，要求将架构责任及条件写入文档。本轮没有加入环境绑定指纹，也没有把 providerEpoch 改为必填。对新 P1 的处置依据是用户确认的合同：SDK 防护显式身份/代次，宿主授权新执行的配置；不承诺识别隐藏的环境绑定变化。外部评审仍需按此合同重新核对，未声称审查已批准。
+
+- **Standards：approve，Required 0 / Optional 0。** 对照当前实现确认配置捕获、二次回调不替换配置、活动回答与续跑分离；中英文一致，省略 epoch 不伪装绑定安全。
+- **Spec：未解决 0。** 允许业务显式选择配置，同时保留权限/恢复限制；无新增执行行为或过度约束。
+
+两位审查者仅检查文档差异与当前源码，未执行构建。完整 agentEnv 变化导致 stale 的回归测试不符合此次已确认需求，因此未添加；也不以文档修改宣称所有外部应用已实现正确的绑定失效管理。
