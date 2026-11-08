@@ -1,9 +1,16 @@
 import { Command, CommanderError, Option, type Help } from "commander";
-import { cliHelpHeader, lifecycleCommands, rootCommands } from "./help.js";
+import { cliHelpHeader, rootCommands } from "./help.js";
 import type { CliDependencies } from "./main.js";
 
 const preferredRootCommands = [
-  "executor-kernel",
+  "start",
+  "run",
+  "stop",
+  "restart",
+  "install",
+  "uninstall",
+  "logs",
+  "recover",
   "adapter",
   "doctor",
   "status",
@@ -29,13 +36,9 @@ function formatHelp(command: Command, helper: Help): string {
     (command.parent
       ? children.map((child) => `${commandPath(child).join(" ")} --help`)
       : [
-          ...children
-            .filter((child) => child.commands.some((action) => action.name() === "start"))
-            .slice(0, 4)
-            .map(
-              (child) =>
-                `${commandPath(child).join(" ")} ${child.name() === "executor-kernel" ? "start" : "--help"}`
-            ),
+          "octo-runtime start",
+          "octo-runtime run",
+          "octo-runtime logs --follow",
           "octo-runtime status"
         ]);
   const section = (title: string, rows: [string, string][]) =>
@@ -191,23 +194,14 @@ function parseCommand(raw: string[]): ParsedCliCommand {
     const command = make(name, description);
     root.addCommand(command);
     capture(command);
-    if (name === "executor-kernel") {
-      for (const [action, summary] of lifecycleCommands) {
-        const child = make(action, summary);
-        command.addCommand(child);
-        if (action === "install")
-          option(child, "--autostart <boolean>", "Automatic startup (default: true)");
-        if (action === "logs") {
-          option(child, "--lines <count>", "Log lines (default: 200)");
-          option(child, "--follow", "Follow log entries");
-        }
-        capture(child);
-      }
-      const recover = make("recover", "Acknowledge orphan cleanup after stopping orphan tools");
-      command.addCommand(recover);
-      option(recover, "--acknowledge-orphan-cleanup", "Confirm manual orphan cleanup");
-      capture(recover);
+    if (name === "install")
+      option(command, "--autostart <boolean>", "Automatic startup (default: true)");
+    if (name === "logs") {
+      option(command, "--lines <count>", "Log lines (default: 200)");
+      option(command, "--follow", "Follow log entries");
     }
+    if (name === "recover")
+      option(command, "--acknowledge-orphan-cleanup", "Confirm manual orphan cleanup");
     if (name === "adapter") {
       const list = make("list", "List execution adapters");
       const probe = make("probe", "Probe an execution adapter").argument("<type>");
@@ -229,8 +223,13 @@ function parseCommand(raw: string[]): ParsedCliCommand {
       continue;
     }
     if (args[index].startsWith("-")) continue;
-    if (args[index] === "help")
+    if (args[index] === "help") {
       args = [...args.slice(0, index), ...args.slice(index + 1), "--help"];
+      index--;
+      continue;
+    }
+    // Commander 会先处理 --help；在此拒绝未知根命令，避免已删除路径被显示为有效帮助。
+    if (!rootCommands.has(args[index])) throw new Error("INVALID_ARGUMENTS");
     break;
   }
   try {
