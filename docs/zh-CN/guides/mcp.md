@@ -115,7 +115,9 @@ flowchart TB
 
 连接配置中的 `${NAME}` 引用本轮执行环境中的变量。除了前面的认证 header，`command`、`args` 的每个元素、`cwd`、`env` 的值和 `url` 都支持这种写法。服务名称、字段名称、header 名称和 `env` 的 key 不支持替换。
 
-Runtime 按以下顺序合并环境变量，后面的同名变量覆盖前面的值：进程继承的环境、`octo.execution/envs`、调用时传入的 `executionEnvOverrides`、Adapter 设置的环境。`octo.execution/envs` 中的值本身不会做模板替换。关于 `executionEnvOverrides` 的传入方式，见 [InvokeInput 与执行环境](../reference/invoke-input.md)。
+调用 `client.invoke(inputs, sessionId, providerSession, agentEnv)` 时，将变量放入 `agentEnv.items` 的 `octo.execution/envs` 条目。Runtime 依次合并进程继承的环境、本轮变量和 Adapter 设置的环境，后面的同名变量覆盖前面的值。`envs` 的值本身不会做模板替换，详见 [Invoke API 参考](../reference/invoke-input.md)。
+
+低层 `client.submit(input, environment)` 和直接 Core API 还支持 `environment.executionEnvOverrides`，优先级位于 `envs` 之后、Adapter 设置之前。它不是公开 `invoke` 的第五参数，也不能放进 `inputs` 或 `agentEnv`；普通调用方应迁移到 `agentEnv.items`。
 
 模板只替换一次，不会执行 shell 表达式或继续解析替换结果中的变量。使用 `$${NAME}` 可以保留字面量 `${NAME}`。变量不存在时返回 `MCP_ENV_MISSING`；变量已设置为空字符串时，替换结果也为空，Runtime 随后会校验结果是否符合连接配置要求。
 

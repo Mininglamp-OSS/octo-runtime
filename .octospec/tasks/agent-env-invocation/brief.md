@@ -41,3 +41,9 @@ tags: [architecture, context, session, lifecycle, protocol, review]
 ## 2026-11-08 追加交付授权
 
 用户明确要求 Runtime 提交 PR 并合并进入 main。本次授权替代前文“未授权提交/推送/PR”的执行范围限制；允许提交、推送、创建 PR 和在仓库既有合并条件满足后合并。Gateway 仓库不在此次提交范围内；不发布 npm/tag，不修改分支保护或代替其他人批准。
+
+## PR 329 评审修正
+
+继续已授权交付：修复 AsyncQuestionReply 取消在 ACK 前误报成功的问题，以 submitting 抢占、ACK 后确认、未知结果禁止重放，并保留并发观察到的源流事实。对称修正中英文 MCP 指南：普通 invoke 的环境只通过 agentEnv/envs；低层执行覆盖独立说明，不恢复第五参数或兼容包装。验收覆盖取消在途竞争、ACK 丢失与恢复、已失效交互，以及公开四参数经 Kernel 到子进程的环境传递和旧形状拒绝。规划维持 96/100，实际验证另记。
+
+Codex native ID 累计上限与去重在固定主线基线已存在，本 PR 仅修改该文件一行注释；保留原始 ID 防迟到回复误配合同，不混入生命周期重设计。

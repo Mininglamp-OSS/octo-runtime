@@ -45,3 +45,14 @@ tags: [review, architecture, security, lifecycle]
 1. 改了什么：SDK 平铺输入/业务会话/Provider 会话/执行环境，Gateway 自行编译业务材料，Runtime 仅执行；interrupt 控制本 client 的单次 invocation。
 2. 为什么：消除业务上下文、环境配置和 Adapter 选择混在一起的边界；避免会话级取消误伤其他轮次和 Provider 原生 ID 泄露。
 3. 如何证明：双仓完整回归、真实 npm 包外消费、独立审查、失效保护变异测试及双语示例；真实模型/平台服务仍单列未验。
+
+
+## PR 329 增量复审（基线 00bd48d）
+
+远端提出取消状态、MCP 旧参数指引和 Codex native ID 上限三项意见。本轮修复前两项，并运行独立 Standards / Spec 审查：各 0 个未关闭问题。Standards 独立执行新增 6 项专项全部通过；Spec 为源码和测试覆盖检查，未声称执行测试。
+
+- 取消在途进入 submitting，ACK 后确认 cancelled；失联进入 unknown，恢复后不能重放。INTERACTION_NOT_ACTIVE 确认 invalidated；observe 的 user_cancelled 事实映射 cancelled，迟到 RPC 不覆盖源流事实。
+- 两语言 MCP 指南使用 agentEnv/envs；低层 submit/Core 的执行覆盖单列，不恢复 public invoke 的环境参数。
+- Codex finding 不是本 PR 回归：主线 bf9ff6b 与 PR 00bd48d 的 app-server.ts 仅有第 2394 行注释差异。已见 ID 集合属于每次 invocation 的独立 CodexAppServerClient，pending 回答后释放，但 seen 保留用于防止原始 requestId 重用导致迟到回复误配。adapter-sdk/native.ts 也保持同一合同。不能将集合改成仅 pending 而移除安全边界。独立审查相关 4 项测试通过；超长单轮的累计上限若要调整，需要另行设计身份与生命周期。
+
+该结论是本地技术复审，不代表 GitHub 外部审查已批准；分支保护和审批要求保持原样。

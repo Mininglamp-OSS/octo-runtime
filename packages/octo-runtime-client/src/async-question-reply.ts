@@ -85,25 +85,35 @@ export class AsyncQuestionReply {
       this.#snapshot.phase =
         payload.reasonCode === "provider_accepted"
           ? "answered"
-          : payload.reasonCode === "submission_outcome_unknown"
-            ? "unknown"
-            : "invalidated";
+          : payload.reasonCode === "user_cancelled"
+            ? "cancelled"
+            : payload.reasonCode === "submission_outcome_unknown"
+              ? "unknown"
+              : "invalidated";
     }
   }
 
   /** 关闭旁路，不中断模型；原活动交互同步关闭，未知响应不重试。 */
   async cancel(): Promise<void> {
     this.#assertPending();
-    this.#snapshot.phase = "cancelled";
-    if (!this.#snapshot.completed) {
-      try {
-        await this.client.respond(this.#snapshot.ref, {
-          interactionId: this.#snapshot.question.interactionId,
-          outcome: "cancelled"
-        });
-      } catch (error) {
-        if (!(error instanceof KernelError) || error.code !== "INTERACTION_NOT_ACTIVE") throw error;
-      }
+    const original = this.#snapshot;
+    if (original.completed) {
+      original.phase = "cancelled";
+      return;
+    }
+    // 在途先占有表单；只有 ACK 或源流事实能确认关闭，失联不能伪装取消成功。
+    original.phase = "submitting";
+    try {
+      await this.client.respond(original.ref, {
+        interactionId: original.question.interactionId,
+        outcome: "cancelled"
+      });
+      if (original.phase === "submitting") original.phase = "cancelled";
+    } catch (error) {
+      const inactive = error instanceof KernelError && error.code === "INTERACTION_NOT_ACTIVE";
+      // observe 可能已确认更强的源流事实，迟到的 RPC 结果不得覆盖它。
+      if (original.phase === "submitting") original.phase = inactive ? "invalidated" : "unknown";
+      if (!inactive) throw error;
     }
   }
 

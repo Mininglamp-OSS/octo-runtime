@@ -115,7 +115,9 @@ Providers support different optional fields. Supplying a field that the selected
 
 `${NAME}` in connection settings refers to a variable in the invocation's execution environment. In addition to authentication headers, substitution is supported in `command`, each `args` entry, `cwd`, `env` values, and `url`. Service names, field names, header names, and `env` keys are not substituted.
 
-Runtime merges environment variables in this order, with later values overriding earlier ones: the inherited process environment, `octo.execution/envs`, invocation `executionEnvOverrides`, and Adapter environment settings. Values in `octo.execution/envs` are not themselves expanded as templates. See [InvokeInput and Execution Environment](../reference/invoke-input.md) for passing `executionEnvOverrides`.
+For `client.invoke(inputs, sessionId, providerSession, agentEnv)`, put variables in the `octo.execution/envs` item of `agentEnv.items`. Runtime merges the inherited process environment, these variables, and Adapter environment settings in that order; later values override earlier ones. Values in `envs` are not themselves expanded as templates. See the [Invoke API reference](../reference/invoke-input.md).
+
+The low-level `client.submit(input, environment)` and direct Core APIs additionally support `environment.executionEnvOverrides`, applied after `envs` and before Adapter settings. This is not a fifth argument to public `invoke` and must not be placed in `inputs` or `agentEnv`; migrate ordinary callers to `agentEnv.items`.
 
 Substitution runs once. Runtime does not execute shell expressions or expand variables inside the substituted value. Use `$${NAME}` to keep the literal text `${NAME}`. An unset variable fails with `MCP_ENV_MISSING`. A variable set to an empty string substitutes an empty string; Runtime then validates the resulting connection settings.
 

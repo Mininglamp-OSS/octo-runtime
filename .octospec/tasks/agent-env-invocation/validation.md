@@ -41,3 +41,15 @@ Gateway 包先显式 tsc 构建，再 `npm pack --ignore-scripts --pack-destinat
 - 旧 SDK 对象入口、contexts、cancelInvocation 和 IPC v1 均不兼容；需协调升级 Runtime/client/Gateway。
 - npm 安装会安装依赖；重新安装或显式更新时按 ^2 范围解析，不会后台自动更新或跨 major。
 - 历史删除文件仍可能被基于 git ls-files 的纯 cached 文档审计列出；本次审计过滤实际不存在的文件，同时纳入新增文档。
+
+
+## PR 329 评审修正验证（2026-11-08）
+
+本轮相对已提交 00bd48d 修正取消 ACK 状态和双语 MCP 指引，继续用户授权的提交/PR/合并；不发布 npm/tag。准备评分不代替以下实测。
+
+- `npm run build`、根 `tsc --noEmit`、ESLint、format:check、lint:names 与 octospec lint 全部通过。
+- `npm run docs:check` 通过：37 对页面及 4 项可执行文档测试。
+- 显式本地专项：async-supplement / async-questions / async-recovery / agent-env-process、agent-env-invocation 和 opencode-v2 合计 **74/74 通过**。新增 6 项覆盖取消 ACK/未知/并发/恢复与公开四参数真实 Kernel→子进程环境传递，未扩大默认 CI glob。
+- `node --test --test-concurrency=4 test/*.test.js packages/octo-runtime-protocol/test/*.test.js`：**1606 项，1545 通过，61 跳过，0 失败**。远端评审提到的 OpenCode instructions-path ENOENT 在本轮专项与完整回归均未复现，没有放宽断言或修改 Provider 逻辑。
+- Standards 与 Spec 独立复审均无未关闭问题；Standards 另行独立运行新增 6 项通过，见 review。
+- 本轮未进行真实 Provider/IM 或用户服务操作。先前 head 00bd48d 的托管 CI 全部通过，不代表本轮新提交的 CI 结果；外部审批尚待重新确认。

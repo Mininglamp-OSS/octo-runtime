@@ -10,6 +10,8 @@ rules_read:
   - .octospec/rules/local-execution.md
   - .octospec/rules/protocol-design.md
   - .octospec/rules/adapter-metadata.md
+  - .octospec/rules/output-protocol.md
+  - .octospec/rules/mcp.md
   - CONTRIBUTING.md
   - .github/pull_request_template.md
 precedence: 用户允许破坏 SDK/IPC，保留执行信封格式；2026-11-08追加授权Runtime提交PR并合并main，不发布。
