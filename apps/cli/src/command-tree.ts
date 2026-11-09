@@ -214,6 +214,21 @@ function parseCommand(raw: string[]): ParsedCliCommand {
   let args = raw.map((arg) =>
     /^(--(?:json|follow|help|version))=/.test(arg) ? arg.split("=")[0] : arg
   );
+  // 在 help/version 短路之前检查缺值；根命令不能被前置选项吞成参数值。
+  let hasCommand = false;
+  for (let index = 0; index < args.length; index++) {
+    const token = args[index];
+    const [name, inline] = token.split("=", 2);
+    if (["--home", "--manifest", "--profile", "--lines", "--autostart"].includes(name)) {
+      const value = inline === undefined ? args[++index] : inline;
+      if (
+        !value ||
+        value.startsWith("-") ||
+        (inline === undefined && !hasCommand && rootCommands.has(value))
+      )
+        throw new Error("INVALID_ARGUMENTS");
+    } else if (!token.startsWith("-")) hasCommand = true;
+  }
   if (args.some((arg) => ["-v", "--version"].includes(arg)))
     return { flags: { version: "true" }, positional: [] };
   // help 是命令别名；只处理首个命令 token，参数值不参与匹配。

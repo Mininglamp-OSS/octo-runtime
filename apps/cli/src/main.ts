@@ -165,6 +165,10 @@ export async function runCli(args: string[], dependencies: CliDependencies = {})
       runtimePaths(home, "default").rootConfig
     );
     const profile = flags.profile ?? root?.default_profile ?? "default";
+    const serviceArgs = [
+      ...(flags.profile ? ["--profile", profile] : []),
+      ...(flags.manifest ? ["--manifest", resolve(flags.manifest)] : [])
+    ];
     const paths = runtimePaths(home, profile, dependencies.platform);
     // 配置/恢复和 Playboard 不使用常驻端点；只在实际连接或托管常驻服务时派生并校验。
     const kernelEndpoint = () => componentEndpoint(home, "executor-kernel", dependencies.platform);
@@ -187,7 +191,7 @@ export async function runCli(args: string[], dependencies: CliDependencies = {})
       );
     const snapshot = async (component: string): Promise<ComponentSnapshot> => {
       const inspect = async () => {
-        let spec = service.spec(home, component);
+        let spec = service.spec(home, component, false, serviceArgs);
         let native = await service.backend.inspect(spec);
         // 自启是已安装服务的事实，不能用 status 的默认 spec(false) 伪造配置漂移。
         if (native.enabled) {
@@ -338,10 +342,6 @@ export async function runCli(args: string[], dependencies: CliDependencies = {})
         }
       );
     }
-    const serviceArgs = [
-      ...(flags.profile ? ["--profile", profile] : []),
-      ...(flags.manifest ? ["--manifest", resolve(flags.manifest)] : [])
-    ];
     let spec = service.spec(home, component, false, serviceArgs);
     // 同组件所有部署修改及最终状态确认串行；不同组件仍可独立启动。
     return await withSetupLock(
