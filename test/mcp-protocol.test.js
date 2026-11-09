@@ -92,7 +92,7 @@ test("InvokeRequest without dynamic MCP rejects legacy contracts and missing man
   for (const [field, reason] of [
     ["context", /CONTEXT_REQUIRED/],
     ["modelInput", /modelInput must be a non-empty string/],
-    ["controlInstructions", /controlInstructions must be a string/],
+    ["workdir", /workdir must be a string/],
     ["approvalMode", /APPROVAL_MODE_UNSUPPORTED/]
   ]) {
     const incomplete = { ...baseRequest };

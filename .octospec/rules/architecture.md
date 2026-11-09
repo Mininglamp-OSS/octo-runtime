@@ -91,6 +91,12 @@ HostApp 选择安装与认证方案。Runtime 不隐式登录、刷新业务凭�
 
 发起方可以提交资源地址、来源和获取指引，由 Agent 在正常工具循环内按需读取。Host、Core 和 Adapter 不自动预取、摘要、补齐或持久化业务历史。workdir 是工作位置而非操作系统隔离边界；附件交付与工具动作属于业务消费者。
 
+## 应用工作目录归调用方
+
+Issue 335 的执行边界为调用方已成功准备的绝对目录 → Runtime 校验 → Provider 执行。CLI 与 SDK 均须显式传入 workspace.path 或 agentEnv.workdir，不默认取 cwd、Home 或旧会话，不分配随机目录、不在缺失或恢复时重建。workspace payload 仅含 path，删除 fixed/random/none mode、workspace_mode、prepareRunContext 和 WorkspaceAssignments，不保留兼容转换。已有用户目录不删除。
+
+路径在 Provider 操作前检查；缺失、非法、不存在、非目录及不可访问分别返回 WORKDIR_REQUIRED/INVALID/NOT_FOUND/NOT_DIRECTORY/UNAVAILABLE，公开分类沿用 OH-ADP-3004。续接和 fresh recovery 仍使用本次调用路径，消失就失败；校验不承诺消除文件系统竞态。外部/preset Agent 或 metadata.workspace:false 的 Adapter 可以没有本地覆盖，OpenClaw 的原生工作区归 Provider，不制造或 stat 远端路径。Runtime Home、日志、IPC 及 Provider 自有状态与应用目录分别管理，运维目录的既有创建与清理不因本次删除而扩大。
+
 ## 业务动作归 Agent tool call，Context 约束行为
 
 octo-cli 是业务团队的 API 工具，与 Runtime CLI 不同。是否预置、版本、路径、凭据和授权归 HostApp；Runtime 不为业务动作隐式安装工具。业务动作由 Agent 显式调用，Context 不授予额外权限。Runtime 不维护业务 Agent 定义、设备共享、云端登记、会话数据库或可靠业务 outbox。

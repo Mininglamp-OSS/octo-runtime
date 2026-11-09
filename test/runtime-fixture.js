@@ -163,7 +163,7 @@ export function executionContext(plan, items = []) {
     {
       namespace: "octo.execution",
       name: "workspace",
-      payload: plan.workspace ?? { mode: "fixed", path: plan.workdir }
+      payload: plan.workspace ?? { path: plan.workdir }
     },
     {
       namespace: "octo.execution",

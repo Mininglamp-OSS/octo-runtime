@@ -169,18 +169,9 @@ export function assertResolvedExecutionPlan(
     object(value.workspace, "RESOLVED_EXECUTION_PLAN_INVALID");
     executionField("octo.execution", "workspace", value.workspace);
   }
-  if (
-    !value.workdir &&
-    value.agent_source !== "preset" &&
-    (!isObject(value.workspace) || value.workspace.mode !== "random")
-  )
-    throw new TypeError("RESOLVED_EXECUTION_PLAN_INVALID");
-  if (
-    isObject(value.workspace) &&
-    value.workspace.mode === "none" &&
-    (value.agent_source !== "preset" || value.workdir !== "")
-  )
-    throw new TypeError("RESOLVED_EXECUTION_PLAN_INVALID");
+  // 空路径表示未覆盖本地目录；是否必填由实际注册的 Adapter 元数据决定。
+  if (isObject(value.workspace) && value.workspace.path !== value.workdir)
+    throw new TypeError("CONTEXT_PLAN_MISMATCH");
   if (value.agent_source === "preset" && typeof value.provider_agent_id !== "string")
     throw new TypeError("PRESET_AGENT_TARGET_REQUIRED");
   assertApprovalMode(value.approval_mode);
@@ -406,14 +397,9 @@ function executionField(namespace: string, name: string, value: Record<string, u
       return;
     }
     if (name === "workspace") {
-      fields(value, ["mode", "path"]);
-      if (value.mode === "none" && value.path === undefined) return;
-      if (value.mode === "fixed") {
-        text(value.path);
-        return;
-      }
-      if (value.mode === "random" && value.path === undefined) return;
-      throw new TypeError("CONTEXT_SCHEMA_INVALID");
+      fields(value, ["path"]);
+      text(value.path);
+      return;
     }
     if (name === "limits") {
       limits(value);

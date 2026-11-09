@@ -88,6 +88,11 @@ export type RunProtocolErrorCode =
   | "OPERATION_OUTCOME_UNKNOWN"
   | "HOST_EXECUTION_FAILED"
   | "HOST_ENDED_WITHOUT_TERMINAL"
+  | "WORKDIR_REQUIRED"
+  | "WORKDIR_INVALID"
+  | "WORKDIR_NOT_FOUND"
+  | "WORKDIR_NOT_DIRECTORY"
+  | "WORKDIR_UNAVAILABLE"
   | "PROVIDER_MESSAGE_TOO_LARGE"
   | "HOST_FRAME_TOO_LARGE"
   | "STREAM_QUEUE_ITEM_TOO_LARGE"
@@ -175,23 +180,6 @@ export type ContextReasoningPayload = {
 export type ContextReasoningPayload1 = {
   [k: string]: unknown;
 };
-/**
- * fixed uses the supplied path; random creates a workspace on the AgentSession's first run and reuses it for subsequent runs; none delegates workspace ownership to a preset Agent.
- *
- * This interface was referenced by `OctoRuntimeProtocolSchema`'s JSON-Schema
- * via the `definition` "ContextWorkspacePayload".
- */
-export type ContextWorkspacePayload =
-  | {
-      mode: "fixed";
-      path: string;
-    }
-  | {
-      mode: "random";
-    }
-  | {
-      mode: "none";
-    };
 /**
  * This interface was referenced by `OctoRuntimeProtocolSchema`'s JSON-Schema
  * via the `definition` "ContextRuntimeSelectionPayload".
@@ -2137,11 +2125,10 @@ export interface RunContextProjection {
     model?: string;
     effort?: string;
     approval_mode: "ask" | "assisted" | "full_access";
-    workspace_mode: "fixed" | "random" | "none";
   };
 }
 /**
- * Workspace preparation for the current Run lease and frozen execution Context; it does not prove Provider use of model context.
+ * Preparation facts for the current Run lease and caller-owned workspace path; they do not prove Provider use of model context or transfer directory ownership to Runtime.
  *
  * This interface was referenced by `OctoRuntimeProtocolSchema`'s JSON-Schema
  * via the `definition` "ContextPreparationReceipt".
@@ -2151,7 +2138,6 @@ export interface ContextPreparationReceipt {
   run_id: string;
   lease_id: string;
   fencing_token: number;
-  workspace_mode: "fixed" | "random" | "none";
   workspace_path: string;
   provider_state_dir: string;
   /**
@@ -2181,6 +2167,15 @@ export interface ContextActmodePayload {
 export interface ContextModelPayload {
   selection?: ContextModelSelectionPayload;
   reasoning?: ContextReasoningPayload;
+}
+/**
+ * Caller-owned, already prepared directory. Runtime validates the concrete local execution path and never allocates or recreates an application workspace.
+ *
+ * This interface was referenced by `OctoRuntimeProtocolSchema`'s JSON-Schema
+ * via the `definition` "ContextWorkspacePayload".
+ */
+export interface ContextWorkspacePayload {
+  path: string;
 }
 /**
  * Snake-case frozen watchdog limits, with the same bounds as RuntimeLimits. Legacy enforcement=observe cannot be combined with v2 settings.
@@ -2965,6 +2960,11 @@ export const RUN_PROTOCOL_ERRORS = [
   "OPERATION_OUTCOME_UNKNOWN",
   "HOST_EXECUTION_FAILED",
   "HOST_ENDED_WITHOUT_TERMINAL",
+  "WORKDIR_REQUIRED",
+  "WORKDIR_INVALID",
+  "WORKDIR_NOT_FOUND",
+  "WORKDIR_NOT_DIRECTORY",
+  "WORKDIR_UNAVAILABLE",
   "PROVIDER_MESSAGE_TOO_LARGE",
   "HOST_FRAME_TOO_LARGE",
   "STREAM_QUEUE_ITEM_TOO_LARGE",

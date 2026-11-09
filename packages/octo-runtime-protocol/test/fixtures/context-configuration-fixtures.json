@@ -177,7 +177,6 @@
             "namespace": "octo.execution",
             "name": "workspace",
             "payload": {
-              "mode": "fixed",
               "path": "/old"
             }
           }
@@ -195,7 +194,7 @@
           "namespace": "octo.execution",
           "name": "workspace",
           "payload": {
-            "mode": "random"
+            "path": "/new"
           }
         }
       ]
@@ -207,7 +206,7 @@
           "namespace": "octo.execution",
           "name": "workspace",
           "payload": {
-            "mode": "random"
+            "path": "/new"
           }
         }
       ]
@@ -709,18 +708,7 @@
       "schema": "octo.context-envelope/v3",
       "items": []
     },
-    "expected": {
-      "schema": "octo.context-envelope/v3",
-      "items": [
-        {
-          "namespace": "octo.execution",
-          "name": "workspace",
-          "payload": {
-            "mode": "random"
-          }
-        }
-      ]
-    }
+    "error": "CONTEXT_SCHEMA_INVALID"
   },
   {
     "name": "ephemeral-default-forbidden",

@@ -774,7 +774,12 @@ export function assertInvokeRequest(request: unknown): asserts request is Invoke
       throw new TypeError("CONTEXT_PLAN_MISMATCH");
   }
   const workspace = contextItem(request.context, "octo.execution", "workspace")?.payload;
-  if (workspace?.mode === "fixed" && workspace.path !== request.workdir)
+  if (workspace && workspace.path !== request.workdir) throw new TypeError("CONTEXT_PLAN_MISMATCH");
+  if (
+    isRecord(agentConfig) &&
+    agentConfig.workdir !== undefined &&
+    agentConfig.workdir !== request.workdir
+  )
     throw new TypeError("CONTEXT_PLAN_MISMATCH");
   if (
     ["skills", "skillRoots", "providerStateDir", "mcpServers"].some((key) =>
@@ -788,13 +793,9 @@ export function assertInvokeRequest(request: unknown): asserts request is Invoke
       throw new TypeError(`InvokeRequest.${key} must be a non-empty string`);
     }
   }
-  const providerWorkspace =
-    contextItem(request.context, "octo.execution", "adapter")?.payload.type === "openclaw";
-  if (
-    typeof request.workdir !== "string" ||
-    (!request.workdir && request.agentSource !== "preset" && !providerWorkspace)
-  )
-    throw new TypeError("InvokeRequest.workdir is required for provisioned execution");
+  // 空路径留给 Executor 按 Adapter 的实际工作区合同校验，避免协议层猜测 Provider。
+  if (typeof request.workdir !== "string")
+    throw new TypeError("InvokeRequest.workdir must be a string");
   if (typeof request.modelInput !== "string" || request.modelInput.length === 0) {
     throw new TypeError("InvokeRequest.modelInput must be a non-empty string");
   }

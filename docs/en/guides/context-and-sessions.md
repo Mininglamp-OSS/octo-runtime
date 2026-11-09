@@ -19,6 +19,8 @@ Migration removes `octo.control/instructions`, `controlInstructions`, their payl
 
 sessionId identifies an application conversation. Repeating it does not resume a Provider. Save the complete providerSession from session.update and pass it explicitly, preserving opaque extension fields. Never reconstruct providerSession from the business ID.
 
+The caller also owns its working directory. Supply the chosen, already existing absolute path on every local invocation, including continuation and explicit fresh recovery. Runtime does not allocate a random workspace, inherit cwd, or recreate a deleted directory. `WORKDIR_NOT_FOUND` remains a failure on recovery; choosing or preparing another directory requires an application decision. Remove workspace `mode` and use the path-only payload. A caller-created temporary directory has the same lifetime responsibilities as any other workspace; keep it until executions and owned cleanup complete. Runtime Home/logs/IPC are separate. See [workdir errors and external-Agent exceptions](../reference/invoke-input.md).
+
 A conversation may contain many invocations, each with a distinct invocationId. Bind Stop to run.invocationId and use the same client's interrupt method; a delayed stop must not target the next invocation. Core forwards interruption to the owning Adapter, which maps it to native turn/interrupt, query interruption or process cancellation. Callers do not need native turnId values.
 
 Reset is a business operation, separate from cancellation. Applications update sessionGeneration/providerEpoch and fence stale updates. Gateway retains generation isolation, bounded history and explicit recovery content. Execution, observation or delivery failures do not automatically authorize replay.

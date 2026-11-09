@@ -7,7 +7,7 @@ agentEnv 沿用 `octo.context-envelope/v3` 的 schema/items 结构。每项使�
 | item | 用途 |
 | --- | --- |
 | `octo.execution/adapter` | 已注册 Adapter 类型；OpenClaw 还提供 provider_agent_id |
-| `octo.execution/workspace` | cwd 和工作区策略 |
+| `octo.execution/workspace` | 调用方已准备的绝对目录：`{ "path": "/absolute/prepared/project" }` |
 | `octo.execution/model` | 模型及 reasoning.effort |
 | `octo.execution/actmode` | 执行模式 |
 | `octo.execution/envs` | 子进程环境变量 |

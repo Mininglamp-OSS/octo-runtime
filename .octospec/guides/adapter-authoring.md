@@ -51,6 +51,7 @@ CLI 默认项在 [`apps/cli/src/manifest.json`](../../apps/cli/src/manifest.json
 7. 应用启动提示词只作为调用方准备的普通输入传递；Adapter 不按首轮、续接或 fallback 添加提示词，不提升为 system/developer/受信角色，不新增等价字段或注入 helper。Provider 私有提示词能力不构成 Runtime 公共抽象。保留调用方文本/图片次序，原生映射不得加入空指令块或额外分隔符。
 8. Token 和其他敏感值不得出现在命令行参数、prompt、事件 payload 或工作目录中。
 9. 会话、审批、图片等行为在 Adapter 中按具体合同实现，由宿主管理功能支持范围；不得新增 `executionFeatures` 标签、自有 capabilities、能力字段表或 AbilityProvider 注册体系。当前输出模式仍使用 `protocolSupport`，其简化不在本次文档决定中实施。单独记录真实 Provider 验证范围，不将静态声明当作执行证据。
+10. 本地工作目录由调用方显式提供且已成功创建；Core 在 Provider 操作前检查，Adapter 不默认取 cwd、不分配随机目录、不在续接/fallback 时重建。公共 workspace 仅含 path，没有 mode 或分配回执；外部/preset Agent 与 metadata.workspace:false 的本地覆盖缺省按合同处理，不制造远端 Agent 的本地工作区。Runtime 运维状态和 Provider 自有状态不等于应用目录。
 
 上例演示 canonical 事件生成；公共 `invoke` 的 `InvokeInput` 须显式指定 `{ protocol_mode: "canonical" }`。Adapter 内部通过 `context.protocolMode` 读取已选模式，不能把该内部字段当作公共输入。需要 native 时实现 Driver 与独立控制帧，不能直接声明支持后继续只返回 canonical 事件。native-only Adapter 无须生成 canonical 事件；上述 canonical 事件规则只作用于 canonical 模式。详情见 [模式合同](../rules/output-protocol.md)。
 

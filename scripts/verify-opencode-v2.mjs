@@ -46,7 +46,6 @@ async function run(
     for await (const event of executor.invoke({
       invocationId,
       protocol_mode: "canonical",
-      workdir,
 
       ...(providerSession ? { providerSession } : {}),
       inputs: [
@@ -57,6 +56,7 @@ async function run(
         { type: "text", text }
       ],
       agentEnv: {
+        workdir,
         ...{
           schema: "octo.context-envelope/v3",
           items: [

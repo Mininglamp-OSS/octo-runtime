@@ -108,12 +108,12 @@ export function prepareInvokeInput(value: unknown): {
     schema: CONTEXT_SCHEMA,
     items: [
       { namespace: "octo.execution", name: "adapter", payload: { type: "codex" } },
-      ...(agentSource === "provisioned"
+      ...(env.workdir
         ? [
             {
               namespace: "octo.execution",
               name: "workspace",
-              payload: { mode: "fixed", path: env.workdir ?? process.cwd() }
+              payload: { path: env.workdir }
             }
           ]
         : []),
@@ -143,6 +143,11 @@ export function prepareInvokeInput(value: unknown): {
     agentSource
   );
   const context = structuredClone(contexts);
+  if (
+    (env.workdir !== undefined && env.workdir !== plan.workdir) ||
+    (env.agentConfig?.workdir !== undefined && env.agentConfig.workdir !== plan.workdir)
+  )
+    throw new TypeError("CONTEXT_PLAN_MISMATCH");
   const prompt = input.inputs
     .map((part) => (part.type === "text" ? part.text : "[Image]"))
     .join("\n\n");
@@ -175,7 +180,7 @@ export function prepareInvokeInput(value: unknown): {
     modelInput: input.modelInput ?? prompt,
     modelInputParts: structuredClone(input.inputs),
     context,
-    workdir: env.workdir ?? plan.workdir,
+    workdir: plan.workdir,
     approvalMode: env.approvalMode ?? plan.approval_mode,
     runtimeLimits: env.runtimeLimits ?? localRuntimeLimits(plan),
     agentConfig: {

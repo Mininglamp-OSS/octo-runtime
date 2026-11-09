@@ -34,7 +34,7 @@ supersedes: []
 | 目标 Agent | Provider 内的执行目标，由 Context 的 `provider_agent_id` 指定。多个 Agent 可共享一个 Runtime 的同一连接。 |
 | Agent 来源 | `preset` 表示调用已有 Agent；`provisioned` 表示按该来源合同执行。来源与传输方式、连接配置相互独立；来源声明不意味着 Runtime 可以隐式安装 Runtime 或创建 OpenClaw Agent。 |
 
-Runtime 的安装决策继续归 HostApp。OpenClaw Agent 的人格、记忆、插件和原生 workspace 继续归 OpenClaw 管理。
+Runtime 的安装决策继续归 HostApp。OpenClaw Agent 的人格、记忆、插件和原生 workspace 继续归 OpenClaw 管理。Issue 335 删除公共 workspace.mode；调用 OpenClaw 不需要为 Runtime 制造本地目录。metadata.workspace:false 不把 Provider 工作区当本地路径校验，不覆盖远端工作区，不恢复随机分配或缺失补建，也不新增忽略告警。
 
 ## 本地初始化与连接配置
 
@@ -155,7 +155,7 @@ octo-runtime --home /path/to/runtime --profile work adapter probe openclaw
 
 2026-10-16 起，单次调用在生产回调中按真实 runId/sessionKey/审批 ID 过滤广播，再进入有界 DriverQueue：最多 4096 项、累计 4 MiB、单项 256 KiB。溢出清空积压并立即取消所属请求/订阅和关闭客户端，不等待消费者恢复，不重启共享 Host，不将容量失败对账为成功。正常结束保序，提前停止消费取消未完成调用。实现与真实 Gateway 时序证据见[队列容量交付](../journal/shared/2026-10-16-openclaw-queue-bounds-delivery.md)。
 
-[连接解析与私密文件](../../packages/octo-runtime-adapter-openclaw/src/local-gateway.ts)、[Gateway 执行](../../packages/octo-runtime-adapter-openclaw/src/index.ts)、[公共输入默认值](../../packages/octo-runtime-executor-core/src/invoke-input.ts)、[目录准备](../../packages/octo-runtime-executor-core/src/execution-preparation.ts)、[连接测试](../../test/openclaw-runtime-connection.test.js)。
+[连接解析与私密文件](../../packages/octo-runtime-adapter-openclaw/src/local-gateway.ts)、[Gateway 执行](../../packages/octo-runtime-adapter-openclaw/src/index.ts)、[公共输入解析](../../packages/octo-runtime-executor-core/src/invoke-input.ts)、[目录检查与执行](../../packages/octo-runtime-executor-core/src/index.ts)、[连接测试](../../test/openclaw-runtime-connection.test.js)。
 
 新逻辑会话创建可读 `agent:{agentId}:{encoded-sessionName}-{uuid}` key，独立随机后缀防止同名合并；Provider 包装保留冒号。缺省名称仅由 Core 生成 UUID，Adapter 不决定渠道命名策略。
 

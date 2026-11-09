@@ -19,6 +19,18 @@
 
 执行配置还支持 agentEnv 内的 `agentSource`、`workdir`、`approvalMode`、`agentConfig`、`runtimeLimits`，用于完整 Provider 配置和高级设置；与 items 同时提供的选择必须一致。它们不再是 InvokeInput 顶层字段。`agentConfig.providerOptions` 归具体 Adapter。OpenClaw adapter item 显式提供 provider_agent_id（通常 main）。
 
+## 调用方拥有工作目录
+
+本地执行必须显式指定已存在的绝对目录。使用 `octo.execution/workspace` 的 `payload: { "path": "/absolute/prepared/project" }`，或 `agentEnv.workdir`；二者及 `agentConfig.workdir` 同时存在时必须一致。目录选择、创建、复用和删除归调用方；CLI 与 SDK 都不默认取 cwd，不分配应用工作区。调用方自己创建的临时目录遵守相同合同。
+
+Runtime 在 Provider 执行前检查本地路径，不创建或重建。未提供路径返回 `WORKDIR_REQUIRED`，相对或非法路径返回 `WORKDIR_INVALID`，目录不存在返回 `WORKDIR_NOT_FOUND`，路径为文件返回 `WORKDIR_NOT_DIRECTORY`，无权限或其他不可用返回 `WORKDIR_UNAVAILABLE`。这些原因码沿用公开分类 `OH-ADP-3004`；可读取异常 `.code`、canonical 失败的 `payload.code` / `failure.reasonCode` 或 native error control。检查不能阻止检查后、Provider 操作前的文件系统变化，后续原生错误仍如实返回。
+
+续接和显式 fresh recovery 仍须传入选定目录。目录消失就失败，不补建或另选。外部/preset Agent 与声明 `metadata.workspace: false` 的 Adapter 可以不传本地覆盖；OpenClaw 使用自身工作区，不把远端路径当本地目录检查。Runtime Home、日志、IPC 文件和 Provider 自有状态继续分别管理。
+
+Issue #335 删除 workspace `mode`（`fixed`、`random`、`none`）、回执/投影中的 `workspace_mode`、`prepareRunContext` 与 `WorkspaceAssignments`。带旧 mode 的 payload 明确拒绝；调用方须删掉它并在调用前准备目录。不提供兼容转换，不删除用户数据；历史分配的目录仍归用户。Run 7、Context v3、IPC 2 和 Adapter transport 2 保持不变。
+
+## 应用提示词
+
 应用启动提示词属于普通输入，不属于执行配置。`octo.control/instructions` 和 `controlInstructions` 已删除，即使为空也拒绝；没有替代的 system/developer/trusted 提示词字段。调用方删除配置中的旧项，在调用前将需要的文本放到输入 parts 前面，自行决定首轮、续接和重建时的内容、顺序及是否携带，见[会话指南](../guides/context-and-sessions.md)。
 
 ## 内容和恢复

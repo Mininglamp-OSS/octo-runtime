@@ -16,14 +16,14 @@ tags: [workspace, architecture, protocol, execution]
 - `octo.execution/workspace` payload 仅 `{ path: "/absolute/prepared/path" }`；删除 mode 的 fixed/random/none 分支、模式字段和相关公开类型/回执字段。旧格式按未知字段失败，不建立兼容层、迁移转换或配置回退。
 - 普通本地执行要求调用方显式指定路径，允许 agentEnv.workdir 作为已有明确入口；与 Context workspace.path 同时存在时必须相同。Core/Kernel 不从 process.cwd、用户 Home 或旧会话补路径。
 - SDK 与 CLI 均要求本次请求指定已创建目录；本次不保留 CLI 隐式 cwd 便利策略。调用方可自己读取 cwd 或创建临时目录后传入。
-- 外部/preset Agent 或明确 `metadata.workspace: false` 的 Adapter 没有本地工作区覆盖时允许缺省，不制造本地路径。OpenClaw 不消费本地 cwd；已有明确忽略诊断保留，不强制 stat 远端目录。
+- 外部/preset Agent 或明确 `metadata.workspace: false` 的 Adapter 没有本地工作区覆盖时允许缺省，不制造本地路径。OpenClaw 不消费本地 cwd，不强制 stat 远端目录；原有忽略警告仅存在于已无消费者的旧分配器中，随分配器删除，不新增警告机制。
 - 本地目录在启动 Adapter 的 Provider 操作前检查：非空绝对路径、存在、是目录、可访问。检查失败不创建任何应用目录。检查与实际 spawn 间仍有文件系统竞态；后续原生错误继续如实返回，不承诺锁定目录。
 - 稳定原因码：缺路径 `WORKDIR_REQUIRED`，非绝对路径 `WORKDIR_INVALID`，不存在 `WORKDIR_NOT_FOUND`，文件 `WORKDIR_NOT_DIRECTORY`，无访问权/其他不可用 `WORKDIR_UNAVAILABLE`。异常 `.code`、canonical 失败 payload.code/failure.reasonCode、native error control 保留具体码；沿用现有配置错误公共分类 `OH-ADP-3004`，不创建平行错误目录。
 - 续接和 fresh recovery 使用同一本次请求路径，目录消失仍报 WORKDIR_NOT_FOUND，不重建。调用方临时目录与普通目录执行方式相同。
 
 ## 已核对的实施路径
 
-1. Schema ContextWorkspacePayload 改为 path-only；ContextEffectiveView.execution、ContextPreparationReceipt 去掉 workspace_mode。运行时校验与 execution-plan 冻结比较同步，按生成流程更新声明、fixtures、示例和消费者。
+1. Schema ContextWorkspacePayload 改为 path-only；RunContextProjection.execution、ContextPreparationReceipt 去掉 workspace_mode。运行时校验与 execution-plan 冻结比较同步，按生成流程更新声明、fixtures、示例和消费者。
 2. Core invoke-input 删除 process.cwd 默认值与 mode，context 解析允许表达外部 Agent 无覆盖；真实 Executor 按已注册 metadata 判断本地路径需求。在同一原生/canonical Provider 执行 try 内先校验，再创建 scope/invoke，使失败按现有终态/清理机制返回而不误报 HOST_FRAME_INVALID。
 3. 删除无内部调用的 execution-preparation.ts、prepareRunContext 和 WorkspaceAssignments 导出。仓库没有 assignment store 实现，无数据迁移或删除；不扫描用户历史随机目录。实际 Runtime 运维目录和 Provider 生命周期代码保留。
 4. AgentConfig.workdir、显式 env.workdir、Context path 必须一致；不从 Provider 私有配置偷偷选目录。现有无真实目录的 fake 测试应由测试调用方创建目录，而不是降低生产校验。

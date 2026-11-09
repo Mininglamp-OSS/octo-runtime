@@ -12,7 +12,7 @@ const context = {
     {
       namespace: "octo.execution",
       name: "workspace",
-      payload: { mode: "fixed", path: "/workspace" }
+      payload: { path: "/workspace" }
     },
     { namespace: "octo.security", name: "approval_policy", payload: { mode: "ask" } }
   ]
@@ -40,7 +40,7 @@ test("frozen execution plan cannot broaden or contradict its effective Context",
     );
   }
   assert.throws(
-    () => assertFrozenContextPlan(context, { ...plan, workspace: { mode: "random" } }),
+    () => assertFrozenContextPlan(context, { ...plan, workspace: { path: "/other" } }),
     /CONTEXT_PLAN_MISMATCH/
   );
   const defaults = structuredClone(context);

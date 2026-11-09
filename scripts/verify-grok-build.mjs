@@ -29,7 +29,6 @@ try {
         {
           invocationId,
           protocol_mode: "canonical",
-          workdir,
 
           ...(providerSession ? { providerSession } : {}),
           inputs: [
@@ -43,6 +42,7 @@ try {
             }
           ],
           agentEnv: {
+            workdir,
             ...{
               schema: "octo.context-envelope/v3",
               items: [

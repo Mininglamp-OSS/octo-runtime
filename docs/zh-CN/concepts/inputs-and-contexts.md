@@ -11,7 +11,7 @@ const agentEnv = {
   schema: "octo.context-envelope/v3" as const,
   items: [
     { namespace: "octo.execution", name: "adapter", payload: { type: "codex" } },
-    { namespace: "octo.execution", name: "workspace", payload: { mode: "fixed", path: process.cwd() } },
+    { namespace: "octo.execution", name: "workspace", payload: { path: "/absolute/prepared/project" } },
     { namespace: "octo.execution", name: "model", payload: { reasoning: { effort: "high" } } }
   ]
 };

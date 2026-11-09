@@ -19,6 +19,18 @@ The schema/items envelope is unchanged. Allowed items are octo.execution/* and o
 
 Advanced agentEnv fields are agentSource, workdir, approvalMode, agentConfig and runtimeLimits. They are no longer top-level InvokeInput fields and must agree with corresponding item selections. agentConfig.providerOptions belongs to the selected Adapter. OpenClaw adapter items explicitly specify provider_agent_id, commonly main.
 
+## Caller-owned working directory
+
+Local execution requires an explicit, existing absolute directory. Supply `octo.execution/workspace` with `payload: { "path": "/absolute/prepared/project" }`, or `agentEnv.workdir`. If both or `agentConfig.workdir` are present, they must agree. The caller selects, creates, reuses and removes the directory; CLI and SDK neither default to cwd nor allocate an application workspace. A caller-created temporary directory follows the same contract.
+
+Runtime checks the local path before Provider execution and never creates or recreates it. Missing input fails with `WORKDIR_REQUIRED`, a relative/invalid path with `WORKDIR_INVALID`, a missing directory with `WORKDIR_NOT_FOUND`, a file with `WORKDIR_NOT_DIRECTORY`, and inaccessible or otherwise unavailable paths with `WORKDIR_UNAVAILABLE`. These reason codes retain the existing public classification `OH-ADP-3004`; inspect the error `.code`, canonical failure `payload.code`/`failure.reasonCode`, or native error control. Validation cannot prevent a filesystem change between the check and the Provider operation; later native errors are reported as observed.
+
+Pass the chosen directory on continuation and explicit fresh recovery. If it disappears, Runtime reports the failure without rebuilding it or choosing another directory. External/preset Agents and Adapters declaring `metadata.workspace: false` may omit a local override; OpenClaw keeps its own workspace and does not stat a remote path as a local directory. Runtime Home, logs, IPC files and Provider-owned state retain their separate owners.
+
+Issue #335 removes workspace `mode` (`fixed`, `random`, `none`), `workspace_mode` receipt/projection fields, `prepareRunContext` and `WorkspaceAssignments`. Old mode-bearing payloads are rejected; remove them and prepare the directory before invoking. No compatibility conversion or data deletion is performed. Previously allocated directories remain user data. Run 7, Context v3, IPC 2 and Adapter transport 2 are unchanged.
+
+## Application prompts
+
 Application startup prompts are ordinary input, not execution settings. `octo.control/instructions` and `controlInstructions` are removed and rejected even when empty; there is no replacement system/developer/trusted prompt field. Remove the item from configuration and prepend the desired text to the input parts before calling Runtime. The caller owns its order, content and inclusion on initial, resumed and reconstructed sessions; see [session guidance](../guides/context-and-sessions.md).
 
 ## Content and recovery

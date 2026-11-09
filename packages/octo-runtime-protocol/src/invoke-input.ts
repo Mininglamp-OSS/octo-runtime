@@ -75,7 +75,7 @@ export class InvokeInput {
 export interface AgentEnv extends ContextEnvelope {
   /** Agent ownership: preset for OpenClaw by default, provisioned otherwise. */
   agentSource?: AgentSource;
-  /** Provider cwd; defaults to the resolved workspace (local cwd when omitted). */
+  /** 调用方已准备的明确目录；不从本进程 cwd 或旧会话补默认路径。 */
   workdir?: string;
   /** Execution approval policy, normally resolved from contexts; defaults to ask. */
   approvalMode?: ApprovalMode;
@@ -393,4 +393,11 @@ export function assertAgentEnv(value: unknown): asserts value is AgentEnv {
     )
       throw new TypeError("agentConfig.providerOptions must be a JSON object");
   }
+  const paths = [
+    env.workdir,
+    env.agentConfig?.workdir,
+    env.items.find((item) => item.namespace === "octo.execution" && item.name === "workspace")
+      ?.payload.path
+  ].filter((path) => path !== undefined);
+  if (paths.some((path) => path !== paths[0])) throw new TypeError("CONTEXT_PLAN_MISMATCH");
 }

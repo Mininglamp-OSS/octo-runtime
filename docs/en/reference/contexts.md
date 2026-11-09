@@ -7,7 +7,7 @@ agentEnv retains the schema/items structure of octo.context-envelope/v3. Each it
 | Item | Purpose |
 | --- | --- |
 | `octo.execution/adapter` | Registered Adapter type; OpenClaw also specifies provider_agent_id |
-| `octo.execution/workspace` | cwd and workspace policy |
+| `octo.execution/workspace` | Caller-prepared absolute directory: `{ "path": "/absolute/prepared/project" }` |
 | `octo.execution/model` | Model and reasoning.effort |
 | `octo.execution/actmode` | Execution mode |
 | `octo.execution/envs` | Child-process environment variables |

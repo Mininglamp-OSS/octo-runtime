@@ -139,64 +139,66 @@ interface OpenCodeNativeEvent extends OpenCodePart {
  * 构造本轮 OpenCode 命令、普通输入和执行配置；原生 inline config 保持，
  * 仅合并本轮 MCP 设置，不生成应用指令文件或追加系统提示词。
  */
-export async function buildOpenCodeCommand(req: InvokeRequest, command = "opencode") {
-  if (hasImageInput(req))
-    throw new Error("UNSUPPORTED_INPUT_MODALITY: opencode does not encode image input");
-  if (req.approvalMode !== "full_access")
-    throw new Error("APPROVAL_MODE_UNSUPPORTED: opencode permission transport is not qualified");
-  const runEnv = invocationEnvironment(req);
-  const servers = invocationMcpServers(req, runEnv);
-  assertMcpOptions(servers, "opencode", ["toolTimeoutMs"]);
-  const inline = inlineConfig(req);
-  if (Object.keys(servers).length) {
-    const existing = isRecord(inline.mcp) ? inline.mcp : {};
-    inline.mcp = {
-      ...existing,
-      servers: {
-        ...(isRecord(existing.servers) ? existing.servers : {}),
-        ...Object.fromEntries(
-          Object.entries(servers).map(([name, server]) => [
-            name,
-            {
-              ...(server.type === "stdio"
-                ? {
-                    type: "local",
-                    command: [server.command, ...(server.args ?? [])],
-                    environment: server.env ?? {}
-                  }
-                : { type: "remote", url: server.url, headers: server.headers ?? {} }),
-              disabled: false,
-              ...(server.toolTimeoutMs !== undefined
-                ? { timeout: { execution: server.toolTimeoutMs } }
-                : {})
-            }
-          ])
-        )
-      }
+export function buildOpenCodeCommand(req: InvokeRequest, command = "opencode") {
+  return Promise.resolve().then(() => {
+    if (hasImageInput(req))
+      throw new Error("UNSUPPORTED_INPUT_MODALITY: opencode does not encode image input");
+    if (req.approvalMode !== "full_access")
+      throw new Error("APPROVAL_MODE_UNSUPPORTED: opencode permission transport is not qualified");
+    const runEnv = invocationEnvironment(req);
+    const servers = invocationMcpServers(req, runEnv);
+    assertMcpOptions(servers, "opencode", ["toolTimeoutMs"]);
+    const inline = inlineConfig(req);
+    if (Object.keys(servers).length) {
+      const existing = isRecord(inline.mcp) ? inline.mcp : {};
+      inline.mcp = {
+        ...existing,
+        servers: {
+          ...(isRecord(existing.servers) ? existing.servers : {}),
+          ...Object.fromEntries(
+            Object.entries(servers).map(([name, server]) => [
+              name,
+              {
+                ...(server.type === "stdio"
+                  ? {
+                      type: "local",
+                      command: [server.command, ...(server.args ?? [])],
+                      environment: server.env ?? {}
+                    }
+                  : { type: "remote", url: server.url, headers: server.headers ?? {} }),
+                disabled: false,
+                ...(server.toolTimeoutMs !== undefined
+                  ? { timeout: { execution: server.toolTimeoutMs } }
+                  : {})
+              }
+            ])
+          )
+        }
+      };
+    }
+    // Reasoning output and non-interactive tool approval are mandatory parts of
+    // this adapter's provider contract.
+    const args = ["run", "--format", "json", "--thinking", "--auto", "--standalone"];
+    if (req.providerSession?.sessionId) args.push("--session", req.providerSession.sessionId);
+    const variant = mapReasoningEffort("opencode", req.agentConfig?.effort);
+    if (req.agentConfig?.model) {
+      const model = req.agentConfig.model;
+      args.push("--model", variant ? `${model.split("#")[0]}#${variant}` : model);
+    }
+    return {
+      command,
+      args,
+      input: providerInputText(req),
+      env: {
+        OPENCODE_CONFIG_CONTENT: JSON.stringify(inline),
+        OPENCODE_CLIENT: "octo-runtime",
+        PWD: req.workdir
+      },
+      rpcMethod: "process.stdin",
+      providerSessionId: req.providerSession?.sessionId,
+      cleanup: () => undefined
     };
-  }
-  // Reasoning output and non-interactive tool approval are mandatory parts of
-  // this adapter's provider contract.
-  const args = ["run", "--format", "json", "--thinking", "--auto", "--standalone"];
-  if (req.providerSession?.sessionId) args.push("--session", req.providerSession.sessionId);
-  const variant = mapReasoningEffort("opencode", req.agentConfig?.effort);
-  if (req.agentConfig?.model) {
-    const model = req.agentConfig.model;
-    args.push("--model", variant ? `${model.split("#")[0]}#${variant}` : model);
-  }
-  return {
-    command,
-    args,
-    input: providerInputText(req),
-    env: {
-      OPENCODE_CONFIG_CONTENT: JSON.stringify(inline),
-      OPENCODE_CLIENT: "octo-runtime",
-      PWD: req.workdir
-    },
-    rpcMethod: "process.stdin",
-    providerSessionId: req.providerSession?.sessionId,
-    cleanup: () => undefined
-  };
+  });
 }
 
 /** Translate one OpenCode native event/part into canonical events; unrelated events yield an empty list. */

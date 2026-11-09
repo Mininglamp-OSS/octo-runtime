@@ -95,7 +95,7 @@ test("envs freezes into local execution plan without becoming prompt or instruct
       {
         namespace: "octo.execution",
         name: "workspace",
-        payload: { mode: "fixed", path: process.cwd() }
+        payload: { path: process.cwd() }
       }
     ]
   };

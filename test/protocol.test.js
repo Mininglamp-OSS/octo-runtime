@@ -165,7 +165,6 @@ test("execution Context fixtures carry explicit frozen selections and provider d
     type: "codex"
   });
   assert.deepEqual(context.items.find((item) => item.name === "workspace").payload, {
-    mode: "fixed",
     path: "/workspace"
   });
   assert.deepEqual(context.items.find((item) => item.name === "approval_policy").payload, {
