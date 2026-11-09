@@ -15,4 +15,6 @@ tags: [review, workspace, protocol]
 
 ## 实施后
 
-待最终实现与验证后独立审查并记录。
+与 #334 同一固定实现 diff `3f83ecf4...b645a474` 并行两轴审查，见[联合审查](../334-caller-owned-prompts/review.md)。Standards 发现一处与本任务相关的 P3 现行导出说明过时，已修正；没有工作目录分配、目录错误码或数据删除方面的实质 Spec finding。所有首轮问题和修复后验证/复审按联合记录核对，不能省略尚未完成的步骤。
+
+整改后固定 `3f83ecf4...df754e94` 独立复审：Standards 0、Spec 0，过时导出说明问题关闭。完整验证和限制见[联合验收](../334-caller-owned-prompts/validation.md)；包外验证使用最终整改后重打的 tgz。

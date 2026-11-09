@@ -2,7 +2,10 @@ issue: https://github.com/Mininglamp-OSS/octo-runtime/issues/335
 baseline: 7a76a454
 main_baseline: 3f83ecf4607c658fba7664caa6ccb2787ab92baa
 branch: refactor/334-caller-owned-prompts
-phase: implementation
+phase: implementation-verified
+review_fix_commit: df754e94
+implementation_commit: b645a474
+validation: validation.md
 rules_read:
   - .octospec/rules/architecture.md
   - .octospec/rules/context-input.md
