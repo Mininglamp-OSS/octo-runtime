@@ -1,7 +1,10 @@
 issue: https://github.com/Mininglamp-OSS/octo-runtime/issues/332
 baseline: 86b3379cc9b426255dabc85c1450dfd530ac1c94
 branch: refactor/332-schema-ownership
-phase: implemented
+phase: verified
+implementation_commit: 15d0b815
+review: 独立规范/需求审查及修复后复审均无未关闭问题，详见 review.md。
+validation: 本地全量、双包、手动清理和文档检查通过；详见 validation.md。
 rules_read:
   - .octospec/rules/architecture.md
   - .octospec/rules/protocol-design.md
