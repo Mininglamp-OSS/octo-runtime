@@ -41,6 +41,8 @@ Image parts carry type/image, mimeType, base64 data, byteSize and sha256. Inputs
 
 Runtime preserves the supplied text/image order without adding prompt text or separators. If you supply modelInput or freshFallbackModelInput/Parts, each is a complete caller-prepared input for that path, including any desired startup prompts. Do not rely on Runtime to add prompts only when a Provider session starts, or prepend them again when retrying the same frozen input.
 
+Input selection is explicit: a supplied modelInput replaces the primary Provider carrier when inputs contain only text; when inputs contain images, their ordered parts are retained. Without modelInput, ordinary arrays remain unchanged. Fresh fallback selects freshFallbackModelInputParts first, then freshFallbackModelInput as one ordinary text part, then primary parts. Runtime does not infer intent by comparing text. Text-only recovery that would discard current images is rejected; explicit recovery parts must retain those images and their order.
+
 ## Low-level IPC v2
 
 CLI JSON and client.submit use InvokeInput: `{ inputs, sessionId?, providerSession?, agentEnv, ...contentAndTracing }`. InvokeInput.check validates the boundary; Core resolves execution settings. Low-level submit/subscribe users own complete RunRef, cancellation and tail observation; these calls do not join the invoke registry.

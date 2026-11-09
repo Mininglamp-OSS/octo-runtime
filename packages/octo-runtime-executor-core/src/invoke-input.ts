@@ -178,7 +178,11 @@ export function prepareInvokeInput(value: unknown): {
       : {}),
     prompt: input.prompt ?? prompt,
     modelInput: input.modelInput ?? prompt,
-    modelInputParts: structuredClone(input.inputs),
+    // 高级调用显式选择的纯文本作为普通内容提交；有图片时始终保留完整有序 parts。
+    modelInputParts:
+      input.modelInput !== undefined && input.inputs.every((part) => part.type === "text")
+        ? [{ type: "text", text: input.modelInput }]
+        : structuredClone(input.inputs),
     context,
     workdir: plan.workdir,
     approvalMode: env.approvalMode ?? plan.approval_mode,

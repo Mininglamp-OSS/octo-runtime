@@ -130,7 +130,20 @@ export async function buildClaudeCommand(
     try {
       await writeFile(mcpFile, JSON.stringify({ mcpServers }), { mode: 0o600 });
     } catch (error) {
-      await rm(directory, { recursive: true, force: true });
+      let cleanupFailure: { error: unknown } | undefined;
+      try {
+        await rm(directory, { recursive: true, force: true });
+      } catch (cleanupError) {
+        cleanupFailure = { error: cleanupError };
+      }
+      if (cleanupFailure)
+        throw new AggregateError(
+          [error, cleanupFailure.error],
+          "Claude MCP preparation and cleanup failed",
+          {
+            cause: error
+          }
+        );
       throw error;
     }
     commandArgsPrefix = [...commandArgsPrefix, "--mcp-config", mcpFile];

@@ -49,7 +49,7 @@ export class InvokeInput {
   declare providerEpoch?: number;
   /** Display-safe description; defaults to the textual summary of inputs. */
   declare prompt?: string;
-  /** Exact textual provider turn when distinct from the multipart inputs summary. */
+  /** 显式值替换纯文本 inputs 的 Provider 正文；有图片时保留原有有序 parts。 */
   declare modelInput?: string;
   /** JSON metadata for tracing/business identity; not model text or authorization evidence. */
   declare runMetadata?: Record<string, unknown>;
@@ -57,9 +57,9 @@ export class InvokeInput {
   declare providerSession?: ProviderSession;
   /** Fresh/continue intent; defaults to continue with providerSession, fresh otherwise. */
   declare continuityMode?: "fresh" | "continue";
-  /** Caller-provided exact recovery text; no automatic history reconstruction. */
+  /** 调用方完整恢复文本；无显式恢复 parts 时优先于主输入，不自动补历史。 */
   declare freshFallbackModelInput?: string;
-  /** Caller-provided recovery text/image parts; recovery images must be supplied explicitly. */
+  /** 显式恢复 parts 优先于恢复文本和主输入；须保留当前图片及其顺序。 */
   declare freshFallbackModelInputParts?: ModelInputPart[];
   /** Explicitly fail fresh fallback when historical image bytes cannot be supplied. */
   declare freshFallbackImagesUnavailable?: boolean;

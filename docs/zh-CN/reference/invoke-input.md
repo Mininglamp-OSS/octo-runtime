@@ -41,6 +41,8 @@ Issue #335 删除 workspace `mode`（`fixed`、`random`、`none`）、回执/投
 
 Runtime 保留传入文本/图片的顺序，不添加提示词或分隔符。提供 modelInput 或 freshFallbackModelInput/Parts 时，每份都是该路径的完整调用方输入，须包含需要的启动提示词。不能依赖 Runtime 在新建 Provider 会话时补指令，也不能在重试同一冻结输入时再次追加。
 
+输入选择由字段明确决定：inputs 仅含文本时，显式 modelInput 替换主 Provider 输入；包含图片时保留原有有序 parts。未提供 modelInput 的普通数组保持原样。Fresh fallback 依次选择 freshFallbackModelInputParts、作为一个普通文本 part 的 freshFallbackModelInput、主输入 parts，不通过比较文本猜测意图。会丢失当前图片的纯文本恢复被拒绝；显式恢复 parts 须保留当前图片及其顺序。
+
 ## 低层 IPC v2
 
 CLI JSON 和 `client.submit` 使用 `InvokeInput`：`{ inputs, sessionId?, providerSession?, agentEnv, ...内容/追踪字段 }`。`InvokeInput.check` 做边界校验；Core 再解析执行配置。低层 submit/subscribe 由高级调用者自行持有完整 RunRef、取消和尾流，不自动进入 invoke 登记。
