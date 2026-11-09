@@ -13,7 +13,7 @@ tags: [protocol, adapter, planning]
 
 ## M2 合同与执行链
 
-1. protocol.schema.json 删除 ContextInstructionEntry/ContextInstructionsPayload 及条件映射，移除 AgentEnvWire/InvokeRequestWire 字段；在可扩展对象上通过标准 `not/required` 拒绝旧字段，在 ContextItem 上明确拒绝已移除的 octo.control/instructions。通过生成器更新声明，禁止手工改生成类型。
+1. protocol.schema.json 删除 ContextInstructionEntry/ContextInstructionsPayload 及条件映射，移除 AgentEnv/InvokeRequestWire 字段；在可扩展对象上通过标准 `not/required` 拒绝旧字段，在 ContextItem 上明确拒绝已移除的 octo.control/instructions。通过生成器更新声明，禁止手工改生成类型。
 2. context-catalog/context/context-configuration/invoke-input/index 删除指令注册、校验分支、层规则、派生和导出，删除仅提供指令拼装的 model-context.ts。新增明确删除错误，覆盖直接低层 InvokeRequest 及公开 AgentEnv；不将业务材料搬到执行设置。
 3. Core invoke-input 删除指令解析。client/Host/Kernel 使用同一边界，无兼容别名或隐藏转换。核查持久配置/序列化/export 后不能再接受旧项。
 4. Adapter SDK 删除 helper 导出。ACP、Grok、CodeBuddy 仅提交 providerInputText/providerInputParts，避免空指令仍留下分隔符。Codex 删除 thread/start 的 request-derived developerInstructions，保留上游要求的 collaborationMode nullable 字段。Claude 删除系统提示文件及参数但保留 MCP 临时目录。OpenCode 删除 Runtime instructions 文件增强但保留用户原生 inline config。OpenClaw 删除 extraSystemPrompt；DSH 删除控制块；Antigravity 删除 Runtime control 标签。共享 ACP 派生 Adapter 随之覆盖。
