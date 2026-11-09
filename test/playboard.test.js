@@ -305,12 +305,7 @@ test("invalid input, old context, and invalid continuity fail before execution",
 
 test("temporary Kernel preserves caller-prepared business input and leaves no identity or process state", async (t) => {
   const settings = await fixture(t);
-  const contexts = [
-    item("octo.control", "instructions", {
-      entries: [{ text: "control-only" }]
-    }),
-    item("octo.execution", "model", { selection: { id: "test-model" } })
-  ];
+  const contexts = [item("octo.execution", "model", { selection: { id: "test-model" } })];
   const request = {
     ...echoInput("business-b\nbusiness-a\nhello", contexts),
     sessionId: "same-session"
@@ -322,7 +317,7 @@ test("temporary Kernel preserves caller-prepared business input and leaves no id
   assert.equal(wire.agentSessionId, "same-session");
   assert.equal(wire.workdir, await realpath(settings.directory));
   assert.equal(wire.agentConfig.model, "test-model");
-  assert.equal(wire.controlInstructions, "control-only");
+  assert.equal(Object.hasOwn(wire, "controlInstructions"), false);
   assert.ok(wire.modelInput.indexOf("business-b") < wire.modelInput.indexOf("business-a"));
   assert.doesNotMatch(wire.modelInput, /control-only|test-model/);
   assert.match(result.stderr, /playboard fixture diagnostic/);

@@ -31,7 +31,6 @@ for (const [type, create, Normalizer] of [
       sessionGeneration: 0,
       prompt: "Reply exactly " + marker + ". Do not call tools.",
       modelInput: "Reply exactly " + marker + ". Do not call tools.",
-      controlInstructions: "",
       context: { schema: "octo.context-envelope/v3", items: [] },
       approvalMode: "full_access",
       agentSource: "provisioned",

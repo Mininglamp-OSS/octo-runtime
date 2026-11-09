@@ -28,7 +28,6 @@ export type {
   ServiceProcessSnapshot
 } from "./generated/protocol-types.js";
 export * from "./invoke-input.js";
-export * from "./model-context.js";
 export * from "./execution-plan.js";
 export { contextHash } from "./context-hash.js";
 export { assertJsonValue } from "./context.js";
@@ -137,8 +136,6 @@ export type {
   ContextEnvsPayload,
   ContextRuntimeSelectionPayload,
   ContextApprovalPolicyPayload,
-  ContextInstructionEntry,
-  ContextInstructionsPayload,
   ResolvedExecutionPlan,
   ResolvedRuntimeSelection,
   MessageChannel,
@@ -318,17 +315,9 @@ export interface InteractionResponse {
   value?: unknown;
 }
 
-/** Provider adapters must use this accessor so hidden context is sent exactly once when present. */
+/** Exact caller-provided text for the provider turn. */
 export function providerInputText(request: InvokeRequest): string {
   return request.modelInput;
-}
-
-/** Inject trusted instructions only when starting a provider session, including a fresh restart. */
-export function initialControlInstructions(
-  request: InvokeRequest,
-  freshSession = !request.providerSession?.sessionId
-): string {
-  return freshSession ? request.controlInstructions : "";
 }
 
 /** Exact alternate input for a provider that could not resume its session. */
@@ -741,6 +730,10 @@ export function assertFailureEnvelope(value: unknown): asserts value is FailureE
 /** Assert the execution identifiers and path fields that must be present before the Host calls an adapter. */
 export function assertInvokeRequest(request: unknown): asserts request is InvokeRequest {
   if (!isRecord(request)) throw new TypeError("InvokeRequest must be an object");
+  if ("controlInstructions" in request)
+    throw new TypeError(
+      "CONTROL_INSTRUCTIONS_REMOVED: controlInstructions was removed; provide application prompts in inputs.parts"
+    );
   if (request.sessionName !== undefined) assertSessionName(request.sessionName);
   if (request.protocolVersion !== PROTOCOL_VERSION)
     throw new TypeError("InvokeRequest.protocolVersion must be 2");
@@ -789,8 +782,6 @@ export function assertInvokeRequest(request: unknown): asserts request is Invoke
     )
   )
     throw new TypeError("LOCAL_PLUGIN_CONFIGURATION_REQUIRED");
-  if (typeof request.controlInstructions !== "string")
-    throw new TypeError("InvokeRequest.controlInstructions must be a string");
   if (request.runtimeLimits !== undefined) assertRuntimeLimits(request.runtimeLimits);
   for (const key of ["invocationId", "agentSessionId", "runId", "prompt"] as const) {
     if (typeof request[key] !== "string" || request[key].length === 0) {

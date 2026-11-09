@@ -47,7 +47,7 @@ const input = InvokeInput.check({
 
 - `assisted` is rejected; the Runtime permission bridge answers instead.
 - Image input is rejected outright, and the implementation does not declare MCP support.
-- Prompt and control text travel through the ACP text carrier, not a separate native system role.
+- Caller-prepared prompt text travels through the ACP input carrier without additional instruction text or a separate system role.
 - The correlated `session/prompt` response decides completion; silence in updates does not.
 - Session receipts include a model only when the provider confirms it. An omitted model uses the provider default; a requested model on resume is not reported as applied.
 - Provider refusal or explicit failed-request metadata produces `run.failed` with `ACP_MODEL_REQUEST_FAILED` (public code `OH-PRV-4010`). The message is the catalog message followed by a newline and `JSON.stringify` of the original `_meta`, without parsing, redaction or field selection. Details do not change the error classification; successful responses may still carry metadata.

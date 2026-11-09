@@ -124,6 +124,10 @@ Issue #332 removes `kernel-client.behavior.json` and the standalone client's `/p
 
 The following legacy types are removed from the Schema, generated types, and protocol exports: `ContextSelectionEntry`, `ContextResourceEntry`, `ContextContinuityPayload`, `ChannelScope`, `ChannelMessagePart`, `ChannelMessageSender`, `ChannelMessageFlags`, `ChannelMessageFact`, `ChannelContextAppend`, `ContextSyncRequest`, `ContextSyncResult`, `ChannelContextDescriptor`, and `ContextCommitResult`. Their five validators (`assertChannelScope`, `assertChannelMessageFact`, `assertChannelContextAppend`, `assertContextSyncResult`, and `assertChannelContextDescriptor`) are also removed. Use the existing `ContextInlineEntry` and `ContextReferenceEntry` for the retained generic content shapes. Applications own channel history and synchronization contracts. These exports have no compatibility shim; callers must update their imports.
 
+## Caller prompt migration
+
+Issue #334 removes `octo.control/instructions`, `controlInstructions`, `ContextInstructionEntry`, `ContextInstructionsPayload`, `contextControlInstructions()` and `initialControlInstructions()` from Runtime and its public contracts. Old items and fields are rejected even when empty, without a compatibility alias. Callers prepend application prompts to ordinary input parts and decide their inclusion on new, resumed and reconstructed sessions. Primary and explicit fallback inputs must each be complete; Runtime neither adds prompts nor upgrades them to system/developer/trusted roles. MCP, environment variables and execution policy remain in agentEnv. See [session migration guidance](../../docs/en/guides/context-and-sessions.md). Independent Gateway consumers still need their own migration; this change does not claim end-to-end compatibility.
+
 ## Further reading
 
 - [InvokeInput](src/invoke-input.ts), [workspace exports](src/index.ts), [generated types](src/generated/protocol-types.ts).

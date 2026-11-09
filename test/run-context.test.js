@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   assertFrozenContextPlan,
-  contextControlInstructions
+  assertContextEnvelope
 } from "../packages/octo-runtime-protocol/dist/index.js";
 
 const context = {
@@ -67,8 +67,5 @@ test("legacy source fields cannot become system instructions", () => {
       }
     ]
   };
-  assert.throws(
-    () => contextControlInstructions(input),
-    /CONTEXT_CONTROL_SOURCE_UNSUPPORTED|CONTEXT_SCHEMA_INVALID/
-  );
+  assert.throws(() => assertContextEnvelope(input), /CONTROL_INSTRUCTIONS_REMOVED/);
 });

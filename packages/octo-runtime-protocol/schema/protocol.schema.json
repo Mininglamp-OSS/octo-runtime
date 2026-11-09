@@ -1206,25 +1206,6 @@
           "if": {
             "properties": {
               "namespace": {
-                "const": "octo.control"
-              },
-              "name": {
-                "const": "instructions"
-              }
-            }
-          },
-          "then": {
-            "properties": {
-              "payload": {
-                "$ref": "#/definitions/ContextInstructionsPayload"
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "namespace": {
                 "const": "octo.execution"
               },
               "name": {
@@ -1272,6 +1253,19 @@
               }
             }
           }
+        },
+        {
+          "not": {
+            "required": ["namespace", "name"],
+            "properties": {
+              "namespace": {
+                "const": "octo.control"
+              },
+              "name": {
+                "const": "instructions"
+              }
+            }
+          }
         }
       ],
       "not": {
@@ -1308,32 +1302,13 @@
     },
     "ContextConfiguration": {
       "title": "ContextConfiguration",
-      "description": "Agent defaults and mandatory constraints, stored under one external configuration version. Authorized configuration writers may persist system instructions in mandatory with text-only entries. Ephemeral business content and default-layer instructions are forbidden; callers cannot submit trusted control instructions.",
+      "description": "Agent defaults and mandatory execution constraints stored under one external configuration version. Application prompts belong to caller-provided ordinary inputs, not execution settings.",
       "type": "object",
       "additionalProperties": false,
       "required": ["defaults", "mandatory"],
       "properties": {
         "defaults": {
-          "allOf": [
-            {
-              "$ref": "#/definitions/PersistentContextEnvelope"
-            },
-            {
-              "properties": {
-                "items": {
-                  "items": {
-                    "not": {
-                      "properties": {
-                        "namespace": {
-                          "const": "octo.control"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          ],
+          "$ref": "#/definitions/PersistentContextEnvelope",
           "tsType": "ContextEnvelope"
         },
         "mandatory": {
@@ -1668,16 +1643,6 @@
                             "const": "references"
                           }
                         }
-                      },
-                      {
-                        "properties": {
-                          "namespace": {
-                            "const": "octo.control"
-                          },
-                          "name": {
-                            "const": "instructions"
-                          }
-                        }
                       }
                     ]
                   }
@@ -1995,31 +1960,6 @@
         "tool": {
           "type": "string",
           "minLength": 1
-        }
-      }
-    },
-    "ContextInstructionEntry": {
-      "description": "Control instruction containing only non-empty text. Authorization belongs to the authenticated upstream boundary, not to a caller-supplied source label.",
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["text"],
-      "properties": {
-        "text": {
-          "type": "string",
-          "minLength": 1
-        }
-      }
-    },
-    "ContextInstructionsPayload": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["entries"],
-      "properties": {
-        "entries": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/ContextInstructionEntry"
-          }
         }
       }
     },
@@ -3321,7 +3261,6 @@
         "runId",
         "prompt",
         "workdir",
-        "controlInstructions",
         "context",
         "agentConfig",
         "modelInput",
@@ -3415,10 +3354,6 @@
           "description": "Provider process cwd. Sandboxing, containers, or host permissions provide the actual access boundary.",
           "type": "string"
         },
-        "controlInstructions": {
-          "description": "Trusted session instructions. Adapters inject them only when starting a provider session; resuming an existing session must not inject or clear them.",
-          "type": "string"
-        },
         "context": {
           "$ref": "#/definitions/ContextEnvelope"
         },
@@ -3445,7 +3380,14 @@
         "agentSource": {
           "$ref": "#/definitions/AgentSource"
         }
-      }
+      },
+      "allOf": [
+        {
+          "not": {
+            "required": ["controlInstructions"]
+          }
+        }
+      ]
     },
     "ActivityInfo": {
       "type": "object",
@@ -4260,16 +4202,6 @@
                         "const": "approval_policy"
                       }
                     }
-                  },
-                  {
-                    "properties": {
-                      "namespace": {
-                        "const": "octo.control"
-                      },
-                      "name": {
-                        "const": "instructions"
-                      }
-                    }
                   }
                 ]
               }
@@ -4280,9 +4212,6 @@
           "$ref": "#/definitions/AgentSource"
         },
         "workdir": {
-          "type": "string"
-        },
-        "controlInstructions": {
           "type": "string"
         },
         "approvalMode": {
@@ -4308,6 +4237,11 @@
                 }
               }
             }
+          }
+        },
+        {
+          "not": {
+            "required": ["controlInstructions"]
           }
         }
       ]

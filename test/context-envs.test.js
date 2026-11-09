@@ -6,10 +6,7 @@ import {
   resolveContextConfiguration
 } from "../packages/octo-runtime-protocol/dist/index.js";
 import { resolveLocalContext } from "../packages/octo-runtime-executor-core/dist/context.js";
-import {
-  assertFrozenContextPlan,
-  contextControlInstructions
-} from "../packages/octo-runtime-protocol/dist/index.js";
+import { assertFrozenContextPlan } from "../packages/octo-runtime-protocol/dist/index.js";
 import {
   createJsonCliAdapter,
   invocationEnvironment,
@@ -125,7 +122,6 @@ test("envs freezes into local execution plan without becoming prompt or instruct
     );
   }
   // 执行设置只解析为环境；模型材料的渲染回归已迁移到 Gateway。
-  assert.equal(contextControlInstructions(effectiveContext), "");
   assert.notEqual(contextHash(envContext({ A: "1" })), contextHash(envContext({ A: "2" })));
 });
 

@@ -55,11 +55,6 @@
           }
         ]
       }
-    },
-    {
-      "namespace": "octo.control",
-      "name": "instructions",
-      "payload": { "entries": [{ "text": "Answer concisely." }] }
     }
   ]
 }

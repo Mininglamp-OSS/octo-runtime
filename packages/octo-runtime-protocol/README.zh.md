@@ -124,6 +124,10 @@ Issue #332 删除 `kernel-client.behavior.json` 及独立 client 的 `/protocol/
 
 以下遗留类型从 Schema、生成类型与协议导出中删除：`ContextSelectionEntry`、`ContextResourceEntry`、`ContextContinuityPayload`、`ChannelScope`、`ChannelMessagePart`、`ChannelMessageSender`、`ChannelMessageFlags`、`ChannelMessageFact`、`ChannelContextAppend`、`ContextSyncRequest`、`ContextSyncResult`、`ChannelContextDescriptor`、`ContextCommitResult`。对应的五个校验器 `assertChannelScope`、`assertChannelMessageFact`、`assertChannelContextAppend`、`assertContextSyncResult`、`assertChannelContextDescriptor` 也删除。保留的通用材料结构使用现有 `ContextInlineEntry`、`ContextReferenceEntry`；渠道历史及同步合同归应用。这些导出不提供兼容层，调用方须相应调整导入。
 
+## 应用提示词迁移
+
+Issue #334 从 Runtime 及公开合同删除 `octo.control/instructions`、`controlInstructions`、`ContextInstructionEntry`、`ContextInstructionsPayload`、`contextControlInstructions()`、`initialControlInstructions()`。旧项和字段即使为空也拒绝，不保留兼容别名。调用方将应用提示词前置到普通输入 parts，自行决定新建、续接和重建时是否携带；主输入和显式 fallback 输入各自完整。Runtime 不补提示词，也不将其提升为 system/developer/受信角色。MCP、环境变量和执行策略继续放在 agentEnv。详见[会话迁移指南](../../docs/zh-CN/guides/context-and-sessions.md)。独立 Gateway 的消费者仍须另行迁移，本次不声称端到端兼容。
+
 ## 延伸阅读
 
 - [InvokeInput](src/invoke-input.ts)、[workspace 导出](src/index.ts)、[生成类型](src/generated/protocol-types.ts)。

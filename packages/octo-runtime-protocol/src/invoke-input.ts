@@ -77,8 +77,6 @@ export interface AgentEnv extends ContextEnvelope {
   agentSource?: AgentSource;
   /** Provider cwd; defaults to the resolved workspace (local cwd when omitted). */
   workdir?: string;
-  /** Trusted instructions, separate from model business context; derived if omitted. */
-  controlInstructions?: string;
   /** Execution approval policy, normally resolved from contexts; defaults to ask. */
   approvalMode?: ApprovalMode;
   /** Full provider configuration, including providerOptions; context selections must agree. */
@@ -144,6 +142,18 @@ export interface InputInvoke {
 }
 
 export function assertInvokeInput(value: unknown): asserts value is InvokeInput {
+  if (
+    value &&
+    typeof value === "object" &&
+    ("controlInstructions" in value ||
+      ("agentEnv" in value &&
+        value.agentEnv &&
+        typeof value.agentEnv === "object" &&
+        "controlInstructions" in value.agentEnv))
+  )
+    throw new TypeError(
+      "CONTROL_INSTRUCTIONS_REMOVED: controlInstructions was removed; provide application prompts in inputs.parts"
+    );
   assertJsonByteLimit(
     value instanceof InvokeInput ? { ...value } : value,
     INVOKE_REQUEST_MAX_BYTES,
@@ -162,7 +172,6 @@ export function assertInvokeInput(value: unknown): asserts value is InvokeInput 
       "contexts",
       "agentSource",
       "workdir",
-      "controlInstructions",
       "approvalMode",
       "agentConfig",
       "runtimeLimits"
@@ -271,7 +280,6 @@ export function invocationInput(
     context,
     agentSource,
     workdir,
-    controlInstructions,
     approvalMode,
     agentConfig,
     runtimeLimits,
@@ -308,7 +316,6 @@ export function invocationInput(
         ...contexts,
         agentSource,
         workdir,
-        controlInstructions,
         approvalMode,
         agentConfig,
         runtimeLimits
@@ -319,8 +326,12 @@ export function invocationInput(
   });
 }
 
-/** 执行环境只接受执行/审批/受信指令，绝不解释业务命名空间或将其渲染成提示词。 */
+/** 执行环境只接受执行/审批设置，应用提示词由调用方放入普通输入。 */
 export function assertAgentEnv(value: unknown): asserts value is AgentEnv {
+  if (value && typeof value === "object" && "controlInstructions" in value)
+    throw new TypeError(
+      "CONTROL_INSTRUCTIONS_REMOVED: controlInstructions was removed; provide application prompts in inputs.parts"
+    );
   assertJsonByteLimit(value, INVOKE_REQUEST_MAX_BYTES, "INVOKE_REQUEST_TOO_LARGE");
   assertJsonValue(value);
   if (!value || typeof value !== "object" || Array.isArray(value))
@@ -332,7 +343,6 @@ export function assertAgentEnv(value: unknown): asserts value is AgentEnv {
     "items",
     "agentSource",
     "workdir",
-    "controlInstructions",
     "approvalMode",
     "agentConfig",
     "runtimeLimits"
@@ -342,15 +352,13 @@ export function assertAgentEnv(value: unknown): asserts value is AgentEnv {
   for (const item of env.items)
     if (!(
       item.namespace === "octo.execution" ||
-      (item.namespace === "octo.security" && item.name === "approval_policy") ||
-      (item.namespace === "octo.control" && item.name === "instructions")
+      (item.namespace === "octo.security" && item.name === "approval_policy")
     ))
       throw new TypeError(
         "agentEnv cannot contain business context; prepare inputs in the application"
       );
-  for (const key of ["workdir", "controlInstructions"] as const)
-    if (env[key] !== undefined && typeof env[key] !== "string")
-      throw new TypeError(`agentEnv.${key} must be a string`);
+  if (env.workdir !== undefined && typeof env.workdir !== "string")
+    throw new TypeError("agentEnv.workdir must be a string");
   if (env.agentSource !== undefined) assertAgentSource(env.agentSource);
   if (env.approvalMode !== undefined) assertApprovalMode(env.approvalMode);
   if (env.runtimeLimits !== undefined) assertRuntimeLimits(env.runtimeLimits);

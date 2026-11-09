@@ -281,6 +281,13 @@ export type ModelInputPart =
       sha256: string;
     };
 /**
+ * Serializable execution request sent from Core to Adapter Host. AbortSignal is added in src/index.ts because it cannot cross a process boundary.
+ *
+ * This interface was referenced by `OctoRuntimeProtocolSchema`'s JSON-Schema
+ * via the `definition` "InvokeRequestWire".
+ */
+export type InvokeRequestWire = InvokeRequestWire1;
+/**
  * This interface was referenced by `OctoRuntimeProtocolSchema`'s JSON-Schema
  * via the `definition` "ActivitySubject".
  */
@@ -351,14 +358,9 @@ export type AgentEnv = {
           namespace?: "octo.security";
           name?: "approval_policy";
         }
-      | {
-          namespace?: "octo.control";
-          name?: "instructions";
-        }
     ))[];
   agentSource?: AgentSource;
   workdir?: string;
-  controlInstructions?: string;
   approvalMode?: ApprovalMode;
   agentConfig?: AgentConfig;
   runtimeLimits?: RuntimeLimits;
@@ -2100,7 +2102,7 @@ export interface ContextEnvelope {
   items: ContextItem[];
 }
 /**
- * Agent defaults and mandatory constraints, stored under one external configuration version. Authorized configuration writers may persist system instructions in mandatory with text-only entries. Ephemeral business content and default-layer instructions are forbidden; callers cannot submit trusted control instructions.
+ * Agent defaults and mandatory execution constraints stored under one external configuration version. Application prompts belong to caller-provided ordinary inputs, not execution settings.
  *
  * This interface was referenced by `OctoRuntimeProtocolSchema`'s JSON-Schema
  * via the `definition` "ContextConfiguration".
@@ -2211,22 +2213,6 @@ export interface ContextApprovalPolicyPayload {
 export interface ContextMcpLocator {
   server_ref: string;
   tool: string;
-}
-/**
- * Control instruction containing only non-empty text. Authorization belongs to the authenticated upstream boundary, not to a caller-supplied source label.
- *
- * This interface was referenced by `OctoRuntimeProtocolSchema`'s JSON-Schema
- * via the `definition` "ContextInstructionEntry".
- */
-export interface ContextInstructionEntry {
-  text: string;
-}
-/**
- * This interface was referenced by `OctoRuntimeProtocolSchema`'s JSON-Schema
- * via the `definition` "ContextInstructionsPayload".
- */
-export interface ContextInstructionsPayload {
-  entries: ContextInstructionEntry[];
 }
 export interface ResolvedRuntimeSelection1 {
   schema: "octo.runtime-selection/v2";
@@ -2652,13 +2638,7 @@ export interface McpStreamableHttpServer {
   startupTimeoutMs?: number;
   toolTimeoutMs?: number;
 }
-/**
- * Serializable execution request sent from Core to Adapter Host. AbortSignal is added in src/index.ts because it cannot cross a process boundary.
- *
- * This interface was referenced by `OctoRuntimeProtocolSchema`'s JSON-Schema
- * via the `definition` "InvokeRequestWire".
- */
-export interface InvokeRequestWire {
+export interface InvokeRequestWire1 {
   executionEnvOverrides?: ContextEnvsPayload1;
   /**
    * Active Adapter Host invocation identifier and cancellation target.
@@ -2718,10 +2698,6 @@ export interface InvokeRequestWire {
    * Provider process cwd. Sandboxing, containers, or host permissions provide the actual access boundary.
    */
   workdir: string;
-  /**
-   * Trusted session instructions. Adapters inject them only when starting a provider session; resuming an existing session must not inject or clear them.
-   */
-  controlInstructions: string;
   context: ContextEnvelope;
   runMetadata?: Record<string, unknown>;
   approvalMode: ApprovalMode;

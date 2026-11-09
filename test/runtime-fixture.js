@@ -235,7 +235,6 @@ export function invokeRequest(overrides = {}) {
     runId: "run-test",
     prompt: "Display-safe input",
     modelInput: "Provider model input",
-    controlInstructions: "Keep changes scoped.",
     context: contextEnvelope(),
     runMetadata: { namespace: "test", triggerOccurrenceId: "test/invoke" },
     approvalMode: "ask",

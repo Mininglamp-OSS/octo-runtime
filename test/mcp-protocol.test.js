@@ -13,7 +13,6 @@ const baseRequest = {
   prompt: "work",
   modelInput: "work",
   workdir: "/workspace",
-  controlInstructions: "",
   context: { schema: "octo.context-envelope/v3", items: [] },
   approvalMode: "full_access",
   agentSource: "provisioned",

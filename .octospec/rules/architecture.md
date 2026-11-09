@@ -85,7 +85,7 @@ HostApp 选择安装与认证方案。Runtime 不隐式登录、刷新业务凭�
 
 ## 人格与 SOUL 的注入归业务方
 
-执行边界采用 inputs 与 agentEnv 分离；业务 extra.* 仅可作为应用自己的格式，Runtime 不定义或渲染。当前 SDK/IPC v2 为用户授权的破坏性变更，保留执行信封结构。
+应用在调用前把人格、SOUL、启动提示词、业务材料和当前文字/图片编译为普通 inputs.parts，并决定顺序及新建、续接和重建时的携带策略。Runtime 不提供 system/developer/受信指令角色，也不按会话状态补提示词、标签或分隔符；主输入和显式 fallback 输入各自完整，冻结重试不重复前置。agentEnv 继续承载 MCP、环境变量及执行配置，不因提示词迁移进入正文。Issue 334 删除旧 octo.control/instructions 和 controlInstructions，旧项/字段即使为空也拒绝；独立 Gateway 须在自己的业务配置和编译边界另行迁移。
 
 ## 资源地址 Context 与按需取材
 
