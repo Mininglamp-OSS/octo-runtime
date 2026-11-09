@@ -23,3 +23,9 @@ pnpm install --offline --frozen-lockfile（包含完整 build）通过；node sc
 - 相对最新 main 的 PR workflow diff 为空；本轮未修改 CI、默认测试范围或运行时代码。
 - 远端原 CI 的 Windows Node 26 job 在安装依赖阶段被取消，后续验证未执行并导致 CI Gate 失败；本地结果不代替该平台检查。本轮未重新打包或发布。
 - 用户追加授权检查同类问题并 commit/push。检索当前文档、规则、指南、历史任务及发行脚本，未发现其他将 npm 2.x 作为 Runtime/client 当前发行要求的内容；其余 2.0.0 引用属于 OpenCode、Grok 或其他依赖版本。历史候选实测继续保留，不修改为新版本实测。提交推送使用英文消息，保留 Git 配置身份及 Codex trailer。
+
+## 同步最新 main 后复验（2026-11-09）
+
+用户授权更新代码、提交推送并请求 yujiawei 复审。合入 main@4276f6d3，仅知识目录冲突：同时保留 CLI 命令平铺入口和当前 1.1.12 发行入口，未恢复旧 client 2.x 约定。
+
+离线 frozen install（ignore-scripts）、`pnpm run build`、`pnpm run docs:check`（4 项执行示例）和 Octospec lint（694 个 OKF 单元、20 条规则、3280 个本地链接）通过。diff 检查通过，相对目标 main 的 workflow diff 为空；实际检查列表仍为既有构建/打包、依赖审查、历史检查、标签、标题、密钥扫描、CI Gate 和 code-review。本轮不新增必需检查；远端新提交的 CI 与人工 review 结果须单独确认。
