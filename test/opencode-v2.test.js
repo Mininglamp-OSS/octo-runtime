@@ -1,4 +1,5 @@
 import { withAgentEnvItems } from "../packages/octo-runtime-adapter-sdk/dist/index.js";
+import { resolveHostProviderLaunch } from "../packages/octo-runtime-adapter-sdk/dist/process-launch.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -62,7 +63,7 @@ test("OpenCode only maps explicitly recognized tool terminal states", () => {
     );
   }
 });
-test("executable probing uses platform PATH, extension and cwd semantics", async (t) => {
+test("host selection uses platform PATH, extension and cwd before executable probing", async (t) => {
   const directory = await mkdtemp(join(tmpdir(), "octo-opencode-native-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const bin = join(directory, "bin");
@@ -129,9 +130,14 @@ test("executable probing uses platform PATH, extension and cwd semantics", async
       const original = Object.entries(env).filter(([key]) =>
         ["PATH", "PATHEXT"].includes(key.toUpperCase())
       );
-      const probe = await probeOpenCode(command, env, directory);
+      const launch = resolveHostProviderLaunch(command, { env, cwd: directory });
+      const probe = await probeOpenCode(launch.command, launch.env, directory, launch.args);
       // PATHEXT 的大小写可与目录项不同；比较文件系统解析后的路径，仍校验目录选择。
-      assert.equal(await realpath(probe.command), await realpath(expected));
+      assert.equal(
+        await realpath(process.platform === "win32" ? probe.command : launch.args[0]),
+        await realpath(expected)
+      );
+      if (process.platform !== "win32") assert.equal(probe.command, process.execPath);
       assert.equal(probe.version, process.versions.node);
       // Windows 使用原生 exe，POSIX 保持 Node 安装位置；两者都必须明确拒绝 Node 版本。
       assert.equal(probe.available, false);
@@ -148,9 +154,14 @@ test("executable probing uses platform PATH, extension and cwd semantics", async
         ([key]) => !["PATH", "PATHEXT"].includes(key.toUpperCase())
       )
     );
-    const probe = await probeOpenCode("opencode", { ...env, PATH: bin, Pathext: "" }, directory);
-    assert.equal(probe.available, false);
-    assert.equal(probe.reason, "command_not_found");
+    assert.throws(
+      () =>
+        resolveHostProviderLaunch("opencode", {
+          env: { ...env, PATH: bin, Pathext: "" },
+          cwd: directory
+        }),
+      { code: "ENOENT" }
+    );
   }
 });
 for (const version of ["1.18.30", "2.0.0", "2.1.2", "2.1.3-beta", "3.0.0", "unparseable"]) {
@@ -162,7 +173,7 @@ for (const version of ["1.18.30", "2.0.0", "2.1.2", "2.1.3-beta", "3.0.0", "unpa
         t,
         `if(process.argv[2]==="--version"){console.log(${JSON.stringify(version)});process.exit(0)} throw Error("must not start transport");`
       );
-      const adapter = createOpenCodeAdapter({ command: fixture.command });
+      const adapter = createOpenCodeAdapter({ env: process.env, command: fixture.command });
       const probe = await adapter.probe();
       assert.equal(probe.available, false);
       assert.match(
@@ -198,67 +209,69 @@ test("version detection failure and timeout fail closed", posix, async (t) => {
     const started = Date.now();
     assert.match(
       (await probeOpenCode(fixture.command)).reason,
-      /OPENCODE_VERSION_DETECTION_FAILED/
+      /OPENCODE_VERSION_DETECTION_FAILED|version_probe_failed/
     );
     assert.ok(Date.now() - started < 5000);
   }
 });
-test(
-  "invocation uses its PATH/cwd and keeps the selected executable through execution",
-  posix,
-  async (t) => {
-    const fixture = await executable(
-      t,
-      `
+test("invocation consumes the host selection and keeps it through execution", posix, async (t) => {
+  const fixture = await executable(
+    t,
+    `
 if(process.argv[2]==="--version"){console.log("opencode v2.1.3");process.exit(0)}
 let input="";process.stdin.on("data",d=>input+=d);process.stdin.on("end",()=>{
  console.log(JSON.stringify({type:"text",sessionID:"ses_v2",part:{type:"text",id:"text",text:input}}));
  console.log(JSON.stringify({type:"step_finish",part:{type:"step-finish",reason:"stop",tokens:{input:3,output:2}}}));
 });`
+  );
+  for (const command of ["opencode", "./opencode"]) {
+    const launch = resolveHostProviderLaunch(command, {
+      env: { ...process.env, PATH: fixture.directory },
+      cwd: fixture.directory
+    });
+    const events = [];
+    for await (const event of createOpenCodeAdapter({
+      env: launch.env,
+      command: launch.command,
+      commandArgsPrefix: launch.args
+    }).invoke(
+      invokeRequest({
+        modelInput: 'exact\n"quoted"  spacing',
+        executionEnvOverrides: { env_variables: [{ key: "PATH", value: fixture.directory }] },
+        agentEnv: withAgentEnvItems(undefined, [
+          {
+            namespace: "octo.execution",
+            name: "workspace",
+            payload: { path: fixture.directory }
+          },
+          {
+            namespace: "octo.security",
+            name: "approval_policy",
+            payload: { mode: "full_access" }
+          },
+          {
+            namespace: "octo.execution",
+            name: "model",
+            payload: { reasoning: { effort: "high" } }
+          }
+        ])
+      })
+    ))
+      events.push(event);
+    assert.equal(
+      events.find((e) => e.type === "message.delta").payload.text,
+      'exact\n"quoted"  spacing'
     );
-    for (const command of ["opencode", "./opencode"]) {
-      const events = [];
-      for await (const event of createOpenCodeAdapter({ command }).invoke(
-        invokeRequest({
-          modelInput: 'exact\n"quoted"  spacing',
-          executionEnvOverrides: { env_variables: [{ key: "PATH", value: fixture.directory }] },
-          agentEnv: withAgentEnvItems(undefined, [
-            {
-              namespace: "octo.execution",
-              name: "workspace",
-              payload: { path: fixture.directory }
-            },
-            {
-              namespace: "octo.security",
-              name: "approval_policy",
-              payload: { mode: "full_access" }
-            },
-            {
-              namespace: "octo.execution",
-              name: "model",
-              payload: { reasoning: { effort: "high" } }
-            }
-          ])
-        })
-      ))
-        events.push(event);
-      assert.equal(
-        events.find((e) => e.type === "message.delta").payload.text,
-        'exact\n"quoted"  spacing'
-      );
-      assert.deepEqual(
-        events
-          .filter((e) => e.type.startsWith("run.") && e.type !== "run.notice")
-          .map((e) => e.type),
-        ["run.completed"]
-      );
-      assert.equal(
-        events.find((e) => e.type === "run.notice").payload.params.warningCode,
-        "REASONING_EFFORT_NOT_APPLIED"
-      );
-    }
+    assert.deepEqual(
+      events.filter((e) => e.type.startsWith("run.") && e.type !== "run.notice").map((e) => e.type),
+      ["run.completed"]
+    );
+    assert.equal(
+      events.find((e) => e.type === "run.notice").payload.params.warningCode,
+      "REASONING_EFFORT_NOT_APPLIED"
+    );
   }
-);
+});
 test("a step stop followed by process failure cannot become successful", posix, async (t) => {
   const fixture = await executable(
     t,
@@ -267,7 +280,10 @@ console.log(JSON.stringify({type:"text",part:{type:"text",text:"partial"}}));
 console.log(JSON.stringify({type:"step_finish",part:{reason:"stop"}}));process.exitCode=7;`
   );
   const events = [];
-  for await (const event of createOpenCodeAdapter({ command: fixture.command }).invoke(
+  for await (const event of createOpenCodeAdapter({
+    env: process.env,
+    command: fixture.command
+  }).invoke(
     invokeRequest({
       agentEnv: withAgentEnvItems(undefined, [
         { namespace: "octo.security", name: "approval_policy", payload: { mode: "full_access" } }
@@ -302,8 +318,13 @@ process.stdin.resume();process.stdin.on("end",()=>console.log(JSON.stringify({ty
     ]) {
       const PATH = entries.join(delimiter);
       const expected = entries[0] === "." || entries[0] === "" ? cwd : selected;
-      const probe = await probeOpenCode("opencode", { ...process.env, PATH }, cwd.directory);
-      assert.equal(probe.command, expected.command);
+      const launch = resolveHostProviderLaunch("opencode", {
+        env: { ...process.env, PATH },
+        cwd: cwd.directory
+      });
+      const probe = await probeOpenCode(launch.command, launch.env, cwd.directory, launch.args);
+      assert.equal(await realpath(launch.args[0]), await realpath(expected.command));
+      assert.equal(probe.command, process.execPath);
       assert.equal(probe.available, expected === selected);
       const request = invokeRequest({
         executionEnvOverrides: { env_variables: [{ key: "PATH", value: PATH }] },
@@ -312,7 +333,11 @@ process.stdin.resume();process.stdin.on("end",()=>console.log(JSON.stringify({ty
           { namespace: "octo.security", name: "approval_policy", payload: { mode: "full_access" } }
         ])
       });
-      const adapter = createOpenCodeAdapter();
+      const adapter = createOpenCodeAdapter({
+        command: launch.command,
+        commandArgsPrefix: launch.args,
+        env: launch.env
+      });
       if (expected === cwd) {
         assert.match(probe.reason, /OPENCODE_VERSION_UNSUPPORTED/);
         await assert.rejects(async () => {
@@ -324,7 +349,7 @@ process.stdin.resume();process.stdin.on("end",()=>console.log(JSON.stringify({ty
         const events = await Array.fromAsync(adapter.invoke(request));
         assert.equal(
           events.find((event) => event.type === "message.delta").payload.text,
-          probe.command
+          launch.args[0]
         );
         assert.equal(events.at(-1).type, "run.completed");
       }
@@ -381,7 +406,7 @@ for (const { name, frames, terminal } of [
 process.stdin.resume();process.stdin.on("end",()=>{for(const frame of ${JSON.stringify(frames)})console.log(JSON.stringify(frame));});`
       );
       const events = await Array.fromAsync(
-        createOpenCodeAdapter({ command: fixture.command }).invoke(
+        createOpenCodeAdapter({ env: process.env, command: fixture.command }).invoke(
           invokeRequest({
             agentEnv: withAgentEnvItems(undefined, [
               {
@@ -416,7 +441,7 @@ process.stdin.resume();process.stdin.on("end",()=>{
 });`
     );
     const core = new AgentExecutor();
-    core.register(createOpenCodeAdapter({ command: fixture.command }));
+    core.register(createOpenCodeAdapter({ env: process.env, command: fixture.command }));
     t.after(() => core.shutdown());
     const events = await Array.fromAsync(
       core.invoke(

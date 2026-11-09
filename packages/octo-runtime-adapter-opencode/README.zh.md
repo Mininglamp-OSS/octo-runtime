@@ -17,10 +17,10 @@
 ```ts
 import { AgentExecutor } from "@mininglamp-oss/octo-runtime-executor-core";
 import { InvokeInput } from "@mininglamp-oss/octo-runtime-protocol";
-import { opencodeAdapter } from "@mininglamp-oss/octo-runtime-adapter-opencode";
+import { createOpenCodeAdapter } from "@mininglamp-oss/octo-runtime-adapter-opencode";
 
 const executor = new AgentExecutor();
-executor.register(opencodeAdapter);
+executor.register(createOpenCodeAdapter({ command: "/absolute/path/opencode", env: process.env }));
 
 const input = InvokeInput.check({
   inputs: [{ type: "text", text: "Say hello." }],
@@ -44,7 +44,7 @@ const input = InvokeInput.check({
 | 项            | 值                                                                                      |
 | ------------- | --------------------------------------------------------------------------------------- |
 | Adapter 类型  | `opencode`                                                                              |
-| 导出          | `opencodeAdapter`、`createOpenCodeAdapter`                                              |
+| 导出          | `createOpenCodeAdapter`                                              |
 | `full_access` | `opencode run --format json --thinking --auto --standalone`                             |
 | `ask`         | `opencode acp`，复用通用 ACP Adapter                                                    |
 | 输出          | 仅 canonical 事件                                                                       |

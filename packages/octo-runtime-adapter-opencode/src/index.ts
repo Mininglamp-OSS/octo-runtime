@@ -1,3 +1,11 @@
+import type { AdapterMetadata } from "@mininglamp-oss/octo-runtime-adapter-sdk";
+
+export const openCodeMetadata: AdapterMetadata = {
+  mcp: true,
+  type: "opencode",
+  agentSources: ["provisioned"]
+};
+
 import {
   assertAdapterAgentEnv,
   assertAdapterWorkdir,
@@ -26,6 +34,7 @@ import { AcpInvocationError, createAcpAdapter } from "@mininglamp-oss/octo-runti
 import {
   createJsonCliAdapter,
   probeCommand,
+  snapshotProviderLaunch,
   providerInputText,
   ProviderProcessError,
   type AdapterInvocationContext,
@@ -33,7 +42,6 @@ import {
   type InvokeRequest,
   type ProbeResult
 } from "@mininglamp-oss/octo-runtime-adapter-sdk";
-import { delimiter, parse, resolve } from "node:path";
 
 export const MINIMUM_OPENCODE_VERSION = "2.1.3";
 
@@ -41,34 +49,12 @@ class OpenCodeInputError extends Error {}
 
 /** 检查本轮实际选中的程序；未知版本与 V1 都不能进入执行传输。 */
 export async function probeOpenCode(
-  command = "opencode",
-  env: NodeJS.ProcessEnv = process.env,
-  cwd = process.cwd()
+  command: string,
+  env: NodeJS.ProcessEnv = {},
+  cwd?: string,
+  args: readonly string[] = []
 ): Promise<ProbeResult> {
-  const qualified = command.includes("/") || command.includes("\\") || parse(command).root !== "";
-  // 本机 path 规则保留绝对路径；Windows 根相对和盘符相对路径也绑定本轮 cwd。
-  const selected = qualified ? resolve(cwd, command) : command;
-  const probeEnv = { ...env };
-  if (process.platform === "win32") {
-    // 普通对象的键区分大小写；与 Node 子进程一致，重复别名取字典序首项。
-    for (const name of ["PATH", "PATHEXT"]) {
-      const aliases = Object.keys(env)
-        .filter((key) => key.toUpperCase() === name)
-        .sort();
-      const value = aliases.length ? env[aliases[0]] : undefined;
-      for (const alias of aliases) delete probeEnv[alias];
-      if (value !== undefined) probeEnv[name] = value;
-    }
-  }
-  // 空项和相对项按子进程 cwd 查找；绝对项按本机规则保留原有含义。
-  probeEnv.PATH = (probeEnv.PATH ?? "")
-    .split(delimiter)
-    .map((entry) => resolve(cwd, entry))
-    .join(delimiter);
-  const result = await probeCommand(selected, {
-    cwd,
-    env: probeEnv
-  });
+  const result = await probeCommand(command, { cwd, env, args });
   if (!result.available) return result;
   if (!result.version)
     return {
@@ -92,9 +78,12 @@ export async function probeOpenCode(
   return result;
 }
 
-function inlineConfig(request: InvokeRequest): Record<string, unknown> {
+function inlineConfig(
+  request: InvokeRequest,
+  inherited: NodeJS.ProcessEnv = {}
+): Record<string, unknown> {
   const content = processEnvironmentValue(
-    invocationEnvironment(request),
+    invocationEnvironment(request, {}, inherited),
     "OPENCODE_CONFIG_CONTENT"
   );
   if (!content) return {};
@@ -149,16 +138,20 @@ interface OpenCodeNativeEvent extends OpenCodePart {
  * 构造本轮 OpenCode 命令、普通输入和执行配置；原生 inline config 保持，
  * 仅合并本轮 MCP 设置，不生成应用指令文件或追加系统提示词。
  */
-export function buildOpenCodeCommand(req: InvokeRequest, command = "opencode") {
+export function buildOpenCodeCommand(
+  req: InvokeRequest,
+  command = "opencode",
+  inherited: NodeJS.ProcessEnv = {}
+) {
   return Promise.resolve().then(() => {
     if (hasImageInput(req))
       throw new Error("UNSUPPORTED_INPUT_MODALITY: opencode does not encode image input");
     if (invocationApprovalMode(req) !== "full_access")
       throw new Error("APPROVAL_MODE_UNSUPPORTED: opencode permission transport is not qualified");
-    const runEnv = invocationEnvironment(req);
+    const runEnv = invocationEnvironment(req, {}, inherited);
     const servers = invocationMcpServers(req, runEnv);
     assertMcpOptions(servers, "opencode", ["toolTimeoutMs"]);
-    const inline = inlineConfig(req);
+    const inline = inlineConfig(req, inherited);
     if (Object.keys(servers).length) {
       const existing = isRecord(inline.mcp) ? inline.mcp : {};
       inline.mcp = {
@@ -417,29 +410,45 @@ export class OpenCodeEventNormalizer {
   }
 }
 
-export function createOpenCodeAdapter({ command = "opencode" }: { command?: string } = {}) {
+export function createOpenCodeAdapter({
+  command,
+  commandArgsPrefix = [],
+  env = {}
+}: {
+  command: string;
+  commandArgsPrefix?: readonly string[];
+  env?: NodeJS.ProcessEnv;
+}) {
+  const launch = snapshotProviderLaunch({ command, args: commandArgsPrefix, env });
+  const buildCommand = async (req: InvokeRequest) => {
+    const spec = await buildOpenCodeCommand(req, launch.command, launch.env);
+    return {
+      ...spec,
+      args: [...launch.args, ...spec.args],
+      env: invocationEnvironment(req, spec.env, launch.env)
+    };
+  };
   const interactiveAdapters = new Map<string, ReturnType<typeof createAcpAdapter>>();
   const createInteractive = (selected: string) =>
-    createAcpAdapter({
-      type: "opencode",
-      provider: "opencode",
-      command: selected,
-      args: ["acp"],
-      // ACP 原生权限策略决定何时请求审批；桥接层逐次处理，不覆盖用户的 deny。
-      env: (request) => ({
-        OPENCODE_CLIENT: "octo-runtime",
-        PWD: invocationWorkdir(request),
-        OPENCODE_CONFIG_CONTENT: JSON.stringify(inlineConfig(request))
-      })
-    });
+    createAcpAdapter(
+      {
+        type: "opencode",
+        provider: "opencode",
+        command: selected,
+        args: ["acp"],
+        // ACP 原生权限策略决定何时请求审批；桥接层逐次处理，不覆盖用户的 deny。
+        env: (request) => ({
+          OPENCODE_CLIENT: "octo-runtime",
+          PWD: invocationWorkdir(request),
+          OPENCODE_CONFIG_CONTENT: JSON.stringify(inlineConfig(request, launch.env))
+        })
+      },
+      { command: launch.command, commandArgsPrefix: launch.args, env: launch.env }
+    );
   const options: Parameters<typeof createJsonCliAdapter<OpenCodeNativeEvent>>[0] = {
-    metadata: {
-      mcp: true,
-      type: "opencode",
-      agentSources: ["provisioned"]
-    },
-    probe: () => probeOpenCode(command),
-    buildCommand: (req: InvokeRequest) => buildOpenCodeCommand(req, command),
+    metadata: openCodeMetadata,
+    probe: () => probeOpenCode(launch.command, launch.env, undefined, launch.args),
+    buildCommand,
     normalize: normalizeOpenCodeEvent,
     onSuccess: (): CanonicalEvent[] => [
       {
@@ -477,13 +486,14 @@ export function createOpenCodeAdapter({ command = "opencode" }: { command?: stri
         if (invocationApprovalMode(request) === "assisted")
           throw new Error("APPROVAL_MODE_UNSUPPORTED: opencode has no qualified assisted policy");
         // 目录与纯配置检查先于版本探针；启动进程后的失败不借用准备阶段清理证据。
-        inlineConfig(request);
+        inlineConfig(request, launch.env);
       });
       request.signal?.throwIfAborted();
       const selected = await probeOpenCode(
-        command,
-        invocationEnvironment(request),
-        invocationWorkdir(request)
+        launch.command,
+        launch.env,
+        invocationWorkdir(request),
+        launch.args
       );
       if (!selected.available) throw new Error(selected.reason ?? "OpenCode is unavailable");
       request.signal?.throwIfAborted();
@@ -509,7 +519,7 @@ export function createOpenCodeAdapter({ command = "opencode" }: { command?: stri
         yield* createJsonCliAdapter<OpenCodeNativeEvent>({
           ...options,
           reasoningLevels: invocationModel(request) ? undefined : null,
-          buildCommand: (req) => buildOpenCodeCommand(req, selected.command),
+          buildCommand,
           normalize: (native) => {
             const part = native.part ?? native;
             if (native.type === "step_start" || part.type === "step-start") finalText = false;
@@ -548,6 +558,3 @@ export function createOpenCodeAdapter({ command = "opencode" }: { command?: stri
     }
   };
 }
-
-export const opencodeAdapter = createOpenCodeAdapter();
-export default opencodeAdapter;
