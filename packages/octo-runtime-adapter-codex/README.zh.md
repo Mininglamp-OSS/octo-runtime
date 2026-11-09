@@ -57,7 +57,7 @@ const input = InvokeInput.check({
 
 调用方保存会话更新中的完整 `providerSession`（含 Provider 扩展字段），并在下一轮显式回传。只复用业务 `sessionId` 会新开 Provider 会话；Core 不持久维护业务会话到 Provider 的绑定表。续接与恢复输入步骤见[背景资料与会话](../../docs/zh-CN/guides/context-and-sessions.md)。
 
-一个 managed owner 只监督一个 app-server，不按 cwd、模型、环境、MCP、容量或并发数量分池。进程使用 owner 固定环境和 CODEX_HOME 启动目录；每轮工作目录、shell/MCP 环境、HTTP headers 和容量经 thread/turn 配置传递，流预算逐调用执行。逐轮 `adapter.codex/options.payload.codexServiceRevision` 以 CODEX_SERVICE_REVISION_UNSUPPORTED 拒绝；账户或启动配置变化由宿主关闭并重建 owner。凭据不进入诊断。裸描述对象调用要求显式创建执行作用域；通过 Core 注册时自动绑定。
+一个 managed owner 只监督一个 app-server，不按 cwd、模型、环境、MCP、容量或并发数量分池。进程使用 owner 固定环境，自然继承宿主目录，不显式设置 spawn cwd；CODEX_HOME 只选择 Codex 数据目录。每轮工作目录、shell/MCP 环境、HTTP headers 和容量经 thread/turn 配置传递，流预算逐调用执行。逐轮 `adapter.codex/options.payload.codexServiceRevision` 以 CODEX_SERVICE_REVISION_UNSUPPORTED 拒绝；账户或启动配置变化由宿主关闭并重建 owner。凭据不进入诊断。裸描述对象调用要求显式创建执行作用域；通过 Core 注册时自动绑定。
 
 空闲或活动期间 transport 失效都会主动恢复自有进程；每个恢复周期最多替换 5 次，总预算 90 秒，不重放原业务或控制请求。可执行文件不存在等启动错误直接失败，不反复重试。连续健康 60 秒后重置恢复预算。
 

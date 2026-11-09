@@ -109,7 +109,8 @@ export interface CodexAppServerCommand {
   /** Executable and app-server args; tests can substitute a fake server. */
   command: string;
   args: string[];
-  cwd: string;
+  /** 独占命令可显式指定；managed server 省略，业务目录由 thread/turn RPC 提供。 */
+  cwd?: string;
   env: NodeJS.ProcessEnv;
   mcpServers?: Record<string, Record<string, unknown>>;
   cleanup?: () => void | Promise<void>;
@@ -118,7 +119,7 @@ export interface CodexAppServerCommand {
 export type CodexAppServerSpawn = (
   command: string,
   args: readonly string[],
-  options: { cwd: string; env: NodeJS.ProcessEnv }
+  options: { cwd?: string; env: NodeJS.ProcessEnv }
 ) => ChildProcessWithoutNullStreams;
 
 /** A JSON-RPC error the app-server explicitly returned, preserving method, code and raw data. */

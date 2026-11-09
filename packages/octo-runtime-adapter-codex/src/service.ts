@@ -560,7 +560,7 @@ export class CodexService {
   async #start(timeoutMs: number): Promise<void> {
     if (timeoutMs <= 0) throw codexTransportError("CODEX_SERVICE_RECOVERY_EXHAUSTED");
     const child = this.spawnFn(this.spec.command, this.spec.args, {
-      cwd: this.spec.cwd,
+      ...(this.spec.cwd === undefined ? {} : { cwd: this.spec.cwd }),
       env: this.spec.env
     });
     // 连接解析预算取活动调用最大值；路由后各 client 再执行自己的更小预算。
@@ -683,7 +683,7 @@ const ownedChildren = new WeakSet<ChildProcessWithoutNullStreams>();
 function ownedSpawn(
   command: string,
   args: readonly string[],
-  options: { cwd: string; env: NodeJS.ProcessEnv }
+  options: { cwd?: string; env: NodeJS.ProcessEnv }
 ): ChildProcessWithoutNullStreams {
   const launch = resolveProcessLaunch(command, args, options);
   const child = spawn(launch.command, [...launch.args], {

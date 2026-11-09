@@ -86,3 +86,11 @@ main #344 删除旧输入，改为 AgentEnv 直传。本轮解决 9 处冲突，
 源码公共层无 Codex/OpenClaw/DSH Adapter 反向依赖，所选 Adapter 的依赖图未强制引入其他 Adapter。CLI 继续携带并加载自己的 manifest 装配项，client 不携带 Adapter；模块选择和进程首次调用启动分别描述。helper 注释准确声明泛型不做运行时校验、缺失 undefined、返回原引用和 Adapter 校验责任。
 
 最终无剩余确认 medium 及以上问题。用户已授权 commit、push 并提交目标为 main 的 PR，明确暂不自动合并；交付动作完成后由 PR 记录提供最终标识。
+
+# PR 345 首轮 CI 修复
+
+首个提交 f85a7356 的 CI run 42626868888 六个矩阵均失败。四个 POSIX 构建矩阵在测试阶段报大量 Codex spawn ENOENT，两个 Windows 矩阵在 Playboard 原生 IPC 场景报退出和清理失败。根因是本次实现将 managed server 的 spawn cwd 设为 CODEX_HOME；本机 ~/.codex 存在掩盖了干净 runner 缺目录的问题。
+
+该 finding 为 medium、reproduced。本机以不存在的 CODEX_HOME 运行既有 actmode/Playboard 场景，修复前同样失败。最终 managed spec 不设置 cwd，spawn 自然继承宿主目录；可选类型及 service 传参同步更新，独占低层命令仍保留显式 cwd 合同。CODEX_HOME 的显式配置 → 服务环境 → ~/.codex 顺序不变；thread/start、thread/resume、turn/start 仍使用本次 invocationWorkdir。
+
+新增手动回归验证缺失 CODEX_HOME 不妨碍 fake server 执行、不创建数据目录、spawn options 无 cwd 属性；100 路回归仍确认单进程及逐调用目录。旧相对可执行文件回归改为从宿主目录解析夹具，仍覆盖文件替换不重启 owner。架构规则、设计及中英文 README 同步更正，不改变 CI 范围。远端最终结论另行读取，不用本地通过冒充 CI 通过。

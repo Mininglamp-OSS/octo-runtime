@@ -32,3 +32,5 @@ tags: [architecture, adapter, lifecycle, envs, mcp, testing]
 按用户后续要求补充双语 docs 的私有 bean 构造和 Adapter 消费示例；为 agentEnvItem、invocationModel 补齐中文 JSDoc、读取/校验责任及参考文档地址。本次追加仅涉及文档与注释，不改变 helper 行为，不新增公共私有配置模型。
 
 用户再次明确删除完整包 `/adapters/codex`、`/adapters/dsh` 聚合导出，纯原生统一源码 workspace 接入，按需依赖和加载所选 Adapter；源码 private 包不单独 npm 发布。另一主场景为 octo-runtime CLI 启动服务，独立 App 只用 octo-runtime-client。同步迁移示例、包 README、编写规则、现有发行检查调用点，并在双语 docs 明确依赖、模块加载、进程启动和生命周期责任；不把当前 CLI 的全 manifest 装配说成按请求加载，不移除其内置发行依赖。检查旧架构说明并按同类问题直接修复。
+
+PR #345 首轮 CI 暴露把 CODEX_HOME 绑定为 spawn cwd 的错误。用户再次明确：启动 server 不传业务 cwd，session 工作目录由 thread/turn RPC 提供；CODEX_HOME 默认 ~/.codex 与此无关。修复 managed spawn 省略 cwd，自然继承宿主目录；不补建数据目录、不改 Home 默认值、不改请求目录映射。提交修复后等待全部现有 CI，失败继续处理，禁止自动合并。

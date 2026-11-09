@@ -17,7 +17,7 @@ CLI Host 拥有 Kernel 和 app-server 两类资源。Kernel 与 Host 共用 OS P
 
 | 输入 | 生效位置 |
 | --- | --- |
-| executable、argv、宿主环境、CODEX_HOME | owner 创建时固定；app-server 启动目录使用 CODEX_HOME，不捕获首轮工作目录 |
+| executable、argv、宿主环境、CODEX_HOME | owner 创建时固定；启动不显式设置 spawn cwd，自然继承宿主目录，CODEX_HOME 只选择数据目录 |
 | cwd、模型、审批、effort | 原生 thread/turn 参数，保留已有映射 |
 | envs | shell_environment_policy.set 与本地 stdio MCP env；原生 MCP 自有 env 具有更高优先级，按平台变量身份合并 |
 | 动态 MCP | 每轮展开模板，thread config.mcp_servers；HTTP 使用 http_headers，不生成共享进程私有环境变量 |

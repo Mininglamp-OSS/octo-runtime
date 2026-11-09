@@ -92,3 +92,13 @@ tags: [architecture, adapter, lifecycle, envs, mcp, testing]
 本节日志前缀 `/tmp/octo343-source-`：build、types、lint、names、format、full、manual、docs、current-docs、pack、release、package313、client。首次发行检查复现了旧检查位置无法解析源码 import；迁移现有检查位置后重验通过，详见 review。本次只在独占临时目录安装测试归档，未安装到用户全局或变更现有服务/认证/Home。
 
 用户随后授权提交 PR 到 main、暂不自动合并。本次不扩大 CI、不修改默认验证范围，不以本地测试归档声称已发布 npm 版本。
+
+# PR 345 CI 失败复现与修复
+
+首轮提交 f85a7356、CI run 42626868888：六个矩阵失败。根因与修复见 review；日志下载到 `/tmp/octo345-ci-failed.log`。本机不存在 CODEX_HOME 时的 actmode/Playboard 复现命令退出 1，日志 `/tmp/octo345-before.log`。修复仅解除 managed spawn cwd 与数据目录的绑定，CODEX_HOME 默认 ~/.codex 保持；业务目录继续经 thread/turn RPC 传入。公开协议参考 [Codex App Server](https://developers.openai.com/codex/app-server/)。
+
+按用户要求在提交修复前执行本地 CI 对应检查，平台为 macOS arm64 / Node 24.22.2 / pnpm 11.19.0，日志前缀 `/tmp/octo345-ci-`。`pnpm install --frozen-lockfile`、`pnpm lint`、`pnpm lint:names`、完整 `pnpm format:check`、`pnpm typecheck`、`pnpm docs:check` 全部通过；lockfile 与生成协议类型漂移检查无差异。lint 首次与 clean/build 并行导致构建产物类型暂缺，构建完成后串行重跑通过，没有据此改源码或关闭规则。
+
+`CODEX_HOME=/tmp/octo345-absent-codex-home pnpm test:suites`：1516 项，1455 通过、61 跳过、0 失败；五组显式手动专项新增缺失 Home 回归后 121 项全部通过。`node scripts/pack-release.mjs` 生成双包；同一不存在 CODEX_HOME 下 `verify-release.mjs --expected-commit f85a735677bfe5839f3fc78ed9123abbf8ca6e5f` 的离线安装/公开 API/原生与 CLI Kernel/卸载保留 Home 全通过；独立 client 11 项通过。提交前归档正确标记 dirty，不冒充干净发行；远端继续运行原有 --require-clean 验证。OKF lint 735 单元/20 规则/3427 链接通过。
+
+本机未模拟 Windows/Linux 或 Node 26。workflow、job、矩阵、默认测试选择及 Gate 不变；新增专项只手动运行。用户要求提交修复后等待远端全部 CI，暂不合并。

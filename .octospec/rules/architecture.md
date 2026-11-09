@@ -40,7 +40,7 @@ doctor PID 树的常驻 Engine 归实际宿主 owner_pid，不归 Adapter。Kern
 
 CLI 默认纳管的通用 Harness 按类型只有一个 owner/实例，不因 cwd、任务命令、模型、环境、MCP、容量或并发数量拆分进程池。装配在已声明类型重复时先于工厂调用拒绝；未声明类型的动态工厂在结果校验时拒绝并回滚。这个通用宿主合同不要求 SDK 自管 Adapter 实现统一 Engine 基类，也不改变其他 Adapter 既有逐轮子进程模型。
 
-Codex managed owner 只监督一个 app-server，多 Agent 使用不同 thread/turn 并发复用。进程启动目录为宿主选定 CODEX_HOME，argv/环境由 owner 固定；工作目录、shell/MCP 环境、HTTP headers 和容量随本轮 thread 配置传递。旧 codexServiceRevision 逐轮分池请求明确拒绝；原地更改账户或启动配置须由宿主关闭并重建 owner。仅账户等明确强隔离需求允许宿主显式装配多个 owner，不能从请求差异推断隔离需求。
+Codex managed owner 只监督一个 app-server，多 Agent 使用不同 thread/turn 并发复用。启动不显式指定 spawn cwd，自然继承宿主目录，不能把 CODEX_HOME 数据目录当成启动 cwd；argv/环境由 owner 固定。业务工作目录由本轮 thread/start、thread/resume 和 turn/start RPC 传入，shell/MCP 环境、HTTP headers 和容量随本轮配置传递。旧 codexServiceRevision 逐轮分池请求明确拒绝；原地更改账户或启动配置须由宿主关闭并重建 owner。仅账户等明确强隔离需求允许宿主显式装配多个 owner，不能从请求差异推断隔离需求。
 
 并发接纳和资源配额由宿主决定。owner 不设置 Agent 数量、估算 lease 内存、累计 thread 数或交互总数配额，不新增资源预算配置。只保留当前执行的临时 RPC/thread/turn 路由，释放时删除，不保存已结束 thread 历史或业务 session 映射；清理未确认时保留原归属事实。未知 thread 的早到通知仅在待决 thread/start 期间暂存，最后一个 start 结算后释放仍无法关联的通知并拒绝孤立反向请求。既有传输队列与单条消息限制继续执行，不同调用的流限额在路由后分别执行。故障恢复回收旧代再替换，不重放已接纳动作。doctor 显示 CLI Host 拥有平级的 Kernel（in-process，共用 PID）与 app-server，不制造不存在的 Kernel 进程。任务和实际证据见 [343 简报](../tasks/343-single-harness/brief.md)。
 

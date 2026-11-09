@@ -1,7 +1,7 @@
 // Explicit manual validation only: node --test test/manual/343-single-harness.test.mjs
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -55,6 +55,20 @@ async function setup(t, count = 1, options = {}) {
   });
   return { home, log, owner, scope, launches };
 }
+
+test("a missing CODEX_HOME does not become the app-server startup cwd", async (t) => {
+  const codexHome = join(tmpdir(), `octo343-absent-${randomUUID()}`);
+  await assert.rejects(stat(codexHome), { code: "ENOENT" });
+  const { owner, scope, launches } = await setup(t, 1, { codexHome });
+  const events = await Array.fromAsync(scope.invoke(request(), { protocolMode: "canonical" }));
+  assert.equal(events.at(-1).type, "run.completed");
+  assert.equal(launches.length, 1);
+  assert.equal(Object.hasOwn(launches[0].spec, "cwd"), false);
+  assert.equal(launches[0].spec.env.CODEX_HOME, codexHome);
+  assert.equal(owner.provider.codexHome, codexHome);
+  // fake Provider 不管理数据目录，验证 Runtime 没有用创建目录掩盖 spawn 前提错误。
+  await assert.rejects(stat(codexHome), { code: "ENOENT" });
+});
 
 test(
   "100 simultaneously active agents with distinct workdirs/configs share one PID",
@@ -126,7 +140,7 @@ test(
     assert.equal(launches.length, 1);
     assert.equal(owner.processes().length, 1);
     assert.equal(owner.processes()[0].state, "ready");
-    assert.equal(launches[0].spec.cwd, home);
+    assert.equal(Object.hasOwn(launches[0].spec, "cwd"), false);
     assert.equal(launches[0].spec.env.AGENT_VALUE, undefined);
     assert.equal(launches[0].args.includes("-c"), false);
     assert.ok(outputs.every((events) => events.at(-1).type === "run.completed"));

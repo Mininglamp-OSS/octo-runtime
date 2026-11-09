@@ -34,3 +34,5 @@ tags: [architecture, adapter, lifecycle, envs, mcp, testing]
 用户明确删除完整包两条 Adapter 聚合入口，纯原生统一源码 workspace 按需依赖/加载，不独立发布 private 包；CLI 启动服务后，独立 App 仅依赖 client。双语架构/SDK docs 给出场景、依赖示例和生命周期责任，区分 CLI manifest 全量装配与 Codex 首次调用启动。包 README、开发规则和示例同步迁移；agentEnvItem 与 invocationModel 补齐中文注释和文档地址，私有 bean 由 Adapter 校验后映射原生调用。
 
 复审修正 client README 和 authoring 规则的旧全量包接入要求，无剩余 medium 及以上问题。最终构建/类型/lint/文档通过，全量 1455 通过/61 跳过、手动 120 通过；CLI/client 本地归档离线验证通过，源码六轮 PID 复用及独立 client 11 项通过。既有发行文档检查位置随源码接入迁移，未增加 CI 检查。用户已授权提交 PR 到 main，明确暂不自动合并；没有变更用户现有服务或认证。
+
+已提交 [PR #345](https://github.com/Mininglamp-OSS/octo-runtime/pull/345)。首轮 CI 暴露 CODEX_HOME 被错误设为 spawn cwd，干净 runner 缺目录导致跨平台失败；本地用不存在数据目录复现。修复为 managed server 启动不显式指定 cwd，业务目录仍经 thread/turn RPC 传入，Home 默认顺序保持。新增显式手动回归并同步文档；用户要求修复后等待全部既有 CI，禁止自动合并。

@@ -111,11 +111,10 @@ export function createManagedCodexEngine({
   assertCodexHome(codexHome);
   const inherited = mergeProcessEnvironment(env, { CODEX_HOME: codexHome });
   const scopeId = randomUUID();
-  // 启动配置只取 owner 输入，不捕获首轮 cwd、环境、MCP 或流预算。
+  // server 启动继承宿主目录；CODEX_HOME 仅是数据目录，本轮 cwd 只经 thread/turn RPC 传入。
   const spec: CodexAppServerCommand = {
     command,
     args: [...appServerArgs],
-    cwd: codexHome,
     env: inherited,
     cleanup: () => undefined
   };

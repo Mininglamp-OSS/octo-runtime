@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 import { randomUUID } from "node:crypto";
@@ -183,7 +183,7 @@ async function eventually(predicate) {
 }
 for (const command of ["./codex", "bin/codex"])
   test(
-    `replacing ${command} keeps the owner process with caller-provided absolute cwd`,
+    `replacing relative ${command} keeps the owner process across calls`,
     { skip: process.platform === "win32" && "POSIX executable fixture" },
     async (t) => {
       const temporaryRoot = join(process.cwd(), ".tmp");
@@ -194,7 +194,8 @@ for (const command of ["./codex", "bin/codex"])
       const program = "#!/usr/bin/env node\n" + (await readFile(fixture, "utf8"));
       const owner = createManagedCodexEngine({
         codexHome: directory,
-        command,
+        // 相对可执行文件从宿主目录解析，不再把 CODEX_HOME 或本轮 cwd 作为启动目录。
+        command: `./${relative(process.cwd(), binary)}`,
         appServerArgs: []
       });
       const local = createCodexAdapter({ engine: owner.provider }).createExecutionScope({
