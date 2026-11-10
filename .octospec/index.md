@@ -1,5 +1,7 @@
 # Octo Runtime 工程知识目录
 
+- [PR352 静默通知交付竞态](tasks/352-silence-notice-delivery/brief.md)：保留已生成通知，输出仅重置未来区间；[专项复核](tasks/352-silence-notice-delivery/review.md)与[验证](tasks/352-silence-notice-delivery/validation.md)记录真实竞态及计时回归。
+
 - [删除全局 watchdog enforcement 开关](tasks/remove-limits-enforcement/brief.md)：Schema、类型、解析、默认值与兼容分支已删除；保留有限预算和model_idle_policy。[专项复核](tasks/remove-limits-enforcement/review.md)与[验证](tasks/remove-limits-enforcement/validation.md)通过；提交状态见Git历史及issue交付评论。
 
 - [Runtime 模型输出静默通知](tasks/runtime-model-output-idle/brief.md)：复用 agent_run.event/run.notice，真实输出恢复后重新计满60秒，native不新增类型；三组专项发现已修复复核，见[审查](tasks/runtime-model-output-idle/review.md)和[验证](tasks/runtime-model-output-idle/validation.md)。Gateway #34仅建issue。

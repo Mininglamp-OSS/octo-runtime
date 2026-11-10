@@ -51,6 +51,8 @@ export class ModelOutputSilence {
   take(): CanonicalEvent | undefined {
     const notice = this.#pending;
     this.#pending = undefined;
+    // 槽交付后才允许新区间计时；使用真实输出更新的 since，不从交付时刻重算。
+    this.#arm();
     return notice;
   }
 
@@ -105,6 +107,7 @@ export class ModelOutputSilence {
   dispose(): void {
     this.#disposed = true;
     this.#reset();
+    this.#pending = undefined;
     this.#since = undefined;
     this.#wake = undefined;
     this.#tools.clear();
@@ -121,7 +124,7 @@ export class ModelOutputSilence {
   #reset(): void {
     this.#cancelTimer?.();
     this.#cancelTimer = undefined;
-    this.#pending = undefined;
+    // 重置未来静默区间，不撤回已达到阈值、尚未被 Core 取走的通知事实。
     this.#reported = false;
     this.#since = this.time.now();
   }
@@ -137,11 +140,25 @@ export class ModelOutputSilence {
   #arm(): void {
     this.#cancelTimer?.();
     this.#cancelTimer = undefined;
-    if (this.#disposed || !this.#wake || this.#since === undefined || this.#reported) return;
+    if (
+      this.#disposed ||
+      !this.#wake ||
+      this.#since === undefined ||
+      this.#reported ||
+      this.#pending
+    )
+      return;
     const since = this.#since;
     this.#cancelTimer = this.time.schedule(
       () => {
-        if (this.#disposed || this.#since !== since || !this.#wake || this.#reported) return;
+        if (
+          this.#disposed ||
+          this.#since !== since ||
+          !this.#wake ||
+          this.#reported ||
+          this.#pending
+        )
+          return;
         const silenceMs = Math.max(0, Math.floor(this.time.now() - since));
         if (silenceMs < THRESHOLD_MS) {
           this.#arm();

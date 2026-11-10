@@ -991,11 +991,12 @@ export class AgentExecutor {
               )
             : await waitForProviderOutput(pendingNext, controller.signal, silence);
         if (controller.signal.aborted) throw controller.signal.reason;
-        if (next === "notice") {
-          const notice = silence?.take();
-          if (notice) yield notice;
-          continue;
-        }
+        // 普通源结果和通知可以同时就绪；先交付已生成的事实，不依赖 race 的赢家。
+        // yield 期间源 next 仍保持唯一在途；恢复后再次核对取消，不消费已取消的结果。
+        const notice = silence?.take();
+        if (notice) yield notice;
+        if (controller.signal.aborted) throw controller.signal.reason;
+        if (next === "notice") continue;
         pendingNext = undefined;
         if (next.done) break;
         const prepared = preparedNext;

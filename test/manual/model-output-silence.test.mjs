@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
+import { performance } from "node:perf_hooks";
 import { AgentExecutor } from "../../packages/octo-runtime-executor-core/dist/index.js";
 import Ajv from "ajv";
 import { ModelOutputSilence } from "../../packages/octo-runtime-executor-core/dist/model-output-silence.js";
@@ -110,6 +111,7 @@ test("only Core-confirmed output refreshes the clock; other events do not", () =
   );
   f.tick(30_000);
   assert.equal(f.wakes(), 1);
+  f.observer.take();
   f.observer.canonical(
     text("visible", { messageId: "a", channel: "analysis", exposure: "public_summary" }),
     true
@@ -178,7 +180,7 @@ test("queue pauses while asynchronous questions do not block model work", () => 
   f.observer.dispose();
 });
 
-test("late timers report source elapsed time; output, terminal and disposal invalidate pending notices", () => {
+test("late timers preserve queued facts across output resets; terminal and disposal clear them", () => {
   const f = fixture();
   const callback = [...f.timers.values()][0].callback;
   f.late(65_432);
@@ -188,7 +190,7 @@ test("late timers report source elapsed time; output, terminal and disposal inva
   f.tick(60_000);
   assert.equal(f.wakes(), 2);
   f.observer.canonical(text("resume again"), true);
-  assert.equal(f.observer.take(), undefined);
+  assert.equal(f.observer.take().payload.params.silenceMs, 60_000);
   f.tick(60_000);
   f.observer.canonical(event("run.completed"));
   assert.equal(f.observer.take(), undefined);
@@ -197,6 +199,114 @@ test("late timers report source elapsed time; output, terminal and disposal inva
   assert.equal(f.wakes(), 3);
   assert.equal(f.timers.size, 0);
 });
+
+test("one queued fact survives interval resets without being overwritten or delaying the new interval", () => {
+  const f = fixture();
+  f.tick(60_000);
+  f.observer.canonical(text("new output"), true);
+  f.tick(90_000);
+  assert.equal(f.wakes(), 1);
+  assert.equal(f.timers.size, 0);
+  const first = f.observer.take();
+  assert.equal(first.payload.params.silenceMs, 60_000);
+  f.tick(1);
+  const second = f.observer.take();
+  assert.notEqual(second.payload.noticeId, first.payload.noticeId);
+  assert.equal(second.payload.params.silenceMs, 90_001);
+  f.observer.dispose();
+});
+
+test("a tool wait pauses future intervals but does not revoke an already queued fact", () => {
+  const f = fixture();
+  f.tick(60_000);
+  f.observer.canonical(event("tool_call.create", { id: "tool" }));
+  f.tick(120_000);
+  assert.equal(f.observer.take().payload.params.silenceMs, 60_000);
+  assert.equal(f.timers.size, 0);
+  f.observer.canonical(event("tool_call.update", { id: "tool", status: "completed" }));
+  f.tick(59_999);
+  assert.equal(f.wakes(), 1);
+  f.tick(1);
+  assert.equal(f.wakes(), 2);
+  f.observer.dispose();
+  assert.equal(f.observer.take(), undefined);
+});
+
+for (const delayedWake of [false, true])
+  test(`queued notice precedes a racing deferred Provider result: delayedWake=${delayedWake}`, async (t) => {
+    let release,
+      elapsed = 0,
+      fired = false,
+      reads = 0;
+    const listen = ModelOutputSilence.prototype.listen;
+    // 只注入时钟及唤醒顺序；pending创建、源结果准备和take都执行真实实现。
+    t.mock.method(ModelOutputSilence.prototype, "listen", function (wake) {
+      this.time = {
+        now: () => performance.now() + elapsed,
+        schedule(callback) {
+          if (fired) return () => {};
+          const timer = setTimeout(() => {
+            fired = true;
+            elapsed += 60_001;
+            callback();
+            release({
+              done: false,
+              value: event("message.delta", {
+                messageId: "race",
+                channel: "final",
+                text: "new output"
+              })
+            });
+          }, 0);
+          return () => clearTimeout(timer);
+        }
+      };
+      return listen.call(
+        this,
+        delayedWake ? () => queueMicrotask(() => queueMicrotask(wake)) : wake
+      );
+    });
+    const host = new AgentExecutor();
+    host.register({
+      metadata: {
+        type: "test",
+        protocolSupport: { protocol: "test.canonical", modes: ["canonical"], nativeMethods: [] }
+      },
+      invoke(_request, context) {
+        context.configureRuntimeLimits({ firstFrameTimeoutMs: 10_000, runTimeoutMs: 20_000 });
+        return {
+          [Symbol.asyncIterator]() {
+            return this;
+          },
+          next() {
+            reads++;
+            if (reads === 1) return Promise.resolve({ done: false, value: event("run.started") });
+            if (reads === 2)
+              return new Promise((resolve) => {
+                release = resolve;
+              });
+            if (reads === 3) return Promise.resolve({ done: false, value: event("run.completed") });
+            return Promise.resolve({ done: true });
+          },
+          return() {
+            return Promise.resolve({ done: true });
+          }
+        };
+      }
+    });
+    t.after(async () => assert.equal((await host.shutdown()).cleanup, "complete"));
+    const events = [];
+    for await (const frame of host.invokeFrames(kernelInput()))
+      if (frame.kind === "canonical") events.push(frame.event);
+    const noticeIndex = events.findIndex((e) => e.type === "run.notice");
+    const outputIndex = events.findIndex((e) => e.type === "message.delta");
+    assert.equal(events.filter((e) => e.type === "run.notice").length, 1);
+    assert.equal(events.filter((e) => e.type === "message.delta").length, 1);
+    assert.ok(noticeIndex < outputIndex);
+    assert.ok(events[noticeIndex].payload.params.silenceMs >= 60_000);
+    assert.equal(events.at(-1).type, "run.completed");
+    assert.equal(reads, 4);
+  });
 
 test("repeated wait subscriptions stay bounded and no timer runs without a waiter", () => {
   const f = fixture();
@@ -337,6 +447,7 @@ for (const outcome of ["completed", "error", "missing-terminal", "invalid-event"
   test(`source ${outcome} during notice backpressure preserves its outcome`, async (t) => {
     // 仅注入通知唤醒，不缩短产品60s阈值；实测通知后在途next与旧首帧预算的竞态。
     let emitted = false,
+      taken = false,
       release,
       sourceCompleted = false;
     t.mock.method(ModelOutputSilence.prototype, "listen", (wake) => {
@@ -347,14 +458,16 @@ for (const outcome of ["completed", "error", "missing-terminal", "invalid-event"
       }, 5);
       return () => clearTimeout(timer);
     });
-    t.mock.method(ModelOutputSilence.prototype, "take", () =>
-      event("run.notice", {
+    t.mock.method(ModelOutputSilence.prototype, "take", () => {
+      if (!emitted || taken) return undefined;
+      taken = true;
+      return event("run.notice", {
         noticeId: "injected",
         code: "model_output_idle",
         severity: "info",
         params: { silenceMs: 60_000, message: "60s no LLM output" }
-      })
-    );
+      });
+    });
     const gate = new Promise((resolve) => {
       release = resolve;
     });

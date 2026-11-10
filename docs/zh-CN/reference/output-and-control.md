@@ -31,6 +31,8 @@ HostFrame 带有执行和会话标识：`run_id`、`invocation_id`、`stream_id`
 
 首次区间从 Core 开始本轮 Adapter 调用时计时。canonical 执行在连续 60 秒没有新的公开模型文本时，由 Runtime 发出一次 `run.notice`，code 为 `model_output_idle`。收到新文本 delta 或增长的文本快照，立即从零重新计满 60 秒；即使上一段已通知，下一段仍会再次通知。空内容、重复或回退快照、心跳、usage、私有 reasoning 不刷新计时。排队、工具执行和同步审批/输入等待期间暂停，最后一个等待解除后重新计时；异步问题不暂停。
 
+已经达到阈值并生成的通知会保留到交付，新输出只重置下一段计时；该通知先于同时就绪的普通模型输出交付。终态、取消或异常仍优先清除尚未交付的通知。
+
 `silenceMs` 是 Runtime 单调时钟测得的实际毫秒数；timer 迟到时可能大于 60000。message 使用对应整数秒数，例如 `60s no LLM output`。这是信息通知，不是终态、取消指令或周期心跳。现有预算仍生效：默认首帧预算 60 秒可能先触发失败，`model_idle_policy: observe` 只关闭模型空闲终止，不关闭首帧、整轮或工具预算。
 
 消费端必须使用已支持 `model_output_idle` 的 client/协议校验器。旧版严格校验器会拒绝未知 notice code，升级 Runtime 时需同步升级消费端；本功能不宣称向旧 client 自动兼容。

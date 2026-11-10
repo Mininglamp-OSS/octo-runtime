@@ -13,7 +13,7 @@ tags: [runtime, protocol, silence, testing]
 
 Core 按源端 canonical assistant 文本 delta 和增长的 snapshot 观察输出，只计公开内容；空白、user/tool 文本、私有 reasoning、心跳、usage、重复 snapshot、普通活动不重置计时。工具和审批/用户输入等待、排队暂停静默区间，最后一个阻塞解除后重新开始。重叠的原生活动与 canonical 生命周期不能提前解除等待；终态、取消、异常和资源清理停止计时并清除待发通知。
 
-每轮一个待发通知槽；等待 Provider next 时并发等通知，不并发调用 iterator.next，不因为通知丢弃真实 Provider 结果，不为每条输出累积未释放通知监听。恢复输出或进入等待后不得发送过期静默通知。native 调用不实例化静默观察器、不转换原生帧。
+每轮一个待发通知槽；等待 Provider next 时并发等通知，不并发调用 iterator.next，不因为通知丢弃真实 Provider 结果，不为每条输出累积未释放通知监听。恢复输出或进入等待会重置/暂停尚未达阈值的计时，但不撤回已经生成的静默事实；已生成通知保留到take消费，终态/取消/异常优先清理。单槽未消费时不能被后续区间覆盖；Core在同时就绪的普通源输出之前交付该事实。native 调用不实例化静默观察器、不转换原生帧。
 
 # 与既有预算的关系
 
