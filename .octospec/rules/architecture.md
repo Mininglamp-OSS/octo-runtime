@@ -50,6 +50,8 @@ Codex managed owner 只监督一个 app-server，多 Agent 使用不同 thread/t
 
 现有 metadata 用于执行描述与 probe 状态，不承载执行依赖和 owner。宿主可传入已解析启动描述、具体 client、factory 或 Provider 专用访问接口；可委托传输层创建和清理本轮独占进程，但引用不赋予共享 Engine 的关闭权。Windows shim/Node、探针与恢复也须使用宿主绑定的目标，逐轮 PATH/cwd 不得重新选择 Provider。协议配置环境变量及本轮工具环境继续遵守原合同。
 
+2026-11-10 用户进一步明确 OpenCode 升级不应要求 octo-runtime 跟随修改版本准入：不设置最低版本、主版本名单或未知版本拒绝，调用前不执行版本探针。probe 中版本仅为可选展示信息；不能将版本命令非零退出或超时推导为已选 executable 不可用。OpenCode 按宿主绑定直接进入 JSON/ACP 协议，实际启动、协议和清理失败仍按本次结果报告。此原则不承诺任意上游协议变更自动兼容，也不添加旧版本适配层。
+
 内置命令工厂要求显式绝对 command，可传 commandArgsPrefix 与基础 env；删除默认实例和裸命令兼容入口。CLI 使用宿主解析 helper，最终执行不再解析安装。源码审计、metadata 复用与实施验收见 [Issue 346 方案](../tasks/346-host-execution/design.md)。保留主线 #345 的 Codex 单实例与共享生命周期。
 
 ### KernelClient 与 AgentExecutor 的选型合同

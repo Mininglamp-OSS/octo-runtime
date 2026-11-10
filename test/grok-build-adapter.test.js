@@ -442,9 +442,15 @@ test("Grok command and version probes give actionable diagnostics; CLI catalog i
     const directory = await mkdtemp(join(tmpdir(), "grok-probe-"));
     t.after(() => rm(directory, { recursive: true, force: true }));
     const command = join(directory, "grok");
-    await writeFile(command, '#!/bin/sh\nprintf "grok 1.0.67 (fixture)\\n"\n', { mode: 0o700 });
+    await writeFile(command, 'console.log("grok 1.0.67 (fixture)");\n');
     assert.equal(
-      (await createGrokBuildAdapter({ env: process.env, command }).probe()).version,
+      (
+        await createGrokBuildAdapter({
+          env: process.env,
+          command: process.execPath,
+          commandArgsPrefix: [command]
+        }).probe()
+      ).version,
       "1.0.67"
     );
   }

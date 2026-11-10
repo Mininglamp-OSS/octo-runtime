@@ -16,7 +16,7 @@ tags: [architecture, adapter, lifecycle, envs]
 | 检查项 | 本任务结论 |
 | --- | --- |
 | 业务目标 | Desktop、CLI 和其他 SDK 宿主能够控制 Provider 来源，避免 Adapter 随 PATH、cwd 或环境变化另选程序 |
-| 决定权 | 安装来源、版本选用、执行位置、账号隔离和 owner 归宿主；协议版本兼容检查与原生映射归 Adapter |
+| 决定权 | 安装来源、版本选用、执行位置、账号隔离和 owner 归宿主；协议结构与原生映射归 Adapter；OpenCode 不按版本号准入，升级不要求 Runtime 修改版本名单 |
 | 显式输入 | 本地已解析的 command/运行器参数，或 Provider 专用 client/provider/factory；Home 和环境由宿主准备 |
 | 合同内动作 | 校验选定依赖、握手、会话与消息转换、调用级资源释放、真实失败报告 |
 | 越界动作 | Adapter 扫描 PATH/目录、安装下载、按逐轮环境改选 Provider/Node、隐式替换依赖、关闭借用的共享服务 |

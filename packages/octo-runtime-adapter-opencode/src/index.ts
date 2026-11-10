@@ -43,39 +43,16 @@ import {
   type ProbeResult
 } from "@mininglamp-oss/octo-runtime-adapter-sdk";
 
-export const MINIMUM_OPENCODE_VERSION = "2.1.3";
-
 class OpenCodeInputError extends Error {}
 
-/** 检查本轮实际选中的程序；未知版本与 V1 都不能进入执行传输。 */
+/** 只展示宿主绑定目标的可选版本，不按版本号准入；协议可用性由实际执行结果确定。 */
 export async function probeOpenCode(
   command: string,
   env: NodeJS.ProcessEnv = {},
   cwd?: string,
   args: readonly string[] = []
 ): Promise<ProbeResult> {
-  const result = await probeCommand(command, { cwd, env, args });
-  if (!result.available) return result;
-  if (!result.version)
-    return {
-      ...result,
-      available: false,
-      reason:
-        "OPENCODE_VERSION_DETECTION_FAILED: could not determine OpenCode version (--version failed, timed out, or returned invalid output)"
-    };
-  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(result.version);
-  if (
-    !match ||
-    Number(match[1]) !== 2 ||
-    Number(match[2]) < 1 ||
-    (Number(match[2]) === 1 && Number(match[3]) < 3)
-  )
-    return {
-      ...result,
-      available: false,
-      reason: `OPENCODE_VERSION_UNSUPPORTED: detected ${result.version}. ${result.version.startsWith("1.") ? "OpenCode 1 is no longer supported. " : ""}Install OpenCode >= ${MINIMUM_OPENCODE_VERSION} < 3 and retry.`
-    };
-  return result;
+  return probeCommand(command, { cwd, env, args });
 }
 
 function inlineConfig(
@@ -429,12 +406,12 @@ export function createOpenCodeAdapter({
     };
   };
   const interactiveAdapters = new Map<string, ReturnType<typeof createAcpAdapter>>();
-  const createInteractive = (selected: string) =>
+  const createInteractive = () =>
     createAcpAdapter(
       {
         type: "opencode",
         provider: "opencode",
-        command: selected,
+        command: launch.command,
         args: ["acp"],
         // ACP 原生权限策略决定何时请求审批；桥接层逐次处理，不覆盖用户的 deny。
         env: (request) => ({
@@ -478,29 +455,21 @@ export function createOpenCodeAdapter({
     ): AsyncGenerator<CanonicalEvent> {
       await runAdapterPreparation(context, async () => {
         assertAdapterAgentEnv(request);
-        // 探针属于本轮执行预算；内层再次配置同值不会重置 Core 的计时起点。
+        // 两种传输共用本轮预算；内层再次配置同值不会重置 Core 的计时起点。
         context?.configureRuntimeLimits?.(invocationRuntimeLimits(request));
         await assertAdapterWorkdir(request);
         if (hasImageInput(request))
           throw new Error("UNSUPPORTED_INPUT_MODALITY: opencode does not encode image input");
         if (invocationApprovalMode(request) === "assisted")
           throw new Error("APPROVAL_MODE_UNSUPPORTED: opencode has no qualified assisted policy");
-        // 目录与纯配置检查先于版本探针；启动进程后的失败不借用准备阶段清理证据。
+        // 启动前只做目录与纯配置检查；实际协议失败按执行结果报告，不以版本号拦截。
         inlineConfig(request, launch.env);
       });
-      request.signal?.throwIfAborted();
-      const selected = await probeOpenCode(
-        launch.command,
-        launch.env,
-        invocationWorkdir(request),
-        launch.args
-      );
-      if (!selected.available) throw new Error(selected.reason ?? "OpenCode is unavailable");
       request.signal?.throwIfAborted();
       if (invocationApprovalMode(request) === "ask") {
         if (interactiveAdapters.has(request.invocationId))
           throw new Error("INVOCATION_ALREADY_ACTIVE");
-        const interactive = createInteractive(selected.command);
+        const interactive = createInteractive();
         interactiveAdapters.set(request.invocationId, interactive);
         try {
           yield* interactive.invoke(request, context);

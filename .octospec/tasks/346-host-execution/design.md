@@ -20,7 +20,7 @@ tags: [architecture, adapter, metadata, envs, lifecycle]
 | `packages/octo-runtime-adapter-sdk/src/index.ts:100` 的 AdapterMetadata 只有类型、来源、协议、MCP/workspace 与描述字段 | 保留字段语义；需要构造前展示的内置模块导出静态 metadata，实际 Adapter 使用同一份声明，经过 defineAdapter 补齐协议默认值 |
 | 同文件 `:545` 的 probeCommand 遍历 PATH，`:348` 的 spawnJsonLines 在最终 spawn 前合并 process.env 并解析启动载体 | 把 PATH 发现移至宿主；保留“校验单一已选目标”的 helper；最终执行只消费已解析 command/参数，不隐式回读宿主环境重选程序 |
 | Codex Adapter 已要求 engine；初始 owner 默认 codex，按 Run 解析路径。#345 已把池改为一个服务，但仍有默认裸命令 | 保留 engine 注入和 #345 单服务；owner 强制显式启动目标与前缀，probe/启动/恢复同源 |
-| `packages/octo-runtime-adapter-opencode/src/index.ts:43,420` 默认 opencode；每轮 probeOpenCode 按本轮环境和 workdir 解析，再分别执行 run/acp | 工厂显式接收宿主绑定；保留版本范围 `>=2.1.3 <3` 和 ask/full_access 两种协议；两种路径与 probe 使用同一 executable/runtime，不按 envs/cwd 改选 |
+| `packages/octo-runtime-adapter-opencode/src/index.ts:43,420` 默认 opencode；每轮 probeOpenCode 按本轮环境和 workdir 解析，再分别执行 run/acp | 工厂显式接收宿主绑定；ask/full_access 两路和 probe 使用同一 executable/runtime，不按 envs/cwd 改选；按最新用户要求删除版本准入及调用前版本探针 |
 | `packages/octo-runtime-adapter-acp/src/index.ts:45,240` 的 definition 含 command，factory 默认 spawnAcpClient，probe 自动 PATH 查找 | definition 保留 type/provider/协议 args/env；实际 command 从宿主依赖输入；复用 acpClientFactory 注入口，不在注入 factory 后另起本地 PATH 探针 |
 | Hermes、Kimi、MCode、Qoder CLI/CN 的 `src/index.ts` 直接导出带裸命令的 ACP 实例 | 暴露显式构造工厂与静态 metadata，CLI 负责各自默认命令；删除库内零参默认安装选择，迁移所有仓内消费者 |
 | CodeBuddy、Claude Code、Antigravity 的 `src/index.ts` 工厂含默认裸 command 及 probeCommand | 改为显式绑定命令，保留各自协议实现、版本/输入检查与交互；不能只修改通用 ACP 而漏掉专用实现 |
@@ -68,7 +68,9 @@ const adapter = createOpenCodeAdapter({
 
 组合次序固定为“宿主 executable + 宿主前缀 argv + Adapter 协议 argv”。例如 npm JS 入口的 command 是宿主选定 Node 的绝对路径，前缀 argv 是该安装内的入口文件；Adapter 追加 `acp` 或 `run --format json ...`。普通原生程序的前缀 argv 为空。probe 使用同一 executable/前缀 argv 追加 `--version`，不能对 Node 本身做版本判断后误称 Provider 可用。
 
-CLI 调用显式宿主 helper `adapter-sdk/process-launch` 的 resolveHostProviderLaunch。它解析 PATH、Windows npm shim 和 POSIX Node 入口（包括无扩展名的简单 Node shebang）。带额外 shebang 参数的 Node 脚本要求宿主显式交付运行器和 argv，不猜测 shell 语法；其他解释器仍由宿主自行提供明确启动描述。版本命令执行失败返回 unavailable，不保留忽略失败探针的旧行为。
+CLI 调用显式宿主 helper `adapter-sdk/process-launch` 的 resolveHostProviderLaunch。它解析 PATH、Windows npm shim 和 POSIX Node 入口（包括无扩展名的简单 Node shebang）。带额外 shebang 参数的 Node 脚本要求宿主显式交付运行器和 argv，不猜测 shell 语法；其他解释器仍由宿主自行提供明确启动描述。
+
+通用 probe 只校验已选 command 的文件类型、执行权限与启动系统错误，不解释 argv 中的脚本入口。`--version` 非零退出、超时或无有效版本只返回 `available: true, version: null`，不能把可选版本命令当作所有 Provider 的执行门禁。2026-11-10 用户明确 OpenCode 升级不应影响 octo-runtime：OpenCode 不设置最低/主版本范围，也不拒绝预发布或未知版本；实际 invoke 不执行版本探针，直接进入宿主绑定的 JSON/ACP 协议。真实协议错误与启动错误按执行结果报告，失败不改选安装；probe 不证明握手或真实调用成功。
 
 绑定对象及 args/env 在构造时复制，避免调用方后续修改造成隐式换程序；不改全局 process.env。宿主主动换安装时重新构造依赖并处理旧 owner/会话，不从任何逐轮配置推导换绑。
 
@@ -99,7 +101,7 @@ CLI 显式选中的 manifest 集合不变。在实际服务宿主或 playboard �
 | 条件 | 目标行为 |
 | --- | --- |
 | SDK 本地工厂未传 launch / command 为空、含 NUL、非绝对路径 | 构造时 TypeError，建议稳定 reason 为 PROVIDER_LAUNCH_REQUIRED / PROVIDER_LAUNCH_INVALID；不启动探针，无 Run 时不合成 Run 失败 |
-| 所选文件缺失、无执行权限或不兼容 | probe unavailable；invoke 保留明确失败。既有 command-not-found、permission 和 protocol 分类分别复用 OH-ADP-3002/3003/3005；新增 reason 映射须与本地专项一起维护 |
+| 所选文件缺失、无执行权限或启动系统错误 | probe unavailable；invoke 保留明确失败。既有 command-not-found、permission 和 protocol 分类分别复用 OH-ADP-3002/3003/3005；新增 reason 映射须与本地专项一起维护；版本未知不属于此类失败 |
 | 已固定路径后启动失败 | 保留原 errno/cause、cwd 和可安全显示的目标；ENOENT 不自动推断为 executable 缺失，cwd 也可能失效；不 fallback |
 | 探针超时/取消或握手失败 | 关闭本次实际创建的探针/transport，沿用有界清理并保留 incomplete；不把 cleanup 请求当退出确认 |
 | 取消本轮或关闭一个 borrowing Core | 只释放所属 transport/channel；不关闭共享 Engine、不改变 Home |

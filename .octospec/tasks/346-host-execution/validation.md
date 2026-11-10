@@ -60,3 +60,26 @@ CLI 缺安装保留失败目标、原因和 ENOENT/EACCES；11 个命令 Adapter
 ## PR 交付授权
 
 2026-11-10 用户追加授权提交、推送及创建目标为 main 的 PR，明确禁止自动合并。提交前重新 fetch，origin/main 仍为 c7ae0256，无新增主线提交；diff whitespace 与 CI 范围检查通过。继续采用前述已完成的运行验证，后续仅修改本节等交付文档，不把旧实测表述为重新执行。commit/PR 使用英文，保留配置作者，commit 添加一次 Codex co-author trailer。此次授权不包含合并、发布或扩大 CI。
+
+## PR #347 修复与最新版本原则
+
+提交 e657ac0c 后的 CI run 42653323639 中，Linux/macOS 的 Node 24/26 四项通过，Windows Node 24/26 失败于既有 mixed-case 环境测试向 probe 传入裸命令，Gate 随之失败。现改为测试宿主先解析，再 probe 绝对绑定，原场景与 selector 不变。PR Title Lint、PR Labeler 当次 startup_failure 且无 job，独立于测试失败，继续核对新提交的运行。
+
+用户提供的 review 揭示两个此前遗漏：通用可选版本命令失败误报 unavailable，以及 actmode live 的默认导入失效。已修正通用 probe、脚本工厂装配与 owner 回收。OpenCode 初次本地重跑在版本探测阶段超时；Core received-config 用例单独通过，未复现 stdin end 本身故障。协议 fixture 改为宿主显式绑定 Node/入口，Core 核对具体失败码、文件回读和 cleanup，Grok 既有版本 fixture 同样消除 shell 启动延迟。
+
+用户进一步明确 OpenCode 升级不应影响 Runtime。最终删除 OpenCode 版本范围、未知版本拒绝及 invoke 前 --version；现有六种版本用例实际验证 JSON/ACP 成功，且只有显式 probe 会查询版本。删除过时的 V1 拒绝验收脚本，更新双语文档和规范。真实协议、进程与回收错误继续报告，不承诺上游破坏协议后自动兼容。
+
+本轮 macOS arm64、Node 24.22.2，源码为 e657ac0c 加本轮修复：
+
+| 检查 | 结果 |
+| --- | --- |
+| `pnpm typecheck`、`pnpm lint`、`pnpm lint:names` | 全部通过 |
+| `pnpm test:suites` | 1516 项：1455 通过、61 跳过、0 失败；默认检查范围未变 |
+| OpenCode/Grok/discovery/Windows 既有定向 + #346 手动专项 | 88 项：85 通过、3 原生 Windows 跳过、0 失败；手动专项现有 16 项，未纳入默认测试 |
+| `pnpm docs:check` | 类型、双语目录与 4 个执行示例通过 |
+| Standards / Spec 独立复核 | 两轴各 0 项剩余 finding；撤销前轮将所有版本探针失败视为不可用的错误判断 |
+| `node test/manual/host-execution-346-live.mjs --live` | OpenCode 2.1.3，deepseek/deepseek-flash；JSON 和 ACP 均 run.completed、markerObserved=true、cleanup complete |
+
+日志为 `/tmp/issue-347-typecheck-final.log`、`/tmp/issue-347-lint-final.log`、`/tmp/issue-347-names-final.log`、`/tmp/issue-347-suites-final.log`、`/tmp/issue-347-targeted-final-2.log`、`/tmp/issue-347-docs-final.log` 和 `/tmp/issue-347-opencode-live.log`。早期失败日志保留，不将其视为最终通过证据。
+
+`git diff origin/main -- .github package.json pnpm-lock.yaml` 仍为空；没有增加 workflow/job/matrix/trigger/status/Gate/default selector。本机没有原生 Windows/Electron；Windows 修复由原有远端矩阵复验。真实 Codex 和发行包的前轮结果仍仅对应 e657ac0c，本轮没有重跑那些场景。

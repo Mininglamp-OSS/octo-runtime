@@ -1,6 +1,8 @@
 import { resolveHostProviderLaunch } from "@mininglamp-oss/octo-runtime-adapter-sdk/process-launch";
 import assert from "node:assert/strict";
 import test from "node:test";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import {
   chmod,
   copyFile,
@@ -27,7 +29,7 @@ import { cliProviderLaunch } from "../../apps/cli/dist/provider-launch.js";
 import { loadCliAdapters } from "../../apps/cli/dist/adapters.js";
 import { invokeRequest, preparedFrames } from "../runtime-fixture.js";
 import { AgentExecutor } from "@mininglamp-oss/octo-runtime-executor-core";
-import { assertCanonicalEvent } from "@mininglamp-oss/octo-runtime-protocol";
+import { assertCanonicalEvent, canonicalEvents } from "@mininglamp-oss/octo-runtime-protocol";
 
 // 显式手动专项：隔离安装、轨迹和请求环境，不修改宿主 PATH 或默认测试选择范围。
 const posix = { skip: process.platform === "win32" };
@@ -181,15 +183,16 @@ test(
       commandArgsPrefix: launch.args,
       env: launch.env
     });
-    assert.equal((await adapter.probe()).available, false);
-    assert.equal(
-      (await probeCommand(launch.command, { args: launch.args, env: launch.env })).reason,
-      "version_probe_failed"
-    );
-    await assert.rejects(
-      Array.fromAsync(adapter.invoke(request(f.root, "full_access", f.b))),
-      /version_probe_failed/
-    );
+    assert.equal((await adapter.probe()).available, true);
+    // 通用探针不猜测 argv 中的 Node 入口；缺入口由实际执行结果报告。
+    assert.deepEqual(await probeCommand(launch.command, { args: launch.args, env: launch.env }), {
+      available: true,
+      command: launch.command,
+      version: null
+    });
+    const events = await Array.fromAsync(adapter.invoke(request(f.root, "full_access", f.b)));
+    assert.equal(events.at(-1).type, "run.failed");
+    assert.match(JSON.stringify(events), /Cannot find module/);
     for (const options of [
       { command: "" },
       { command: 42 },
@@ -200,6 +203,78 @@ test(
     await assert.rejects(readFile(f.trace), { code: "ENOENT" });
   }
 );
+
+test("probe keeps real spawn system failures unavailable", posix, async () => {
+  const probe = await probeCommand(process.execPath, { args: ["x".repeat(1024 * 1024)] });
+  assert.equal(probe.available, false);
+  assert.equal(probe.reason, "command_launch_failed");
+});
+
+for (const [name, versionCode] of [
+  ["nonzero exit", "process.exit(23)"],
+  ["timeout", "setInterval(() => {}, 1000); await new Promise(() => {})"]
+])
+  test(
+    `optional version ${name} preserves ACP availability and protocol execution`,
+    posix,
+    async (t) => {
+      const f = await installation(t);
+      await writeFile(
+        f.entry,
+        fixture.replace("console.log('2.1.3'); process.exit(0);", versionCode)
+      );
+      const launch = resolveHostProviderLaunch("opencode", { env: f.env, cwd: f.root });
+      const adapter = createAcpAdapter(
+        {
+          type: "optional-version",
+          provider: "fixture",
+          command: launch.command,
+          metadata: {
+            type: "optional-version",
+            agentSources: ["provisioned"],
+            protocolSupport: {
+              protocol: "fixture.canonical",
+              modes: ["canonical"],
+              nativeMethods: []
+            }
+          }
+        },
+        { commandArgsPrefix: launch.args, env: launch.env }
+      );
+      const core = new AgentExecutor();
+      core.register(adapter);
+      try {
+        const [description] = await core.describe();
+        assert.equal(description.available, true);
+        assert.equal(description.providerVersion, null);
+        const events = await Array.fromAsync(
+          canonicalEvents(
+            preparedFrames(core, "optional-version", request(f.root, "full_access", f.b), {
+              protocolMode: "canonical"
+            })
+          )
+        );
+        assert.ok(events.some((event) => event.type === "run.completed"));
+        assert.match(JSON.stringify(events), /BOUND_A/);
+      } finally {
+        assert.equal((await core.shutdown()).cleanup, "complete");
+      }
+    }
+  );
+
+test("actmode verification startup uses factories and closes host-owned resources", async () => {
+  const { stdout } = await promisify(execFile)(
+    process.execPath,
+    [
+      fileURLToPath(new URL("../../scripts/verify-actmode-live.mjs", import.meta.url)),
+      "--check-startup"
+    ],
+    { env: { ...process.env, PATH: "" }, timeout: 15_000 }
+  );
+  const receipt = JSON.parse(stdout);
+  assert.equal(receipt.cleanup, "complete");
+  assert.deepEqual(receipt.adapters, ["claude-code", "codex", "kimi-code", "mcode", "opencode"]);
+});
 
 test(
   "host pins extensionless Node scripts and accepts execute-only native binaries",

@@ -29,14 +29,19 @@ import {
 import { AgentExecutor } from "@mininglamp-oss/octo-runtime-executor-core";
 import { invocationInput } from "@mininglamp-oss/octo-runtime-protocol";
 import { invokeRequest } from "./runtime-fixture.js";
-// 实际子进程验证选择路径和版本门禁，不安装或替换宿主 Provider。
+// 实际子进程验证宿主选择、协议与可选版本展示，不安装或替换宿主 Provider。
 async function executable(t, body) {
   const directory = await mkdtemp(join(tmpdir(), "octo-opencode-fixture-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const command = join(directory, "opencode");
   await writeFile(command, `#!${process.execPath}\n${body}`);
   await chmod(command, 0o700);
-  return { directory, command };
+  // fixture 宿主显式绑定 Node 与入口；协议测试不依赖 OS shebang 启动延迟。
+  return {
+    directory,
+    command,
+    options: { command: process.execPath, commandArgsPrefix: [command], env: { ...process.env } }
+  };
 }
 const posix = { skip: process.platform === "win32" };
 test("OpenCode only maps explicitly recognized tool terminal states", () => {
@@ -139,9 +144,8 @@ test("host selection uses platform PATH, extension and cwd before executable pro
       );
       if (process.platform !== "win32") assert.equal(probe.command, process.execPath);
       assert.equal(probe.version, process.versions.node);
-      // Windows 使用原生 exe，POSIX 保持 Node 安装位置；两者都必须明确拒绝 Node 版本。
-      assert.equal(probe.available, false);
-      assert.match(probe.reason, /OPENCODE_VERSION_UNSUPPORTED/);
+      // 探测只描述已选程序；版本号不证明协议兼容，也不作为准入名单。
+      assert.equal(probe.available, true);
       assert.deepEqual(
         Object.entries(env).filter(([key]) => ["PATH", "PATHEXT"].includes(key.toUpperCase())),
         original
@@ -166,26 +170,36 @@ test("host selection uses platform PATH, extension and cwd before executable pro
 });
 for (const version of ["1.18.30", "2.0.0", "2.1.2", "2.1.3-beta", "3.0.0", "unparseable"]) {
   test(
-    `OpenCode ${version} is rejected during probe and direct invocation on both transports`,
+    `OpenCode ${version} remains executable on both transports without invocation version checks`,
     posix,
     async (t) => {
       const fixture = await executable(
         t,
-        `if(process.argv[2]==="--version"){console.log(${JSON.stringify(version)});process.exit(0)} throw Error("must not start transport");`
+        `const fs=require('node:fs');
+if(process.argv[2]==="--version"){
+ fs.appendFileSync(require('node:path').join(__dirname,'version-calls'),'probe\\n');
+ console.log(${JSON.stringify(version)});process.exit(0);
+}
+const send=value=>console.log(JSON.stringify(value));
+if(process.argv.includes('run')) {
+ process.stdin.resume();process.stdin.on('end',()=>{
+  send({type:'text',part:{type:'text',text:'VERSION_INDEPENDENT'}});
+ });
+} else require('node:readline').createInterface({input:process.stdin}).on('line',line=>{
+ const m=JSON.parse(line);if(m.id===undefined||!m.method)return;
+ if(m.method==='session/prompt'){
+  send({jsonrpc:'2.0',method:'session/update',params:{sessionId:'version-test',update:{sessionUpdate:'agent_message_chunk',content:{type:'text',text:'VERSION_INDEPENDENT'}}}});
+  send({jsonrpc:'2.0',id:m.id,result:{stopReason:'end_turn'}});
+ } else send({jsonrpc:'2.0',id:m.id,result:m.method==='initialize'?{protocolVersion:1,agentCapabilities:{}}:m.method==='session/new'?{sessionId:'version-test'}:{}});
+});`
       );
-      const adapter = createOpenCodeAdapter({ env: process.env, command: fixture.command });
+      const adapter = createOpenCodeAdapter(fixture.options);
       const probe = await adapter.probe();
-      assert.equal(probe.available, false);
-      assert.match(
-        probe.reason,
-        version === "unparseable"
-          ? /OPENCODE_VERSION_DETECTION_FAILED/
-          : /OPENCODE_VERSION_UNSUPPORTED/
-      );
-      if (version.startsWith("1.")) assert.match(probe.reason, /OpenCode 1 is no longer supported/);
+      assert.equal(probe.available, true);
+      assert.equal(probe.version, version === "unparseable" ? null : version);
       for (const approvalMode of ["ask", "full_access"]) {
-        await assert.rejects(async () => {
-          for await (const _ of adapter.invoke(
+        const events = await Array.fromAsync(
+          adapter.invoke(
             invokeRequest({
               agentEnv: withAgentEnvItems(undefined, [
                 {
@@ -195,25 +209,29 @@ for (const version of ["1.18.30", "2.0.0", "2.1.2", "2.1.3-beta", "3.0.0", "unpa
                 }
               ])
             })
-          )) {
-            /* drain */
-          }
-        }, /OPENCODE_VERSION_/);
+          )
+        );
+        assert.equal(events.at(-1).type, "run.completed");
+        assert.match(JSON.stringify(events), /VERSION_INDEPENDENT/);
       }
+      assert.equal(await readFile(join(fixture.directory, "version-calls"), "utf8"), "probe\n");
     }
   );
 }
-test("version detection failure and timeout fail closed", posix, async (t) => {
-  for (const body of ["process.exit(1)", "setTimeout(()=>{},10000)"]) {
-    const fixture = await executable(t, body);
-    const started = Date.now();
-    assert.match(
-      (await probeOpenCode(fixture.command)).reason,
-      /OPENCODE_VERSION_DETECTION_FAILED|version_probe_failed/
-    );
-    assert.ok(Date.now() - started < 5000);
+test(
+  "version detection failure and timeout leave the selected executable available",
+  posix,
+  async (t) => {
+    for (const body of ["process.exit(1)", "setTimeout(()=>{},10000)"]) {
+      const fixture = await executable(t, body);
+      const started = Date.now();
+      const probe = await createOpenCodeAdapter(fixture.options).probe();
+      assert.equal(probe.available, true);
+      assert.equal(probe.version, null);
+      assert.ok(Date.now() - started < 5000);
+    }
   }
-});
+);
 test("invocation consumes the host selection and keeps it through execution", posix, async (t) => {
   const fixture = await executable(
     t,
@@ -280,10 +298,7 @@ console.log(JSON.stringify({type:"text",part:{type:"text",text:"partial"}}));
 console.log(JSON.stringify({type:"step_finish",part:{reason:"stop"}}));process.exitCode=7;`
   );
   const events = [];
-  for await (const event of createOpenCodeAdapter({
-    env: process.env,
-    command: fixture.command
-  }).invoke(
+  for await (const event of createOpenCodeAdapter(fixture.options).invoke(
     invokeRequest({
       agentEnv: withAgentEnvItems(undefined, [
         { namespace: "octo.security", name: "approval_policy", payload: { mode: "full_access" } }
@@ -308,7 +323,8 @@ process.stdin.resume();process.stdin.on("end",()=>console.log(JSON.stringify({ty
     );
     const cwd = await executable(
       t,
-      `if(process.argv[2]==="--version"){console.log("1.18.30");process.exit(0)}throw Error("must not execute V1");`
+      `if(process.argv[2]==="--version"){console.log("1.18.30");process.exit(0)}
+process.stdin.resume();process.stdin.on("end",()=>console.log(JSON.stringify({type:"text",part:{text:process.argv[1]}})));`
     );
     for (const entries of [
       [selected.directory, "."],
@@ -325,7 +341,8 @@ process.stdin.resume();process.stdin.on("end",()=>console.log(JSON.stringify({ty
       const probe = await probeOpenCode(launch.command, launch.env, cwd.directory, launch.args);
       assert.equal(await realpath(launch.args[0]), await realpath(expected.command));
       assert.equal(probe.command, process.execPath);
-      assert.equal(probe.available, expected === selected);
+      assert.equal(probe.available, true);
+      assert.equal(probe.version, expected === selected ? "2.1.3" : "1.18.30");
       const request = invokeRequest({
         executionEnvOverrides: { env_variables: [{ key: "PATH", value: PATH }] },
         agentEnv: withAgentEnvItems(undefined, [
@@ -338,21 +355,12 @@ process.stdin.resume();process.stdin.on("end",()=>console.log(JSON.stringify({ty
         commandArgsPrefix: launch.args,
         env: launch.env
       });
-      if (expected === cwd) {
-        assert.match(probe.reason, /OPENCODE_VERSION_UNSUPPORTED/);
-        await assert.rejects(async () => {
-          for await (const _ of adapter.invoke(request)) {
-            /* drain */
-          }
-        }, /OPENCODE_VERSION_UNSUPPORTED/);
-      } else {
-        const events = await Array.fromAsync(adapter.invoke(request));
-        assert.equal(
-          events.find((event) => event.type === "message.delta").payload.text,
-          launch.args[0]
-        );
-        assert.equal(events.at(-1).type, "run.completed");
-      }
+      const events = await Array.fromAsync(adapter.invoke(request));
+      assert.equal(
+        events.find((event) => event.type === "message.delta").payload.text,
+        launch.args[0]
+      );
+      assert.equal(events.at(-1).type, "run.completed");
     }
   }
 );
@@ -406,7 +414,7 @@ for (const { name, frames, terminal } of [
 process.stdin.resume();process.stdin.on("end",()=>{for(const frame of ${JSON.stringify(frames)})console.log(JSON.stringify(frame));});`
       );
       const events = await Array.fromAsync(
-        createOpenCodeAdapter({ env: process.env, command: fixture.command }).invoke(
+        createOpenCodeAdapter(fixture.options).invoke(
           invokeRequest({
             agentEnv: withAgentEnvItems(undefined, [
               {
@@ -441,7 +449,7 @@ process.stdin.resume();process.stdin.on("end",()=>{
 });`
     );
     const core = new AgentExecutor();
-    core.register(createOpenCodeAdapter({ env: process.env, command: fixture.command }));
+    core.register(createOpenCodeAdapter(fixture.options));
     t.after(() => core.shutdown());
     const events = await Array.fromAsync(
       core.invoke(
@@ -470,6 +478,10 @@ process.stdin.resume();process.stdin.on("end",()=>{
         .filter((event) => ["run.completed", "run.failed", "run.cancelled"].includes(event.type))
         .map((event) => event.type),
       ["run.failed"]
+    );
+    assert.equal(
+      events.find((event) => event.type === "run.failed").payload.code,
+      "OPENCODE_INCOMPLETE_OUTPUT"
     );
     assert.equal((await core.shutdown()).cleanup, "complete");
     const config = JSON.parse(await readFile(join(fixture.directory, "received-config"), "utf8"));
@@ -616,7 +628,7 @@ test("ACP only qualifies ordinary invocation errors after successful transport c
 });
 test("OpenCode accepts a version banner after extracting its stable version", posix, async (t) => {
   const fixture = await executable(t, 'console.log("opencode v2.1.3");');
-  const probe = await probeOpenCode(fixture.command);
+  const probe = await createOpenCodeAdapter(fixture.options).probe();
   assert.equal(probe.available, true);
   assert.equal(probe.version, "2.1.3");
 });

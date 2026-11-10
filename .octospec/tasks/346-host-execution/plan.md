@@ -26,7 +26,7 @@ M0-M3 已实施，M4 检查结果逐项记入 validation。新专项入口为 `t
 | A03 | A 损坏、消失、权限拒绝或版本不兼容时，B 的启动计数为 0；probe 不寻找下一候选，失败分类保真 | 同上；权限场景按实际 OS 记录 |
 | A04 | 本地 npm 启动为选定 Node + JS 前缀 argv + 协议 argv；--version 校验 Provider 而非 Node；空格/Unicode 参数逐项保留、shell=false | 同上，fixture argv/版本与最终 command |
 | A05 | 宿主基础 env、Run envs、overrides、固定协议变量按既有顺序合并；envs/MCP 和 OPENCODE_CONFIG_CONTENT 仍生效，绑定对象构造后被修改不影响执行 | 同上，快照、并发与脱敏断言 |
-| A06 | OpenCode ask/acp 与 full_access/json 使用同一绑定，保留版本范围、审批、MCP 与 final；不得只测其中一路 | 新专项及现有 `test/opencode-v2.test.js`、审批相关测试 |
+| A06 | OpenCode ask/acp 与 full_access/json 使用同一绑定，保留审批、MCP 与 final；按最新用户原则无版本准入与调用前版本探针，旧版/新版/预发布/未知版本均实际验证两路协议，不只测一路 | 新专项及现有 `test/opencode-v2.test.js`、审批相关测试 |
 | A07 | Codex probe/启动/恢复使用同一 owner 绑定；不同 PATH/cwd 不换 executable；关闭一个 Core 不终止兄弟通道，owner 最终关闭 | 新专项及 #339 显式生命周期入口；#343 并发单列 |
 | A08 | 标准 ACP、CodeBuddy 与 Grok 专用 client 的启动失败/取消/断流均回收本轮资源；close 失败如实 incomplete，不吞原失败 | 新专项及 `test/acp-transport-failure.test.js`、Grok 回归 |
 | A09 | 注入 ACP factory 或 Codex provider 时不进行本地命令发现；容器/远程位置由 factory/provider 闭包决定，不 stat 远端路径；协议 lease close 不关闭共享资源 | 新专项注入的 transport/provider 轨迹；真实远程不在本任务能力承诺内 |

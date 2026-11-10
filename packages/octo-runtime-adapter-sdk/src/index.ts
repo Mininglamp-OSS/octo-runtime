@@ -540,7 +540,8 @@ export function createJsonCliAdapter<TNative = Record<string, unknown>>(
 
 /**
  * 探测宿主已绑定的绝对启动链；不搜索安装，版本参数接在宿主前缀参数之后。
- * 返回可用性和版本；文件缺失与权限不足分别报告，失败不选择其他安装。
+ * 返回目标可执行性和可选版本；版本命令失败不等于目标不可用，版本门禁由 Provider 决定。
+ * 文件缺失与权限不足分别报告，失败不选择其他安装，也不解释前缀参数中的入口。
  */
 export async function probeCommand(
   command: string,
@@ -570,17 +571,19 @@ export async function probeCommand(
       version =
         output.match(/(?:^|\s)v?(\d+\.\d+(?:\.\d+)?(?:[-+][A-Za-z0-9.-]+)?)(?=\s|$)/)?.[1] ?? null;
     } catch (error) {
-      const code = (error as NodeJS.ErrnoException).code;
-      return {
-        available: false,
-        command,
-        reason:
-          code === "EACCES" || code === "EPERM"
-            ? "permission_denied"
-            : code === "ENOENT" || code === "ENOTDIR"
-              ? "command_not_found"
-              : "version_probe_failed"
-      };
+      const { code, syscall } = error as NodeJS.ErrnoException;
+      // spawn 的系统错误表明目标不能启动；非零退出、超时或输出过大只使版本未知。
+      if (syscall?.startsWith("spawn"))
+        return {
+          available: false,
+          command,
+          reason:
+            code === "EACCES" || code === "EPERM"
+              ? "permission_denied"
+              : code === "ENOENT" || code === "ENOTDIR"
+                ? "command_not_found"
+                : "command_launch_failed"
+        };
     }
     return { available: true, command: resolve(candidate), version };
   } catch (error) {

@@ -39,3 +39,18 @@ tags: [architecture, adapter, review]
 失败目标、ENOENT/EACCES 分类、启动链与探针同源问题、helper 子路径和 live fixture 重复导入均已修复。Reviewer 独立重跑 #346 的 12 项全部通过，并检查两份 live fixture 语法。metadata/schema、单 owner 生命周期及 CI 范围符合约定。
 
 真实 OpenCode ACP 另暴露并修复基线 diagnostic severity 与协议不符；专项 assertCanonicalEvent 和真实重跑通过。当前 Standards 0、Spec 0，两轴无未关闭的最高严重问题；最终检查和真实环境边界见 [validation](validation.md)。
+
+## PR #347 追加反馈
+
+以上为提交 e657ac0c 的交付前审查，存在漏检，不代表远端审查已批准。2026-11-10 用户要求修复 CI，并提供两条 P1 与一条 P2 review；Windows 既有测试另有失败。
+
+- P1：通用 probe 误把可选版本失败作为不可用。恢复 executable 可用与版本未知的区分，不推测 Node 前缀参数，也不回退安装。新增显式手动 ACP/Core 回归覆盖版本非零退出和超时后协议执行成功；E2BIG 等实际 spawn 系统错误仍报告不可用。
+- P1：OpenCode received-config 缺失。修复前本机复现版本探测在 2 秒超时导致尚未执行 transport；相关 Core 用例单独重跑通过，没有证据表明 stdin end/close 本身失效。fixture 宿主显式绑定 Node/入口，并增加具体 OPENCODE_INCOMPLETE_OUTPUT 断言；现有文件回读与 cleanup 断言继续验证输入结束和退出。
+- P2：actmode live 入口仍引用已删除的默认导出。改为复用 CLI 宿主工厂，并在 Executor 关闭后关闭 Codex owner；手动离线 startup 检查验证缺安装时仍完成装配与回收。
+- Windows CI：混合大小写环境测试先调用宿主 resolveHostProviderLaunch，再向 probe 传入固定绝对路径；保留原场景和检查范围。
+
+本轮复核与 CI 的实际结果以 validation 追加记录为准，不将旧 review 的零 finding 继续作为本轮结论。
+
+用户随后明确 OpenCode 升级不应影响 octo-runtime，取代初始保留版本范围的方案。删除最低/主版本范围与未知版本拒绝、invoke 前的版本探测，以及已过时的 V1 拒绝验收脚本；双语指南同步。现有版本用例改为新旧版本、预发布和未知版本均能执行 JSON/ACP，并检查实际 invoke 没有额外调用 --version。该原则不影响真实协议失败和资源回收结果的报告。
+
+本轮最终 Standards 0、Spec 0。Standards 独立验证 12 项相关用例，Spec 复核两路 launch/版本/清理及文档。撤销前轮“版本失败一律不可用”的判断；Windows helper 补 cwd 符合参数合同，但绝对 PATH 下未传 cwd 并未复现故障，不计为新增 P1。真实 Windows 由既有远端矩阵验证，未宣称本机已验。

@@ -2,11 +2,11 @@
 
 [简体中文](README.zh.md) | [Packages](../README.md)
 
-Runs one invocation through the OpenCode v2 CLI, choosing the transport by approval mode: JSON output for `full_access`, ACP for `ask`. Both paths end in `CanonicalEvent`. Version checks, config mapping, and completion rules stay here instead of leaking into Core.
+Runs one invocation through the OpenCode CLI, choosing the transport by approval mode: JSON output for `full_access`, ACP for `ask`. Both paths end in `CanonicalEvent`. Config mapping and completion rules stay here instead of leaking into Core.
 
 ## When to use it
 
-- OpenCode 2.1.3 or newer, still below 3.0, is installed and authenticated.
+- OpenCode is installed and authenticated, with the CLI JSON or ACP protocol used below.
 - You want ACP behaviour for `ask` and the simpler CLI JSON path for unattended runs.
 - You do not need image input; `assisted` is not supported either.
 
@@ -53,9 +53,9 @@ const input = InvokeInput.check({
 
 ## Limits
 
-- Supported versions are detected `>=2.1.3 <3`. Undetectable or unsupported versions fail; the range is compatibility, not a claim that every release was tested.
+- Versions are optional diagnostic metadata. Upgrades, prereleases and unknown versions are not rejected, and invocation does not run `--version`. Protocol or process failures are reported from actual execution.
 - `assisted` and image input are rejected.
-- The executable actually selected in the invocation's cwd and environment is what gets checked.
+- Probe and invocation use the host-bound executable, runtime, prefix arguments and environment; request PATH/cwd cannot reselect it.
 - Configuration is merged through `OPENCODE_CONFIG_CONTENT`; user files are not rewritten, and `cwd` and `PWD` stay consistent.
 - CLI success requires a normal exit **and** final text. A tool or step stopping is not Run success.
 - Native permission denials stay in force.

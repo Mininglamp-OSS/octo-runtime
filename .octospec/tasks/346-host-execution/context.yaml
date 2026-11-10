@@ -12,6 +12,7 @@ authorization:
   - Finish spec, implement, and perform code review.
   - Rebase latest main, remove compatibility layers, and keep executable discovery in CLI.
   - On 2026-11-10, commit and push the changes and create an English PR targeting main; do not merge.
+  - Fix PR 347 CI and review findings; OpenCode upgrades must not require Runtime version admission changes.
 boundaries:
   - Runtime implementation, local validation and review are authorized.
   - Commit, push and PR creation are authorized; merge, publication and CI expansion are not.
@@ -72,6 +73,8 @@ verification:
   knowledge_lint: isolated uv PyYAML runtime; final results in validation.md
   diff_check: passed
   ci_scope_diff: empty
-  implementation_tests: '1516 tests: 1455 passed, 61 skipped, 0 failed; 65 manual tests passed'
+  implementation_tests: 'Latest repair: 1516 tests, 1455 passed, 61 skipped; 88 targeted/manual tests, 85 passed, 3 native Windows skipped'
   review: 'Standards 0 remaining; Spec 0 remaining'
   details: validation.md
+pull_request: https://github.com/Mininglamp-OSS/octo-runtime/pull/347
+latest_decision: OpenCode has no version admission gate or pre-invocation version probe; versions are diagnostic only.
