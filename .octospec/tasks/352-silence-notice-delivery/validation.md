@@ -22,3 +22,11 @@ tags: [validation, silence, race, release]
 最终 `uv run --with pyyaml python .octospec/scripts/lint.py` 通过：765 个 OKF 单元、20 条规则、3547 个本地链接。临时文档 lint 检查 9 个变更 Markdown、4 个 JSON 示例、2 个通知示例，元数据检查 6 个知识 Markdown；共 7 个负向种子检出，0 发现。`git diff --check` 通过。临时脚本仅用于本地专项，系统可能清理它们；永久回归保存在 test/manual。相对 origin/main 的 `.github/`、package.json、pnpm-lock.yaml 无 diff；没有新 workflow、job、矩阵、触发器、必需状态或默认专项测试入口。未执行真实 Provider、Gateway 或 Windows/Electron 验收；未合并或正式发布。
 
 提交前核对远端旧 head ab9762dc 的实际检查：Ubuntu/macOS Node 24/26 构建测试打包、Windows Node 24/26 发布包检查，以及既有 dependency-review、history、label、pr-title-lint、secret-scan 和 CI Gate 均成功。该结果只属于旧 head；修复提交将由既有检查重新运行，未增加检查项。
+
+# Windows CI 失败跟进
+
+[4bb30c53 的 CI](https://github.com/Mininglamp-OSS/octo-runtime/actions/runs/42860129644) 中，Ubuntu/macOS Node 24/26 全部成功；Windows Node 24/26 均在既有文件权限检查失败，CI Gate 随之失败。合计 4 次 ACL 读取均在约 10 秒被 execFile 终止，killed=true、signal=SIGTERM、stdout/stderr 为空。之后同 helper 的模块路径用例成功；证据确认子进程预算耗尽，但不能区分 PowerShell 启动和模块加载各自耗时。
+
+测试 ACL 查询与负向 Set-Acl 的有限预算调整为 30 秒；嵌套 Node 外层为 45 秒。专项子 Agent 独立核对全部调用方、错误传播和外层期限，无未关闭发现。权限正负断言、模块隔离与非零失败保持，未添加重试或平台跳过。
+
+本地执行与失败步骤相同的 4 个测试文件：18 通过、1 个 Windows 专用用例按既有条件跳过、0 失败；Prettier 检查通过。真实 Windows 由推送后的既有 CI 验证，本地结果不能替代。相对 origin/main 的 workflow、package.json 和 lockfile 无 diff。
