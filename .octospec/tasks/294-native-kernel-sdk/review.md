@@ -28,7 +28,7 @@ Core 登记实际 Promise/thenable，describe 走同一 probe 入口；shutdown 
 文档现分为三个页面：
 
 1. [SDK 服务接入](../../../docs/zh-CN/getting-started/sdk.md)：KernelService 与 ChannelGateway ExtraService 分章，只有服务装配、初始化、状态和关闭。
-2. [高级依赖](../../../docs/zh-CN/guides/sdk-dependencies.md)：loadContexts 的内存/文件场景、createSessionStore 的宿主存储工厂、自定义 Extra 模型目录函数；明确 Gateway 仅声明两个公开依赖。
+2. [高级依赖](https://github.com/Mininglamp-OSS/octo-runtime/blob/d63ad1fae599e0ab85a0ce24e01ed75db003ea60/docs/zh-CN/guides/sdk-dependencies.md)：loadContexts 的内存/文件场景、createSessionStore 的宿主存储工厂、自定义 Extra 模型目录函数；明确 Gateway 仅声明两个公开依赖。
 3. [可选 AgentRun 使用](../../../docs/zh-CN/guides/agent-runs.md)：invoke、事件、交互和取消，非接入条件。
 
 Adapter 工厂盘点：13 个内置 Adapter 中 8 个已有专用 create 工厂；Hermes、Kimi Code、MCode、QoderCLI、QoderCLICN 导出默认 ACP 实例。本轮未把“是否全部已有工厂”的询问解释为新增工厂授权。

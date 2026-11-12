@@ -26,6 +26,6 @@ mcode --version
 
 Start Runtime with `octo-runtime start`, then use [SDK integration](../../getting-started/sdk.md) to invoke the `mcode` Adapter. MiniMax Code owns model selection; Runtime does not send a per-session model setter.
 
-For invocation-specific proxies, use `octo.execution/envs` in `agentEnv.items`; see [Invocation Environment](../context-and-sessions.md). Verify proxy support with the installed MiniMax Code version. Send a short request and confirm the answer and successful terminal event; installation probes alone do not establish model access. This documentation update performs no live MiniMax Code acceptance.
+For invocation-specific proxies, use `octo.execution/envs` in `agentEnv.items`; see [Invocation Environment](../context-and-sessions.md). Verify proxy support with the installed MiniMax Code version. Send a short request and confirm the answer and successful terminal event; installation probes alone do not establish model access.
 
 [Adapter details](../../../../packages/octo-runtime-adapter-mcode/README.md) · [Support matrix](../../reference/providers.md)

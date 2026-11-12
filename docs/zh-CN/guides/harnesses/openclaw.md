@@ -21,8 +21,8 @@ Runtime 连接已运行的 Gateway，不代启它。按包内私有合同选择�
 
 此 Adapter 拒绝非空逐轮 envs；不要复制其他 Harness 的代理 Context。代理应配置在独立 OpenClaw Gateway 的启动环境，并按其服务方式重启。OpenClaw Gateway 是 Provider 服务，与 Octo Channel Gateway 不同。
 
-## 排查与验收边界
+## 排查
 
-先分别检查原生登录、模型权限、代理可达性，再检查调用配置。遇到失败保留脱敏错误、Harness 版本、Runtime 构建版本及实际终态；不要用另一 Harness 的通过结果替代。此前 Harness 专项仅验证 Antigravity 的配置到真实模型链路；本次文档更新不新增真实 Provider 验收。
+先分别检查原生登录、模型权限、代理可达性，再检查调用配置。遇到失败保留脱敏错误、Harness 版本、Runtime 构建版本及实际终态；不要用另一 Harness 的通过结果替代。
 
 [Adapter 说明](../../../../packages/octo-runtime-adapter-openclaw/README.zh.md) · [支持范围](../../reference/providers.md)

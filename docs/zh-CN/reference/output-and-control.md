@@ -21,11 +21,103 @@
 
 Codex 的非空且完成的 `final_answer` 在无活动工作、无同步交互时，可于 15 秒 finalization fallback 后确认 completed。新工作、取消或已知错误使资格失效。确认后的成功不会被后续中断/退订失败改写，但清理仍独立报告 failed/incomplete。其他 Adapter 保持原有完成规则。轮次释放不关闭常驻 app-server。
 
+## CanonicalEvent
+
+### 示例
+
+```json
+[
+  { "protocolVersion": 2, "type": "message.delta", "payload": { "messageId": "m1", "channel": "final", "text": "Done." } },
+  { "protocolVersion": 2, "type": "tool_call.create", "payload": { "id": "t1", "name": "read_file", "args": { "path": "README.md" }, "status": "running" } },
+  { "protocolVersion": 2, "type": "tool_call.update", "payload": { "id": "t1", "status": "completed", "output": "Project description." } },
+  { "protocolVersion": 2, "type": "run.completed", "payload": {} }
+]
+```
+
+### Payload 定义
+
+事件包含必填 `protocolVersion: 2`、`type` 和对象 `payload`。以下列出全部 23 个事件类型及其用途；下表后的字段定义补充类型与必填约束。
+
+| 类型                    | 分组        | 何时出现                                   | payload 关键字段                                                                              |
+| ----------------------- | ----------- | ------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| `run.queued`            | run         | 已接纳、等待执行；预留，当前没有内置发送方 | —                                                                                             |
+| `run.started`           | run         | 开始执行；同 `run.queued`，预留            | —                                                                                             |
+| `run.completed`         | run         | 正常结束——唯一的成功终态                   | —                                                                                             |
+| `run.failed`            | run         | 执行失败                                   | `message`、`code`、`adapterType`；可能附带标准化 `failure`                                    |
+| `run.cancelled`         | run         | 被取消，或流被中止                         | —                                                                                             |
+| `message.create`        | message     | 一条消息开始                               | `messageId`、`role`、`channel`                                                                |
+| `message.delta`         | message     | 增量文本                                   | `text`、`channel`、`messageId`                                                                |
+| `message.update`        | message     | 整段替换或状态更新                         | `text`、`status`、`messageId`                                                                 |
+| `model_step.started`    | step        | 一轮模型调用开始                           | `stepId`、`startedAtMs`                                                                       |
+| `model_step.finished`   | step        | 该轮结束                                   | `stepId`、`status`、`finishReason`                                                            |
+| `tool_call.create`      | tool        | 工具调用开始                               | `id`、`name`、`args`、`status: "running"`                                                     |
+| `tool_call.delta`       | tool        | 参数或输出的流式片段                       | `id`，以及 `argsDelta`、`outputDelta`、`outputSnapshot` 之一                                  |
+| `tool_call.update`      | tool        | 工具调用进入终态                           | `id`、`status`、`output`、`error`、`exitCode`                                                 |
+| `tool_call.progress`    | tool        | 长任务的进度                               | `id`、`progress`（`message`、`completed`、`total`、`unit`）                                   |
+| `activity.started`      | activity    | 思考、执行、等待审批或输入                 | `activityId`、`kind`、`subject`、`source`、`info`                                             |
+| `activity.updated`      | activity    | 活动信息刷新                               | `activityId`、`info`                                                                          |
+| `activity.finished`     | activity    | 活动结束                                   | `activityId`、`status`                                                                        |
+| `plan.updated`          | plan        | 整体替换计划                               | `planId`、`revision`、`steps[]`                                                               |
+| `run.notice`            | notice      | 重试、上下文压缩、改道、配置告警、模型静默           | `noticeId`、`code`、`severity`、`params`                                                      |
+| `interaction.requested` | interaction | 需要审批、回答或补充输入                   | `interactionId`、`kind`、`expiresAt`、`request`                                               |
+| `interaction.resolved`  | interaction | 已处理、已过期或已失效                     | `interactionId`、`status`、`outcome`、`reasonCode`                                            |
+| `session.update`        | state       | Provider 会话信息变化                      | `providerSession`                                                                             |
+| `usage.update`          | state       | 本轮 token 用量                            | Adapter 归一的计数，如 `inputTokens`、`outputTokens`，可选 `cumulative`、`modelContextWindow` |
+
+| Payload 字段 | 定义 |
+| --- | --- |
+| 消息字段 | messageId、role、text 为 string；channel 为 analysis/commentary/final；exposure 为 public_reasoning/public_summary/public_plan/private_reasoning/unknown。具体 Provider 可补充结构化字段。 |
+| `model_step.started / finished` | 必填非空 stepId；finished 必填 status=completed/failed/cancelled。可选 startedAtMs/endedAtMs 为正安全整数，finished 可选 finishReason 字符串。 |
+| `tool_call.create` | 必填 id、name 非空字符串、args 对象和 status="running"。 |
+| `tool_call.delta` | id 非空；至少提供 argsDelta、outputDelta 或 outputSnapshot 中的字符串字段。argsDelta 按顺序拼接后解析；outputSnapshot 整段替换。 |
+| `tool_call.update` | 必填 id 和终态 status=completed/failed/cancelled；可选 output 为 JSON、error 为对象、exitCode 为整数、durationMs 为非负安全整数。 |
+| `tool_call.progress` | 必填 id 和 progress 对象；progress 可含 message（最多 4096 码点）、completed（非负安全整数）、total（正安全整数）、unit=items/bytes/steps。 |
+| `activity.started` | 必填 activityId、kind、subject、source、info；kind 为 starting/thinking/executing_tool/responding/waiting_approval/waiting_input/compacting/retrying/working；source 为 provider/harness。可选 startedAtMs。 |
+| `activity.updated / finished` | updated 必填 activityId 和 info；finished 必填 activityId 和 status=completed/failed/cancelled/superseded，可选 endedAtMs。活动时间戳为非负安全整数。 |
+| `plan.updated` | 必填 planId、正安全整数 revision、explanation（string 或 null）、steps 数组（最多 200 项）。每步含非空 text（最多 4096 码点）和 status=pending/in_progress/completed/blocked/cancelled。 |
+| `run.notice` | 必填 noticeId、code、severity=info/warning、params 对象；code 为 retry_scheduled/context_compacted/model_rerouted/config_warning/provider_diagnostic/model_output_idle。params 值为 string/number/boolean，可选 relatedActivityId/relatedItemId。 |
+| `interaction.requested / resolved` | 见本页交互定义；interactionId 和 executionInstanceId 必填非空字符串，最长 191 码点。 |
+| `session.update` | providerSession 为完整 ProviderSession，保存后用于显式恢复，见 [Invoke API](invoke-input.md)。 |
+| `usage.update` | Adapter 提供 inputTokens/outputTokens 等计数，可含 cumulative、modelContextWindow；字段缺失不表示零。 |
+
+activity 的 activityId、planId、工具进度 id 和 noticeId 最长 191 码点。subject、info、provenance 和 failure 的嵌套结构见[协议 Schema](../../../packages/octo-runtime-protocol/schema/protocol.schema.json)。输出字段开放性与事件专属语义分别校验，不能从一个事件推断所有事件具有相同的必填字段。
+
+### 注意事项
+
+run.queued 和 run.started 在类型集中预留，当前无内置发送方。只有 run.completed/run.failed/run.cancelled 是 canonical 终态。消息、工具完成、取消 ACK、进程退出和流 EOF 均不等于 Run 成功。
+
+final 文本可先于终态返回。analysis 只在 exposure 为 public_reasoning、public_summary 或 public_plan 时公开。关联消息和工具时使用 messageId、stepId、工具 id，不通过文本相似度推断。
+
 ## HostFrame 的结构
 
 HostFrame 带有执行和会话标识：`run_id`、`invocation_id`、`stream_id`、`agent_session_id`、`session_generation`，以及 `protocol_mode`、`protocol`。`seq` 是从 1 开始的输出序号，用于断线后继续读取。
 
 帧分三类：`native` 保存 Provider 原生数据和扩展字段，`canonical` 的 `event` 保存统一事件，`control` 报告状态、错误、交互状态和输出缺失。三类帧共同使用同一套 `seq`。如果自己实现 IPC 客户端，应保存收到的帧序号，不能用 canonical 事件数量推算读取位置。
+
+### Payload 定义
+
+| 字段 | 类型与含义 |
+| --- | --- |
+| `run_id / invocation_id / stream_id / agent_session_id` | 必填非空字符串，各最多 256 码点；来自原执行回执。 |
+| `session_generation` | 必填非负安全整数。 |
+| `protocol_mode` | 必填 native 或 canonical；`protocol` 为必填非空字符串，最多 128 码点。 |
+| `seq` | 必填正安全整数；所有帧共用连续序号。 |
+| `kind` | native/canonical/control，决定下列负载。 |
+| `messageKind / payload` | native 必填；messageKind=response/notification/request/message；payload 为 Provider 原生对象。 |
+| `event` | canonical 必填，完整 CanonicalEvent。 |
+| `control` | control 必填，见下表。 |
+
+| control.type | Payload |
+| --- | --- |
+| `state` | state=running/completed/failed/cancelled/lost。 |
+| `error` | code 和 message 字符串，可选标准化 failure。 |
+| `interaction` | requestId 为非空字符串或安全整数，status=pending/resolved/expired/invalidated；pending 必含正安全整数 expiresAt（Unix 毫秒），可选 responseRequired。 |
+| `gap` | requested_after_seq、oldest_seq、latest_seq，报告续流窗口缺失。 |
+| `evidence` | name="session"，payload 为会话事实对象。 |
+
+### 注意事项
+
+原生 request ID 与 canonical interactionId 分别使用对应的回复 API。control.error、gap 和 lost 可导致高层视图抛错，须同时处理流异常和事件终态。
 
 ## 模型输出静默通知
 
@@ -34,8 +126,6 @@ HostFrame 带有执行和会话标识：`run_id`、`invocation_id`、`stream_id`
 已经达到阈值并生成的通知会保留到交付，新输出只重置下一段计时；该通知先于同时就绪的普通模型输出交付。终态、取消或异常仍优先清除尚未交付的通知。
 
 `silenceMs` 是 Runtime 单调时钟测得的实际毫秒数；timer 迟到时可能大于 60000。message 使用对应整数秒数，例如 `60s no LLM output`。这是信息通知，不是终态、取消指令或周期心跳。现有预算仍生效：默认首帧预算 60 秒可能先触发失败，`model_idle_policy: observe` 只关闭模型空闲终止，不关闭首帧、整轮或工具预算。
-
-消费端必须使用已支持 `model_output_idle` 的 client/协议校验器。旧版严格校验器会拒绝未知 notice code，升级 Runtime 时需同步升级消费端；本功能不宣称向旧 client 自动兼容。
 
 `client.invoke` 的 canonical 视图收到以下内容：
 
@@ -94,17 +184,17 @@ IPC 则复用既有 JSON-RPC 2.0 `agent_run.event` 通知外壳，无 `id`，`pa
 }
 ```
 
-续流保留原身份、序号及测量值，不重新计时。channel-gateway 的迁移要求是仅消费 Runtime 的静默事实，不维护自己的静默秒表、30/60 秒状态或 300 秒静默取消；该仓库迁移由 [issue #34](https://github.com/Mininglamp-OSS/octo-channel-gateway/issues/34) 跟踪，尚未在本仓完成。native 不新增类型、不发该通知。通知不能保证中间网络设备不主动断开，断线恢复仍遵守原订阅合同。
+续流保留原身份、序号及测量值，不重新计时。静默通知只用于 canonical，不改变 native 输出。通知不能保证中间网络设备保持连接；断线恢复见 [Kernel IPC](kernel-ipc.md)。
 
 ## 取消
 
-在创建句柄的 client 上调用 `client.interrupt(run.invocationId, reason?)`。公开 invoke 不再接收 signal。身份立即可读；提交前中断阻止发送，提交后只控制原执行，并保留原流尾事件的观察。
+在创建句柄的 client 上调用 `client.interrupt(run.invocationId, reason?)`。公开 invoke 的取消入口是 interrupt。身份立即可读；提交前中断阻止发送，提交后只控制原执行，并保留原流尾事件的观察。
 
 取消受理 ACK 不代表执行终态或清理完成；继续消费原流确认结果。已接纳的 KernelClient 调用上，break/return/throw/close 只结束观察。提交前 return/throw 会释放本地登记；直接 Core 执行迭代器仍保留其内部取消合同。参见[标识所有权](../concepts/identifiers.md)。
 
 ## 回复审批和用户问题
 
-> **应用兼容性要求：登记或展示交互前，必须先检查 `payload.delivery`。** `delivery: "async"` 是可选的旁路信息补充，不表示执行正在等待用户。没有实现下述异步合同时，不得直接接入已有同步表单、`/respond` 命令或等待状态处理器。
+> **交互处理要求：登记或展示交互前，必须先检查 `payload.delivery`。** `delivery: "async"` 是可选的旁路信息补充，不表示执行正在等待用户。没有实现下述异步合同时，不得直接接入已有同步表单、`/respond` 命令或等待状态处理器。
 
 canonical 模式的 `interaction.requested` 包含 `interactionId`、`executionInstanceId` 和 `request`。`kind` 表示交互类型：`approval` 是审批，`question` 是追问，`elicitation` 是请求用户补充信息。同步请求必须有 `expiresAt`（ISO 时间戳），异步问题可省略。以下回复流程适用于同步交互：
 
@@ -163,7 +253,7 @@ Runtime 向原活动轮次发送一次 `turn/steer`，匹配的 RPC 成功响应
 - **不支持异步表单：** 在交互登记、秘密输入检查、命令/卡片生成及等待状态投影之前忽略 async `interaction.requested`。按原 Run 保存其 `interactionId`，并配对忽略不携带 `delivery` 的 `interaction.resolved`。继续读流、推进原游标、正常展示消息正文；不自动回答、不暂停，也不能让被忽略的 resolved 清掉同步问题的等待状态。身份记录必须有容量上限并随所属 Run 清理。
 - **支持异步表单：** 保留原请求、题目身份、Provider/会话绑定和提交状态，收集完整的 `octo.question-response/v1` 答案批次，支持自定义文本与取消，并接入上述公共 `AsyncQuestionReply` 生命周期。明确处理期限、重复提交、旧绑定、重启及未知投递；运行中 steer，确认正常完成后才允许同会话新 AgentRun。Provider 接纳前不得报告送达。
 
-**不能靠删除期限检查，或把字符串答案传给旧同步处理器来宣称兼容。** async 缺少 `expiresAt` 是合法状态，不表示已过期；回答必须是结构化整批数据。应按 `delivery` 分流，不能用 `kind`、`full_access`、题目文案或有无选项猜测。`responseRequired: false` 仅用于自动审批，不能用来识别异步问题。
+async 缺少 `expiresAt` 是合法状态，不表示已过期；回答必须是结构化整批数据。应按 `delivery` 分流，不能用 `kind`、`full_access`、题目文案或有无选项猜测。`responseRequired: false` 仅用于自动审批，不能用来识别异步问题。
 
 业务 UI 自行决定异步问题的展示及响应策略；公共协议支持不等于客户端 UI 自动支持。
 

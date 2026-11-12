@@ -46,3 +46,13 @@ actmode 和来源分类不再属于公共执行合同。adapter.xxx 并非公共
 ## 有限执行预算
 
 `octo.execution/limits` 不再接受 enforcement，RuntimeLimits 也不保留同名字段或兼容组合分支。调用方通过相应有限预算表达等待时长，Runtime执行预算；调大整轮预算不自动延长首帧/模型空闲/工具预算。model_idle_policy=observe仅控制模型空闲终止，其他预算继续生效。通用AgentEnv仍只校验opaque信封，旧字段在Adapter读取limits时拒绝，不静默忽略。删除验证见[任务](../tasks/remove-limits-enforcement/brief.md)。
+
+## 开发参考入口与单一维护位置
+
+公共输入的字段、payload、缺省和错误边界统一维护于 docs 的 [inputs](../../docs/zh-CN/reference/input-parts.md)、[Invoke API](../../docs/zh-CN/reference/invoke-input.md) 与 [AgentEnv 分章参考](../../docs/zh-CN/reference/agent-env-standard.md)，七个公共执行项集中在同一个文件，用 H2 区分 item，H3 仅组织示例、payload 定义和注意事项。packages/README 提供汇总导航，包 README 保留职责、导入、装配及包级合同入口，链接到对应参考，不复制完整公共参数目录。
+
+Adapter 私有 item 仍归所属包，包 README 链接其维护的专属字段参考，不加入公共 schema/catalog。涉及 modeId 时必须明确其为工作模式 ID，不是模型 ID；模型 ID 使用 octo.execution/model.payload.selection.id，两者独立校验与设置。
+
+AgentEnv 构造、读取及合并 helper 归标准参考的附属 API 文档，不在顶层导航建立 defaults/mandatory 配置主题。这些名字仅作为具体辅助函数的参数或参数字段说明，不推广为 AgentEnv 标准字段、执行配置层或产品概念。
+
+用户 docs 只描述当前公开合同，不包含历史基线、旧架构验收、迁移流水或兼容层叙述。历史证据保留在 .octospec 并按适用范围标记过期；CLI/Electron/app 的 Manifest、模块加载、工厂调用和内部关闭方式属于宿主实现，不建用户参考页。公开客户端取消、终态及连接关闭的实际行为仍需准确说明。

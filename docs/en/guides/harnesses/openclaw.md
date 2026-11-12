@@ -23,6 +23,6 @@ This Adapter rejects nonempty per-call envs. Do not copy another Harness's proxy
 
 ## Troubleshooting and Verification Limits
 
-Check native authentication, model access, and proxy connectivity before checking invocation settings. Record sanitized errors, Harness and Runtime versions, and the actual terminal result. Another Harness's pass is not substitute evidence. Earlier Harness validation covered Antigravity’s configuration-to-model path only. This documentation update adds no live Provider acceptance.
+Check native authentication, model access, and proxy connectivity before checking invocation settings. Record sanitized errors, Harness and Runtime versions, and the actual terminal result. Another Harness's pass is not substitute evidence.
 
 [Adapter details](../../../../packages/octo-runtime-adapter-openclaw/README.md) · [Support matrix](../../reference/providers.md)

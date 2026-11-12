@@ -1,4 +1,4 @@
-# Runtime Home ownership and migration
+# Runtime Home Ownership
 
 [简体中文](../../zh-CN/reference/runtime-home.md) | [SDK integration](../getting-started/sdk.md)
 
@@ -21,7 +21,7 @@ await kernel.initialize();
 // 先停止应用接纳新调用，再 await kernel.close() 并检查 complete。
 ```
 
-`componentEndpoint`, `normalizedHome`, `homeHash`, and `componentServiceId` perform path calculations. They reject invalid original input; endpoint derivation also checks path/address budgets. They do not prove directory existence. Service initialization independently validates required `home`. `hostHomePaths` checks the actual directory; `ensureHostHome` only creates internal resources under an existing root. Account/profile path objects carry `home`; `ensureAccount` and `ensureLocalRuntime` revalidate it before writing, so cached paths cannot recreate a missing root. `resolveHostHome(appId)` is removed.
+`componentEndpoint`, `normalizedHome`, `homeHash`, and `componentServiceId` perform path calculations. They reject invalid original input; endpoint derivation also checks path/address budgets. They do not prove directory existence. Service initialization independently validates required `home`. `hostHomePaths` checks the actual directory; `ensureHostHome` only creates internal resources under an existing root. Account/profile path objects carry `home`; `ensureAccount` and `ensureLocalRuntime` revalidate it before writing, so cached paths cannot recreate a missing root.
 
 Endpoint-only `attachKernel` owns a connection and never starts a service or infers Home. `acquireEndpoint` owns an endpoint lease and requires a prepared parent. Both validate IPC syntax and length. Internal `startKernelServer` validates addresses without creating endpoint parents; it is not a replacement public Home startup boundary. Explicit low-level Core does not use Home or provide Home service hosting.
 
@@ -40,12 +40,3 @@ Validation checks directory access and briefly creates/removes an exclusive prob
 `ServiceInitializationError.cause` retains `RuntimeHomeError`; `cleanup` retains rollback results. `RuntimeHomeError.diagnostic` exposes `domain: startup`, stable `code`, actual `path` when supplied, `resource`, `operation`, and actionable host `action`. Length failures include `measured/limit/unit`; IPC failures also include the derived `endpoint`. Necessary system errors use `systemCode`. CLI projects `startup` and `cleanup` without dumping raw errors, environment, or configuration. Invalid Home does not trigger recursive log-root creation. These are startup failures, not AgentRun outcomes.
 
 Codes distinguish `HOME_INVALID`, `HOME_UNSUPPORTED`, `HOME_NOT_FOUND`, `HOME_NOT_DIRECTORY`, `HOME_PERMISSION_DENIED`, `HOME_PATH_TOO_LONG`, `HOME_LIMIT_UNAVAILABLE`, `HOME_UNUSABLE`, `IPC_ENDPOINT_INVALID`, `IPC_ENDPOINT_UNSUPPORTED`, and `IPC_ENDPOINT_TOO_LONG`.
-
-## Migrate callers
-
-1. Replace `resolveHostHome(appId)` with host-owned selection/preparation. Add required `home` to every Kernel service call; retain explicit endpoint selection. Never infer Home from an endpoint hash.
-2. `HostAccountPaths` and `HostProfilePaths` now require `home`; prefer generating them with the path helpers. `hostHomePaths` now requires a real existing directory and no longer accepts a simulated platform. Calculation-only checks cannot establish native platform behavior.
-3. CLI selects explicit `--home`, otherwise the user's `~/.octo-runtime` on every supported platform, and prepares the root. Relative CLI arguments become explicit absolute paths; blank input and literal `~` are rejected. `OCTO_RUNTIME_HOME`, LOCALAPPDATA, Application Support, and XDG no longer override selection.
-4. Existing data is preserved in place. To keep using a former Windows `%LOCALAPPDATA%\OctoRuntime` directory or old override, pass `--home <existing absolute directory>`, including when reinstalling a service. Existing service definitions retain their explicit original location. No automatic movement or identity reset occurs.
-
-Actual Windows results and unverified platforms are recorded in [Issue 306 validation](../../../.octospec/tasks/306-runtime-home/validation.md). Run the focused check explicitly with `node --test test/manual/runtime-home-306.test.mjs`; it is not added to default CI.

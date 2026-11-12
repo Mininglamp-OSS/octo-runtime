@@ -1,0 +1,163 @@
+---
+type: Journal
+title: 用户文档中的历史维护记录归档
+description: 保存从双语 docs 维护页移出的历史基线与验证记录，用户文档仅保留当前合同。
+tags: [documentation, history, validation]
+---
+
+# 原维护记录
+
+以下为移出用户文档的原始文本，记录中的路径与版本仅对应原文件。
+
+```text
+# 维护与验证
+
+[English](https://github.com/Mininglamp-OSS/octo-runtime/blob/d63ad1fae599e0ab85a0ce24e01ed75db003ea60/docs/en/maintenance.md) | [文档目录](https://github.com/Mininglamp-OSS/octo-runtime/blob/d63ad1fae599e0ab85a0ce24e01ed75db003ea60/docs/zh-CN/README.md)
+
+Runtime 与独立 client 使用相同 npm 发行版本，下一计划版本沿 1.1.11 递增为 1.1.12；IPC v2 不代表 npm 2.x。源码 manifest 保持 0.0.0，由发行 tag 注入版本。保留新的 agentEnv/invoke/interrupt 接口，不新增旧接口兼容层。草稿 release 不表示 npm 已可安装。
+
+[启动诊断目录](https://github.com/Mininglamp-OSS/octo-runtime/blob/d63ad1fae599e0ab85a0ce24e01ed75db003ea60/docs/zh-CN/guides/startup-diagnostics.md)从共享 catalog 生成。修改定义或恢复建议后，显式运行 `node test/manual/generate-startup-catalog.mjs`，构建后运行 `node --test test/manual/startup-diagnostics.test.js`。这些手动检查不加入默认测试或 CI。
+
+## 范围与基线
+
+本页供文档维护者查阅，记录源码版本、旧文档的用途和验证方法。本库首次核对的源码为 `d44f5cd42694b5f8cb7c8c18daa65eff0265ba8e`，日期为 2026-10-21。这是历史基线；后续核对范围分别记录。
+
+## Issue 328 文档追加清理
+
+2026-11-07，在基于 `bf9ff6b599b0e325362698acd3cebd9ac1363467` 的未提交拆分工作树上，使用 macOS、Node.js 26.13.0 复核。中英文入口、Harness、会话/Context、IPC、输出控制、Home 和诊断统一描述执行底座；渠道 SDK/CLI 与业务策略指向独立 Gateway。旧文档路径保留为迁移入口。
+
+`pnpm run docs:check` 通过：36 对页面、73 个 Markdown、12 个 JSON、8 个未修改的 Mermaid 块、全部 12 类 Context 示例和 4 项本地执行测试。另检查当前仍存在文档的链接与锚点，包含工程规则。本次文档更新未新增真实 Provider 或 IM 验收。
+
+## 历史验证
+
+以下按日期记录的结果对应各自原版本。Extra、Gateway loader、worker 和已删除包的描述仅为历史证据，不是当前接入合同。当前边界以 [Issue 328](https://github.com/Mininglamp-OSS/octo-runtime/blob/d63ad1fae599e0ab85a0ce24e01ed75db003ea60/.octospec/tasks/328-remove-extra/validation.md) 为准。
+
+架构和接口以当前文档、源码和 Schema 为准。
+
+中英文分别位于 `docs/en` 和 `docs/zh-CN`，页面路径一一对应，语言切换链接指向同一主题。可执行示例共用 `docs/examples`。本库直接使用仓库 Markdown，不依赖文档站；Octospec 继续用于研发过程记录。
+
+## 现有文档对应表
+
+| 现有入口                                                                     | 用途                                                        |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| 根 [README](https://github.com/Mininglamp-OSS/octo-runtime/blob/d63ad1fae599e0ab85a0ce24e01ed75db003ea60/README.md)、[INTEGRATION](https://github.com/Mininglamp-OSS/octo-runtime/blob/d63ad1fae599e0ab85a0ce24e01ed75db003ea60/INTEGRATION.md)            | 项目介绍和接入选型，具体接口链接到本库。                    |
+| [ARCHITECTURE](https://github.com/Mininglamp-OSS/octo-runtime/blob/d63ad1fae599e0ab85a0ce24e01ed75db003ea60/ARCHITECTURE.md)                                        | 设计背景、历史比较和未来目标；当前模块接口见本库。          |
+| [SDK Gateway 指南](https://github.com/Mininglamp-OSS/octo-runtime/blob/d63ad1fae599e0ab85a0ce24e01ed75db003ea60/SDK_CHANNEL_GATEWAY_GUIDE.md)                       | 迁移入口；渠道 SDK、CLI、配置及存储文档由独立 Gateway 仓库维护。 |
+| [CLI 运维](https://github.com/Mininglamp-OSS/octo-runtime/blob/d63ad1fae599e0ab85a0ce24e01ed75db003ea60/docs/zh-CN/getting-started/cli.md)、[部署](https://github.com/Mininglamp-OSS/octo-runtime/blob/d63ad1fae599e0ab85a0ce24e01ed75db003ea60/DEPLOYMENTS.md)、CLI README | 提供服务运维和发行步骤。                                    |
+| 包 README                                                                    | 提供包内实现和贡献说明；应用接入接口见本库。                |
+| `release/README.md`                                                          | 已删除，打包使用根 README。CI 临时下载目录不受影响。        |
+| Octospec                                                                     | 保存研发上下文和过程记录，接入 SDK 无需阅读。               |
+
+仓库内链接已指向上表列出的整合页面，根目录重复的 CLI 和原生 SDK 指南已删除。本库的通用 SDK 接入内容均提供中英文；业务专篇暂时保留原语言，后续修改这些专篇时再补充相应翻译。
+
+## 更新规则
+
+接口或行为变化时，同步更新两种语言的说明、共享示例和图，并记录本次核对的源码版本、页面范围和实际验证结果。保留历史验证记录；局部更新不应把全库改标为已经在新版本上验证。API 名称保持原文。新增或删除 Context 类型时，同时更新类型参考和 `contexts.json` 示例。
+
+先运行 `pnpm build`，再运行 `pnpm docs:check`。检查包含本地链接、双语页面与代码示例的一致性、JSON 结构、内置 Context 示例完整性，以及 `.mts` 示例的类型检查。它还通过测试用 Adapter 执行本地 Kernel 调用，检查服务关闭、交互、取消和图片校验。
+
+`docs:check` 只检查 Mermaid 代码块类型和数量。修改图后，还需要用 Mermaid 渲染器检查语法并查看布局。
+
+打包验证使用 `scripts/verify-release.mjs`。脚本将共享示例复制到独立工程，在该工程中安装生成的 tgz，再检查公开接口类型并运行测试用 Adapter 调用。它也检查包内 README 是否与根 README 相同。此过程只验证本地包，不发布到 npm。
+
+## 验证边界
+
+| 检查                                                | 依据与限制                                                                                  |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| 构建、示例、JSON/目录/链接/双语                     | 构建后执行的确定性仓库检查                                                                  |
+| 服务/调用、交互、取消、图片完整性                   | 使用测试用 Adapter 和真实本地 Kernel IPC，不调用模型。                                      |
+| 公开 tgz 消费                                       | 现有打包/验证加共享示例，离线安装                                                           |
+| MCP 准备与映射                                      | 现有定向 `test/context-mcp.test.js`，地址使用 `example.com`                                 |
+| Mermaid                                             | 当前架构、输入、IPC 恢复和 MCP 图；修改图时另行渲染验证                         |
+| 真实 Provider、MCP 调用、IM、Electron、Windows 原生 | 本次未执行，需要相应环境中的集成测试。                                                      |
+| Harness 安装、Computer Use、账号额度                | 2026-10-21 核对源码命令及厂商官方文档；未执行 Provider 安装、登录、付费调用或桌面工具操作。 |
+
+2026-10-21 在 macOS 上通过构建、文档检查（16 组双语页面、14 个 JSON 示例、全部 12 类内置 Context 示例、4 项测试）、MCP/IPC 定向测试（7 项），以及 tgz 打包安装验证。全部 16 张图使用 Mermaid CLI 12.0.0 和本地 Chrome 成功渲染。补充 CLI 和 Harness 安装配置后，再次通过文档检查，并对照构建后的 CLI 帮助核对命令；此次未修改图表或 Runtime 代码。
+
+2026-10-22，基于 `102fb9caf995d9eb1ac53acaf5b91922be4f023d` 的 Issue #101 实施分支同步更新中英文说明，覆盖 Gateway 指令组合（宿主在前、渠道默认在后）、Bot mention、自消息拒绝、逐轮提醒及模型遵守的 compaction 保留提示。这些局部更新补充上述基线，不改变公共 Context schema 或合并规则。顺序调整后，Gateway 构建和相关 90 项测试通过；未进行线上双 Bot 联调。Compaction 保留按设计交给模型，不属于验证范围。
+
+2026-11-01，本次上手路径修订依据 `49f9b11f58c13a65cc62e74d2c4751cac99a3707` 加未提交的文档和示例变更，在 macOS arm64、Node.js 24.22.2 上复核。范围为文档入口、CLI/SDK 入门、Extras、Harness 前置条件、排障、本页及两个共享入口示例。上述历史验证仍绑定各自原版本。
+
+`pnpm install --frozen-lockfile`（含构建）、`pnpm docs:check` 和 `node scripts/check-developer-docs.mjs --scope current` 通过。`node scripts/pack-release.mjs` 及 `node scripts/verify-release.mjs dist/release/mininglamp-oss-octo-runtime-0.0.0.tgz` 通过现有离线包、公开类型、Kernel 和独立 Extra 检查。本地 `0.0.0` 产物未发布。
+
+另在独立临时 npm 消费工程中编译实际共享示例，以关闭的 stdin 执行编译后的 DSH worker，并运行 `attach.mts` 连接测试用 Adapter：输出回复，关闭客户端后 Kernel 仍可调用。新增 DSH 宿主入口使用替代的测试 Adapter 完成真实本地 Kernel 调用，不是 DSH Provider 实测。Gateway 两种 loader 均返回有效的当前 Context、读到更新的数据并处理取消；完整 Gateway 装配检查未初始化 IM 连接。CLI 页的原始请求通过 Protocol 校验，并经打包版 `playboard` 和 fake Codex 完成，临时 Kernel 目录已回收。这些是 fixture 检查，不代表真实模型或 IM 验收。
+
+本次未修改图、Runtime 代码、默认测试命令或 GitHub CI 范围。真实 Provider 初始化/模型调用、线上 IM、外部 MCP、Electron 和原生 Windows 未执行；[Windows 验收 #14](https://github.com/Mininglamp-OSS/octo-runtime/issues/14) 仍单独跟踪。
+
+2026-11-01 提交 PR 前，同一批文档变更已 rebase 至 `4a0f53b50723422d90f051944ae19eb28f60712a`。在同一平台重新通过构建、格式检查、文档检查、当前链接审计、安装包验证（校验该源码提交）及上述独立 npm 消费检查。这些结果覆盖该源码基线加准备提交的文档变更；真实环境验收的未执行范围不变。
+
+# Maintenance and Validation
+
+[简体中文](https://github.com/Mininglamp-OSS/octo-runtime/blob/d63ad1fae599e0ab85a0ce24e01ed75db003ea60/docs/zh-CN/maintenance.md) | [Documentation](https://github.com/Mininglamp-OSS/octo-runtime/blob/d63ad1fae599e0ab85a0ce24e01ed75db003ea60/docs/en/README.md)
+
+Runtime and the standalone client share the npm release version. The next planned release is 1.1.12, following 1.1.11; IPC v2 does not imply npm 2.x. Source manifests remain 0.0.0 and the release tag supplies the version. The new agentEnv/invoke/interrupt API remains in place without an old-interface compatibility layer. A draft release is not evidence of npm availability.
+
+The [startup diagnostic catalog](https://github.com/Mininglamp-OSS/octo-runtime/blob/d63ad1fae599e0ab85a0ce24e01ed75db003ea60/docs/en/guides/startup-diagnostics.md) is generated from the shared catalog. After changing its definitions or recovery guidance, explicitly run `node test/manual/generate-startup-catalog.mjs` and `node --test test/manual/startup-diagnostics.test.js` after the build. These manual checks do not extend default tests or CI.
+
+## Scope and Baseline
+
+This page is for documentation maintainers. It records the roles of existing documents and validation methods. The initial library was reviewed against revision `d44f5cd42694b5f8cb7c8c18daa65eff0265ba8e` on 2026-10-21. That is the initial validation baseline, not a claim that all later pages describe only that revision. Architecture explanations use the root architecture and integration documents; API fields are checked against source and schemas.
+
+English and Chinese use matching paths under `docs/en` and `docs/zh-CN`. Language links open the same topic. Executable examples are shared in `docs/examples`. The library uses repository Markdown without a documentation website. Octospec remains for development-process records.
+
+## Existing-Document Map
+
+| Existing entry                                                                            | Purpose                                                                                               |
+| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Root [README](https://github.com/Mininglamp-OSS/octo-runtime/blob/d63ad1fae599e0ab85a0ce24e01ed75db003ea60/README.md), [INTEGRATION](https://github.com/Mininglamp-OSS/octo-runtime/blob/d63ad1fae599e0ab85a0ce24e01ed75db003ea60/INTEGRATION.md)                       | Project overview and integration selection; detailed APIs link here.                                  |
+| [ARCHITECTURE](https://github.com/Mininglamp-OSS/octo-runtime/blob/d63ad1fae599e0ab85a0ce24e01ed75db003ea60/ARCHITECTURE.md)                                                     | Design background, historical comparison, and future goals; current module APIs are covered here.     |
+| [SDK Gateway guide](https://github.com/Mininglamp-OSS/octo-runtime/blob/d63ad1fae599e0ab85a0ce24e01ed75db003ea60/SDK_CHANNEL_GATEWAY_GUIDE.md)                                   | Migration entry pointing to the independent Gateway repository, which owns channel SDK/CLI documentation. |
+| [CLI operations](https://github.com/Mininglamp-OSS/octo-runtime/blob/d63ad1fae599e0ab85a0ce24e01ed75db003ea60/docs/en/getting-started/cli.md), [deployments](https://github.com/Mininglamp-OSS/octo-runtime/blob/d63ad1fae599e0ab85a0ce24e01ed75db003ea60/DEPLOYMENTS.md), CLI README | Service operations and distribution steps.                                                            |
+| Package READMEs                                                                           | Package implementation and contribution details; application integration APIs are covered here.       |
+| `release/README.md`                                                                       | Removed; packaging uses the root README. Temporary CI download directories are unaffected.            |
+| Octospec                                                                                  | Development context and process records, not required for SDK integration.                            |
+
+Repository links point to the consolidated pages listed above; the superseded root CLI and native SDK guides have been removed. Common SDK integration content is available in both languages. Business-specific guides retain their original language for now; add translations when updating those guides.
+
+## Update Rules
+
+When an API or behavior changes, update both languages and affected shared examples and diagrams. Record the reviewed source revision and actual validation scope for that change; retain earlier results with their original dates and versions. A focused update does not require relabeling the whole library with a new baseline. Keep API names untranslated. Adding or removing a Context type also requires updating the type reference and `contexts.json` example.
+
+Run `pnpm build`, then `pnpm docs:check`. Checks cover local links, matching language pages and code examples, JSON structure, complete built-in Context examples, and `.mts` example types. Local Kernel calls with a test Adapter also check service shutdown, interactions, cancellation, and image validation.
+
+`docs:check` checks only Mermaid block type and count. After changing a diagram, use a Mermaid renderer to validate its syntax and inspect its layout.
+
+For package validation, `scripts/verify-release.mjs` copies shared examples into a separate project, installs the generated tgz there, checks public API types, and runs a test Adapter invocation. It also checks that the packaged README matches the root README. This validates a local package without publishing to npm.
+
+## Validation Boundaries
+
+| Check                                                          | Evidence / limit                                                                                                                                            |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Build, examples, JSON/catalog/links/languages                  | Deterministic repository checks after build                                                                                                                 |
+| Service/invocation, interaction, cancellation, image integrity | Test Adapter over real local Kernel IPC, without calling a model.                                                                                           |
+| Public tgz consumer                                            | Existing pack/verify plus shared examples, offline installation                                                                                             |
+| MCP preparation/mapping                                        | Existing focused `test/context-mcp.test.js`; endpoints use `example.com`                                                                                    |
+| Mermaid                                                        | Current architecture, inputs, IPC recovery, and MCP diagrams; diagram changes require separate rendering                          |
+| Real Providers, MCP tool calls, IM, Electron, native Windows   | Not run for this delivery; require integration tests in those environments.                                                                                 |
+| Harness installation, Computer Use, account credits            | Source commands and official vendor documentation checked on 2026-10-21; no provider installation, login, billed call, or desktop tool execution performed. |
+
+## Issue 328 Documentation Follow-up
+
+On 2026-11-07, the uncommitted split worktree based on `bf9ff6b599b0e325362698acd3cebd9ac1363467` was checked on macOS with Node.js 26.13.0. Both language entries, Harness setup, session/Context guidance, IPC, output/control, Home, and diagnostics now describe the execution-only Runtime. Channel SDK/CLI and business policies link to the independent Gateway. Historical URLs remain migration entries.
+
+`pnpm run docs:check` passed: 36 paired pages, 73 Markdown files, 12 JSON examples, 8 unchanged Mermaid blocks, all 12 built-in Context examples, and four local execution tests. Existing-document links and anchors were also audited, including engineering rules. No live Provider or IM verification was run for this documentation update.
+
+## Historical Validation
+
+The dated results below describe their original revisions. References to Extra, Gateway loaders, workers, and removed packages are historical evidence, not the current integration contract. Current boundaries follow [Issue 328](https://github.com/Mininglamp-OSS/octo-runtime/blob/d63ad1fae599e0ab85a0ce24e01ed75db003ea60/.octospec/tasks/328-remove-extra/validation.md).
+
+On 2026-10-21, the build, documentation checks (16 paired pages, 14 JSON examples, all 12 built-in Context examples, and four tests), focused MCP/IPC tests (seven tests), and tgz packaging/installation verification passed on macOS. All 16 diagrams rendered successfully with Mermaid CLI 12.0.0 and local Chrome. After adding CLI and Harness setup, documentation checks passed again and the built CLI help was checked against the documented commands; the diagrams and runtime code were unchanged.
+
+On 2026-10-22, the Issue #101 implementation branch, based on `102fb9caf995d9eb1ac53acaf5b91922be4f023d`, updated both languages for Gateway instruction composition (application entries before channel defaults), Bot mentions, self-message rejection, per-turn reminders, and model-directed compaction retention. These scoped updates extend the baseline above without changing the public Context schema or merge rules. Gateway build and 90 related tests passed after the ordering adjustment; live two-Bot delivery was not tested. Compaction retention is delegated to the model by design and is outside the validation scope.
+
+On 2026-11-01, the onboarding revision was checked against `49f9b11f58c13a65cc62e74d2c4751cac99a3707` with uncommitted documentation and example changes, on macOS arm64 with Node.js 24.22.2. The scope was the documentation entry, CLI/SDK onboarding, Extras, Harness prerequisites, troubleshooting, this page, and two shared entry examples. Earlier validation records above remain tied to their original revisions.
+
+`pnpm install --frozen-lockfile` (including its build), `pnpm docs:check`, and `node scripts/check-developer-docs.mjs --scope current` passed. `node scripts/pack-release.mjs` and `node scripts/verify-release.mjs dist/release/mininglamp-oss-octo-runtime-0.0.0.tgz` passed the existing offline package, public-type, Kernel and independent Extra checks. The local `0.0.0` artifact was not published.
+
+A separate temporary npm consumer compiled the actual shared examples, executed the compiled DSH worker with closed stdin, and ran `attach.mts` against a test Adapter: it printed the reply, and Kernel remained usable after the client closed. The new DSH host entry completed a real local Kernel invocation with a substitute test Adapter, not a DSH Provider. Both Gateway loaders returned valid current Context, observed changed data, and handled cancellation; complete Gateway construction was checked without initializing an IM connection. The CLI page's actual request passed Protocol validation and completed through the packaged `playboard` with fake Codex; its temporary Kernel directory was removed. These are fixture checks, not real model or IM acceptance.
+
+No diagrams, Runtime code, default test commands, or GitHub CI scope changed. Real Provider initialization/model turns, live IM, external MCP, Electron, and native Windows were not run in this revision; [Windows acceptance #14](https://github.com/Mininglamp-OSS/octo-runtime/issues/14) remains separate.
+
+Before PR submission on 2026-11-01, the same documentation changes were rebased onto `4a0f53b50723422d90f051944ae19eb28f60712a`. Build, formatting, documentation checks, current-link audit, package verification (with that expected source commit), and the separate npm-consumer checks above passed again on the same platform. These results cover that source baseline plus the documentation changes prepared for commit; the live-acceptance limitations remain unchanged.
+
+```

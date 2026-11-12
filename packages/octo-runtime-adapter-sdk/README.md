@@ -37,9 +37,7 @@ Register it like any other Adapter: `createKernelService({ home, endpoint, adapt
 
 ## What the SDK gives you
 
-Core forwards `request.agentEnv` as an ordered snapshot. Read common beans with helpers such as `invocationModel`, `invocationEffort` and `invocationApprovalMode`; read an agreed private payload with `agentEnvItem<T>(request.agentEnv, namespace, name)`. The consuming Adapter owns validation and native mapping. Caller composition uses `withAgentEnvItems` and an Adapter's independent `defaultAgentEnv` copy; invocation does not append defaults to the request. Private items need no public schema or generated type changes. See the [OpenClaw example](../../docs/en/concepts/architecture.md).
-
-`agentEnvItem<T>` performs no runtime type validation. It returns `undefined` when absent and the original payload reference when present; Adapters consume it read-only and own required fields, defaults and semantics. See the [SDK private bean example](../../docs/en/getting-started/sdk.md) for host construction and Adapter consumption.
+Core forwards an ordered per-invocation AgentEnv snapshot; the Adapter consumes and validates it. See [AgentEnv helper APIs](../../docs/en/reference/agent-env/helpers.md) for constructing, reading and merging AgentEnv, and [private items](../../docs/en/reference/agent-env/private-items.md) for `agentEnvItem<T>`, read-only ownership and private validation.
 
 | Helper                                                              | What it saves you                                                                                                                                                    |
 | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -72,3 +70,11 @@ The implementation is a private workspace package. Native hosts and Adapter auth
 - [Interfaces and exports](src/index.ts), [ACP Adapter](../octo-runtime-adapter-acp/README.md), [ACP transport](../octo-runtime-acp-client/README.md).
 - A small real Adapter to copy: [Hermes](../octo-runtime-adapter-hermes/README.md).
 - [Authoring guide](../../.octospec/guides/adapter-authoring.md), [Adapter metadata rule](../../.octospec/rules/adapter-metadata.md).
+
+## Public Input and Configuration Reference
+
+Public fields, payloads, defaults and validation are maintained in docs. This README retains package APIs, composition and lifecycle.
+
+- [inputs](../../docs/en/reference/input-parts.md), [Invoke API](../../docs/en/reference/invoke-input.md)
+- [AgentEnv](../../docs/en/reference/agent-env-standard.md), [Helper APIs](../../docs/en/reference/agent-env/helpers.md)
+- [Adapter Private Items](../../docs/en/reference/agent-env/private-items.md)

@@ -30,8 +30,14 @@ for await (const frame of run) {
 }
 ```
 
-The envelope stays `schema: "octo.context-envelope/v3"` with namespace/name/payload items. Run event versions stay unchanged. Execution settings are not appended to model text. The first text part above is ordinary user input, with no special system/developer/trusted role. Runtime does not prepend prompts, parse application namespaces or inject them on fresh/resumed sessions. Callers decide which prompts to include in each complete primary or recovery input. Removed `octo.control/instructions` and `controlInstructions` are rejected. Tools may read environment variables, so keep credentials out of business inputs and logs.
+The envelope stays `schema: "octo.context-envelope/v3"` with namespace/name/payload items. Run event versions stay unchanged. Execution settings are not appended to model text. The first text part above is ordinary user input, with no special system/developer/trusted role. Runtime does not prepend prompts, parse application namespaces or inject them on fresh/resumed sessions. Callers decide which prompts to include in each complete primary or recovery input. Tools may read environment variables, so keep credentials out of business inputs and logs.
 
 Ordinary inputs are `ModelInputPart[]`. For canonical output or explicit recovery material, `InvocationContent` accepts `{ parts, protocol_mode: "canonical", freshFallbackModelInputParts, ... }` with content, tracing identity and generation fields. It does not carry environment or session arguments and is not the old outer invocation object.
 
 See [fields](../reference/invoke-input.md), [identifiers](identifiers.md), and [sessions](../guides/context-and-sessions.md).
+
+## Field References
+
+- [inputs: Text, Images, Primary and Recovery Input](../reference/input-parts.md)
+- [AgentEnv: Envelope and Seven Public Items](../reference/agent-env-standard.md)
+- [Adapter Private Fields (modeId Is a Work-Mode ID, Not a Model ID)](../reference/agent-env/private-items.md)

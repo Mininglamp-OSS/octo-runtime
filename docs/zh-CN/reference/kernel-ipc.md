@@ -1,89 +1,20 @@
-# Kernel IPC 与 SDK
+# Kernel IPC
 
 [English](../../en/reference/kernel-ipc.md) | [文档目录](../README.md)
 
-Kernel IPC 是应用与本地 Kernel 服务之间的通信协议。TypeScript 应用通常使用 `KernelClient.invoke`，由 SDK 完成提交、订阅和重连。其他语言可以按本页的 JSON-RPC 协议实现客户端。
+本地 Kernel 的 JSON-RPC 协议。TypeScript 应用通常使用 [KernelClient](kernel-client.md)；其他语言可按本页实现客户端。
 
-首次接入可先阅读 [SDK 快速开始](../getting-started/sdk.md)。本页分别介绍公开导入路径、客户端方法和底层协议。
+## Schema 与校验
 
-## 独立 App 的客户端入口
+独立 client 提供 `/protocol/schema.json`、`/protocol/ipc-schema.json` 两个 Draft-07 Schema，以及 `/protocol/ipc-fixtures.json` 一致性样本。样本不属于协议定义。
 
-| 导入子路径                           | 用途                                                            |
-| ------------------------------------ | --------------------------------------------------------------- |
-| 包根                                 | `attachKernel`、KernelClient、KernelError；不构造服务或 Adapter |
-| `/protocol`                          | InvokeInput、输出/Context 类型与公开校验器                      |
-| `/protocol/schema.json`              | 共享协议 Schema                                                 |
-| `/protocol/ipc-schema.json`          | IPC v2 Schema                                                   |
-| `/protocol/ipc-fixtures.json`        | 刻意公开的一致性样本，与协议定义分开                            |
-
-上述路径都位于 `@mininglamp-oss/octo-runtime-client` 下。独立 App 通过 RPC 使用已启动 Kernel；不导入 Adapter，也不依赖完整 CLI 包。
-
-仅消费已有 Kernel 的应用可只安装 `@mininglamp-oss/octo-runtime-client`，从包根导入 `attachKernel`，无需完整 Runtime 包或 Runtime checkout。
-
-纯原生宿主则从源码 workspace 引入 `octo-runtime-executor-kernel` 的服务工厂、`octo-runtime-host-sdk` 的 endpoint helper 和实际使用的 Adapter。需要直接 Core 时显式依赖 `octo-runtime-executor-core`。这些是 private 源码包，不单独 npm 发布；依赖配置及按需加载约束见 [SDK 接入](../getting-started/sdk.md)。完整 CLI 包保留的通用入口不改变此场景划分，也不提供 Adapter 聚合导出。
-
-独立 client 在 `/protocol/schema.json` 和 `/protocol/ipc-schema.json` 提供相同的两个 Schema，并保留 `/protocol/ipc-fixtures.json` 一致性样本入口。仓库样本位于 `packages/octo-runtime-protocol/test/fixtures/`，仅 IPC 样本进入发行包。客户端默认值由客户端实现维护，`/protocol/behavior.json` 已删除。
-
-两个 Schema 使用 Draft-07。标准校验器执行标准关键字，`x-octo-*` 语义需要显式实现。运行时校验器还检查字节/深度预算、Unicode 标量字符串、唯一性、跨字段一致性和执行状态规则。只通过标准结构校验不足以证明完整符合 IPC 合同。
-
-## 创建服务
-
-`createKernelService(options)` 必须提供已存在的绝对目录 `home`、本地通信地址 `endpoint` 和宿主已构造的 `adapters`。可选配置包括 `adapterConfigurations`、`configurations(runtimeId?)`、`logging` 和 `stateDirectory`。Kernel 本进程注册对象并通过 RPC 服务业务调用，不接受模块清单、路径、worker 入口或子进程 env；CLI 自行 import 后传对象。见[模块载入](../concepts/module-loading.md)。
-
-1. 创建服务对象后，等待 `initialize({signal?})` 完成。
-2. 初始化成功后，使用 `kernel.client` 发起调用，或通过 `status()` 查看服务状态。
-3. 退出时调用 `close()`；也可以等待 `closed` Promise 获取清理结果。
-
-初始化失败会抛出 `ServiceInitializationError`，其中保留原始原因 `cause` 和清理结果 `cleanup`。对同一对象重复初始化或关闭，会复用原操作；需要重新启动一段服务生命周期时，应创建新对象。
-
-## KernelClient 方法
-
-| 方法                                                   | 用途与返回值                                                                                            |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
-| `invoke(inputs, sessionId, providerSession, agentEnv)` | 返回异步输出流，读取时提交请求，并自动处理执行标识和有限重连。普通调用使用此方法。                      |
-| `interrupt(invocationId, reason?)`                     | 取消同一客户端通过 invoke 发起的调用，返回 `{accepted}`。                                               |
-| `respondInteraction(invocationId, response)`           | 回复该调用的 canonical 交互请求。                                                                       |
-| `respondNativeInteraction(invocationId, response)`     | 回复该调用的 Provider 原生交互请求。                                                                    |
-| `status()` / `list()`                                  | 分别查询 Kernel 状态，或已注册 Adapter 元数据及 Provider 探测结果。探测不证明已登录或具有模型访问权限。 |
-| `close()`                                              | 关闭客户端连接，不取消已提交的执行，也不关闭 Kernel 服务。                                              |
-
-只有需要自行管理提交和订阅时，才使用下面的底层方法：
-
-| 方法                                                      | 用途与返回值                                                  |
-| --------------------------------------------------------- | ------------------------------------------------------------- |
-| `submit(input, environment?)`                             | 提交一次执行并返回 `{ref}`；随后由调用方订阅输出和处理恢复。  |
-| `get(key, expectedInstance?)`                             | 查询原执行的 ref、仍可读取的输出范围和最终状态。              |
-| `subscribe(ref, afterSeq = 0, signal?)`                   | 从指定序号之后读取 HostFrame；signal 只停止订阅。             |
-| `cancel(ref, reason?)`                                    | 按完整 ref 取消执行；返回是否接受请求，最终结果仍从输出读取。 |
-| `respond(ref, response)` / `respondNative(ref, response)` | 按完整 ref 回复交互请求。                                     |
-
-## 模型目录边界
-
-模型目录查询和业务数据传递由宿主直接完成，或由应用调用宿主注入的 dependency 完成；二者均不经过 Kernel，不需要为此增加 IPC 方法。
-
-`adapter.list` / `KernelClient.list()` 返回已注册 Adapter 的元数据及实际探测信息，不返回模型目录，也不证明某个模型对当前账号可用。公共 IPC 及 Go/Python 客户端不承担统一模型或 effort 目录的发现、补齐和维护；这不是待补齐的执行前置条件。
-
-宿主和应用通过公共 `KernelClient` 使用同一个列表合同：已注册 Adapter 元数据及 Provider 探测结果，包含 `available`、`unavailableReason`、`providerPath` 和 `providerVersion`。列表仅覆盖该 Kernel 已装配的 Adapter；探测结果不枚举模型，也不证明已登录或具有账号权限。
-
-模型选项由接入宿主依据其 Provider、实际 endpoint 和账号取得或配置。官方服务、第三方代理站与自定义 endpoint 即使使用相同 Adapter，也可能具有不同模型或没有目录接口。宿主自行处理目录不可用和查询失败，不应伪造成功空列表，也不应要求消费者通过 Runtime 扫描私有凭据或启动探测会话来补齐列表。
-
-调用方继续通过现有 invoke 输入表达显式模型；省略模型时保留既有默认语义。Adapter 的原生选模校验、确认和错误返回保持有效，不新增 Runtime 目录白名单或动态能力准入。案例与责任划分见[模型目录与选模归属](../concepts/architecture.md)。
-
-## 管理客户端尚未结束的调用
-
-`client.invocations` 最多跟踪 128 个通过 `invoke` 发起的调用，包括结果未知的调用。底层 `submit` 不会自动加入此表。
-
-- `snapshot()` 返回调用元数据。
-- `stopAdmission()` 停止接受新的 invoke。
-- `drain({deadline, reason})` 取消并等待已登记调用，返回 `complete` 和 `unresolved`。`deadline` 是按 `Date.now()` 计算的绝对毫秒时间戳。
-
-应用自己创建 Kernel 服务时，通常调用服务的 `close()` 即可。连接外部 Kernel 的应用，如果需要退出时取消并等待自己提交的调用，可以显式使用此表。
+标准校验器执行标准关键字，`x-octo-*` 附加语义须显式实现。运行时还校验字节/深度预算、Unicode 标量字符串、唯一性、跨字段一致性与执行状态；只通过结构校验不足以证明完整符合协议。
 
 ## IPC 消息格式
 
 IPC 协议版本为 2。它与 Run schema 版本 7、Context 版本 `octo.context-envelope/v3`、内部 Adapter 传输版本 2 分别独立编号。
 
-IPC Schema 的 `$id` 为 `urn:mininglamp-oss:octo-runtime:kernel-ipc:v2`。使用原 v1 标识的注册和引用需要更新，wire 版本仍为 2。无人消费的 `x-octo-methods` 生成元数据以及遗留渠道/历史类型和校验器已删除，完整清单见[升级说明](../../../packages/octo-runtime-protocol/README.zh.md)。下列 RPC 方法保持不变。
+IPC Schema 的 `$id` 为 `urn:mininglamp-oss:octo-runtime:kernel-ipc:v2`。
 
 macOS/Linux 使用 Unix domain socket，Windows 使用 Named Pipe。每条连接只发送一个 UTF-8 编码的 JSON-RPC 2.0 请求，以换行符 LF 结束。请求 `id` 必须是非空字符串；数字 ID、批量请求、Schema 未定义的顶层或 params 字段都会被拒绝。
 

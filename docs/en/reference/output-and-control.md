@@ -23,11 +23,103 @@ For HostFrame output, use public `isHostTerminal` to identify Runtime's final st
 
 Codex can confirm `completed` through a 15-second finalization fallback after a nonempty completed `final_answer`, provided no work or synchronous interaction remains. New work, cancellation or a known error invalidates eligibility. An accepted completed result survives later interrupt/unsubscribe failure; cleanup remains independently failed/incomplete. Other Adapters retain their existing completion rules. A turn's release does not close the resident app-server.
 
+## CanonicalEvent
+
+### Example
+
+```json
+[
+  { "protocolVersion": 2, "type": "message.delta", "payload": { "messageId": "m1", "channel": "final", "text": "Done." } },
+  { "protocolVersion": 2, "type": "tool_call.create", "payload": { "id": "t1", "name": "read_file", "args": { "path": "README.md" }, "status": "running" } },
+  { "protocolVersion": 2, "type": "tool_call.update", "payload": { "id": "t1", "status": "completed", "output": "Project description." } },
+  { "protocolVersion": 2, "type": "run.completed", "payload": {} }
+]
+```
+
+### Payload Definition
+
+Events require `protocolVersion: 2`, `type` and an object `payload`. All 23 event types are listed below, followed by types and required-field constraints.
+
+| Type                    | Group       | When it appears                                            | Key payload fields                                                                                                   |
+| ----------------------- | ----------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `run.queued`            | run         | Accepted and waiting; reserved, no built-in producer today | —                                                                                                                    |
+| `run.started`           | run         | Execution begins; reserved like `run.queued`               | —                                                                                                                    |
+| `run.completed`         | run         | Normal end — the only success terminal                     | —                                                                                                                    |
+| `run.failed`            | run         | Execution failed                                           | `message`, `code`, `adapterType`; a normalized `failure` may be attached                                             |
+| `run.cancelled`         | run         | Cancelled, or the stream was aborted                       | —                                                                                                                    |
+| `message.create`        | message     | A message starts                                           | `messageId`, `role`, `channel`                                                                                       |
+| `message.delta`         | message     | Incremental text                                           | `text`, `channel`, `messageId`                                                                                       |
+| `message.update`        | message     | Full replacement or status change                          | `text`, `status`, `messageId`                                                                                        |
+| `model_step.started`    | step        | One model round begins                                     | `stepId`, `startedAtMs`                                                                                              |
+| `model_step.finished`   | step        | That round ends                                            | `stepId`, `status`, `finishReason`                                                                                   |
+| `tool_call.create`      | tool        | A tool call starts                                         | `id`, `name`, `args`, `status: "running"`                                                                            |
+| `tool_call.delta`       | tool        | Streaming argument or output fragment                      | `id`, and one of `argsDelta`, `outputDelta`, `outputSnapshot`                                                        |
+| `tool_call.update`      | tool        | Tool call reaches a terminal status                        | `id`, `status`, `output`, `error`, `exitCode`                                                                        |
+| `tool_call.progress`    | tool        | Long-running progress                                      | `id`, `progress` (`message`, `completed`, `total`, `unit`)                                                           |
+| `activity.started`      | activity    | Thinking, executing, waiting for approval or input         | `activityId`, `kind`, `subject`, `source`, `info`                                                                    |
+| `activity.updated`      | activity    | Activity details refreshed                                 | `activityId`, `info`                                                                                                 |
+| `activity.finished`     | activity    | Activity ends                                              | `activityId`, `status`                                                                                               |
+| `plan.updated`          | plan        | Whole plan replaced                                        | `planId`, `revision`, `steps[]`                                                                                      |
+| `run.notice`            | notice      | Retry, compaction, reroute, configuration warning, model output silence          | `noticeId`, `code`, `severity`, `params`                                                                             |
+| `interaction.requested` | interaction | Needs approval, an answer, or more input                   | `interactionId`, `kind`, `expiresAt`, `request`                                                                      |
+| `interaction.resolved`  | interaction | Handled, expired, or invalidated                           | `interactionId`, `status`, `outcome`, `reasonCode`                                                                   |
+| `session.update`        | state       | Provider session data changed                              | `providerSession`                                                                                                    |
+| `usage.update`          | state       | Token usage for this turn                                  | Adapter-normalized counts such as `inputTokens` and `outputTokens`, optionally `cumulative` and `modelContextWindow` |
+
+| Payload fields | Definition |
+| --- | --- |
+| Message fields | messageId, role and text are strings; channel is analysis/commentary/final; exposure is public_reasoning/public_summary/public_plan/private_reasoning/unknown. Providers may add structured fields. |
+| `model_step.started / finished` | Required nonempty stepId; finished requires status=completed/failed/cancelled. Optional startedAtMs/endedAtMs are positive safe integers; finished may include string finishReason. |
+| `tool_call.create` | Required nonempty id/name, object args and status="running". |
+| `tool_call.delta` | Nonempty id and at least one string argsDelta/outputDelta/outputSnapshot. Concatenate argsDelta in order before parsing; outputSnapshot replaces the whole output. |
+| `tool_call.update` | Required id and terminal status=completed/failed/cancelled; optional JSON output, object error, integer exitCode and nonnegative safe-integer durationMs. |
+| `tool_call.progress` | Required id and progress object; progress may contain message (4096 code points), completed (nonnegative safe integer), total (positive safe integer) and unit=items/bytes/steps. |
+| `activity.started` | Required activityId, kind, subject, source and info; kind is starting/thinking/executing_tool/responding/waiting_approval/waiting_input/compacting/retrying/working; source is provider/harness. Optional startedAtMs. |
+| `activity.updated / finished` | updated requires activityId/info; finished requires activityId and status=completed/failed/cancelled/superseded, with optional endedAtMs. Activity timestamps are nonnegative safe integers. |
+| `plan.updated` | Required planId, positive safe-integer revision, explanation (string or null), and steps (up to 200). Each step has nonempty text (4096 code points) and status=pending/in_progress/completed/blocked/cancelled. |
+| `run.notice` | Required noticeId, code, severity=info/warning and params object; code is retry_scheduled/context_compacted/model_rerouted/config_warning/provider_diagnostic/model_output_idle. params values are string/number/boolean; optional relatedActivityId/relatedItemId. |
+| `interaction.requested / resolved` | See interactions below; required nonempty interactionId and executionInstanceId, up to 191 code points. |
+| `session.update` | providerSession is the complete ProviderSession to preserve for explicit recovery; see [Invoke API](invoke-input.md). |
+| `usage.update` | Adapter counts such as inputTokens/outputTokens, with optional cumulative/modelContextWindow; missing fields do not imply zero. |
+
+activityId, planId, progress id and noticeId permit 191 code points. See the [protocol schema](../../../packages/octo-runtime-protocol/schema/protocol.schema.json) for nested subject, info, provenance and failure shapes. Payload openness and event-specific semantics are validated separately; required fields differ between event types.
+
+### Notes
+
+run.queued and run.started are reserved without built-in producers. Only run.completed/run.failed/run.cancelled are canonical terminal events. Messages, tool completion, cancellation ACK, process exit and stream EOF do not establish Run success.
+
+Final text can arrive before the terminal result. Analysis is public only with public_reasoning, public_summary or public_plan exposure. Associate events using messageId, stepId and tool id rather than textual similarity.
+
 ## HostFrame Structure
 
 HostFrame includes execution and session identifiers: `run_id`, `invocation_id`, `stream_id`, `agent_session_id`, and `session_generation`, plus `protocol_mode` and `protocol`. Its `seq` starts at 1 and identifies the output position for reading after a disconnect.
 
 There are three frame kinds: `native` preserves Provider data and extension fields, `canonical` holds a common event in `event`, and `control` reports state, errors, interaction status, and missing output. All three share the same `seq` numbering. If implementing an IPC client, save frame sequence numbers rather than counting canonical events to determine your position.
+
+### Payload Definition
+
+| Field | Type and meaning |
+| --- | --- |
+| `run_id / invocation_id / stream_id / agent_session_id` | Required nonempty strings, up to 256 code points each, from the original receipt. |
+| `session_generation` | Required nonnegative safe integer. |
+| `protocol_mode` | Required native or canonical; required nonempty protocol permits 128 code points. |
+| `seq` | Required positive safe integer shared continuously by all frame kinds. |
+| `kind` | native/canonical/control, selecting the payload below. |
+| `messageKind / payload` | Required for native: messageKind=response/notification/request/message; payload is a native Provider object. |
+| `event` | Required for canonical: a complete CanonicalEvent. |
+| `control` | Required for control, defined below. |
+
+| control.type | Payload |
+| --- | --- |
+| `state` | state=running/completed/failed/cancelled/lost. |
+| `error` | String code/message, optional normalized failure. |
+| `interaction` | Nonempty string or safe-integer requestId; status=pending/resolved/expired/invalidated; pending requires positive safe-integer expiresAt in Unix milliseconds and allows responseRequired. |
+| `gap` | requested_after_seq, oldest_seq and latest_seq report a missing replay window. |
+| `evidence` | name="session", with a session-evidence object payload. |
+
+### Notes
+
+Native request IDs and canonical interactionIds use their respective response APIs. control.error, gap and lost may throw from the high-level view; handle stream exceptions as well as event terminal results.
 
 ## Model Output Silence Notices
 
@@ -36,8 +128,6 @@ The first interval starts when Core begins this invocation of the Adapter. For c
 Once the threshold has been reached and a notice generated, new output resets the next interval without revoking that queued fact. The notice is delivered before an ordinary model output that becomes ready at the same time. Terminal events, cancellation, and errors still take priority and clear undelivered notices.
 
 `silenceMs` is the elapsed time measured by Runtime's monotonic clock and may exceed 60000 if the timer runs late. The message uses its whole seconds, for example `60s no LLM output`. This informational notice is neither a terminal, a cancellation request, nor a periodic heartbeat. Existing budgets still apply: the default 60-second first-frame timeout may fail first. `model_idle_policy: observe` only disables model-idle termination, leaving first-frame, total-run, and tool budgets active.
-
-Consumers must use a client/protocol validator that supports `model_output_idle`. Older strict validators reject unknown notice codes, so upgrade consumers together with Runtime; this feature does not provide automatic compatibility with older clients.
 
 The canonical view from `client.invoke` receives:
 
@@ -96,7 +186,7 @@ IPC reuses the existing JSON-RPC 2.0 `agent_run.event` notification without an `
 }
 ```
 
-Replay preserves the original identity, sequence, and measurement; it does not restart timing. The channel gateway should consume Runtime's silence facts without its own silence clock, 30/60-second state machine, or 300-second silence cancellation. That migration is tracked in [issue #34](https://github.com/Mininglamp-OSS/octo-channel-gateway/issues/34) and is not implemented in this repository. Native mode gains no type or notice. This notification cannot guarantee that intermediate network devices keep a connection open; reconnection follows the existing subscription contract.
+Replay preserves identity, sequence and measurements without restarting timing. Silence notices apply only to canonical output. They do not guarantee that network intermediaries keep connections open; see [Kernel IPC](kernel-ipc.md) for recovery.
 
 ## Cancellation
 
@@ -106,7 +196,7 @@ An accepted ACK is not a terminal or cleanup confirmation. Keep consuming the or
 
 ## Reply to Approvals and User Questions
 
-> **Application compatibility requirement:** Check `payload.delivery` before registering or presenting an interaction. `delivery: "async"` is optional supplemental input, not a blocking question. Do not route it into an existing synchronous form, `/respond` command, or waiting-state handler without implementing the async contract below.
+> **Interaction handling requirement:** Check `payload.delivery` before registering or presenting an interaction. `delivery: "async"` is optional supplemental input, not a blocking question. Do not route it into an existing synchronous form, `/respond` command, or waiting-state handler without implementing the async contract below.
 
 In canonical mode, `interaction.requested` carries `interactionId`, `executionInstanceId`, and `request`. Its `kind` is `approval`, `question`, or `elicitation`, which requests additional user information. Synchronous requests require `expiresAt` (an ISO timestamp); async questions may omit it. The following response flow describes synchronous interactions:
 
@@ -165,7 +255,7 @@ The shared limit is 16 active interactions, with at most 50 questions per batch,
 - **Without async form support:** Ignore async `interaction.requested` before interaction registration, secret-input handling, command/card generation, or waiting-state projection. Track its `interactionId` within the original Run and also ignore its `interaction.resolved`, which does not carry `delivery`. Continue consuming the stream, advance the original cursor, and display ordinary message text. Do not submit an automatic answer, pause execution, or let an ignored resolution clear a synchronous interaction's waiting state. Bound and clean up the identity tracking with the Run.
 - **With async form support:** Preserve the original request, question IDs, provider/session binding and submission state. Collect a complete `octo.question-response/v1` batch, support custom text and cancellation, and use the public `AsyncQuestionReply` lifecycle above. Handle expiry, duplicate submissions, stale bindings, restart and unknown delivery explicitly. Active runs use steer; confirmed normal completion permits a new AgentRun in the same session. Report delivery only when the provider accepts it.
 
-**Do not remove expiry checks or pass a plain answer string to make an old synchronous handler appear compatible.** Missing async `expiresAt` is valid, not evidence of expiry; async replies require the structured batch. `delivery` controls this distinction, not `kind`, `full_access`, message wording, or the presence of options. `responseRequired: false` is reserved for automatic approvals and is not an async-question discriminator.
+Missing async `expiresAt` is valid, not evidence of expiry; async replies require the structured batch. `delivery` controls this distinction, not `kind`, `full_access`, message wording, or the presence of options. `responseRequired: false` is reserved for automatic approvals and is not an async-question discriminator.
 
 Each business UI chooses its own asynchronous question display and response policy; protocol support does not imply UI support.
 

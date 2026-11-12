@@ -27,7 +27,7 @@ timestamp: 2026-10-21T00:00:00Z
 - 每个合并条目保留原 manifest 文件作为相对路径和裸包名的解析锚点；同名内置优先，忽略项不执行模块代码。显式 --manifest 保留完整替换。
 - Extra 清单只声明模块；配置、凭据、enabled 与自启仍由原有配置和命令管理。旧 config.module 与新目录的迁移需要明确报错和说明，不自动修改用户 Home。
 - FDE 如何复制代码、处理依赖由业务方决定，不交付 FDE 拷贝或打包工具；默认发行继续全量。原静态闭包分析仅解释耦合事实。
-- 新增[中文](../../../docs/zh-CN/concepts/module-loading.md)和[英文](../../../docs/en/concepts/module-loading.md)说明，并同步[整体架构约束](../../rules/architecture.md#cli-与-sdk-的-adapterextra-装配约束)、根架构入口及 Extra 规则；统一清单明确标注待实现。
+- 新增[中文](https://github.com/Mininglamp-OSS/octo-runtime/blob/d63ad1fae599e0ab85a0ce24e01ed75db003ea60/docs/zh-CN/concepts/module-loading.md)和[英文](https://github.com/Mininglamp-OSS/octo-runtime/blob/d63ad1fae599e0ab85a0ce24e01ed75db003ea60/docs/en/concepts/module-loading.md)说明，并同步[整体架构约束](../../rules/architecture.md#cli-与-sdk-的-adapterextra-装配约束)、根架构入口及 Extra 规则；统一清单明确标注待实现。
 
 ## 验证范围
 

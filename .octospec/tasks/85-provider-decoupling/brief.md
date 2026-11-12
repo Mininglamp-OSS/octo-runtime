@@ -3,7 +3,7 @@ type: Task
 title: Issue 85：CLI 与 SDK 的 Adapter/Extra 按需装配
 description: 解除框架与具体模块耦合，SDK 原生导入，CLI 合并内置与 Home 扩展 manifest。
 tags: [architecture, adapter, extra, installation, runtime]
-status: locally-validated
+status: historical
 timestamp: 2026-10-21T00:00:00Z
 ---
 
@@ -55,4 +55,4 @@ timestamp: 2026-10-21T00:00:00Z
 - [实施记录](implementation.md)：变更、A01–A17 证据与验证边界。
 - [本地审查](review.md)：Standards/Spec 发现、修复与复审证据。
 - [读取上下文](context.yaml)和[本轮记录](../../journal/shared/2026-10-21-provider-decoupling-plan.md)。
-- 双语设计：[中文](../../../docs/zh-CN/concepts/module-loading.md) / [English](../../../docs/en/concepts/module-loading.md)。
+- 双语设计：[中文](https://github.com/Mininglamp-OSS/octo-runtime/blob/d63ad1fae599e0ab85a0ce24e01ed75db003ea60/docs/zh-CN/concepts/module-loading.md) / [English](https://github.com/Mininglamp-OSS/octo-runtime/blob/d63ad1fae599e0ab85a0ce24e01ed75db003ea60/docs/en/concepts/module-loading.md)。

@@ -24,7 +24,7 @@ Each bundled Harness has a topic covering installation, authentication, and invo
 - [DeepSeek Harness](harnesses/dsh.md)
 - [Grok Build](harnesses/grok-build.md)
 
-The generic ACP factory is not a separate Harness or a default CLI registration. Integrate a custom Harness through the factory and a manifest; see [Adapter authoring](../../../.octospec/guides/adapter-authoring.md). Setting a Bot's adapter_type to acp alone does not install it.
+For a custom ACP Harness, construct the Adapter with createAcpAdapter and register it with Kernel. See [SDK Integration](../getting-started/sdk.md).
 
 ## Choose a Harness
 
@@ -46,7 +46,7 @@ Each row gives a short setup summary and the official documentation. The launch 
 
 `dsh` requires an npm-installed `@deepseek-ai/dsh` Provider at **`0.2.1-rc.4` or later**. This differs from the unmodified official Client SDK pinned to `0.2.1-rc.3` inside the Adapter. The Provider runs with profile `sdk`. The Runtime CLI host automatically resolves the first `dsh` on its PATH to the npm package's JavaScript entry and passes `providerOptions.dshBin` to both Kernel discovery and invocation, including `playboard`. An explicit `adapters.dsh.execution.provider_options.dshBin` in `<home>/<profile>/config.json` takes precedence and never falls back to another installation. SDK hosts supply their own selected entry; the Adapter does not discover installations or use Desktop/ASAR. It defaults to deepseek-account and requires explicit full_access. See the [DSH Adapter](../../../packages/octo-runtime-adapter-dsh/README.md) for SDK registration and configuration boundaries.
 
-Generic `acp` is a reusable Adapter factory for another ACP-compatible Harness, not a separate Harness to install. Configure its command and arguments through `createAcpAdapter` and inject the resulting Adapter into createKernelService; CLI hosts can select the factory through their manifest; it is not an entry in the default CLI manifest. See the [factory implementation](../../../packages/octo-runtime-adapter-acp/src/index.ts) and [ACP documentation](https://agentclientprotocol.com/get-started/introduction).
+Generic `acp` is an Adapter factory for another ACP Harness. Configure command and arguments through createAcpAdapter and pass the resulting object to createKernelService; see the [ACP Adapter](../../../packages/octo-runtime-adapter-acp/README.md).
 
 After installation, follow [CLI Installation and Invocation](../getting-started/cli.md) to probe the selected Adapter and send a small request. Shell aliases are not executable programs for an Adapter; background services also need the correct `PATH`, home directory, and account configuration. Restart the service after changing its environment.
 
@@ -59,7 +59,7 @@ Availability and platform setup follow [OpenAI's Computer Use documentation](htt
 
 For Runtime, run the host process as the same operating-system user with the same `CODEX_HOME`. The [Codex Adapter](../../../packages/octo-runtime-adapter-codex/src/index.ts) starts `codex app-server` with that real home, so existing Codex configuration and plugin state remain available. There is no Runtime `computer_use: true` setting, and `full_access` does not install the plugin or grant operating-system permissions.
 
-The official setup above enables the desktop feature. Whether that installation exposes the required tools to the installed CLI/app-server must also be verified with a Runtime invocation; this documentation's automated tests do not establish Computer Use compatibility. If the tools are missing, check the Codex version, `CODEX_HOME`, plugin setup, and app-server tool availability before changing Runtime MCP settings. Applications must also handle any supported approval requests; see [Output and Control](../reference/output-and-control.md).
+The official setup above enables the desktop feature. Whether that installation exposes the required tools to the installed CLI/app-server must also be verified with a Runtime invocation; tool availability depends on the installed Provider and account configuration. If the tools are missing, check the Codex version, `CODEX_HOME`, plugin setup, and app-server tool availability before changing Runtime MCP settings. Applications must also handle any supported approval requests; see [Output and Control](../reference/output-and-control.md).
 
 ## Share WorkBuddy Credits with CodeBuddy
 

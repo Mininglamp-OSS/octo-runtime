@@ -149,7 +149,7 @@ Use the fields for the selected `type` in the table below. Unknown fields fail v
 | `stdio`           | `type`, nonempty `command` | `args` (≤128 strings), `env` (string map), `cwd`, `required`, `startupTimeoutMs`, `toolTimeoutMs` |
 | `streamable_http` | `type`, HTTP(S) `url`      | `headers` (string map), `required`, `startupTimeoutMs`, `toolTimeoutMs`                           |
 
-Providers support different optional fields. Supplying a field that the selected Provider cannot support fails with `MCP_OPTION_UNSUPPORTED`; see the support table below. `required` belongs to an individual server entry, at the same level as `command` or `url`. See the [Context reference](../reference/contexts.md) for field bounds and validation rules.
+Providers support different optional fields. Supplying a field that the selected Provider cannot support fails with `MCP_OPTION_UNSUPPORTED`; see the support table below. `required` belongs to an individual server entry, at the same level as `command` or `url`. See the [AgentEnv Standard Reference](../reference/agent-env-standard.md) for field bounds and validation rules.
 
 ## Use Environment Variables
 
@@ -193,6 +193,6 @@ Start with the reported error code:
 
 If configuration validation passes but tools remain unavailable, check the Provider's connection logs: can the local program start, is the remote address reachable, does authentication succeed, and does the server return a tool list? Do not log tokens or substituted authentication headers.
 
-See [Maintenance and Validation](../maintenance.md) for the validation scope of these examples and tests.
+See [Documentation Maintenance](../maintenance.md) for documentation checks.
 
 Sources: [Adapter MCP helper](../../../packages/octo-runtime-adapter-sdk/src/mcp.ts), [Codex](../../../packages/octo-runtime-adapter-codex/src/mcp.ts), [Claude Code](../../../packages/octo-runtime-adapter-claude-code/src/index.ts), [ACP](../../../packages/octo-runtime-adapter-acp/src/index.ts), [OpenCode](../../../packages/octo-runtime-adapter-opencode/src/index.ts).

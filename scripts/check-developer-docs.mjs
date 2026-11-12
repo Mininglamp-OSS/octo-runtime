@@ -149,7 +149,7 @@ async function checkDocs() {
     "Context examples must cover the entire current catalog"
   );
   for (const locale of ["en", "zh-CN"]) {
-    const page = pages.get(join(docs, locale, "reference/contexts.md"));
+    const page = pages.get(join(docs, locale, "reference/agent-env-standard.md"));
     for (const id of identifiers(CONTEXT_TYPE_CATALOG))
       assert.ok(page.source.includes(`\`${id}\``), `Missing ${id} in ${locale}`);
   }

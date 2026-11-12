@@ -75,12 +75,4 @@ Private workspace package, included in the CLI distribution. It has no individua
 
 ## Private AgentEnv.Item
 
-This package owns the following item; neither its name nor its payload is registered in public Schema, catalog or generated types. Existing options may share the same payload. Invalid explicit values fail in this Adapter.
-
-Optional `modeId` accepts only `"default"` or `"plan"`. Only an explicit value sends native `session/set_mode`; this package does not require an ACP modes advertisement. Invalid values and setter failures fail without fallback. Omission sends no setter and does not reset a resumed session. This option does not change approval_policy/yoloMode or native exit_plan_mode interactions.
-
-```json
-{ "namespace": "adapter.grok-build", "name": "options", "payload": { "modeId": "plan" } }
-```
-
-Add this item to the same `agentEnv.items` array as the Adapter route and prepared workspace in the example above. Keep any existing options in this single item; duplicate namespace/name pairs are invalid. Model/effort remain in the shared model item. The removed public actmode item is not converted.
+This package owns `adapter.grok-build/options`, including `modeId`. `modeId` is a work-mode ID, not a model ID; models use `octo.execution/model.payload.selection.id`. See the package-maintained [private AgentEnv reference](../../docs/en/reference/agent-env/grok-build-options.md) for fields, payload examples, omission and failures. These are outside public Schema/generated types. See [public execution items](../../docs/en/reference/agent-env-standard.md) for shared configuration.

@@ -6,4 +6,4 @@ Learn how Runtime works, make your first SDK call, supply background and tools, 
 
 了解 Runtime 的工作方式，完成第一次 SDK 调用，配置背景资料和工具，并查阅接口字段。中英文覆盖相同功能，可运行代码共用 [examples](examples/) 目录。
 
-Documentation layout, existing-guide migration, and validation: [English](en/maintenance.md) / [中文](zh-CN/maintenance.md).
+Documentation maintenance / 文档维护： [English](en/maintenance.md) / [中文](zh-CN/maintenance.md).

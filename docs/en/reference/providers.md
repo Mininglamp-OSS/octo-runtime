@@ -20,9 +20,9 @@ The table describes the checked-in Adapters. Confirm that your actual Provider v
 | `antigravity`                                                   | Provider CLI       | canonical           | Unsupported                                    |
 | `grok-build` | Grok CLI ACP stdio | canonical | stdio; HTTP when advertised; final `${` literals rejected |
 
-Grok Build uses the shared ACP client and starts a CLI process per invocation. Version 1.0.67 has been checked for text streaming and cross-process session continuation on macOS arm64. See the [Grok adapter](../../../packages/octo-runtime-adapter-grok-build/README.md) for authentication, configuration, and validation limits.
+Grok Build uses the shared ACP client and starts a CLI process per invocation. See the [Grok Adapter](../../../packages/octo-runtime-adapter-grok-build/README.md) for installation and authentication.
 
-DSH is an experimental integration using the unmodified official SDK 0.2.1-rc.3 and requires explicit full_access. Stability, SDK-internal memory bounds, and complete tool-descendant cleanup are not guaranteed. Text deltas arrive after native message commit. See the [DSH adapter](../../../packages/octo-runtime-adapter-dsh/README.md) for installation, Desktop discovery, resume, and cancellation limits, and [DSH #11031](https://github.com/deepseek-ai/deepseek-harness/discussions/11031) for upstream feedback and the historical reference patches.
+DSH is experimental, uses the official SDK 0.2.1-rc.3 and requires explicit full_access. Text deltas arrive after native message commit; see the [DSH Adapter](../../../packages/octo-runtime-adapter-dsh/README.md) for installation, resume and cancellation limits.
 
 The MCP column describes connections configured through `octo.execution/mcp` on each invocation. A Provider's own MCP configuration is a separate source of settings. See the [MCP guide](../guides/mcp.md) for optional fields and restrictions.
 
@@ -44,6 +44,6 @@ OpenClaw calls an existing Gateway Agent and uses its workspace. Its private tar
 
 Local execution requires the caller's existing absolute workdir on each invocation; Runtime neither defaults to cwd nor creates or recovers a directory. Adapters with `metadata.workspace: false` can omit a local override. A working directory does not restrict filesystem or network permissions. See [workdir validation](invoke-input.md).
 
-Image input, sandbox, and session resume support also depend on the Adapter and Provider version; see the [Adapter READMEs](../../../packages/README.md). Documentation tests use a test Adapter. See [Maintenance and Validation](../maintenance.md) for real Provider integration coverage.
+Image input, sandbox, and session resume support also depend on the Adapter and Provider version; see the [Adapter field reference](agent-env/private-items.md).
 
 Sources: [Codex](../../../packages/octo-runtime-adapter-codex/src/index.ts), [Claude Code](../../../packages/octo-runtime-adapter-claude-code/src/index.ts), [ACP](../../../packages/octo-runtime-adapter-acp/src/index.ts), [OpenCode](../../../packages/octo-runtime-adapter-opencode/src/index.ts), [adapter registration](../../../packages/octo-runtime-adapter-sdk/src/index.ts).

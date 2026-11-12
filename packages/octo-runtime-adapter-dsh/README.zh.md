@@ -84,3 +84,7 @@ DSH 本身还有原生 runtime 兼容要求。此前本地 macOS arm64 实测中
 
 - [实现](src/index.ts)、[Adapter SDK](../octo-runtime-adapter-sdk/README.zh.md)、[Runtime 公共协议](../octo-runtime-protocol/README.zh.md)。
 - [SDK 入门](../../docs/zh-CN/getting-started/sdk.md)、[上游限制](https://github.com/deepseek-ai/deepseek-harness/discussions/11031)。
+
+## 私有 AgentEnv.Item
+
+`adapter.dsh/options` 由本包维护，包含宿主选择的 dshBin 与本次 SDK 参数。字段类型、缺省、payload 与拒绝的旧配置见 [DSH 专属参考](../../docs/zh-CN/reference/agent-env/dsh-options.md).

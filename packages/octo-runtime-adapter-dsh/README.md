@@ -88,3 +88,7 @@ DSH also has native runtime compatibility requirements. A previous local macOS a
 
 - [Implementation](src/index.ts), [Adapter SDK](../octo-runtime-adapter-sdk/README.md), [Runtime Protocol](../octo-runtime-protocol/README.md).
 - [SDK quickstart](../../docs/en/getting-started/sdk.md), [upstream limitations](https://github.com/deepseek-ai/deepseek-harness/discussions/11031).
+
+## Private AgentEnv.Item
+
+`adapter.dsh/options` is owned by this package and carries host-selected dshBin and invocation SDK options. See field types, defaults, payloads and rejected legacy configuration in the [DSH Private Reference](../../docs/en/reference/agent-env/dsh-options.md).

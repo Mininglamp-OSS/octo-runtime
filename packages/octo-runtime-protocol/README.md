@@ -1,18 +1,10 @@
-# Runtime Protocol
+# Runtime Public Protocol
 
 [简体中文](README.zh.md) | [Packages](../README.md)
 
-The data contract for everything that crosses a module boundary in Octo Runtime: the input you hand to an executor, the Context attached to one turn, the events that come back, and the terminal states that tell you whether the run actually succeeded. `InvokeInput`, `CanonicalEvent`, `HostFrame`, and the Context envelope live here as JSON Schema, TypeScript types, and runtime validators.
+This private workspace package owns schemas, TypeScript types and runtime validators for input, AgentEnv, output events and IPC. Runtime and source hosts use it directly; standalone applications import the public protocol through `@mininglamp-oss/octo-runtime-client/protocol`.
 
-## When you touch this package
-
-- You build an `InvokeInput` and call Core or Kernel.
-- You consume output and need to tell progress from a terminal result.
-- You write an Adapter or a host and need the exact JSON shape.
-
-It never runs a Provider, chooses business Context, or stores history. This is the vocabulary, not the engine.
-
-## Validate one invocation
+## Minimal Usage
 
 ```ts
 import { InvokeInput } from "@mininglamp-oss/octo-runtime-protocol";
@@ -33,121 +25,27 @@ const input = InvokeInput.check({
 });
 ```
 
-`check` throws on a malformed shape or an oversized payload and returns the same object. It calls nothing and generates nothing: KernelClient, Core, and Kernel fill in `invocationId`, `runId`, and `sessionId` when you omit them, so keep the returned IDs if you want to cancel or correlate the run later.
+InvokeInput.check validates structure and capacity, throwing on failure without executing a call. Each Adapter validates the semantics of configuration it consumes.
 
-## The fields that matter
+## Developer Reference
 
-| Field                                | Required | What it does                                                                                      |
-| ------------------------------------ | -------- | ------------------------------------------------------------------------------------------------- |
-| `inputs`                             | yes      | This turn's text and image parts, in order. Image bytes go here once.                             |
-| `agentEnv`                           | yes      | Context v3 envelope. Its `octo.execution` / `adapter` item selects the Adapter; empty is legal.   |
-| `octo.execution/workspace.payload.path`                   | local calls | Caller-prepared existing absolute directory in the workspace item. No cwd default; not a sandbox. |
-| `protocol_mode`                      | no       | `native` (default) or `canonical`.                                                                |
-| `providerSession`                    | no       | Explicit Provider session to resume. Never rebuilt from `sessionId`.                              |
-| `sessionId`, `invocationId`, `runId` | no       | Correlation IDs, generated when omitted. Not Provider history.                                    |
+| Topic | Authoritative reference |
+| --- | --- |
+| Text, images and recovery input | [Inputs](../../docs/en/reference/input-parts.md) |
+| Invocation parameters and ProviderSession | [Invoke API](../../docs/en/reference/invoke-input.md) |
+| Seven standard execution items | [AgentEnv Standard Reference](../../docs/en/reference/agent-env-standard.md) |
+| Frames, events and interaction payloads | [Output and Control](../../docs/en/reference/output-and-control.md) |
+| SDK methods and IPC | [KernelClient](../../docs/en/reference/kernel-client.md), [Kernel IPC](../../docs/en/reference/kernel-ipc.md) |
 
-`inputs` and `agentEnv` are the only required fields. Without an explicit Adapter item, Core routes to `codex`; its configuration defaults belong to that Adapter. Core snapshots and forwards every AgentEnv item in order. Private items are agreed between the host and the consuming Adapter without registration in the public schema.
+## Schema Maintenance
 
-## Reading the output
-
-Two views over one stream:
-
-- `native` (default) — `HostFrame`: the Provider's own payload wrapped in Runtime control frames.
-- `canonical` — `CanonicalEvent`: normalized across Providers. Most applications want this one.
-
-In native mode the terminal is the `control` frame with `type: "state"`.
-
-## Canonical event types
-
-In canonical mode, Adapters translate each Provider's events into this one set, so a Provider-specific event name never reaches you. Native-only Adapters do not need this conversion. Every canonical event is `{ protocolVersion: 2, type, payload }`. The 24 types below are ordered by lifecycle; the payload column lists the fields you will actually read, not an exhaustive schema.
-
-| Type                    | Group       | When it appears                                            | Key payload fields                                                                                                   |
-| ----------------------- | ----------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `run.queued`            | run         | Accepted and waiting; reserved, no built-in producer today | —                                                                                                                    |
-| `run.started`           | run         | Execution begins; reserved like `run.queued`               | —                                                                                                                    |
-| `run.completed`         | run         | Normal end — the only success terminal                     | —                                                                                                                    |
-| `run.failed`            | run         | Execution failed                                           | `message`, `code`, `adapterType`; a normalized `failure` may be attached                                             |
-| `run.cancelled`         | run         | Cancelled, or the stream was aborted                       | —                                                                                                                    |
-| `message.create`        | message     | A message starts                                           | `messageId`, `role`, `channel`                                                                                       |
-| `message.delta`         | message     | Incremental text                                           | `text`, `channel`, `messageId`                                                                                       |
-| `message.update`        | message     | Full replacement or status change                          | `text`, `status`, `messageId`                                                                                        |
-| `model_step.started`    | step        | One model round begins                                     | `stepId`, `startedAtMs`                                                                                              |
-| `model_step.finished`   | step        | That round ends                                            | `stepId`, `status`, `finishReason`                                                                                   |
-| `tool_call.create`      | tool        | A tool call starts                                         | `id`, `name`, `args`, `status: "running"`                                                                            |
-| `tool_call.delta`       | tool        | Streaming argument or output fragment                      | `id`, and one of `argsDelta`, `outputDelta`, `outputSnapshot`                                                        |
-| `tool_call.update`      | tool        | Tool call reaches a terminal status                        | `id`, `status`, `output`, `error`, `exitCode`                                                                        |
-| `tool_call.progress`    | tool        | Long-running progress                                      | `id`, `progress` (`message`, `completed`, `total`, `unit`)                                                           |
-| `activity.started`      | activity    | Thinking, executing, waiting for approval or input         | `activityId`, `kind`, `subject`, `source`, `info`                                                                    |
-| `activity.updated`      | activity    | Activity details refreshed                                 | `activityId`, `info`                                                                                                 |
-| `activity.finished`     | activity    | Activity ends                                              | `activityId`, `status`                                                                                               |
-| `plan.updated`          | plan        | Whole plan replaced                                        | `planId`, `revision`, `steps[]`                                                                                      |
-| `run.notice`            | notice      | Retry, compaction, reroute, configuration warning, model output silence          | `noticeId`, `code`, `severity`, `params`                                                                             |
-| `interaction.requested` | interaction | Needs approval, an answer, or more input                   | `interactionId`, `kind`, `expiresAt`, `request`                                                                      |
-| `interaction.resolved`  | interaction | Handled, expired, or invalidated                           | `interactionId`, `status`, `outcome`, `reasonCode`                                                                   |
-| `session.update`        | state       | Provider session data changed                              | `providerSession`                                                                                                    |
-| `usage.update`          | state       | Token usage for this turn                                  | Adapter-normalized counts such as `inputTokens` and `outputTokens`, optionally `cumulative` and `modelContextWindow` |
-
-Three rules cover the whole table:
-
-- Exactly one terminal event per run: `run.completed`, `run.failed`, or `run.cancelled`. Nothing else is success — not a final message, not an accepted cancellation, not a process exit, not stream EOF.
-- Message channels are `analysis` (reasoning, gated by `exposure`), `commentary` (in-run progress), and `final` (answer text). Final text can stream before the terminal; a consumer must observe `run.completed` before treating it as a successful answer for delivery.
-- Analysis stays private unless `exposure` is `public_reasoning`, `public_summary`, or `public_plan`.
-
-## Envelope and wire shape
-
-A bare event carries no identity. `envelope()` adds `id`, `seq`, `tsMs`, `runId`, and `agentSessionId` when an event is persisted or forwarded; Kernel's transport wraps it in a `CanonicalHostFrame` carrying `run_id`, `invocation_id`, `stream_id`, and `session_generation`.
-
-In canonical mode both `AgentExecutor.invoke` and `KernelClient.invoke` yield the bare event and check sequence continuity for you: a gap throws `STREAM_GAP` instead of silently skipping. Only a hand-written IPC client has to deal with the frame.
-
-## Versions
-
-Run contract 7, Context v3, and Adapter protocol 2 version independently. A new Context schema does not imply a new Run contract; check each side instead of assuming one bundle version covers the others.
-
-## Import and distribution
-
-This is a private workspace package: native source hosts import `@mininglamp-oss/octo-runtime-protocol`. Independent applications use public types and validators from `@mininglamp-oss/octo-runtime-client/protocol` without depending on private source packages; that entry does not promise every internal export.
-
-[protocol.schema.json](schema/protocol.schema.json) defines shared wire data; [kernel-ipc.schema.json](schema/kernel-ipc.schema.json) defines IPC requests and results. These are the only files in `schema/`. [gen-types.mjs](scripts/gen-types.mjs) generates [protocol-types.ts](src/generated/protocol-types.ts), including `KERNEL_IPC_VERSION` and `RUN_PROTOCOL_ERRORS` from their Schema definitions. Change the Schema and regenerate; do not hand-edit the output.
+[protocol.schema.json](schema/protocol.schema.json) defines shared data; [kernel-ipc.schema.json](schema/kernel-ipc.schema.json) defines IPC requests and results. [gen-types.mjs](scripts/gen-types.mjs) generates types; do not edit generated files manually.
 
 ```sh
 pnpm --filter @mininglamp-oss/octo-runtime-protocol gen
 pnpm --filter @mininglamp-oss/octo-runtime-protocol build
 ```
 
-## Validation and asset ownership
+[test/fixtures](test/fixtures) holds conformance samples separately from definitions. Only IPC samples are published through the client's /protocol/ipc-fixtures.json. Runtime validators maintain byte, depth, uniqueness and execution-state semantics beyond standard Draft-07 checks. Generated types do not replace input validation.
 
-Both schemas use JSON Schema Draft-07. A standard Draft-07 validator checks standard structural constraints. The `x-octo-*` keywords describe additional semantics; a validator must implement them explicitly to enforce them. Accepting the standard keywords alone does not prove protocol conformance. Existing runtime validators also check JSON byte/depth budgets, Unicode scalar strings, uniqueness, cross-field consistency, identities, and lifecycle rules. Generated TypeScript types do not validate runtime input, and the handwritten validators remain necessary.
-
-The six positive/negative fixture files live in [test/fixtures](test/fixtures). They test implementations against the contract; they are not protocol definitions. Only the IPC conformance samples are intentionally published: the existing full Runtime `/executor-kernel/ipc-fixtures.json` and standalone client `/protocol/ipc-fixtures.json` imports remain available. Other fixtures stay out of release packages.
-
-Client connection/concurrency limits, timeouts, and retry delays belong to the client implementation. They are not a shared behavior protocol or another JSON configuration source. Shared wire byte limits remain protocol constants.
-
-## Schema cleanup upgrade notes
-
-Issue #332 removes `kernel-client.behavior.json` and the standalone client's `/protocol/behavior.json` export. Stop importing this file; use the client API and its documented defaults. The IPC Schema identifier is now `urn:mininglamp-oss:octo-runtime:kernel-ipc:v2`; update registrations or references that used the old v1 identifier. The actual IPC version remains 2. The unused `x-octo-methods` code-generation metadata is removed; RPC methods and their request/result definitions remain.
-
-The following legacy types are removed from the Schema, generated types, and protocol exports: `ContextSelectionEntry`, `ContextResourceEntry`, `ContextContinuityPayload`, `ChannelScope`, `ChannelMessagePart`, `ChannelMessageSender`, `ChannelMessageFlags`, `ChannelMessageFact`, `ChannelContextAppend`, `ContextSyncRequest`, `ContextSyncResult`, `ChannelContextDescriptor`, and `ContextCommitResult`. Their five validators (`assertChannelScope`, `assertChannelMessageFact`, `assertChannelContextAppend`, `assertContextSyncResult`, and `assertChannelContextDescriptor`) are also removed. `ContextInlineEntry` and `ContextReferenceEntry` are also removed. Applications own material, history and synchronization contracts. These exports have no compatibility shim; callers must update their imports.
-
-## Workspace migration
-
-Issue #335 makes `octo.execution/workspace` path-only: `{ "path": "/absolute/prepared/project" }`. The caller must create or select an existing absolute directory before local CLI or SDK execution. Runtime does not use an implicit cwd, allocate random directories or recreate missing directories on continuation/recovery. Adapters with `metadata.workspace: false` can omit the local override; OpenClaw retains its Provider workspace.
-
-Remove `mode` (`fixed`, `random`, `none`) and update removed `workspace_mode` receipt/projection fields, `prepareRunContext` and `WorkspaceAssignments` imports. Old mode-bearing payloads fail without compatibility conversion. Existing user directories are not deleted. `WORKDIR_REQUIRED`, `WORKDIR_INVALID`, `WORKDIR_NOT_FOUND`, `WORKDIR_NOT_DIRECTORY` and `WORKDIR_UNAVAILABLE` retain public classification `OH-ADP-3004`; see [validation and error details](../../docs/en/reference/invoke-input.md). Runtime operational directories remain distinct. The source package version and Run/Context/IPC/Adapter wire versions are unchanged; the normal release process selects the published version. Independent Gateway must migrate its old fixed-mode payload before adopting this release.
-
-## Caller prompt migration
-
-Issue #334 removes `octo.control/instructions`, `controlInstructions`, `ContextInstructionEntry`, `ContextInstructionsPayload`, `contextControlInstructions()` and `initialControlInstructions()` from Runtime and its public contracts. Old items and fields are rejected even when empty, without a compatibility alias. Callers prepend application prompts to ordinary input parts and decide their inclusion on new, resumed and reconstructed sessions. Primary and explicit fallback inputs must each be complete; Runtime neither adds prompts nor upgrades them to system/developer/trusted roles. MCP, environment variables and execution policy remain in agentEnv. See [session migration guidance](../../docs/en/guides/context-and-sessions.md). Independent Gateway consumers still need their own migration; this change does not claim end-to-end compatibility.
-
-## Further reading
-
-- [InvokeInput](src/invoke-input.ts), [workspace exports](src/index.ts), [generated types](src/generated/protocol-types.ts).
-- [Input reference](../../docs/en/reference/invoke-input.md), [output and control](../../docs/en/reference/output-and-control.md), [Kernel IPC](../../docs/en/reference/kernel-ipc.md).
-- [Protocol tests](test/run-protocol.test.js).
-
-Issue #349 also removes `PublicObjectMaterial`; task/discussion, mention and history material classifications belong to the application. The unused legacy `ContextPreparationReceipt` and entire `RunContextProjection` are removed from Schema and exports, with no compatibility aliases. Execution configuration uses AgentEnv items; current Host receipts and run events retain their own contracts.
-
-Endpoint discovery, device selection, offline waiting and failover belong to the calling application. `ContextRuntimeSelectionPayload`, `ResolvedRuntimeSelection`, `RUNTIME_SELECTION_SCHEMA`, `assertResolvedRuntimeSelection`, the `octo.runtime/selection` catalog entry and `RUNTIME_RUN_CONTRACT.routing_schema` are removed. The client invokes an already selected Runtime; no selection-specific merge or compatibility alias remains.
-
-Canonical `run.notice` includes `model_output_idle`: Runtime emits it once after 60 seconds without new public model text. New output restarts the full interval. See [timing, budgets and RPC examples](../../docs/en/reference/output-and-control.md#model-output-silence-notices). Native controls are unchanged.
-
-`octo.execution/limits` and `RuntimeLimits` no longer accept `enforcement` or the legacy global watchdog opt-out. Remove that field from caller configuration; the Adapter rejects it when reading limits. For longer execution, set the relevant finite budgets: the total-run default is 24 hours and the maximum is 7 days. Raising `run_timeout_ms` does not change first-frame, model-idle, or tool budgets. `model_idle_policy: "observe"` remains supported and only disables model-idle termination.
+Implementation: [InvokeInput](src/invoke-input.ts), [events and validation](src/index.ts), [frame validation](src/run-protocol.ts).
