@@ -23,6 +23,6 @@ Set this invocation’s proxy variables using `octo.execution/envs` in `agentEnv
 
 ## Troubleshooting and Verification Limits
 
-Check native authentication, model access, and proxy connectivity before checking invocation settings. Record sanitized errors, Harness and Runtime versions, and the actual terminal result. Another Harness's pass is not substitute evidence. Earlier Harness validation covered Antigravity’s configuration-to-model path only. This documentation update adds no live Provider acceptance.
+Check native authentication, model access, and proxy connectivity before checking invocation settings. Record sanitized errors, Harness and Runtime versions, and the actual terminal result. Another Harness's pass is not substitute evidence.
 
 [Adapter details](../../../../packages/octo-runtime-adapter-hermes/README.md) · [Support matrix](../../reference/providers.md)

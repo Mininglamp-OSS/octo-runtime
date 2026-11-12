@@ -1,89 +1,20 @@
-# Kernel IPC and SDK
+# Kernel IPC
 
 [简体中文](../../zh-CN/reference/kernel-ipc.md) | [Documentation](../README.md)
 
-Kernel IPC is the protocol between an application and a local Kernel service. TypeScript applications normally use `KernelClient.invoke`, letting the SDK handle submission, subscription, and reconnection. Other languages can implement a client using the JSON-RPC protocol below.
+Local Kernel JSON-RPC protocol. TypeScript applications normally use [KernelClient](kernel-client.md); clients in other languages can implement this protocol.
 
-Start with the [SDK quickstart](../getting-started/sdk.md) for a first integration. This reference covers public imports, client methods, and the underlying protocol separately.
+## Schemas and Validation
 
-## Client Entries for Independent Apps
+The standalone client provides two Draft-07 schemas at `/protocol/schema.json` and `/protocol/ipc-schema.json`, plus conformance samples at `/protocol/ipc-fixtures.json`. Samples are not protocol definitions.
 
-| Import subpath                       | Purpose                                                                                  |
-| ------------------------------------ | ---------------------------------------------------------------------------------------- |
-| Package root                         | `attachKernel`, KernelClient, KernelError; no service or Adapter construction             |
-| `/protocol`                          | InvokeInput, output/context types and public validators                                  |
-| `/protocol/schema.json`              | Shared protocol schema                                                                   |
-| `/protocol/ipc-schema.json`          | IPC v2 schema                                                                            |
-| `/protocol/ipc-fixtures.json`        | Published conformance samples, separate from protocol definitions                        |
-
-All paths are under `@mininglamp-oss/octo-runtime-client`. Independent Apps call a running Kernel through RPC without importing Adapters or depending on the full CLI package.
-
-Applications consuming an existing Kernel can install only `@mininglamp-oss/octo-runtime-client` and import `attachKernel` from its root. They do not need the full Runtime package or a Runtime checkout.
-
-Native hosts instead integrate service factories from `octo-runtime-executor-kernel`, endpoint helpers from `octo-runtime-host-sdk`, and selected Adapters from source workspace. Direct Core requires an explicit `octo-runtime-executor-core` dependency. These private source packages are not independently published; see [SDK integration](../getting-started/sdk.md) for dependencies and selective loading. Retained shared entries in the full CLI package do not change these scenarios or expose Adapter aggregates.
-
-The standalone client publishes the same two schemas at `/protocol/schema.json` and `/protocol/ipc-schema.json`, and preserves `/protocol/ipc-fixtures.json` for conformance samples. Repository fixtures live in `packages/octo-runtime-protocol/test/fixtures/`; only the IPC samples are shipped. Client defaults are maintained by the client implementation; `/protocol/behavior.json` has been removed.
-
-Both schemas use Draft-07. Standard validators enforce the standard keywords, while `x-octo-*` semantics require explicit support. Runtime validators additionally enforce byte/depth budgets, Unicode scalar strings, uniqueness, cross-field consistency and execution state rules. Passing standard structural validation alone is insufficient for a complete IPC implementation.
-
-## Create a Service
-
-`createKernelService(options)` requires an existing absolute `home`, a local `endpoint` and host-constructed `adapters`. Optional settings include `adapterConfigurations`, `configurations(runtimeId?)`, `logging`, and `stateDirectory`. Kernel registers objects in its process and exposes business calls through RPC. It accepts no module manifests, paths, worker entries, or subprocess env. CLI imports modules before passing objects. See [Module Loading](../concepts/module-loading.md).
-
-1. Create the service and await `initialize({signal?})`.
-2. After initialization, invoke through `kernel.client` or inspect the service with `status()`.
-3. Call `close()` on exit. You can also await the `closed` Promise for the cleanup result.
-
-Initialization failure throws `ServiceInitializationError` with the original `cause` and `cleanup` result. Repeated initialization or closure on the same object shares the original operation. Create a new object to start another service lifecycle.
-
-## KernelClient Methods
-
-| Method                                                 | Purpose and result                                                                                                                             |
-| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `invoke(inputs, sessionId, providerSession, agentEnv)` | Async output stream that submits when read, manages execution identifiers, and reconnects within limits. Use for normal calls.                 |
-| `interrupt(invocationId, reason?)`                     | Cancel an invocation started through invoke on this client; returns `{accepted}`.                                                              |
-| `respondInteraction(invocationId, response)`           | Reply to that invocation's canonical interaction.                                                                                              |
-| `respondNativeInteraction(invocationId, response)`     | Reply to that invocation's Provider-native interaction.                                                                                        |
-| `status()` / `list()`                                  | Query Kernel state or registered Adapter metadata with Provider probe results, respectively. Probing does not establish login or model access. |
-| `close()`                                              | Close client connections without cancelling submitted executions or closing the Kernel service.                                                |
-
-Use these lower-level methods only when managing submission and subscription yourself:
-
-| Method                                                    | Purpose and result                                                                                           |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `submit(input, environment?)`                             | Submit one execution and return `{ref}`. The caller then subscribes to output and handles recovery.          |
-| `get(key, expectedInstance?)`                             | Query the original execution's ref, retained output range, and final state.                                  |
-| `subscribe(ref, afterSeq = 0, signal?)`                   | Read HostFrames after a sequence number. The signal only stops the subscription.                             |
-| `cancel(ref, reason?)`                                    | Cancel by complete ref. The result says whether the request was accepted; read output for the final outcome. |
-| `respond(ref, response)` / `respondNative(ref, response)` | Reply to an interaction by complete ref.                                                                     |
-
-## Model Catalog Boundary
-
-The host queries catalogs and passes business data directly, or lets an application call a host-injected dependency. Neither path goes through Kernel or requires an additional IPC method.
-
-`adapter.list` / `KernelClient.list()` returns registered Adapter metadata and actual probe information, not a model catalog or proof of account access to a model. Public IPC and Go/Python clients do not own unified model or effort catalog discovery, completion, or maintenance. A catalog is not a missing execution prerequisite.
-
-Hosts and applications using the public `KernelClient` receive one list contract: registered Adapter metadata and Provider probe results, including `available`, `unavailableReason`, `providerPath`, and `providerVersion`. Only the Adapters assembled into that Kernel are listed. Probe results do not enumerate models or establish login or account authorization.
-
-The integrating host obtains or configures model options for its Provider, actual endpoint, and account. Official services, third-party proxies, and custom endpoints may expose different models or no catalog API while using the same Adapter. The host handles unavailable catalogs and query failures without fabricating successful empty lists or requiring consumers to use Runtime to scan private credentials or start discovery sessions.
-
-Callers continue to express explicit models through existing invoke inputs. Omitting a model retains existing default semantics. Adapter-native selection validation, confirmation, and error reporting still apply; this does not add a Runtime catalog allowlist or dynamic capability admission. See [Model Catalog and Selection Ownership](../concepts/architecture.md).
-
-## Manage Unfinished Client Invocations
-
-`client.invocations` tracks up to 128 calls started through `invoke`, including calls with unknown outcomes. Lower-level `submit` is not added automatically.
-
-- `snapshot()` returns invocation metadata.
-- `stopAdmission()` rejects new invoke calls.
-- `drain({deadline, reason})` cancels and awaits tracked calls, returning `complete` and `unresolved`. Its deadline is an absolute millisecond timestamp calculated with `Date.now()`.
-
-Applications that create Kernel normally use the service's `close()`. An application connected to an external Kernel can explicitly use this registry to cancel and await its own invocations on exit.
+Standard validators enforce standard keywords; `x-octo-*` semantics require explicit implementation. Runtime also checks byte/depth budgets, Unicode scalar strings, uniqueness, cross-field consistency and execution state. Structural validation alone does not establish full conformance.
 
 ## IPC Message Format
 
 IPC protocol version is 2. It is numbered independently from Run schema version 7, Context `octo.context-envelope/v3`, and internal Adapter transport version 2.
 
-The IPC Schema `$id` is `urn:mininglamp-oss:octo-runtime:kernel-ipc:v2`. Registrations and references using the former v1 identifier must be updated; the wire version remains 2. The unused `x-octo-methods` generator metadata and legacy channel/history types and validators have been removed. See the [upgrade notes](../../../packages/octo-runtime-protocol/README.md) for the explicit deletion list. RPC methods below remain unchanged.
+The IPC Schema `$id` is `urn:mininglamp-oss:octo-runtime:kernel-ipc:v2`.
 
 Use a Unix domain socket on macOS/Linux or a Named Pipe on Windows. Each connection sends one UTF-8 JSON-RPC 2.0 request ending with LF. Its `id` must be a nonempty string. Numeric IDs, batch requests, and top-level or params fields undefined by the schema are rejected.
 

@@ -31,17 +31,17 @@ try {
 }
 ```
 
-## 公共字段与兼容
+## 公共字段
 
 公共结构包括 `domain: "startup"`、外层公共码 `code`、主根因码 `rootCode`（未知时为 `STARTUP_UNKNOWN`）、`component`、既有 `ServicePhase` 的 `phase`、`summary`、`explanation`、`actions`、`retryable`、`userActionRequired`、`context`、`causes`、可选 `cleanup` 和 `truncated`。不要求 Run 标识。`retryable` 表示等待或重试可能有帮助，不自动授权重试；先检查清理与所有权。
 
 typed context 只包含已观测事实：`path`、`resource`、`operation`、`configKey`、`endpoint`、`executable`、`module`、`systemCode`、`measured`、`limit`、`unit`。已知失败路径同时进入文本和 JSON；权限拒绝不解释为不存在。spawn ENOENT 也可能来自 cwd 不存在，因此需要核对所选 executable 和工作目录，不能凭 errno 断言缺少程序。
 
-保留原错误类、message、公共码、cause、cleanup 和 CLI 退出码选择。CLI JSON 保留 `error.code`、`message`、可选 `cause_code` 与管理器元信息，新增 `error.diagnostic`；深层根因使用 `diagnostic.rootCode` 分支。文本显示同一诊断及恢复动作。逃出常规 CLI handler 的启动错误也采用相同安全投影。不迁移 Run/status schema，不增加生命周期状态机。
+错误保留公共码、message、cause 和 cleanup。CLI JSON 使用 error.code、message、可选 cause_code、error.diagnostic 及管理器元信息；深层根因使用 diagnostic.rootCode 分支。文本输出同一诊断和恢复动作。
 
-`HOME_UNAVAILABLE` 继续为旧消费方保留目录说明。#306 退役 SDK 隐式 Home 选择，不能要求 SDK 用户补 LOCALAPPDATA。SDK 宿主显式提供已经存在的有效绝对 Home；CLI 准备自己选择的根目录，默认 `~/.octo-runtime`，显式 `--home` 优先。已有数据不自动移动。已整合 #306（#310）与 #303（#311）；POSIX Kernel 使用 Home 下直接 socket，没有旧端点迁移或双所有者检测层。
+SDK 宿主显式提供已存在的有效绝对 Home。CLI 准备自己选择的目录，默认 ~/.octo-runtime，显式 --home 优先。数据不会自动搬移；POSIX Kernel 使用 Home 下的直接 socket。
 
-#306 的 RuntimeHomeError.diagnostic 平铺路径属性继续支持读取；标准 JSON 使用 context.path/resource/operation 和 actions。CLI error.startup 与可选 error.cleanup 继续作为兼容投影，新调用方使用 error.diagnostic。Kernel 日志目录非法时，在 Home 路径预算校验前返回 LOG_DIRECTORY_MUST_BE_ABSOLUTE；外层 SERVICE_INITIALIZATION_FAILED 与 CLI 退出码选择保持不变。
+标准诊断 JSON 使用 context.path/resource/operation 和 actions。Kernel 日志目录非法时返回 LOG_DIRECTORY_MUST_BE_ABSOLUTE，外层保留 SERVICE_INITIALIZATION_FAILED。
 
 ## 就绪与安全排障
 
@@ -49,13 +49,13 @@ typed context 只包含已观测事实：`path`、`resource`、`operation`、`co
 
 cause 遍历最多 16 个对象、六层，支持聚合与循环；主失败优先，清理错误和 pending 资源继续保留。禁止投影原始异常正文/stack、全量环境、配置、stderr、凭据或任意属性。动态值经同一确定性安全格式化进入文本和 JSON，去除控制字符、URL 认证/query/fragment 及可识别敏感赋值。对不可信序列化结构先调用 `restoreStartupDiagnostic`，文案/建议从共享 catalog 重建，不信任记录里的解释。
 
-CLI 在 `<home>/logs/startup-<component>.json` 保存每组件一份有界安全最近失败，与既有生命周期日志并存。后台 start/restart 只回读当前尝试时间内匹配组件的记录，再重建白名单；兼容旧版仅含码的日志。诊断写盘失败不能覆盖原始启动错误。Home/IPC 路径验证失败直接返回，不创建日志或替代 Home。记录不执行恢复，不包含原始异常或业务配置。
+CLI 在 `<home>/logs/startup-<component>.json` 保存每组件一份有界安全最近失败，与既有生命周期日志并存。后台 start/restart 只回读当前尝试时间内匹配组件的记录，再重建白名单。诊断写盘失败不能覆盖原始启动错误。Home/IPC 路径验证失败直接返回，不创建日志或替代 Home。记录不执行恢复，不包含原始异常或业务配置。
 
 嵌套 cause 保留已观测的组件/阶段与清理事实；外层 cleanup complete 不能抹去内层 incomplete。
 
 ## 诊断目录
 
-以下表格的 English-first 恢复说明直接来自共享 `STARTUP_CATALOG`，中文含义与其对齐。实际尝试按 executable、目录或 configKey 填入确定性动态信息。缺失、错误类型、权限、长度限制各自保留不同码；未知码保留标识，明确含义未知并要求下一步受控排查。
+下表说明公开启动错误及处置建议。实际尝试按 executable、目录或 configKey 填入确定性动态信息。缺失、错误类型、权限、长度限制各自保留不同码；未知码保留标识，明确含义未知并要求下一步受控排查。
 
 | Code | 含义 | 支持的恢复动作（共享 English-first 文案） | 重试判断 |
 | --- | --- | --- | --- |
@@ -92,10 +92,10 @@ CLI 在 `<home>/logs/startup-<component>.json` 保存每组件一份有界安全
 | `ECONNREFUSED` | 组件尚未接受 IPC 连接 | Inspect the target component's lifecycle and logs, start it through its host, then retry. | 等待/重试可能有用 |
 | `SETUP_IN_PROGRESS` | 组件生命周期操作正在进行 | Wait for that operation to finish, then retry. | 等待/重试可能有用 |
 | `SERVICE_INITIALIZATION_CANCELLED` | 组件初始化已取消 | Check the host cancellation request and cleanup outcome before starting again. | 等待/重试可能有用 |
-| `KERNEL_CONFIGURATION_INVALID` | Kernel 构造输入无效 | Pass endpoint and an adapters array to createKernelService. Compose Adapter objects in the host; retired worker/manifest/env options are unsupported. | 先由用户处理 |
+| `KERNEL_CONFIGURATION_INVALID` | Kernel 构造输入无效 | Pass endpoint and an adapters array to createKernelService. Compose Adapter objects in the host. | 先由用户处理 |
 | `ERR_MODULE_NOT_FOUND` | 所选模块或其依赖未找到 | Check the selected module and its installed dependency graph in the host; correct the declaration or install the required package, then retry. | 先由用户处理 |
 | `MODULE_NOT_FOUND` | 所选模块或其依赖未找到 | Check the selected module and its installed dependency graph in the host; correct the declaration or install the required package, then retry. | 先由用户处理 |
-| `MANIFEST_INVALID` | CLI 模块清单无效 | Check the selected manifest.json: version must be 1 and adapters must be valid arrays without duplicate keys. | 先由用户处理 |
+| `MANIFEST_INVALID` | CLI 模块清单无效 | Ask the service host to correct its Adapter configuration. | 先由用户处理 |
 | `LOCAL_STATE_INVALID` | 无法读取本地状态 | Inspect the reported file and system cause. Preserve existing identities and configuration; correct the file or access through the host. | 先由用户处理 |
 | `WRITE_FAILED` | 本地状态写入失败 | Inspect the reported path, operation and system cause; correct access before retrying the host operation. | 先由用户处理 |
 | `COMPONENT_UNAVAILABLE` | 组件未就绪 | Inspect component status and controlled lifecycle logs. Process liveness alone does not establish Kernel execution readiness or application connectivity. | 等待/重试可能有用 |
@@ -107,4 +107,4 @@ CLI 在 `<home>/logs/startup-<component>.json` 保存每组件一份有界安全
 | `ORPHAN_CLEANUP_INCOMPLETE` | 前一 Kernel 资源清理未完成 | CLI users: run doctor with the same --home. After confirming all owned orphan tools have stopped, run octo-runtime recover --acknowledge-orphan-cleanup with that Home, then start again. SDK hosts must use the corresponding inspect/acknowledge API; do not remove ownership records. | 先由用户处理 |
 | `ORPHAN_RECORD_UNSUPPORTED` | 不支持已保存的 Kernel 所有权格式 | Preserve the ownership evidence. Stop and clean up using the version and host that created it before upgrading; do not acknowledge or delete an unknown record. | 先由用户处理 |
 
-目录不为每个失败强制发明新公共码，也不把业务连通性错误改成组件启动错误。已删除的执行 worker 不恢复。
+目录不为每个失败强制发明新公共码，也不把业务连通性错误改成组件启动错误。

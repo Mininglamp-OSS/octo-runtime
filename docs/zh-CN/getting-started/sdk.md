@@ -24,7 +24,7 @@ CLI 发行物负责其内置装配，`octo-runtime-client` 不包含或加载 Ad
 }
 ```
 
-Adapter 在 Kernel 初始化前完成构造和注册；需要按产品配置加载时，由宿主选择 import 集合。未选择的 Adapter 不进入该宿主的依赖或加载集合。CLI 默认会导入其 manifest 中的全部装配项；Codex 进程的首次调用惰性启动是另一层行为。直接 Core 是显式高级选择，执行、取消及退出清理由原生宿主负责。完整场景和所有权见[架构约束](../concepts/architecture.md)。
+Adapter 在 Kernel 初始化前完成构造和注册；需要按产品配置加载时，由宿主选择 import 集合。未选择的 Adapter 不进入该宿主的依赖或加载集合。直接 Core 是显式高级选择，执行、取消及退出清理由原生宿主负责。完整场景和所有权见[架构约束](../concepts/architecture.md)。
 
 ```ts
 import { attachKernel } from "@mininglamp-oss/octo-runtime-client";
@@ -52,7 +52,7 @@ export async function execute(endpoint: string, input: InvokeInput) {
 
 两个包从同一 tag 同版本发布。runtime 内置自己的 client/protocol，任一 tgz 均可单独离线安装；完整 SDK 原有 `/executor-kernel`、`/protocol` 路径保持。应用同时安装两种发行物时可能有两个模块副本：错误判断使用产生错误的 API 对应的类，或公开 code，不依赖跨发行物的函数 ===、instanceof 或内部拒绝证据互认。
 
-npm 版本与 IPC v2、Run 7、Context v3 分别管理。同次发行组合属于支持范围；其他组合需要按相同 wire 合同明确验证。status 在提交前拒绝不支持的 IPC 版本，不增加协商、降级或自动重放。独立 client 在 `/protocol/schema.json` 和 `/protocol/ipc-schema.json` 提供两个 Draft-07 Schema，另在原有 `/protocol/ipc-fixtures.json` 路径提供一致性样本。`/protocol/behavior.json` 已删除，默认值归客户端实现。IPC Schema 标识改为 `kernel-ipc:v2`，实际 wire 版本不变。扩展语义检查及闲置导出删除清单见[校验边界与升级说明](../../../packages/octo-runtime-protocol/README.zh.md)。传输仍限定本地 Unix socket/Windows named pipe 和现有系统账号信任边界。
+npm 版本与 IPC v2、Run 7、Context v3 分别管理。Runtime 与独立 client 使用同次发行的匹配版本；status 在提交前校验 IPC 版本。Schema、语义校验与传输字段见 [Kernel IPC](../reference/kernel-ipc.md)。本地传输使用 Unix socket 或 Windows named pipe，信任边界为同一操作系统账号。
 
 ## 1. 快速接入 KernelService
 
@@ -64,7 +64,7 @@ npm 版本与 IPC v2、Run 7、Context v3 分别管理。同次发行组合属�
 | 服务状态 | `kernel.status(): Promise<KernelServiceStatus>` | 生命周期及 Kernel 状态 |
 | 关闭 | `kernel.close(): Promise<ServiceCleanupResult>` | 宿主负责关闭并检查 `complete` |
 
-Provider 的安装、认证由宿主准备。命令 Adapter 必填绝对 `command`；选定运行器/入口时传入 `commandArgsPrefix`，基础环境通过 `env` 交付，构造时复制绑定。Adapter 不发现安装，也不按请求 PATH/cwd 重新选择运行器；CLI 在自己的装配层完成发现。metadata 保持描述性，probe 检查已绑定目标。默认 Adapter 实例与隐式命令选择已删除。
+Provider 的安装、认证由宿主准备。命令 Adapter 必填绝对 `command`；选定运行器/入口时传入 `commandArgsPrefix`，基础环境通过 `env` 交付，构造时复制绑定。Adapter 不发现安装，也不按请求 PATH/cwd 重新选择运行器；CLI 在自己的装配层完成发现。metadata 保持描述性，probe 检查已绑定目标。
 
 这里只完成服务接入，不需要发起一次调用：
 
@@ -158,7 +158,7 @@ export function invokeMyAdapter(req: InvokeRequest, client: MyHarnessClient) {
 
 ## 3. 高级接入
 
-CODEX_HOME 必须由宿主选择、准备并显式注入，关闭进程不删除目录、认证或会话。上例的 owner 是宿主独占资源；更完整的顺序关闭和初始化回滚见[可编译示例](../../examples/codex-service.mts)。不再导出 codexAdapter 单例或接受旧构造参数。
+CODEX_HOME 必须由宿主选择、准备并显式注入，关闭进程不删除目录、认证或会话。上例的 owner 是宿主独占资源；更完整的顺序关闭和初始化回滚见[可编译示例](../../examples/codex-service.mts)。
 
 业务已有 Codex Engine 时，直接 createCodexAdapter({engine: businessProvider})。CodexEngineProvider.acquire 提供可独立释放的 channel 和本轮 MCP 配置，全部共享 RPC 关联由业务 provider 维护。关闭借用的 Kernel 不调用业务 owner.beginShutdown/close。其他黑盒 Adapter 可以采用任意构造参数，包括具体 client、函数、配置和多个对象；只要求构造结果满足注册执行合同，见[构造示例](../../examples/custom-adapter.mts)和[架构边界](../concepts/architecture.md)。
 
@@ -196,11 +196,11 @@ for await (const event of client.invoke(
 }
 ```
 
-所有使用该目录的执行结束并确认自有资源释放后，应用再决定清理。[DSH 示例](../../examples/dsh-invoke.mts) 展示调用方创建临时目录、消费终态并检查清理的过程。独立 Channel Gateway 仍输出已删除的 fixed-mode payload，且另有提示词迁移要求；采用本次发行前须另行升级该消费者。
+所有使用该目录的执行结束并确认自有资源释放后，应用再决定清理。[DSH 示例](../../examples/dsh-invoke.mts) 展示调用方创建临时目录、消费终态并检查清理的过程。
 
 ## 启动失败
 
-稳定码分支、安全资源 context、清理事实及 CLI JSON 兼容方式见[启动诊断合同与目录](../guides/startup-diagnostics.md)。
+稳定码分支、安全资源 context、清理事实及 CLI JSON 字段见[启动诊断合同与目录](../guides/startup-diagnostics.md)。
 
 [English](../../en/getting-started/sdk.md)
 

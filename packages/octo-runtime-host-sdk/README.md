@@ -1,9 +1,14 @@
 # Host SDK
 
-The actual host owns Kernel, persistent Engine and Home lifecycles separately. Host SDK does not acquire Engine control from an adapter reference. CLI management and Electron-owned Engines are distinct compositions. CODEX_HOME is explicit; its owner manages permissions and persistent data. See [module and object lifecycles](../../docs/en/concepts/architecture.md).
+[简体中文](README.zh.md) | [Packages](../README.md)
 
-Provides shared Home, identity, endpoint and diagnostic conventions. Native applications depend on Host SDK, Kernel and selected Adapters from source workspace. Independent Apps use the client to connect to a CLI-started Kernel without loading host packages or Adapters.
+Provides Home, identity, endpoint and startup-diagnostic helpers. Native hosts depend on this source-workspace package and manage services and Provider objects according to explicit ownership.
 
-Business plugin discovery, configuration and channel lifecycle are outside Runtime. [Gateway](https://github.com/Mininglamp-OSS/octo-channel-gateway) owns those concerns through its SDK and CLI.
+Business channels, history and delivery belong to applications. Standalone applications connect to existing Kernel services through runtime-client.
 
-[SDK](../../docs/en/getting-started/sdk.md)
+## Developer Reference
+
+- [SDK Integration](../../docs/en/getting-started/sdk.md).
+- [Runtime Home](../../docs/en/reference/runtime-home.md).
+- [Startup Diagnostics](../../docs/en/guides/startup-diagnostics.md).
+- [Application and Runtime Responsibilities](../../docs/en/concepts/architecture.md).

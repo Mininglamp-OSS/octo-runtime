@@ -24,7 +24,7 @@ For example, a native Codex-only host declares these dependencies in its own pnp
 }
 ```
 
-Construct and register Adapters before Kernel initialization. Hosts choose the import set when loading according to product configuration; unselected Adapters stay out of that host's dependency and loading set. Default CLI imports all composition entries in its manifest; Codex process startup on the first invocation is a separate behavior. Direct Core remains an explicit advanced choice, with execution, cancellation and shutdown owned by the native host. See the [architecture constraints](../concepts/architecture.md) for scenarios and ownership.
+Construct and register Adapters before Kernel initialization. Hosts choose the import set when loading according to product configuration; unselected Adapters stay out of that host's dependency and loading set. Direct Core remains an explicit advanced choice, with execution, cancellation and shutdown owned by the native host. See the [architecture constraints](../concepts/architecture.md) for scenarios and ownership.
 
 ```ts
 import { attachKernel } from "@mininglamp-oss/octo-runtime-client";
@@ -52,7 +52,7 @@ export async function execute(endpoint: string, input: InvokeInput) {
 
 Both packages are published at matching versions from the same tag. Runtime bundles its own client/protocol; each tgz remains independently installable offline. Existing Runtime `/executor-kernel` and `/protocol` imports remain supported. Two installed distributions can contain separate module instances: use the error class from the API that produced the error, or its public `code`; cross-distribution function identity and `instanceof` are not guaranteed.
 
-Package versions are separate from IPC v2, Run 7 and Context v3. Matching release pairs are supported; other combinations need explicit verification against the same wire contracts. Status rejects unsupported IPC versions before submission; there is no new negotiation, downgrade or automatic execution replay. The standalone client exports two Draft-07 schemas at `/protocol/schema.json` and `/protocol/ipc-schema.json`, with separate conformance samples at the preserved `/protocol/ipc-fixtures.json` path. `/protocol/behavior.json` is removed; client defaults belong to its implementation. The IPC Schema identifier now ends in `kernel-ipc:v2`, matching the unchanged wire version. See [validation boundaries and upgrade notes](../../../packages/octo-runtime-protocol/README.md) for custom semantic checks and removed legacy exports. Transport remains local Unix sockets / Windows named pipes under the existing OS-account trust boundary.
+Package versions are separate from IPC v2, Run 7 and Context v3. Use matching Runtime and client releases; status validates the IPC version before submission. See [Kernel IPC](../reference/kernel-ipc.md) for schemas, semantic validation and transport fields. Local transport uses Unix sockets or Windows named pipes within one OS-account trust boundary.
 
 The POSIX Kernel address is `<home>/executor-kernel.sock`; Windows uses a named pipe.
 
@@ -72,7 +72,7 @@ The host prepares an absolute Home directory. SDK does not create or select the 
 | Service status | `kernel.status(): Promise<KernelServiceStatus>` | Lifecycle and Kernel state |
 | Close | `kernel.close(): Promise<ServiceCleanupResult>` | The host closes its service and checks `complete` |
 
-The host prepares Provider installation and authentication. Command adapters require an absolute `command`; pass `commandArgsPrefix` for a selected runtime/entry and `env` for its base environment. Constructors copy the binding. Adapters do not discover installations or reselect a runtime from request PATH/cwd. CLI performs discovery in its own composition layer. Metadata remains descriptive, and probe checks the bound target. Default adapter instances and implicit command selection have been removed.
+The host prepares Provider installation and authentication. Command adapters require an absolute `command`; pass `commandArgsPrefix` for a selected runtime/entry and `env` for its base environment. Constructors copy the binding. Adapters do not discover installations or reselect a runtime from request PATH/cwd. CLI performs discovery in its own composition layer. Metadata remains descriptive, and probe checks the bound target.
 
 Integration does not require an invocation:
 
@@ -166,7 +166,7 @@ export function invokeMyAdapter(req: InvokeRequest, client: MyHarnessClient) {
 
 ## 3. Advanced Integration
 
-The host selects, prepares and explicitly supplies CODEX_HOME. Process shutdown never deletes its directory, credentials or sessions. This example exclusively owns its Engine; see the [compiled example](../../examples/codex-service.mts) for sequential shutdown and initialization rollback. The codexAdapter singleton and old constructor options are removed.
+The host selects, prepares and explicitly supplies CODEX_HOME. Process shutdown never deletes its directory, credentials or sessions. This example exclusively owns its Engine; see the [compiled example](../../examples/codex-service.mts) for sequential shutdown and initialization rollback.
 
 For an existing Codex Engine use createCodexAdapter({engine: businessProvider}). CodexEngineProvider.acquire supplies an independently releasable channel and invocation MCP configuration; the business provider coordinates shared RPC correlation. Closing a borrowing Kernel never calls the business owner's beginShutdown/close. Other black-box adapters may accept arbitrary arguments: concrete clients, functions, configuration or multiple objects. Only the constructed registration contract is shared; see the [construction example](../../examples/custom-adapter.mts) and [architecture](../concepts/architecture.md).
 
@@ -204,11 +204,11 @@ for await (const event of client.invoke(
 }
 ```
 
-Keep the directory until all executions using it have finished and owned resources have been released. The [DSH example](../../examples/dsh-invoke.mts) shows caller-created temporary storage with terminal consumption and cleanup checks. The independent Channel Gateway still emits the removed fixed-mode payload and has an additional prompt migration requirement; update that consumer separately before adopting this release.
+Keep the directory until all executions using it have finished and owned resources have been released. The [DSH example](../../examples/dsh-invoke.mts) shows caller-created temporary storage with terminal consumption and cleanup checks.
 
 ## Startup failures
 
-See the [startup diagnostic contract and catalog](../guides/startup-diagnostics.md) for stable code branching, safe resource context, cleanup and CLI JSON compatibility.
+See the [startup diagnostic contract and catalog](../guides/startup-diagnostics.md) for stable code branching, safe resource context, cleanup and CLI JSON fields.
 
 Business channels use the independent `@mininglamp-oss/octo-channel-gateway` package and only the public client.
 

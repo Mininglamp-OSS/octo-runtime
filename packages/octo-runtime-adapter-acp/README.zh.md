@@ -85,12 +85,4 @@ private workspace 包，不单独发布或通过完整包聚合导出。原生�
 
 ## 私有 AgentEnv.Item
 
-本包采用 `adapter.<metadata.type>/options`，可选 `modeId: string` 为 Provider 原生 ID；这是包内约定，不登记公共 protocol，也不将 adapter.xxx 规定为公共命名规范。
-
-省略不探测或设置模式，也不主动重置续接会话。显式值必须为非空、非纯空白字符串，按原值精确匹配本次 Provider 广告；不 trim、不把 default 改为 build。优先使用 mode config option（含分组选项）及其真实 configId，否则使用 modes.availableModes。无广告、不支持值、缺 configId 或 RPC 拒绝均失败，不替换模式。当前值相同时不发 setter；否则调用 session/set_config_option 或 session/set_mode。setter 成功只表示请求被接受，不伪造生效回执。modeId 不改变审批授权。
-
-将以下条目与调用方准备的 workspace、公共 adapter/model item 放在同一 agentEnv.items 中；modeId 使用本次原生广告中的值，示例值不承诺 Provider 支持。已有 options 合在同一 payload，旧 actmode 不转换。
-
-```json
-{ "namespace": "adapter.<metadata.type>", "name": "options", "payload": { "modeId": "plan" } }
-```
+本包私有定义 `adapter.acp/options`，主要字段为 `modeId`。`modeId` 是工作模式 ID，不是模型 ID；模型使用 `octo.execution/model.payload.selection.id`。 字段、payload 示例、缺省与失败行为见[专属 AgentEnv 参考](../../docs/zh-CN/reference/agent-env/acp-options.md)，由本包维护，不登记公共 Schema 或生成类型。公共输入与七个标准执行项见[开发参考](../../docs/zh-CN/reference/agent-env-standard.md)。

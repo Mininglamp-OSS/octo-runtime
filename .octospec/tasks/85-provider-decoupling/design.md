@@ -3,7 +3,7 @@ type: Task
 title: Issue 85：CLI 双 manifest 与 SDK 原生装配设计
 description: Adapter 和 Extra 共用显式选择原则，CLI 合并两份清单，SDK 无 manifest。
 tags: [architecture, adapter, extra, installation, runtime]
-status: locally-validated
+status: historical
 timestamp: 2026-10-21T00:00:00Z
 ---
 
@@ -94,4 +94,4 @@ CLI 完成合并后在进程内保存带来源的描述，通过已有 Node IPC 
 
 范围止于依赖方向、CLI 双清单选择与加载、SDK 原生装配说明及回归。不实现 FDE 拷贝工具、不拆分 npm 发布、不热加载、不自动安装模块、不重构业务调用。相较最初仅 Adapter 的 #85，用户新增 Extra 与 Home 扩展清单使 CLI 装配改动增加；不能再将整个范围描述为仅删除几条 dependencies。
 
-双语说明见[中文](../../../docs/zh-CN/concepts/module-loading.md) / [English](../../../docs/en/concepts/module-loading.md)。实施计划见[验收](acceptance.md)。
+双语说明见[中文](https://github.com/Mininglamp-OSS/octo-runtime/blob/d63ad1fae599e0ab85a0ce24e01ed75db003ea60/docs/zh-CN/concepts/module-loading.md) / [English](https://github.com/Mininglamp-OSS/octo-runtime/blob/d63ad1fae599e0ab85a0ce24e01ed75db003ea60/docs/en/concepts/module-loading.md)。实施计划见[验收](acceptance.md)。

@@ -22,10 +22,10 @@ Kernel does not restart its host process; the SDK application or CLI service man
 
 | Symptom / code                                 | Action                                                                                                                                                                                           |
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Invalid Context structure, duplicates, or size | Validate parameters with `InvokeInput.check`. Check schema, the 32-item / 64-KiB limit, and duplicate namespace/name pairs. See [Context reference](../reference/contexts.md) for field formats. |
+| Invalid Context structure, duplicates, or size | Validate parameters with `InvokeInput.check`. Check schema, the 32-item / 64-KiB limit, and duplicate namespace/name pairs. See [AgentEnv Standard Reference](../reference/agent-env-standard.md) for field formats. |
 | `CONTEXT_PLAN_MISMATCH` | The explicit Adapter route supplied to a low-level request wrapper conflicts with the envelope route; use the matching adapter item. |
 | `WORKDIR_REQUIRED` | Supply an explicit, existing absolute local directory through the path-only workspace item; CLI and SDK have no cwd default. |
-| `WORKDIR_INVALID` | Use a valid absolute path, without workspace mode. |
+| `WORKDIR_INVALID` | Use a valid absolute workspace.payload.path. |
 | `WORKDIR_NOT_FOUND` | The caller must prepare the chosen directory before invocation. Resume/recovery does not recreate it or allocate a replacement. |
 | `WORKDIR_NOT_DIRECTORY` | Supply a directory rather than a file. |
 | `WORKDIR_UNAVAILABLE` | Check filesystem access and the observed system error; unavailable does not necessarily mean nonexistent. |
@@ -51,4 +51,4 @@ When `close()` returns `complete=false`, inspect `errors` and `pendingResources`
 
 If the Agent finished but the user received no message, also check the application’s delivery result and storage. Execution success does not mean the message was sent or the data saved.
 
-Do not delete Home, identity configuration, credentials, or databases as a generic repair. See [Output and Control](../reference/output-and-control.md) for execution states and [Maintenance and Validation](../maintenance.md) for test scope.
+Do not delete Home, identity configuration, credentials, or databases as a generic repair. See [Output and Control](../reference/output-and-control.md) for execution states and [Documentation Maintenance](../maintenance.md) for test scope.

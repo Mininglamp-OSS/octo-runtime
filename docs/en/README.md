@@ -1,46 +1,41 @@
-# Developer Documentation
+# Octo Runtime Developer Documentation
 
-[简体中文](../zh-CN/README.md) | [Language Index](../README.md)
+[简体中文](../zh-CN/README.md)
 
-Octo Runtime gives applications a common interface for Agent calls. Your application supplies a task, background material, and execution settings. Runtime calls a Provider such as Codex or Claude Code and returns output as an event stream.
+Runtime is an embeddable Agent execution layer. Callers prepare input and execution configuration; Runtime invokes Providers and returns an event stream.
 
-This documentation is for developers integrating the SDK, supplying business context and tools, and handling execution results. SDK chapters cover service integration, Context/session handling, and optional AgentRun usage; root `SDK_*` guides add specific business wiring.
+## Getting Started
 
-## Start Here
+- [SDK Integration](getting-started/sdk.md): connect to Kernel or create an embedded execution service.
+- [CLI Installation and Operations](getting-started/cli.md): install, start, inspect and stop a local service.
+- [Harness Setup](guides/harnesses.md): prepare Provider programs and accounts.
+- [Architecture](concepts/architecture.md): module responsibilities and application boundaries.
 
-1. Follow [CLI Installation and Operations](getting-started/cli.md) to run from the terminal, or [SDK Service Integration](getting-started/sdk.md) to call Runtime from an application. Each path links the required [Harness setup](guides/harnesses.md).
-2. Read [Architecture](concepts/architecture.md) for module roles and the execution flow.
-3. Learn [Inputs and Contexts](concepts/inputs-and-contexts.md) to supply application data.
+## Developer Reference
 
-For module selection, read [Adapter Loading](concepts/module-loading.md): SDK object composition and CLI Adapter manifests.
+| Topic | Page |
+| --- | --- |
+| Text, images, primary and recovery input | [Inputs](reference/input-parts.md) |
+| Invocation parameters, output mode and ProviderSession | [Invoke API](reference/invoke-input.md) |
+| Envelope and seven standard execution items | [AgentEnv Standard Reference](reference/agent-env-standard.md) |
+| Adapter fields; modeId is a work-mode ID | [AgentEnv Private Items](reference/agent-env/private-items.md) |
+| SDK methods, results and invocation registry | [KernelClient](reference/kernel-client.md) |
+| JSON-RPC, identity, replay and transport limits | [Kernel IPC](reference/kernel-ipc.md) |
+| Events, frames, cancellation and interaction payloads | [Output and Control](reference/output-and-control.md) |
+| Adapter support | [Providers](reference/providers.md) |
+| Service directory and path constraints | [Runtime Home](reference/runtime-home.md) |
+| Session, invocation and Provider identities | [Identifiers](concepts/identifiers.md) |
 
 ## Guides
 
-| Task                                                                                  | Page                                                   |
-| ------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| Install and configure a Harness; enable Codex Computer Use or share WorkBuddy credits | [Harness Setup](guides/harnesses.md)                   |
-| Supply business context, environment, images, or session continuation                 | [Context and Sessions](guides/context-and-sessions.md) |
-| Connect an installed MCP server                                                       | [MCP](guides/mcp.md)                                   |
-| Integrate a business channel | [Independent Channel Gateway](https://github.com/Mininglamp-OSS/octo-channel-gateway) |
-| Diagnose component construction or initialization                                     | [Startup diagnostics](guides/startup-diagnostics.md)   |
-| Diagnose a failed or interrupted invocation                                           | [Troubleshooting](guides/troubleshooting.md)           |
+| Task | Page |
+| --- | --- |
+| Separate business input and execution settings | [Inputs and AgentEnv](concepts/inputs-and-contexts.md) |
+| Prepare context and continue sessions | [Environment and Sessions](guides/context-and-sessions.md) |
+| Consume and control executions | [AgentRun](guides/agent-runs.md) |
+| Connect MCP servers | [MCP](guides/mcp.md) |
+| Handle startup failures | [Startup Diagnostics](guides/startup-diagnostics.md) |
+| Diagnose execution failures | [Troubleshooting](guides/troubleshooting.md) |
+| Integrate business channels | [Independent Channel Gateway](https://github.com/Mininglamp-OSS/octo-channel-gateway) |
 
-## SDK Chapters
-
-1. [Integrate KernelService and the public client](getting-started/sdk.md)
-2. [Context and session continuation](guides/context-and-sessions.md)
-3. [Optional: AgentRun invocation, events, and control](guides/agent-runs.md)
-
-## Reference
-
-| Look up                                                | Page                                                  |
-| ------------------------------------------------------ | ----------------------------------------------------- |
-| Invocation fields, defaults, local environment, limits | [InvokeInput](reference/invoke-input.md)              |
-| All built-in Context types and extension behavior      | [Context Catalog](reference/contexts.md)              |
-| SDK methods and cross-language IPC protocol            | [Kernel IPC](reference/kernel-ipc.md)                 |
-| Output modes, cancellation, approvals, questions       | [Output and Control](reference/output-and-control.md) |
-| Adapter support and implementation boundaries          | [Providers](reference/providers.md)                   |
-
-See [Maintenance and Validation](maintenance.md) for validation results and the relationship to existing documents. Device operations are covered in [CLI Installation and Operations](getting-started/cli.md).
-
-- [sessionId / invocationId / providerSession](concepts/identifiers.md)
+Contributors can read [Documentation Maintenance](maintenance.md).

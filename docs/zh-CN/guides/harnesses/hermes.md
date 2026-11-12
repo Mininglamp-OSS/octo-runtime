@@ -21,8 +21,8 @@ Runtime 使用 `hermes acp`；只装交互 CLI 而未装 ACP 依赖可能无法�
 
 在 `agentEnv.items` 中通过 `octo.execution/envs` 设置本轮代理变量，见[本轮环境](../context-and-sessions.md)。Runtime 将变量传给 Provider 调用，不修改宿主全局环境；须验证当前 Harness 的网络库确实使用这些变量。
 
-## 排查与验收边界
+## 排查
 
-先分别检查原生登录、模型权限、代理可达性，再检查调用配置。遇到失败保留脱敏错误、Harness 版本、Runtime 构建版本及实际终态；不要用另一 Harness 的通过结果替代。此前 Harness 专项仅验证 Antigravity 的配置到真实模型链路；本次文档更新不新增真实 Provider 验收。
+先分别检查原生登录、模型权限、代理可达性，再检查调用配置。遇到失败保留脱敏错误、Harness 版本、Runtime 构建版本及实际终态；不要用另一 Harness 的通过结果替代。
 
 [Adapter 说明](../../../../packages/octo-runtime-adapter-hermes/README.zh.md) · [支持范围](../../reference/providers.md)

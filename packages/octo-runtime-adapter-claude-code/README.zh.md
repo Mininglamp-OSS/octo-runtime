@@ -83,12 +83,4 @@ private workspace 包，包含在 CLI 发行物里。没有单独的 npm 包，�
 
 ## 私有 AgentEnv.Item
 
-以下条目由本包私有定义，名称与 payload 均不登记公共 Schema、catalog 或生成类型。已有 options 可放在同一 payload 中；非法显式值由本 Adapter 拒绝。
-
-可选 `permissionMode` 仅接受 `"plan"`。省略时沿用审批映射：ask → default、assisted → auto、full_access → bypassPermissions。显式 plan 优先于此 CLI 参数映射，即使同时 full_access 也不追加 `--dangerously-skip-permissions`；交互授权不变。null、default 等其他值均拒绝。原生 init 未确认或返回不同 permissionMode 时，canonical 使用 provider diagnostic；native 保留原生消息，不生成公共模式证据。
-
-```json
-{ "namespace": "adapter.claude-code", "name": "options", "payload": { "permissionMode": "plan" } }
-```
-
-将该条目加入上方示例的 `agentEnv.items`，与 Adapter 路由和已准备的 workspace 一起传入。已有 options 放入同一条目；重复 namespace/name 非法。model/effort 仍使用公共 model item。已删除的公共 actmode 不会自动转换。
+本包私有定义 `adapter.claude-code/options`，主要字段为 `permissionMode`。 字段、payload 示例、缺省与失败行为见[专属 AgentEnv 参考](../../docs/zh-CN/reference/agent-env/claude-code-options.md)，由本包维护，不登记公共 Schema 或生成类型。公共输入与七个标准执行项见[开发参考](../../docs/zh-CN/reference/agent-env-standard.md)。

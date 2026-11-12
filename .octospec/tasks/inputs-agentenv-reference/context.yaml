@@ -1,0 +1,31 @@
+rules:
+  - runtime-architecture
+  - runtime-invoke-input
+  - runtime-context-input
+  - runtime-context-extensions
+  - runtime-environment
+  - runtime-mcp
+  - runtime-adapter-metadata
+  - runtime-protocol-schema
+  - runtime-output-protocol
+  - runtime-reasoning
+  - runtime-engineering
+  - commit
+sources:
+  - .octospec/index.md
+  - .octospec/rules/_index.yaml
+  - packages/octo-runtime-protocol/schema/protocol.schema.json
+  - packages/octo-runtime-protocol/src/context-catalog.ts
+  - packages/octo-runtime-protocol/src/context.ts
+  - packages/octo-runtime-protocol/src/context-configuration.ts
+  - packages/octo-runtime-protocol/src/invoke-input.ts
+  - packages/octo-runtime-protocol/src/multimodal.ts
+  - packages/octo-runtime-adapter-sdk/src/agent-env.ts
+  - packages/octo-runtime-adapter-sdk/src/environment.ts
+  - packages/octo-runtime-adapter-sdk/src/mcp.ts
+  - packages/octo-runtime-executor-core/src/watchdog.ts
+  - .octospec/rules/output-protocol.md
+  - packages/octo-runtime-protocol/src/run-protocol.ts
+  - packages/octo-runtime-protocol/src/index.ts
+  - packages/octo-runtime-client/src/types.ts
+  - packages/octo-runtime-client/src/client.ts

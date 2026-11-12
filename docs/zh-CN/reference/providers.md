@@ -20,9 +20,9 @@ Provider 是实际执行 Agent 任务的程序，例如 Codex 或 Claude Code。
 | `antigravity`                                                   | Provider CLI       | canonical          | 不支持                          |
 | `grok-build` | Grok CLI ACP stdio | canonical | stdio；广告支持时使用 HTTP；最终 `${` 字面量拒绝 |
 
-Grok Build 使用共享 ACP client，每次调用启动一个 CLI 进程。已在 macOS arm64 验证 1.0.67 的文本流和跨进程会话续聊。认证、配置和验证限制见 [Grok adapter](../../../packages/octo-runtime-adapter-grok-build/README.md)。
+Grok Build 使用共享 ACP client，每次调用启动 CLI 进程。安装与认证见 [Grok Adapter](../../../packages/octo-runtime-adapter-grok-build/README.md)。
 
-DSH 为实验性接入，固定使用未修改的官方 SDK 0.2.1-rc.3，只接受显式 full_access，不保证稳定性、SDK 内部内存上界或完整工具后代回收。文本增量在原生消息提交后提供；安装、Desktop 发现、恢复与取消边界见 [DSH adapter](../../../packages/octo-runtime-adapter-dsh/README.md)。上游反馈及历史补丁参考见 [DSH #11031](https://github.com/deepseek-ai/deepseek-harness/discussions/11031)。
+DSH 为实验性接入，使用官方 SDK 0.2.1-rc.3，只接受显式 full_access。文本增量在原生消息提交后提供；安装、恢复与取消限制见 [DSH Adapter](../../../packages/octo-runtime-adapter-dsh/README.md)。
 
 表中的 MCP 列表示通过本轮 `octo.execution/mcp` 配置连接的能力。Provider 自己已有的 MCP 配置是另一种配置来源。可选字段和使用限制见 [MCP 指南](../guides/mcp.md)。
 
@@ -44,6 +44,6 @@ OpenClaw 调用 Gateway 中已有的 Agent，使用其工作区。私有目标�
 
 本地执行每次都要求调用方传入已存在的绝对 workdir；Runtime 不默认取 cwd，不创建或恢复目录。声明 `metadata.workspace: false` 的 Adapter 可以省略本地覆盖。工作目录本身不限制文件系统或网络权限，见[工作目录校验](invoke-input.md)。
 
-图片输入、sandbox 和会话恢复还取决于具体 Adapter 和 Provider 版本，详见[各 Adapter README](../../../packages/README.md)。文档测试使用测试用 Adapter；真实 Provider 的联调范围见[维护与验证](../maintenance.md)。
+图片输入、sandbox 和会话恢复还取决于具体 Adapter 和 Provider 版本，详见[Adapter 字段参考](agent-env/private-items.md)。
 
 来源：[Codex](../../../packages/octo-runtime-adapter-codex/src/index.ts)、[Claude Code](../../../packages/octo-runtime-adapter-claude-code/src/index.ts)、[ACP](../../../packages/octo-runtime-adapter-acp/src/index.ts)、[OpenCode](../../../packages/octo-runtime-adapter-opencode/src/index.ts)、[Adapter 注册](../../../packages/octo-runtime-adapter-sdk/src/index.ts)。

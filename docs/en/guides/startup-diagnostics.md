@@ -31,17 +31,17 @@ try {
 }
 ```
 
-## Public shape and compatibility
+## Public Fields
 
 `domain: "startup"`, `code` (outer public code), `rootCode` (known primary cause, otherwise `STARTUP_UNKNOWN`), `component`, `phase` (the existing `ServicePhase`), `summary`, `explanation`, `actions`, `retryable`, `userActionRequired`, `context`, `causes`, optional `cleanup`, and `truncated` form the public shape. No Run identifier is required. `retryable` indicates that waiting/retrying may help, not permission for an automatic retry; inspect cleanup and ownership first.
 
 Typed context contains only observed facts: `path`, `resource`, `operation`, `configKey`, `endpoint`, `executable`, `module`, `systemCode`, `measured`, `limit`, `unit`. A known affected path appears in both text and JSON. A system errno alone does not prove which dependency is missing: spawn ENOENT can also mean the selected working directory is missing. Unknown causes require inspection rather than a guessed fix.
 
-Existing error classes, messages, public codes, cause chains, cleanup outcomes and CLI exit-code selection remain compatible. CLI JSON keeps `error.code`, `message`, optional `cause_code` and manager metadata, and adds `error.diagnostic`; use `diagnostic.rootCode` for deep cause branching. Text prints that same diagnosis and recovery actions. Startup errors escaping the normal CLI handler use the same safe projection. There is no migration of Run/status schemas or lifecycle phases.
+Errors expose public codes, message, cause and cleanup. CLI JSON contains error.code, message, optional cause_code, error.diagnostic and manager metadata. Use diagnostic.rootCode for root-cause branching; text output presents the same diagnosis and recovery actions.
 
-`HOME_UNAVAILABLE` remains documented for older consumers. The #306 Home contract retires implicit SDK location selection; it is not a requirement to set LOCALAPPDATA. SDK hosts supply an existing valid absolute Home; the CLI owns preparation of its selected Home (default `~/.octo-runtime`, explicit `--home` takes precedence). Existing data is not moved automatically. This change integrates merged #306 (#310) and #303 (#311). POSIX Kernel uses the direct Home socket endpoint; there is no legacy endpoint migration or dual-owner detection layer.
+SDK hosts supply an existing valid absolute Home. CLI prepares its selected directory, defaulting to ~/.octo-runtime with explicit --home taking precedence. Data is not moved automatically. POSIX Kernel uses a direct socket under Home.
 
-The existing #306 flat path fields remain readable on RuntimeHomeError.diagnostic; canonical JSON uses context.path/resource/operation and actions. CLI error.startup and optional error.cleanup remain compatibility projections; new consumers should use error.diagnostic. An invalid Kernel logging directory fails with LOG_DIRECTORY_MUST_BE_ABSOLUTE before Home path-budget validation. The outer SERVICE_INITIALIZATION_FAILED and CLI exit selection are unchanged.
+Diagnostic JSON uses context.path/resource/operation and actions. An invalid Kernel logging directory reports LOG_DIRECTORY_MUST_BE_ABSOLUTE under SERVICE_INITIALIZATION_FAILED.
 
 ## Readiness and safe diagnosis
 
@@ -49,13 +49,13 @@ Process liveness, service phase, Kernel `execution_ready` and an application's b
 
 Cause traversal is bounded to 16 objects and six nested levels and supports aggregate/cyclic errors. Primary failure precedes cleanup causes; pending resources remain visible. Raw messages/stacks, environment, config, stderr, credentials and arbitrary properties are excluded. Dynamic values use the same deterministic sanitizer for text and JSON (control characters, URL credentials/query/fragment and recognizable credential assignments are removed). For untrusted serialized data use `restoreStartupDiagnostic` before rendering; explanations/actions are rebuilt from the catalog, not accepted from the record.
 
-The CLI writes one bounded safe recent-failure record per component under `<home>/logs/startup-<component>.json`, alongside the existing controlled lifecycle logs. Background start/restart reads only a matching component and current-attempt timestamp, then rebuilds the whitelist; legacy code-only logs remain supported. A failed diagnostic write cannot replace the original startup error. Home/IPC path validation failures are returned directly and do not create logs or a replacement Home. The record does not perform recovery and contains no raw exception or business configuration.
+The CLI writes one bounded safe recent-failure record per component under `<home>/logs/startup-<component>.json`, alongside the existing controlled lifecycle logs. Background start/restart reads only a matching component and current-attempt timestamp, then rebuilds the whitelist. A failed diagnostic write cannot replace the original startup error. Home/IPC path validation failures are returned directly and do not create logs or a replacement Home. The record does not perform recovery and contains no raw exception or business configuration.
 
 Nested causes retain their observed component/phase and cleanup facts. A complete outer cleanup does not erase an incomplete inner cleanup.
 
 ## Catalog
 
-The English summary and recovery column below mirror the shared `STARTUP_CATALOG`. Per-attempt context specializes the explanation/action for a selected executable, directory or configuration key. Missing paths, wrong resource types, access denial and length limits retain distinct codes. A code not in the catalog retains its stable identifier, reports an unknown meaning and requests controlled inspection.
+The table describes public startup errors and recovery guidance. Per-attempt context specializes the explanation/action for a selected executable, directory or configuration key. Missing paths, wrong resource types, access denial and length limits retain distinct codes. A code not in the catalog retains its stable identifier, reports an unknown meaning and requests controlled inspection.
 
 | Code | Meaning | Supported recovery | Retry may help |
 | --- | --- | --- | --- |
@@ -92,10 +92,10 @@ The English summary and recovery column below mirror the shared `STARTUP_CATALOG
 | `ECONNREFUSED` | The component is not accepting IPC connections. | Inspect the target component's lifecycle and logs, start it through its host, then retry. | yes |
 | `SETUP_IN_PROGRESS` | A component lifecycle operation is in progress. | Wait for that operation to finish, then retry. | yes |
 | `SERVICE_INITIALIZATION_CANCELLED` | Component initialization was cancelled. | Check the host cancellation request and cleanup outcome before starting again. | yes |
-| `KERNEL_CONFIGURATION_INVALID` | Kernel construction inputs are invalid. | Pass endpoint and an adapters array to createKernelService. Compose Adapter objects in the host; retired worker/manifest/env options are unsupported. | user action |
+| `KERNEL_CONFIGURATION_INVALID` | Kernel construction inputs are invalid. | Pass endpoint and an adapters array to createKernelService. Compose Adapter objects in the host. | user action |
 | `ERR_MODULE_NOT_FOUND` | A selected module or one of its dependencies was not found. | Check the selected module and its installed dependency graph in the host; correct the declaration or install the required package, then retry. | user action |
 | `MODULE_NOT_FOUND` | A selected module or one of its dependencies was not found. | Check the selected module and its installed dependency graph in the host; correct the declaration or install the required package, then retry. | user action |
-| `MANIFEST_INVALID` | The CLI module manifest is invalid. | Check the selected manifest.json: version must be 1 and adapters must be valid arrays without duplicate keys. | user action |
+| `MANIFEST_INVALID` | The CLI module manifest is invalid. | Ask the service host to correct its Adapter configuration. | user action |
 | `LOCAL_STATE_INVALID` | The local state could not be read. | Inspect the reported file and system cause. Preserve existing identities and configuration; correct the file or access through the host. | user action |
 | `WRITE_FAILED` | A local state update failed. | Inspect the reported path, operation and system cause; correct access before retrying the host operation. | user action |
 | `COMPONENT_UNAVAILABLE` | The component did not become ready. | Inspect component status and controlled lifecycle logs. Process liveness alone does not establish Kernel execution readiness or application connectivity. | yes |
@@ -107,4 +107,4 @@ The English summary and recovery column below mirror the shared `STARTUP_CATALOG
 | `ORPHAN_CLEANUP_INCOMPLETE` | Previous Kernel resource cleanup is incomplete. | CLI users: run doctor with the same --home. After confirming all owned orphan tools have stopped, run octo-runtime recover --acknowledge-orphan-cleanup with that Home, then start again. SDK hosts must use the corresponding inspect/acknowledge API; do not remove ownership records. | user action |
 | `ORPHAN_RECORD_UNSUPPORTED` | The stored Kernel ownership format is unsupported. | Preserve the ownership evidence. Stop and clean up using the version and host that created it before upgrading; do not acknowledge or delete an unknown record. | user action |
 
-The catalog does not prescribe a new public code for every failure or turn business connectivity errors into component startup errors. In particular, removed execution workers are not restored.
+The catalog does not prescribe a new public code for every failure or turn business connectivity errors into component startup errors.

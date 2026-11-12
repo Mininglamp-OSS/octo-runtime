@@ -149,7 +149,7 @@ flowchart TB
 | `stdio`           | `type`、非空 `command` | `args`（≤128 个字符串）、`env`（字符串 map）、`cwd`、`required`、`startupTimeoutMs`、`toolTimeoutMs` |
 | `streamable_http` | `type`、HTTP(S) `url`  | `headers`（字符串 map）、`required`、`startupTimeoutMs`、`toolTimeoutMs`                             |
 
-各 Provider 对可选字段的支持不同。填写了当前 Provider 不支持的字段时，调用会返回 `MCP_OPTION_UNSUPPORTED`，具体支持情况见下表。`required` 属于单个服务的配置，应写在 `command` 或 `url` 的同一层。字段范围和校验规则见 [Context 参考](../reference/contexts.md)。
+各 Provider 对可选字段的支持不同。填写了当前 Provider 不支持的字段时，调用会返回 `MCP_OPTION_UNSUPPORTED`，具体支持情况见下表。`required` 属于单个服务的配置，应写在 `command` 或 `url` 的同一层。字段范围和校验规则见 [AgentEnv 标准参考](../reference/agent-env-standard.md)。
 
 ## 使用环境变量
 
@@ -157,7 +157,7 @@ flowchart TB
 
 调用 `client.invoke(inputs, sessionId, providerSession, agentEnv)` 时，将变量放入 `agentEnv.items` 的 `octo.execution/envs` 条目。Runtime 依次合并进程继承的环境、本轮变量和 Adapter 设置的环境，后面的同名变量覆盖前面的值。`envs` 的值本身不会做模板替换，详见 [Invoke API 参考](../reference/invoke-input.md)。
 
-低层 `client.submit(input, environment)` 和直接 Core API 还支持 `environment.executionEnvOverrides`，优先级位于 `envs` 之后、Adapter 设置之前。它不是公开 `invoke` 的第五参数，也不能放进 `inputs` 或 `agentEnv`；普通调用方应迁移到 `agentEnv.items`。
+低层 `client.submit(input, environment)` 和直接 Core API 还支持 `environment.executionEnvOverrides`，优先级位于 `envs` 之后、Adapter 设置之前。它不是公开 `invoke` 的第五参数，也不能放进 `inputs` 或 `agentEnv`。
 
 模板只替换一次，不会执行 shell 表达式或继续解析替换结果中的变量。使用 `$${NAME}` 可以保留字面量 `${NAME}`。变量不存在时返回 `MCP_ENV_MISSING`；变量已设置为空字符串时，替换结果也为空，Runtime 随后会校验结果是否符合连接配置要求。
 
@@ -193,6 +193,6 @@ flowchart TB
 
 配置检查通过后仍无法使用工具时，查看 Provider 的连接日志：本地程序是否能启动、远端地址是否可达、认证是否通过、服务是否返回工具列表。不要在日志中输出 Token 或替换后的认证 header。
 
-文档示例和测试的验证范围见 [维护与验证](../maintenance.md)。
+文档检查方式见 [文档维护](../maintenance.md)。
 
 来源：[Adapter MCP helper](../../../packages/octo-runtime-adapter-sdk/src/mcp.ts)、[Codex](../../../packages/octo-runtime-adapter-codex/src/mcp.ts)、[Claude Code](../../../packages/octo-runtime-adapter-claude-code/src/index.ts)、[ACP](../../../packages/octo-runtime-adapter-acp/src/index.ts)、[OpenCode](../../../packages/octo-runtime-adapter-opencode/src/index.ts)。

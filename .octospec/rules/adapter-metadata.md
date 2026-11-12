@@ -112,7 +112,7 @@ manifest.module 的本机绝对路径（Windows 包含盘符与 UNC）和以点�
 
 普通 CLI `--help` 说明默认使用内置 Adapter、无需 Adapter 配置，不展示高级 `--manifest` 参数。隐藏只影响帮助渲染，不能删除参数解析、优先级或显式清单执行支持。显式 manifest 是完整加载集合，不是自动追加；用户追加已统一由 `<Home>/manifest.json` 实现，不另设 extra_adapters.json。`/adapter` 公开 SDK 仍为独立待办。
 
-当前开发者入口及 SDK/CLI 边界见 [Adapter 载入](../../docs/zh-CN/concepts/module-loading.md)。早期[飞书开发指南](https://my.feishu.cn/docx/IW30d2KL6o137ExHKHRc2yrJngh)中的 Extra 示例为历史材料，不属于当前公开合同。
+当前开发者入口及 SDK/CLI 边界见 [SDK 接入](../../docs/zh-CN/getting-started/sdk.md)。早期[飞书开发指南](https://my.feishu.cn/docx/IW30d2KL6o137ExHKHRc2yrJngh)中的 Extra 示例为历史材料，不属于当前公开合同。
 
 - [Adapter SDK](../../packages/octo-runtime-adapter-sdk/src/index.ts)、[Adapter Host](../../packages/octo-runtime-executor-kernel/src/index.ts)。
 - [Protocol Schema](../../packages/octo-runtime-protocol/schema/protocol.schema.json)及[Adapter SDK item 读取与校验](../../packages/octo-runtime-adapter-sdk/src/agent-env.ts)。

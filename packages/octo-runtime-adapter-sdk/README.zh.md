@@ -39,9 +39,7 @@ export const echoAdapter = defineAdapter({
 
 ## SDK 提供了什么
 
-Core 将 `request.agentEnv` 按原顺序作为快照透传。共性 bean 使用 `invocationModel`、`invocationEffort`、`invocationApprovalMode` 等 helper；约定的私有 payload 使用 `agentEnvItem<T>(request.agentEnv, namespace, name)` 读取，由消费它的 Adapter 校验并映射到原生参数。调用方通过 `withAgentEnvItems` 与 Adapter 的独立 `defaultAgentEnv` 副本显式组合，执行时不向请求追加默认条目。私有 item 无须修改公共 schema 或生成类型。见 [OpenClaw 示例](../../docs/zh-CN/concepts/architecture.md)。
-
-`agentEnvItem<T>` 不执行运行时类型校验，条目缺失时返回 `undefined`，存在时返回原 payload 引用；Adapter 只读使用并自行处理必填项、默认值和语义。宿主构造及 Adapter 消费的完整代码见 [SDK 私有 bean 示例](../../docs/zh-CN/getting-started/sdk.md)。
+Core 按序透传每轮 AgentEnv 快照，Adapter 消费并校验配置。AgentEnv 辅助 API 的用法见[辅助 API 参考](../../docs/zh-CN/reference/agent-env/helpers.md)；`agentEnvItem<T>` 的读取、只读所有权和私有字段校验见[私有项参考](../../docs/zh-CN/reference/agent-env/private-items.md)。
 
 | 工具                                                                | 省掉了什么                                                                                                   |
 | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
@@ -72,3 +70,11 @@ Core 将 `request.agentEnv` 按原顺序作为快照透传。共性 bean 使用 
 - [接口与导出](src/index.ts)、[ACP Adapter](../octo-runtime-adapter-acp/README.zh.md)、[ACP 传输](../octo-runtime-acp-client/README.zh.md)。
 - 可以照抄的小 Adapter：[Hermes](../octo-runtime-adapter-hermes/README.zh.md)。
 - [编写指南](../../.octospec/guides/adapter-authoring.md)、[Adapter metadata 规则](../../.octospec/rules/adapter-metadata.md)。
+
+## 公共输入与配置参考
+
+公共字段、payload、缺省与校验集中维护于 docs；本包 README 保留自身 API、装配与生命周期说明。
+
+- [inputs](../../docs/zh-CN/reference/input-parts.md), [Invoke API](../../docs/zh-CN/reference/invoke-input.md)
+- [AgentEnv](../../docs/zh-CN/reference/agent-env-standard.md), [辅助 API](../../docs/zh-CN/reference/agent-env/helpers.md)
+- [Adapter 私有项](../../docs/zh-CN/reference/agent-env/private-items.md)
