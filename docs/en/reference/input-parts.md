@@ -56,7 +56,7 @@ const inputs = [{ type: "text" as const, text: "Inspect this screenshot." }, ima
 
 ### Notes
 
-data accepts neither paths, URLs nor data URLs. Callers obtain authorization to read images and supply their bytes; the service does not read paths embedded in text. Each input permits four images totaling 8 MiB; primary and recovery inputs are checked separately. Validation covers size, canonical Base64, hash and file signature rather than complete decoding. An Adapter without image support rejects the input.
+data accepts neither paths, URLs nor data URLs. Callers obtain authorization to read images and supply their bytes; the service does not read paths embedded in text. Each input permits four images totaling 8 MiB; primary and recovery inputs are checked separately. Runtime decodes Base64 into bytes and verifies the byte length, canonical Base64, SHA-256 and MIME-specific file signature; it does not fully decode the image or guarantee that it can render correctly. An Adapter without image support rejects the input.
 
 The entire IPC request permits 32 MiB including Base64, recovery material and configuration; AgentEnv has a separate 65,536-byte budget.
 

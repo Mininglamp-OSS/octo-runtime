@@ -56,7 +56,7 @@ const inputs = [{ type: "text" as const, text: "Inspect this screenshot." }, ima
 
 ### 注意事项
 
-data 不接受路径、URL 或 data URL。调用方先取得读取图片的授权并准备字节；服务不自动读取正文里的路径。每份输入最多 4 张、合计 8 MiB；主输入与恢复输入分别校验。校验包括大小、规范 Base64、哈希和文件签名，不代表完整解码。所选 Adapter 不支持图片时明确拒绝。
+data 不接受路径、URL 或 data URL。调用方先取得读取图片的授权并准备字节；服务不自动读取正文里的路径。每份输入最多 4 张、合计 8 MiB；主输入与恢复输入分别校验。Runtime 将 Base64 解码为字节，校验字节数、规范 Base64、SHA-256 及对应 MIME 的文件签名；不执行完整的图片解码，也不保证图片可正常渲染。所选 Adapter 不支持图片时明确拒绝。
 
 整个 IPC 请求最多 32 MiB，Base64、恢复材料和配置均计入；AgentEnv 另受 65,536 字节预算限制。
 
