@@ -1,5 +1,7 @@
 # Octo Runtime 工程知识目录
 
+- [ORT-95 同段周期静默通知](tasks/ort-95-periodic-model-output-idle/brief.md)：源端 60/120/180 秒通知、单槽背压与跨段隔离已在独立工作区实现；[验证](tasks/ort-95-periodic-model-output-idle/validation.md)区分受控专项、真实 Kernel/client 与受阻的 ORT-93 卡片验收，[审查](tasks/ort-95-periodic-model-output-idle/review.md)记录双轴范围及工具限制。未提交、未发布，不扩大 CI。
+
 - [Inputs 与 AgentEnv 分章参考](tasks/inputs-agentenv-reference/brief.md)：公共输入、七个标准项与各 Adapter 私有字段集中到双语 docs，包 README 保留导航；modeId 明确为工作模式 ID，不是模型 ID。[验收](tasks/inputs-agentenv-reference/validation.md)记录静态合同核对及 CI 范围。
 
 - [PR352 静默通知交付竞态](tasks/352-silence-notice-delivery/brief.md)：保留已生成通知，输出仅重置未来区间；[专项复核](tasks/352-silence-notice-delivery/review.md)与[验证](tasks/352-silence-notice-delivery/validation.md)记录真实竞态及计时回归。

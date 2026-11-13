@@ -31,6 +31,12 @@ Native SDK hosts import required Adapters, construct objects and pass them to `c
 
 Services, Engines and connections are managed by their creators or explicitly agreed owners. Borrowing an object does not transfer authority to restart, close or delete its persistent data. `client.close()` releases only that client's connections; use `interrupt` to cancel execution and continue observing the terminal result. Runtime Home and Provider data directories have separate ownership.
 
+## Output Silence and Execution Budgets
+
+Runtime Core owns the public-text silence clock and periodic notices. With normal consumption, continuous silence produces new `model_output_idle` notices at 60/120/180 seconds and subsequent minute boundaries through the existing event stream. Gateway updates the original card from each source notice; it does not time silence, add elapsed seconds, or cancel for local silence. Backpressure or late timers can skip historical boundaries; see [Output and Control](../reference/output-and-control.md).
+
+This clock differs from Watchdog model-idle progress. Notices do not extend or reset first-frame, model-idle, tool, or total-run budgets. The default is enforce; explicit observe remains valid. Terminal results and cleanup take priority. The connected Runtime service must provide periodic behavior; upgrading only the client does not enable it in an older service.
+
 ## Inputs and Execution Configuration
 
 [inputs](../reference/input-parts.md) carries text, images, application prompts and business history; [AgentEnv](../reference/agent-env-standard.md) carries execution settings. Core snapshots AgentEnv per invocation, reads Adapter routing and forwards items with their values and order intact.

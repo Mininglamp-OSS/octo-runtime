@@ -6,6 +6,7 @@ import { performance } from "node:perf_hooks";
 import { AgentExecutor } from "../../packages/octo-runtime-executor-core/dist/index.js";
 import Ajv from "ajv";
 import { ModelOutputSilence } from "../../packages/octo-runtime-executor-core/dist/model-output-silence.js";
+import { InvocationWatchdog } from "../../packages/octo-runtime-executor-core/dist/watchdog.js";
 import {
   assertCanonicalEvent,
   assertHostControl
@@ -28,17 +29,19 @@ function fixture() {
     id = 0,
     wakes = 0;
   const timers = new Map();
-  const observer = new ModelOutputSilence({
+  const clock = {
     now: () => now,
     schedule(callback, delay) {
       const key = ++id;
       timers.set(key, { at: now + delay, callback });
       return () => timers.delete(key);
     }
-  });
+  };
+  const observer = new ModelOutputSilence(clock);
   let detach = observer.listen(() => wakes++);
   return {
     observer,
+    clock,
     timers,
     wakes: () => wakes,
     tick(ms) {
@@ -65,17 +68,22 @@ function fixture() {
   };
 }
 
-test("one notice per silence interval; actual updates reset the full 60 seconds", () => {
+test("60/120/180 second notices share the source interval; output resets the full period", () => {
   const f = fixture();
   f.tick(59_999);
   assert.equal(f.wakes(), 0);
   f.tick(1);
-  const first = f.observer.take();
-  assert.equal(first.payload.params.silenceMs, 60_000);
-  assert.equal(first.payload.params.message, "60s no LLM output");
-  assert.doesNotThrow(() => assertCanonicalEvent(first));
-  f.tick(90_000);
-  assert.equal(f.wakes(), 1);
+  const notices = [];
+  for (const seconds of [60, 120, 180]) {
+    if (seconds > 60) f.tick(60_000);
+    const notice = f.observer.take();
+    notices.push(notice);
+    assert.equal(notice.payload.params.silenceMs, seconds * 1000);
+    assert.equal(notice.payload.params.message, `${seconds}s no LLM output`);
+    assert.doesNotThrow(() => assertCanonicalEvent(notice));
+  }
+  assert.equal(new Set(notices.map((n) => n.payload.noticeId)).size, 3);
+  f.tick(10_000);
   f.observer.canonical(text("hello"), true);
   f.tick(30_000);
   f.observer.canonical(event("message.update", { messageId: "m", status: "completed" }));
@@ -83,19 +91,151 @@ test("one notice per silence interval; actual updates reset the full 60 seconds"
   f.observer.canonical(text("he"));
   f.observer.canonical(text("hello"));
   f.tick(29_999);
-  assert.equal(f.wakes(), 1);
+  assert.equal(f.wakes(), 3);
   f.tick(1);
   const second = f.observer.take();
-  assert.notEqual(second.payload.noticeId, first.payload.noticeId);
+  assert.ok(notices.every((n) => n.payload.noticeId !== second.payload.noticeId));
   assert.equal(second.payload.params.silenceMs, 60_000);
   f.observer.canonical(text("hello more"), true);
   f.tick(59_999);
-  assert.equal(f.wakes(), 2);
+  assert.equal(f.wakes(), 4);
   f.tick(1);
-  assert.equal(f.wakes(), 3);
+  assert.equal(f.wakes(), 5);
   f.observer.dispose();
   assert.equal(f.timers.size, 0);
 });
+
+test("late callbacks skip missed nodes but keep the original minute boundaries", () => {
+  for (const elapsed of [65_432, 190_000]) {
+    const f = fixture();
+    const callback = [...f.timers.values()][0].callback;
+    f.late(elapsed);
+    callback();
+    assert.equal(f.observer.take().payload.params.silenceMs, elapsed);
+    const next = (Math.floor(elapsed / 60_000) + 1) * 60_000;
+    f.tick(next - elapsed - 1);
+    assert.equal(f.wakes(), 1);
+    f.tick(1);
+    assert.equal(f.observer.take().payload.params.silenceMs, next);
+    assert.equal(f.wakes(), 2);
+    callback();
+    assert.equal(f.observer.take(), undefined);
+    f.observer.dispose();
+    assert.equal(f.timers.size, 0);
+  }
+});
+
+test("backpressure freezes a queued fact and skips history without delivery drift", () => {
+  const f = fixture();
+  f.tick(60_000);
+  assert.equal(f.timers.size, 0);
+  f.tick(130_000);
+  assert.equal(f.wakes(), 1);
+  assert.equal(f.observer.take().payload.params.silenceMs, 60_000);
+  f.tick(49_999);
+  assert.equal(f.wakes(), 1);
+  f.tick(1);
+  assert.equal(f.observer.take().payload.params.silenceMs, 240_000);
+  f.observer.dispose();
+});
+
+test("resubscribing after delivery reports one current fact, not every missed minute", () => {
+  const f = fixture();
+  f.tick(60_000);
+  f.observer.take();
+  f.detach();
+  f.late(130_000);
+  assert.equal(f.timers.size, 0);
+  f.listen();
+  f.tick(1);
+  const resumed = f.observer.take();
+  assert.equal(resumed.payload.params.silenceMs, 190_001);
+  f.tick(49_998);
+  assert.equal(f.wakes(), 2);
+  f.tick(1);
+  assert.equal(f.observer.take().payload.params.silenceMs, 240_000);
+  f.observer.dispose();
+});
+
+test("old callbacks and same-callback detach cannot affect a new subscription or interval", () => {
+  const f = fixture();
+  const oldInterval = [...f.timers.values()][0].callback;
+  // 同一时刻重置，since 值相同但段身份不同。
+  f.observer.canonical(text("fresh"), true);
+  const wake = () => {};
+  const oldDetach = f.observer.listen(wake);
+  const oldSubscription = [...f.timers.values()][0].callback;
+  const detach = f.observer.listen(wake);
+  oldDetach();
+  assert.equal(f.timers.size, 1);
+  f.late(60_000);
+  oldInterval();
+  oldSubscription();
+  assert.equal(f.observer.take(), undefined);
+  f.tick(1);
+  assert.equal(f.observer.take().payload.params.silenceMs, 60_001);
+  detach();
+  assert.equal(f.timers.size, 0);
+  f.observer.dispose();
+  f.observer.listen(wake);
+  assert.equal(f.timers.size, 0);
+});
+
+test("early timer callbacks rearm without publishing a premature notice", () => {
+  const f = fixture();
+  [...f.timers.values()][0].callback();
+  assert.equal(f.wakes(), 0);
+  assert.equal(f.timers.size, 1);
+  f.tick(60_000);
+  assert.equal(f.observer.take().payload.params.silenceMs, 60_000);
+  f.observer.dispose();
+});
+
+for (const [budget, code] of [
+  ["firstFrameTimeoutMs", "ADAPTER_FIRST_FRAME_TIMEOUT"],
+  ["modelIdleTimeoutMs", "ADAPTER_MODEL_IDLE_TIMEOUT"],
+  ["runTimeoutMs", "ADAPTER_RUN_DEADLINE"],
+  ["toolTimeoutMs", "ADAPTER_TOOL_IDLE_TIMEOUT"]
+])
+  test(`periodic notices do not extend the enforce ${budget} budget`, () => {
+    const f = fixture();
+    const controller = new AbortController();
+    const watchdog = new InvocationWatchdog(
+      {
+        firstFrameTimeoutMs: 600_000,
+        modelIdleTimeoutMs: 600_000,
+        runTimeoutMs: 600_000,
+        toolTimeoutMs: 600_000,
+        [budget]: budget === "toolTimeoutMs" ? 35_000 : 155_000,
+        modelIdlePolicy: "enforce"
+      },
+      controller,
+      () => {},
+      f.clock
+    );
+    controller.signal.addEventListener("abort", () => f.observer.dispose(), { once: true });
+    if (budget !== "firstFrameTimeoutMs") watchdog.canonical(text("first real output"));
+    for (const elapsed of [60_000, 120_000]) {
+      f.tick(60_000);
+      const notice = f.observer.take();
+      assert.equal(notice.payload.params.silenceMs, elapsed);
+      // 即使消费者把 notice 作为普通 canonical 事实报告，也不得充当模型进度。
+      watchdog.canonical(notice);
+      assert.equal(controller.signal.aborted, false);
+    }
+    if (budget === "toolTimeoutMs") {
+      const started = event("tool_call.create", { id: "tool" });
+      watchdog.canonical(started);
+      f.observer.canonical(started);
+    }
+    f.tick(34_999);
+    assert.equal(controller.signal.aborted, false);
+    f.tick(1);
+    assert.equal(controller.signal.reason.code, code);
+    watchdog.dispose();
+    assert.equal(f.observer.take(), undefined);
+    assert.equal(f.timers.size, 0);
+  });
 
 test("only Core-confirmed output refreshes the clock; other events do not", () => {
   const f = fixture();
@@ -615,10 +755,10 @@ test("native execution never subscribes to the canonical silence observer", asyn
   assert.equal(listen.mock.callCount(), 0);
 });
 
-// 仅显式手动运行；两个真实 60 秒区间，不修改产品阈值或新增默认 CI。
+// 仅显式手动运行；同段三个真实周期，再验证新文字后重计，不修改阈值或默认 CI。
 test(
-  "real Kernel/client delivers silence, replays the original fact, and resets after model output",
-  { skip: process.env.OCTO_SILENCE_LIVE !== "1", timeout: 155_000 },
+  "real Kernel/client delivers 60/120/180, replays original facts, and resets after output",
+  { skip: process.env.OCTO_SILENCE_LIVE !== "1", timeout: 275_000 },
   async (t) => {
     let releaseFirst,
       releaseSecond,
@@ -662,9 +802,10 @@ test(
             namespace: "octo.execution",
             name: "limits",
             payload: {
-              first_frame_timeout_ms: 150_000,
-              model_idle_policy: "observe",
-              run_timeout_ms: 150_000
+              first_frame_timeout_ms: 270_000,
+              model_idle_timeout_ms: 270_000,
+              model_idle_policy: "enforce",
+              run_timeout_ms: 270_000
             }
           }
         ]
@@ -687,7 +828,14 @@ test(
       if (e.type === "message.delta") sawOutput = true;
       if (e.type === "run.notice" && e.payload.code === "model_output_idle") {
         notices.push(e);
-        assert.ok(e.payload.params.silenceMs >= 60_000);
+        const expectedMs = notices.length <= 3 ? notices.length * 60_000 : 60_000;
+        assert.ok(e.payload.params.silenceMs >= expectedMs);
+        assert.ok(e.payload.params.silenceMs < expectedMs + 5_000);
+        assert.equal(
+          e.payload.params.message,
+          `${Math.floor(e.payload.params.silenceMs / 1000)}s no LLM output`
+        );
+        assert.equal(new Set(notices.map((n) => n.payload.noticeId)).size, notices.length);
         assert.equal(calls, 1);
         if (notices.length === 1) {
           const replay = client.subscribe(ref, frame.seq - 1)[Symbol.asyncIterator]();
@@ -696,8 +844,10 @@ test(
           } finally {
             await replay.return();
           }
+        } else if (notices.length === 3) {
+          assert.equal(sawOutput, false);
           releaseFirst();
-        } else {
+        } else if (notices.length === 4) {
           assert.equal(sawOutput, true);
           assert.notEqual(e.payload.noticeId, notices[0].payload.noticeId);
           releaseSecond();
@@ -705,7 +855,7 @@ test(
       }
       if (e.type === "run.completed") completed = true;
     }
-    assert.equal(notices.length, 2);
+    assert.equal(notices.length, 4);
     assert.equal(completed, true);
     assert.equal(cleaned, true);
   }
