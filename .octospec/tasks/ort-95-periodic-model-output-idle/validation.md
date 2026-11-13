@@ -7,7 +7,7 @@ tags: [validation, runtime, canonical, stream, integration]
 
 # 结论
 
-2026-11-14（Asia/Shanghai），Runtime 周期通知已在本工作区实现，本地检查与真实 Kernel/client 专项通过。**完整验收未完成**：A13 真实 Gateway 卡片缺 ORT-93 消费实现；独立子代理现场审查遭遇工具权限错误，只有补丁静态审查与主执行者最终 diff 复核。按 start-implement 失败/缺必要条件分支回到“等待规格审查”，不能将创建本记录或本地通过视为完整交付。
+2026-11-14（Asia/Shanghai），Runtime 周期通知已实现，本地检查与真实 Kernel/client 专项通过。用户随后明确 Gateway 由另一个项目改动，移除 A13 必需验收，并要求创建正式 MR → main；此前因跨项目验收回到规格审查的结论已被本次范围决定更新。独立子代理现场审查遭遇工具权限错误，只有补丁静态审查与主执行者最终 diff 复核，此限制继续向 MR 审查者披露。
 
 ## 代码与环境
 
@@ -30,7 +30,7 @@ tags: [validation, runtime, canonical, stream, integration]
 | A9-A10 清理与身份 | interval/listener/timer 三种对象身份；旧回调/同回调旧detach隔离、万次订阅、dispose及源结束/异常专项 | 通过 |
 | A11 预算 | 共享受控时钟的 observer+InvocationWatchdog，四种 enforce 截止不被两条周期 notice 延后；产品默认值未改 | 通过 |
 | A12 传输、重放、多订阅 | 真 Kernel/socket/client 实际四分钟，原流仍在消费时开启重放订阅，首条帧逐字段相等，Adapter仅调用一次 | 通过（受控 Provider 集成，非真实渠道） |
-| A13 Gateway 同卡片 | ORT-93 消费实现尚未进入本地工作树；未向实际渠道发消息、未替换服务 | blocked / not run |
+| 原 A13 Gateway 同卡片 | 用户明确由另一个项目承担，已从本次验收移除 | 非本次必需项，未执行 |
 | A14 native/校验 | 原 native 不订阅观察器测试；周期事件经过现有 canonical 校验，Schema/语义负例保留 | 通过 |
 | A15 文档/CI | 双语合同与架构同步；文档、元数据、链接检查；workflow/scripts/default test选择无差异 | 通过 |
 
@@ -62,11 +62,11 @@ tags: [validation, runtime, canonical, stream, integration]
 
 该结果证明真实传输路径的周期能力和新段重置，不证明真实 Provider/IM/Gateway 卡片已接入。
 
-## 阻塞与恢复条件
+## 跨项目范围与审查说明
 
 ORT-93 当前 Loop 状态标签为“等待规格审查”并保留“待上游”。对应本地 worktree HEAD=`1b57f2ae18a22c3766b5eaa17c7b539ac2a1cc76`，仅知识目录及规格有改动；`packages/octo-channel-gateway-sdk/src/execution/task.ts` 仍导入并持有 `ImModelWait`，未见生产 `model_output_idle` 消费。因此不能用该树宣称已完成 A13，无须为了本任务擅自修改消费端或发送未经授权的渠道消息。
 
-恢复时保留本 Runtime 工作区。待 ORT-93 消费实现及真实测试渠道可用后，按本 brief 对独占 Runtime/Gateway 进行 A13，记录实际服务构建、client/Gateway版本和同一卡片回读。独立审查工具可用后重跑现场双轴复核；任何代码变更均重新绑定验证版本。完成必要条件后由用户按当前状态发起重试，不能沿用本次受阻状态宣称通过。
+上述 Gateway 观察为此前执行的历史记录。用户本次确认消费实现及卡片验收在另一个项目完成，不阻塞本 Runtime MR。独立现场审查限制保留给 MR 审查者；不将受限审查描述为完整独立通过。本次仅修改规格与验证记录，产品源码和专项测试仍与此前通过版本一致。
 
 ## CI 与工作区边界
 

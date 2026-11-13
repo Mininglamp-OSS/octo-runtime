@@ -136,7 +136,6 @@ source: ORT-95
 | A10 | 一万次 listen/detach、旧 detach/旧 callback、同一时刻连续 reset | 最多一个 timer/waiter/pending，无 waiter 无 timer；旧 callback 不向新段注入通知，dispose 后数量为零 |
 | A11 | enforce 模型空闲期限及首帧/工具/总预算先到的场景 | 通知不更新任何执行预算，按各自原口径超时；observe 既有合法性保持；长周期 fixture 显式足够预算 |
 | A12 | 真实 Kernel RPC + 公开 client 订阅及恢复 | 复用 agent_run.event，合法身份/连续序号/重放保持；原帧重放保留原 noticeId，不重新计时或重复执行；多订阅不创建多个观察器 |
-| A13 | 支持本变更的真实 Runtime + ORT-93 Gateway + 测试渠道 | 原卡片逐条显示 60/120/180 秒；无源通知不增秒、无 Gateway 静默 timer 或本地取消；记录服务/client/Gateway 版本与卡片身份 |
 | A14 | native 模式与协议校验 | 不产生新的 native notice 类型；每条 canonical notice 通过现有 Schema/语义校验 |
 | A15 | 文档、元数据与 CI 差异 | 中英文一致、当前合同无每段一次承诺；相对目标 main 无 workflow/job/矩阵/触发/status/Gate/默认专项选择扩围 |
 
@@ -146,9 +145,9 @@ source: ORT-95
 2. 将周期状态、段身份、槽所属段与 timer 生命周期实现为局部状态转换；先完成 A1/A2/A6/A7 的受控回归，再覆盖等待与终态。保留现有 Core/readNext 保护。
 3. 更新现有合同与双语文档，同步最近中文注释。使用 code-review 技能审查 Standards/Spec，修复有证据的问题并记录结论。
 4. 按仓库锁文件安装依赖后构建，显式执行 `node --test test/manual/model-output-silence.test.mjs`；运行 `pnpm lint`、`pnpm lint:names`、`pnpm typecheck`、`pnpm test`、`pnpm docs:check` 和 `python3 .octospec/scripts/lint.py`。已有全量检查失败须定位，不能作为本任务通过；不把手动专项塞入默认命令。
-5. A12 使用真实 Kernel/socket/client 路径配合受控 Provider 夹具验证传输，明确这是集成测试，不是实际渠道端到端证据。A13 使用支持本变更的独占 Runtime 实例、ORT-93 消费实现及测试渠道，真实经过三个周期；IM 连接线上测试环境，显式设置足够且有限预算。不靠 mock 或伪造通知取代 A13。
-6. validation 绑定源码 SHA、dirty diff、Runtime 构建元数据、client 实际解析版本/来源、Gateway SHA、平台、命令、逐项结果与清理事实；A13 还记录测试渠道与同一卡片身份、收到的 noticeId/silenceMs 和卡片回读，凭据及业务正文不得入库。
-7. 无测试环境或消费实现时，A13 写 blocked/not run，不能将完整周期刷新标为通过；按工作流记录等待事项。实现或必需验证失败回到规格审查，由用户决定重试或调整。
+5. A12 使用真实 Kernel/socket/client 路径配合受控 Provider 夹具验证传输，明确这是集成测试，不是实际渠道端到端证据。Gateway 实现及渠道验收由另一个项目承担，不作为本次 Runtime 验收或合并前置条件；原 A13 已按用户决定移除，其他验收编号保持不变。
+6. validation 绑定源码 SHA、dirty diff、Runtime 构建元数据、client 实际解析版本/来源、平台、命令、逐项结果与清理事实；凭据及业务正文不得入库。
+7. 实现或必需验证失败回到规格审查，由用户决定重试或调整。
 8. 提交前核对 `git diff origin/main -- .github/workflows package.json` 及相关脚本/默认测试选择、目标分支实际检查列表。提交、推送、PR、发布、替换运行服务按后续明确授权执行。
 
 ## 待审查与外部依赖
@@ -176,4 +175,4 @@ source: ORT-95
 
 ## 实施授权与结果入口
 
-以上保留 2026-11-13 规格审查时的规划记录。用户在 2026-11-14 发出“开始实现”，确认 D1/D2 并授权在原 worktree 实施；未追加提交、推送、发布或跨仓 Gateway 实现授权。当前代码及验收状态见[验证记录](validation.md)，审查范围见[审查记录](review.md)。规划评分不代表验收结论；A13 真实卡片验收仍依赖 ORT-93。
+以上保留 2026-11-13 规格审查时的规划记录。用户在 2026-11-14 发出“开始实现”，确认 D1/D2 并授权在原 worktree 实施。随后授权提交、推送和创建正式 GitLab MR → main，并明确 Gateway 由另一个项目改动，移除原 A13 必需验收。当前代码及验收状态见[验证记录](validation.md)，审查范围见[审查记录](review.md)。本次范围为 Runtime 周期通知，不包含 Gateway 实现、部署或合并。
