@@ -92,9 +92,9 @@ PLAYBOARD_INTERACTION_REQUIRED；不依赖全局 full_access 猜测，也不自�
 
 ## canonical 模型输出静默
 
-Runtime 在源端用单调时钟观察公开 assistant 文本，连续 60 秒无新增文本，发送一次 `run.notice/code=model_output_idle`，severity=info，params 只含实际 `silenceMs`（安全整数且至少 60000）与 `${floor(silenceMs/1000)}s no LLM output` 格式的 message。复用既有 JSON-RPC `agent_run.event`、HostFrame 身份/序号及重放，不新增 RPC 或 native 类型。
+Runtime 在源端用单调时钟观察公开 assistant 文本，持续无新增文本且正常消费时，在同段静默的 60、120、180 秒等节点分别发送新 `run.notice/code=model_output_idle`，每条新 noticeId 唯一，severity=info，params 只含实际 `silenceMs`（安全整数且至少 60000）与 `${floor(silenceMs/1000)}s no LLM output` 格式的 message。周期始终基于源端起点，不从交付/接收时刻重算。timer 迟到跨节点时仅报告当前真实时长一次，下一节点是原起点之后严格晚于当前时间的整分钟边界，不补发历史分钟。复用既有 JSON-RPC `agent_run.event`、HostFrame 身份/序号及重放，不新增 RPC 或 native 类型；重放保留原 noticeId。
 
-新文本 delta 或增长快照立即重新计满 60 秒，每个新区间可再通知；空内容、状态更新、重复/回退快照、私有 reasoning、usage/心跳不刷新。排队、工具、同步交互暂停，所有等待解除后重新计时，async question 不暂停。终态、取消、异常及资源回收清除待发通知。每轮只保留一个待发槽；新输出或等待只重置/暂停未来区间，不删除已经生成的事实。槽未消费时不覆盖，消费后按最新输出时间继续计时。Core先交付已生成通知，再消费同时就绪的普通源结果；通知不丢弃在途 Provider next、不并发 next、不累积通知监听。
+新文本 delta 或增长快照立即重新计满 60 秒并继续周期通知；空内容、状态更新、重复/回退快照、私有 reasoning、usage/心跳不刷新。排队、工具、同步交互暂停，所有等待解除后重新计时，async question 不暂停。终态、取消、异常及资源回收清除待发通知。每轮只保留一个待发槽；新输出或等待只重置/暂停未来区间，不删除已经生成的事实。槽未消费时不覆盖，不按交付延迟改写时长；同段槽取走后跳过已错过节点，旧段槽取走不推进新段周期。没有等待者或槽被占用时不运行 timer；恢复监听时沿用源端起点，至多生成一条当前事实，不突发补齐历史分钟。段、订阅及 timer 各有身份，旧 detach/callback 不干扰新状态。Core先交付已生成通知，再消费同时就绪的普通源结果；通知不丢弃在途 Provider next、不并发 next、不累积通知监听。
 
 该事实不控制预算或自动取消；全局 limits.enforcement 已删除；model_idle_policy及首帧/整轮/工具预算保持，先到的截止优先。native 不实例化该观察器。Gateway 仅消费上游事实，仓外迁移见 issue #34；不在渠道重新维护静默计时。示例见[输出与控制](../../docs/zh-CN/reference/output-and-control.md#模型输出静默通知)，验收见[任务](../tasks/runtime-model-output-idle/brief.md)。
 

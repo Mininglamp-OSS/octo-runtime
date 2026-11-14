@@ -5,6 +5,7 @@ import { isTerminal, type CanonicalEvent } from "@mininglamp-oss/octo-runtime-pr
 import type { WatchdogClock } from "./watchdog.js";
 
 const THRESHOLD_MS = 60_000;
+type SilenceInterval = { since: number; nextMs: number };
 const clock: WatchdogClock = {
   now: () => performance.now(),
   schedule(callback, delay) {
@@ -24,36 +25,38 @@ export class ModelOutputSilence {
   readonly #interactions = new Set<string>();
   readonly #activities = new Map<string, { type: string; id?: string }>();
   #queued = false;
-  #since: number | undefined;
-  #reported = false;
+  #interval?: SilenceInterval;
   #disposed = false;
-  #pending?: CanonicalEvent;
-  #wake?: () => void;
-  #cancelTimer?: () => void;
+  #pending?: { event: CanonicalEvent; interval: SilenceInterval };
+  #listener?: { wake: () => void };
+  #timer?: { cancel?: () => void };
 
   constructor(readonly time: WatchdogClock = clock) {
-    this.#since = time.now();
+    this.#reset();
   }
 
   /** 唯一等待者；解除监听同时释放 timer，避免输出密集时累积 Promise 监听。 */
   listen(wake: () => void): () => void {
-    this.#wake = wake;
+    if (this.#disposed) return () => {};
+    const listener = { wake };
+    this.#listener = listener;
     if (this.#pending) wake();
     else this.#arm();
     return () => {
-      if (this.#wake !== wake) return;
-      this.#wake = undefined;
-      this.#cancelTimer?.();
-      this.#cancelTimer = undefined;
+      // 同一个回调也可重复订阅，旧 detach 只能解除自己那次订阅。
+      if (this.#listener !== listener) return;
+      this.#listener = undefined;
+      this.#clearTimer();
     };
   }
 
   take(): CanonicalEvent | undefined {
-    const notice = this.#pending;
+    const pending = this.#pending;
     this.#pending = undefined;
-    // 槽交付后才允许新区间计时；使用真实输出更新的 since，不从交付时刻重算。
+    // 背压不改写已生成事实，也不补齐同段错过的分钟；旧段槽不能推进新段节点。
+    if (pending && pending.interval === this.#interval) this.#advance(pending.interval);
     this.#arm();
-    return notice;
+    return pending?.event;
   }
 
   /** 原生侧工具事实补充 canonical；usage、传输心跳及一般进展均不算模型文本。 */
@@ -108,8 +111,8 @@ export class ModelOutputSilence {
     this.#disposed = true;
     this.#reset();
     this.#pending = undefined;
-    this.#since = undefined;
-    this.#wake = undefined;
+    this.#interval = undefined;
+    this.#listener = undefined;
     this.#tools.clear();
     this.#interactions.clear();
     this.#activities.clear();
@@ -122,62 +125,73 @@ export class ModelOutputSilence {
   }
 
   #reset(): void {
-    this.#cancelTimer?.();
-    this.#cancelTimer = undefined;
+    this.#clearTimer();
     // 重置未来静默区间，不撤回已达到阈值、尚未被 Core 取走的通知事实。
-    this.#reported = false;
-    this.#since = this.time.now();
+    this.#interval = { since: this.time.now(), nextMs: THRESHOLD_MS };
   }
 
   #sync(): void {
     if (this.#queued || this.#tools.size || this.#interactions.size || this.#activities.size) {
       this.#reset();
-      this.#since = undefined;
-    } else if (this.#since === undefined) this.#reset();
+      this.#interval = undefined;
+    } else if (!this.#interval) this.#reset();
     this.#arm();
   }
 
+  #clearTimer(): void {
+    const timer = this.#timer;
+    this.#timer = undefined;
+    timer?.cancel?.();
+  }
+
+  #advance(interval: SilenceInterval): void {
+    interval.nextMs = Math.max(
+      interval.nextMs,
+      (Math.floor((this.time.now() - interval.since) / THRESHOLD_MS) + 1) * THRESHOLD_MS
+    );
+  }
+
   #arm(): void {
-    this.#cancelTimer?.();
-    this.#cancelTimer = undefined;
-    if (
-      this.#disposed ||
-      !this.#wake ||
-      this.#since === undefined ||
-      this.#reported ||
-      this.#pending
-    )
-      return;
-    const since = this.#since;
-    this.#cancelTimer = this.time.schedule(
+    this.#clearTimer();
+    const interval = this.#interval;
+    const listener = this.#listener;
+    if (this.#disposed || !listener || !interval || this.#pending) return;
+    // 分别校验段、订阅和 timer 身份；同一时刻重置或重订阅也使旧 callback 失效。
+    const timer: { cancel?: () => void } = {};
+    this.#timer = timer;
+    timer.cancel = this.time.schedule(
       () => {
         if (
           this.#disposed ||
-          this.#since !== since ||
-          !this.#wake ||
-          this.#reported ||
+          this.#interval !== interval ||
+          this.#listener !== listener ||
+          this.#timer !== timer ||
           this.#pending
         )
           return;
-        const silenceMs = Math.max(0, Math.floor(this.time.now() - since));
-        if (silenceMs < THRESHOLD_MS) {
+        this.#clearTimer();
+        const silenceMs = Math.max(0, Math.floor(this.time.now() - interval.since));
+        if (silenceMs < interval.nextMs) {
           this.#arm();
           return;
         }
-        this.#reported = true;
+        this.#advance(interval);
         this.#pending = {
-          protocolVersion: 2,
-          type: "run.notice",
-          payload: {
-            noticeId: randomUUID(),
-            code: "model_output_idle",
-            severity: "info",
-            params: { silenceMs, message: `${Math.floor(silenceMs / 1000)}s no LLM output` }
+          interval,
+          event: {
+            protocolVersion: 2,
+            type: "run.notice",
+            payload: {
+              noticeId: randomUUID(),
+              code: "model_output_idle",
+              severity: "info",
+              params: { silenceMs, message: `${Math.floor(silenceMs / 1000)}s no LLM output` }
+            }
           }
         };
-        this.#wake();
+        listener.wake();
       },
-      Math.max(1, THRESHOLD_MS - (this.time.now() - since))
+      Math.max(1, interval.nextMs - (this.time.now() - interval.since))
     );
   }
 }

@@ -31,6 +31,12 @@ flowchart TB
 
 服务、Engine 和连接由创建者或明确约定的所有者维护。借用对象不转移重启、关闭或持久数据删除权限。`client.close()` 仅释放该客户端连接；取消执行使用 `interrupt`，并继续观察终态。Runtime Home 与 Provider 自有数据目录分别管理。
 
+## 输出静默与执行预算
+
+模型公开文本的静默时钟与周期通知归 Runtime Core。正常消费时，持续静默到 60/120/180 秒等节点产生新 `model_output_idle` notice，经现有事件流传递；Gateway 只按每条源通知刷新原卡片，不计时、补算或本地静默取消。背压/迟到允许跳过历史节点，详见[输出与控制](../reference/output-and-control.md)。
+
+该时钟不同于 Watchdog 模型空闲进度时钟。通知不延长或重置首帧、模型空闲、工具与总预算；默认 enforce，显式 observe 仍为合法配置。终态与清理优先；周期能力须由实际连接的 Runtime 服务提供，仅升级 client 不代表服务已支持。
+
 ## 输入与执行配置
 
 [inputs](../reference/input-parts.md) 承载文本、图片、应用提示词和业务历史；[AgentEnv](../reference/agent-env-standard.md) 承载执行配置。Core 为每次调用复制 AgentEnv 快照，读取 Adapter 路由，并保留条目原值和顺序交给 Adapter。
